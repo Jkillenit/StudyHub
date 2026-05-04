@@ -5,8 +5,10 @@ import { useDelayedSkeletonVisible } from "../hooks/useDelayedSkeletonVisible.js
 import { FONT_STEPS } from "../constants/fontSteps.js";
 import { loadJson, saveJson, STORAGE } from "../lib/storage.js";
 import { appendMaterialPaths, ensureUserCourse, uid } from "./userCourseModel.js";
-import { ExpressProcessingView } from "../welcome/ExpressProcessingView.jsx";
 import { useShell } from "../shell/ShellContext.jsx";
+import { usePptxImport } from "../pptx/usePptxImport.js";
+import { buildContentText, buildOutput } from "../pptx/pptxOutputBuilder.js";
+import { classifySlides, textToSlides } from "../pptx/pptxClassifier.js";
 
 export function UserCourseApp({
   course,
@@ -27,6 +29,9 @@ export function UserCourseApp({
   const [expressBusy, setExpressBusy] = useState(false);
   const [expressLabel, setExpressLabel] = useState("");
   const [toastMsg, setToastMsg] = useState("");
+  const [importError, setImportError] = useState("");
+  const [reviewMeta, setReviewMeta] = useState(null);
+  const [apiConfigured, setApiConfigured] = useState(false);
   const notesRef = useRef(null);
   const wasShellLoading = useRef(false);
   const shellSkelVis = useDelayedSkeletonVisible(!!courseShellLoad, courseShellLoad ? "shell" : "");
@@ -50,6 +55,7 @@ export function UserCourseApp({
     return typeof s === "number" && s >= 0 && s < FONT_STEPS.length ? s : 1;
   });
   const [comfortable, setComfortable] = useState(() => loadJson(STORAGE.comfortable, true));
+  const { importPptx, progress, error: pptxError, reset: resetPptx } = usePptxImport();
 
   useEffect(() => {
     saveJson(STORAGE.fontStep, fontStep);
@@ -80,6 +86,21 @@ export function UserCourseApp({
   useEffect(() => {
     setNotesSurface(false);
   }, [active]);
+
+  useEffect(() => {
+    const cur = ensureUserCourse(courseRef.current);
+    const blocks = cur.pptxReviewBlocks || {};
+    setReviewMeta(blocks[active] || null);
+  }, [active, course.id]);
+
+  useEffect(() => {
+    const bridge = typeof window !== "undefined" ? window.studyHub : null;
+    if (!bridge?.ai?.getStatus) return;
+    bridge.ai
+      .getStatus()
+      .then((s) => setApiConfigured(!!s?.configured))
+      .catch(() => setApiConfigured(false));
+  }, []);
 
   useEffect(() => {
     onActiveChapterChange?.(active);
@@ -140,25 +161,98 @@ export function UserCourseApp({
       const base = p.split(/[/\\]/).pop() || p;
       setExpressLabel(base);
       setExpressBusy(true);
-      window.setTimeout(() => {
-        const cur = ensureUserCourse(courseRef.current);
-        const next = appendMaterialPaths(cur, [p]);
-        onChangeCourse({
-          ...next,
-          disabledModuleIds: [...(cur.disabledModuleIds || [])],
-          completedModuleIds: [...(cur.completedModuleIds || [])],
-          activeModuleId: cur.activeModuleId,
+      setImportError("");
+      const cur = ensureUserCourse(courseRef.current);
+      let nextCourse = appendMaterialPaths(cur, [p]);
+      if (bridge.registerMaterialPaths) void bridge.registerMaterialPaths([p]);
+      const ext = (p.split(".").pop() || "").toLowerCase();
+
+      if (ext === "pptx") {
+        const output = await importPptx(p, active);
+        if (!output) {
+          setImportError(`IMPORT FAILED\n${pptxError || "Could not parse this PPTX file."}\n\n[ TRY AGAIN ]`);
+          setExpressBusy(false);
+          return;
+        }
+        const modules = nextCourse.modules.map((m) => {
+          if (m.id !== active) return m;
+          const add = buildContentText(output);
+          const sep = m.body?.trim() && add ? "\n\n" : "";
+          return { ...m, body: `${m.body || ""}${sep}${add}`.trim() };
         });
-        if (bridge.registerMaterialPaths) void bridge.registerMaterialPaths([p]);
+        const blocks = { ...(nextCourse.pptxReviewBlocks || {}) };
+        if (output.notesReviewBlock) {
+          blocks[active] = {
+            slideCount: output.notesReviewBlock.slideCount,
+            text: output.notesReviewBlock.text,
+          };
+          setReviewMeta(blocks[active]);
+          setNotesSurface(true);
+        } else {
+          delete blocks[active];
+          setReviewMeta(null);
+        }
+        nextCourse = { ...nextCourse, modules, pptxReviewBlocks: blocks };
+        setToastMsg(
+          `IMPORT COMPLETE\n✓ ${output.stats.cards} cards  ✓ ${output.flashcards.length} flashcards${
+            output.stats.unclassified ? `\n↻ ${output.stats.unclassified} slides need review` : ""
+          }`
+        );
+      } else {
         setToastMsg("File attached to Materials.");
-        window.setTimeout(() => setToastMsg(""), 4500);
-        setExpressBusy(false);
-        setExpressLabel("");
-      }, 2000);
+      }
+
+      onChangeCourse({
+        ...nextCourse,
+        disabledModuleIds: [...(cur.disabledModuleIds || [])],
+        completedModuleIds: [...(cur.completedModuleIds || [])],
+        activeModuleId: cur.activeModuleId,
+      });
+      window.setTimeout(() => setToastMsg(""), 4500);
+      setExpressBusy(false);
+      setExpressLabel("");
+      resetPptx();
     } catch {
       /* ignore */
+      setImportError("IMPORT FAILED\nUnexpected error during import.\n\n[ TRY AGAIN ]");
+      setExpressBusy(false);
     }
-  }, [onChangeCourse]);
+  }, [active, importPptx, onChangeCourse, resetPptx]);
+
+  const moveReviewToContent = useCallback(() => {
+    const review = reviewMeta;
+    if (!review?.text) return;
+    const slides = textToSlides(review.text, currentModule?.title || "Notes Review");
+    const classified = classifySlides(slides);
+    const output = buildOutput(classified);
+    const add = buildContentText(output);
+    if (add) {
+      const cur = ensureUserCourse(courseRef.current);
+      const modules = cur.modules.map((m) => {
+        if (m.id !== active) return m;
+        const sep = m.body?.trim() ? "\n\n" : "";
+        return { ...m, body: `${m.body || ""}${sep}${add}`.trim() };
+      });
+      const blocks = { ...(cur.pptxReviewBlocks || {}) };
+      if (output.notesReviewBlock?.text) {
+        blocks[active] = { slideCount: output.notesReviewBlock.slideCount, text: output.notesReviewBlock.text };
+        setReviewMeta(blocks[active]);
+      } else {
+        delete blocks[active];
+        setReviewMeta(null);
+        setToastMsg("CONTENT UPDATED");
+        window.setTimeout(() => setToastMsg(""), 3000);
+      }
+      onChangeCourse({
+        ...cur,
+        modules,
+        pptxReviewBlocks: blocks,
+        disabledModuleIds: [...disabledIds],
+        completedModuleIds: [...completedIds],
+        activeModuleId: active,
+      });
+    }
+  }, [active, completedIds, currentModule?.title, disabledIds, onChangeCourse, reviewMeta]);
 
   useEffect(() => {
     const cur = ensureUserCourse(courseRef.current);
@@ -422,7 +516,23 @@ export function UserCourseApp({
               <ChapterContentSkeleton />
             ) : expressBusy ? (
               <div className={`sh-main-empty-wrap ${mainEnterClass}`}>
-                <ExpressProcessingView fileLabel={expressLabel} />
+                <div className="sh-import-processing" aria-busy="true">
+                  <div className="sh-import-filename">{expressLabel}</div>
+                  <div className="sh-import-dots mono" aria-hidden>
+                    <span className="sh-pulse">●</span> <span className="sh-pulse">●</span> <span className="sh-pulse">●</span>{" "}
+                    <span>○</span> <span>○</span>
+                  </div>
+                  <div className="sh-import-label">{progress || "READING FILE..."}</div>
+                </div>
+              </div>
+            ) : importError ? (
+              <div className={`sh-main-empty-wrap ${mainEnterClass}`}>
+                <pre className="sh-empty-ascii-box sh-import-error-box">{importError}</pre>
+                <div className="sh-empty-actions">
+                  <button type="button" className="sh-btn-ghost sh-btn-ghost-amber ctx-btn" onClick={() => void runChapterExpressImport()}>
+                    TRY AGAIN
+                  </button>
+                </div>
               </div>
             ) : showChapterEmpty ? (
               <div className={`sh-main-empty-wrap ${mainEnterClass}`}>
@@ -459,9 +569,32 @@ export function UserCourseApp({
                 <div className="ctx-label" style={{ marginBottom: 12 }}>
                   NOTES (LOCAL)
                 </div>
+                {reviewMeta ? (
+                  <div className="sh-review-banner">
+                    <span>{`REVIEW NEEDED — ${reviewMeta.slideCount} slides could not be auto-classified. Edit below, then click MOVE TO CONTENT.`}</span>
+                    <div className="d-flex gap-2 align-items-center">
+                      {apiConfigured ? (
+                        <button
+                          type="button"
+                          className="sh-review-move-btn"
+                          style={{ opacity: 0.7 }}
+                          onClick={() => {
+                            setToastMsg("AI enhancement coming in Phase 1b-B");
+                            window.setTimeout(() => setToastMsg(""), 3000);
+                          }}
+                        >
+                          ✦ ENHANCE WITH AI
+                        </button>
+                      ) : null}
+                      <button type="button" className="sh-review-move-btn" onClick={moveReviewToContent}>
+                        MOVE TO CONTENT
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
                 <textarea
                   ref={notesRef}
-                  value={currentModule?.body || ""}
+                  value={currentModule?.body || reviewMeta?.text || ""}
                   onChange={(e) => updateModuleBody(e.target.value)}
                   className="sh-input font-sans w-100"
                   placeholder="TYPE NOTES…"

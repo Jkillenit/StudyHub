@@ -17,6 +17,8 @@ const ASCII_EXPRESS = `┌─────────────────┐
 export function ExpressImportModal({ open, onClose, onExpressComplete }) {
   const [phase, setPhase] = useState("idle");
   const [expressLabel, setExpressLabel] = useState("");
+  const [processingLabel, setProcessingLabel] = useState("");
+  const [chapterLabel, setChapterLabel] = useState("");
   const [dragExpress, setDragExpress] = useState(false);
   const completeRef = useRef(onExpressComplete);
   completeRef.current = onExpressComplete;
@@ -25,16 +27,25 @@ export function ExpressImportModal({ open, onClose, onExpressComplete }) {
     if (!open) {
       setPhase("idle");
       setExpressLabel("");
+      setProcessingLabel("");
+      setChapterLabel("");
       setDragExpress(false);
     }
   }, [open]);
 
-  const runExpressFinish = useCallback((fileName, absPath) => {
+  const runExpressFinish = useCallback(async (fileName, absPath) => {
     setPhase("processing");
     setExpressLabel(fileName);
-    window.setTimeout(() => {
-      completeRef.current?.({ fileName, absPath });
-    }, 2000);
+    setProcessingLabel("READING FILE...");
+    setChapterLabel("");
+    await completeRef.current?.({
+      fileName,
+      absPath,
+      onProgress: ({ label = "", chapter = "" }) => {
+        if (label) setProcessingLabel(label);
+        setChapterLabel(chapter);
+      },
+    });
   }, []);
 
   const handleFile = useCallback(
@@ -42,7 +53,7 @@ export function ExpressImportModal({ open, onClose, onExpressComplete }) {
       if (!file) return;
       const name = file.name || "file";
       const path = typeof file.path === "string" && file.path ? file.path : undefined;
-      runExpressFinish(name, path);
+      void runExpressFinish(name, path);
     },
     [runExpressFinish]
   );
@@ -55,7 +66,7 @@ export function ExpressImportModal({ open, onClose, onExpressComplete }) {
       if (!paths?.length) return;
       const p = paths[0];
       const base = p.split(/[/\\]/).pop() || p;
-      runExpressFinish(base, p);
+      void runExpressFinish(base, p);
     } catch {
       /* ignore */
     }
@@ -90,7 +101,7 @@ export function ExpressImportModal({ open, onClose, onExpressComplete }) {
       </Modal.Header>
       <Modal.Body className="sh-modal-body p-4">
         {phase === "processing" ? (
-          <ExpressProcessingView fileLabel={expressLabel} />
+          <ExpressProcessingView fileLabel={expressLabel} statusLabel={processingLabel} chapterLabel={chapterLabel} />
         ) : (
           <div className="sh-express-modal-drop-wrap">
             <div

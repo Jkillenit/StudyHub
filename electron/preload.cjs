@@ -37,6 +37,9 @@ contextBridge.exposeInMainWorld("studyHub", {
   /** @returns {Promise<{ ok: boolean, text?: string, numpages?: number, empty?: boolean, error?: string }>} */
   extractPdfText: (filePath) => ipcRenderer.invoke("studyhub:extract-pdf-text", filePath),
 
+  /** @returns {Promise<{ success: boolean, slides?: Array, error?: string }>} */
+  extractPptx: (filePath) => ipcRenderer.invoke("studyhub:extract-pptx", filePath),
+
   /**
    * Claude / Anthropic — key stays in main process only.
    */

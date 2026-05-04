@@ -2505,6 +2505,59 @@ button.sh-titlebar-wordmark--btn:hover {
   text-align: center;
 }
 
+.sh-import-processing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--sh-text-dim);
+  font-family: monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-align: center;
+}
+
+.sh-import-error-box {
+  border-left: 3px solid var(--sh-amber);
+  color: var(--sh-amber);
+}
+
+.sh-review-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  background: rgba(245, 166, 35, 0.06);
+  border: 1px solid var(--sh-amber);
+  border-left: 3px solid var(--sh-amber);
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sh-amber);
+}
+
+.sh-review-move-btn {
+  background: transparent;
+  border: 1px solid var(--sh-amber);
+  color: var(--sh-amber);
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  cursor: pointer;
+  border-radius: 0;
+  flex-shrink: 0;
+}
+
+.sh-review-move-btn:hover {
+  background: rgba(245, 166, 35, 0.1);
+}
+
 /* —— UI-010 skeleton loading (sh-pulse + content fade only) —— */
 @keyframes sh-pulse {
   0%,

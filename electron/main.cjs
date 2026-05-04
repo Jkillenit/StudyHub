@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
 const fs = require("fs");
 const path = require("path");
+const officeParser = require("officeparser");
 
 const rootDir = path.join(__dirname, "..");
 try {
@@ -127,6 +128,82 @@ ipcMain.handle("studyhub:extract-pdf-text", async (_evt, filePath) => {
     return { ok: false, error: e?.message || String(e) };
   }
 });
+
+ipcMain.handle("studyhub:extract-pptx", async (_evt, filePath) => {
+  try {
+    const normalized = path.normalize(String(filePath || ""));
+    if (!allowedReadPaths.has(normalized)) {
+      return {
+        success: false,
+        error: "Path is not registered for this session. Re-add the file from Materials.",
+      };
+    }
+    const ast = await officeParser.parseOffice(normalized, { ignoreNotes: true });
+    const slides = groupIntoSlides(Array.isArray(ast?.content) ? ast.content : []);
+    return { success: true, slides };
+  } catch (err) {
+    return { success: false, error: err?.message || String(err) };
+  }
+});
+
+function groupIntoSlides(contentNodes) {
+  const slides = [];
+  let current = null;
+  let slideIndex = 0;
+
+  for (const node of contentNodes) {
+    if (node?.type === "heading") {
+      if (current) slides.push(current);
+      slideIndex += 1;
+      current = {
+        slideNumber: slideIndex,
+        title: node?.text || "",
+        titleFormatting: node?.formatting || {},
+        nodes: [],
+      };
+    } else {
+      if (!current) {
+        slideIndex += 1;
+        current = {
+          slideNumber: slideIndex,
+          title: "",
+          titleFormatting: {},
+          nodes: [],
+        };
+      }
+      current.nodes.push(flattenNode(node || {}));
+    }
+  }
+
+  if (current) slides.push(current);
+  return slides;
+}
+
+function flattenNode(node) {
+  const runs = [];
+
+  function walk(n) {
+    if (!n) return;
+    if (n.text && (!n.children || n.children.length === 0)) {
+      runs.push({
+        text: n.text,
+        bold: n.formatting?.bold || false,
+        italic: n.formatting?.italic || false,
+        type: n.type,
+      });
+    }
+    if (Array.isArray(n.children)) n.children.forEach(walk);
+  }
+
+  walk(node);
+
+  const text = node.text || runs.map((run) => run.text).join(" ").trim();
+  return {
+    type: node.type || "paragraph",
+    text,
+    runs,
+  };
+}
 
 ipcMain.handle("studyhub:ai-status", async () => {
   const key = aiConfig.getApiKey(app);

@@ -11,6 +11,8 @@ import { HubScreen } from "../hub/HubScreen.jsx";
 import { AiAssistantPanel } from "../ai/AiAssistantPanel.jsx";
 import { titleCaseFromFilename } from "../lib/filenameToCourseName.js";
 import { EXPRESS_FILTERS } from "../welcome/ExpressImportModal.jsx";
+import { buildContentText, buildOutput } from "../pptx/pptxOutputBuilder.js";
+import { classifySlides, detectChapters } from "../pptx/pptxClassifier.js";
 
 function ApiStatusSync() {
   const { setApiLive } = useShell();
@@ -151,18 +153,66 @@ function StudyHubAppInner() {
   );
 
   const onHubExpressComplete = useCallback(
-    ({ fileName, absPath }) => {
+    async ({ fileName, absPath, onProgress }) => {
       const title = titleCaseFromFilename(fileName);
       const paths = absPath ? [absPath] : [];
-      addCourse(title, "", { materialPaths: paths });
       const bridge = typeof window !== "undefined" ? window.studyHub : null;
+      const ext = (String(absPath || "").split(".").pop() || "").toLowerCase();
+      if (ext === "pptx" && bridge?.extractPptx) {
+        onProgress?.({ label: "EXTRACTING CONTENT..." });
+        const extracted = await bridge.extractPptx(absPath);
+        if (!extracted?.success || !extracted?.slides?.length) {
+          addCourse(title, "", { materialPaths: paths });
+          try {
+            sessionStorage.setItem("studyhub.pendingToast", "Import attached to Materials. PPTX parsing failed.");
+          } catch {
+            /* ignore */
+          }
+          return;
+        }
+        const chapterGroups = detectChapters(extracted.slides, title);
+        const modules = chapterGroups.map((group, idx) => {
+          onProgress?.({
+            label: "BUILDING YOUR COURSE...",
+            chapter: `CH·${String(idx + 1).padStart(2, "0")} — ${(group.title || `Chapter ${idx + 1}`).toUpperCase()}`,
+          });
+          const classified = classifySlides(group.slides);
+          const output = buildOutput(classified);
+          const body = buildContentText(output);
+          return {
+            id: uid("m"),
+            label: `Notes ${idx + 1}`,
+            title: group.title || `Chapter ${idx + 1}`,
+            body,
+          };
+        });
+        const course = ensureUserCourse({
+          id: uid("uc"),
+          name: title,
+          subtitle: "",
+          modules: modules.length ? modules : [{ id: uid("m"), label: "Notes 1", title: "General", body: "" }],
+          activeModuleId: modules.length ? modules[0].id : undefined,
+          disabledModuleIds: [],
+          completedModuleIds: [],
+          materialPaths: paths,
+        });
+        setUserCourses((p) => [...p, course]);
+        setCourseId(course.id);
+        try {
+          sessionStorage.setItem("studyhub.pendingToast", `COURSE BUILT · ${modules.length || 1} CHAPTERS`);
+        } catch {
+          /* ignore */
+        }
+      } else {
+        addCourse(title, "", { materialPaths: paths });
+        try {
+          sessionStorage.setItem("studyhub.pendingToast", "File attached to Materials.");
+        } catch {
+          /* ignore */
+        }
+      }
       if (paths.length && bridge?.registerMaterialPaths) {
         void bridge.registerMaterialPaths(paths);
-      }
-      try {
-        sessionStorage.setItem("studyhub.pendingToast", "File attached to Materials.");
-      } catch {
-        /* ignore */
       }
     },
     [addCourse]

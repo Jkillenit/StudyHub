@@ -63,10 +63,12 @@ Study Hub is designed local-first. Every core feature works without an Anthropic
 | **UI-004** | User courses shell — Navbar / Nav / Collapse / Forms (match OM300) | 3 | **3** | ~1–2 d | `UI` |
 | **B2** | PDF text extraction + in-app read view | 4 | **3** | ~1–2 wk | `local-first`, `Electron` |
 | **B3** | PPTX slide text extraction | 3 | **3** | ~1 wk | `local-first` |
+| **B3-B** | PPTX AI enhancement — Claude API classifies unclassified content, ENHANCE WITH AI button, requires API key | 4 | **3** | ~3 d | `AI-optional` | 📋 Planned |
 | **QZ-003** | Filtered drill modes — by chapter, weak cards only, recent cards, exam cram cross-chapter | 4 | **3** | ~2–3 d | `content`, `local-first` |
 | **QZ-004** | Session history + drill streak — days drilled, cards per session, visible in context panel | 3 | **3** | ~2–3 d | `content`, `local-first` |
 | **INF-001** | Migrate localStorage → better-sqlite3 via Electron IPC bridge | 5 | **3** | ~3–5 d | `infra` `local-first` |
 | **QZ-006** | Deck export — CSV and Anki-compatible .apkg export | 3 | **4** | ~1 wk | `local-first`, `Electron` |
+| **B3-A** | PPTX local extraction + classification (officeparser AST, 4-type classifier, bold term detection, chapter + course import, review block) | 5 | **3** | ~1 wk | `local-first` `Electron` | 🔄 In progress |
 | **NT-003** | Export chapter notes as plain text / markdown — copy to clipboard, one button | 3 | **1** | ~0.5 d | `content` | ✓ Done |
 | **NT-002** | Notes autosave + floating bubble toolbar + inline glossary highlighting (Option A — on save) | 4 | **2** | ~2 d | `content` | ✓ Done |
 | **NT-004** | AI-assisted notes — summarize, expand, simplify selected text via Claude API | 4 | **3** | ~1 wk | `AI-optional` `content` |
@@ -88,6 +90,7 @@ _Time is rough engineering time for a solo/small pass, not a guarantee._
 |-------|--------|
 | **UI overhaul** (UI-001–004, shared chapter `Card` → React Bootstrap, Quizlet/flashcards, Final review chrome, glossary panel button, lazy-load spinner) | **Complete** |
 | **Phase 1a — Notes editor** (NT-001 TipTap editor, NT-002 glossary highlighting, NT-003 export) | **Complete** |
+| **Phase 1b-A — PPTX local pipeline** | 🔄 In progress |
 | **NT-002 — inline glossary highlighting** | **Done** |
 | **B2 — PDF** | **In progress** — Phase 1 shipped: main-process text via `pdf-parse` (`studyhub:extract-pdf-text`), preload `extractPdfText`, Materials **Read text** modal. Remaining: in-document search, large-file tuning, optional embedded PDF.js viewer, OCR path (ties **D1**). |
 
