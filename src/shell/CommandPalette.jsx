@@ -416,9 +416,10 @@ export function CommandPalette({
                     return (
                       <div
                         key={row.key}
-                        role="option"
-                        aria-selected={hi}
                         className={`sh-palette-row ${hi ? "highlighted" : ""}`}
+                        role="option"
+                        aria-label={`${row.primary} ${row.sub || ""}`}
+                        aria-selected={hi}
                         onMouseEnter={() => setHighlightedIndex(globalIdx)}
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => executeRow(row)}

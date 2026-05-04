@@ -243,10 +243,6 @@ function createWindow() {
 
   const indexHtml = path.join(__dirname, "..", "dist", "index.html");
   win.loadFile(indexHtml);
-
-  if (!app.isPackaged) {
-    win.webContents.openDevTools({ mode: "detach" });
-  }
 }
 
 app.whenReady().then(() => {

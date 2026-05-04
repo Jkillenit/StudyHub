@@ -1,5 +1,6 @@
 import { useEditor, EditorContent, useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
+import { Extension } from "@tiptap/core";
 import Highlight from "@tiptap/extension-highlight";
 import Placeholder from "@tiptap/extension-placeholder";
 import StarterKit from "@tiptap/starter-kit";
@@ -8,8 +9,7 @@ import TaskList from "@tiptap/extension-task-list";
 import Typography from "@tiptap/extension-typography";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getGlossaryTermsForChapter } from "../glossary/index.js";
-import { applyGlossaryHighlights } from "./applyGlossaryHighlights.js";
-import { GlossaryMark } from "./GlossaryMark.js";
+import { createGlossaryPlugin, glossaryPluginKey } from "./applyGlossaryHighlights.js";
 import { getOm300ChapterNote, saveOm300ChapterNote } from "./chapterNotesStorage.js";
 
 /** Escape legacy markdown to HTML paragraphs for one-time migration into TipTap. */
@@ -113,13 +113,27 @@ function NotesBubbleToolbar({ editor }) {
  * Rich notes editor (TipTap). Remount with key={sectionId} for clean chapter state.
  * @param {(phase: 'saving' | 'saved' | 'local') => void} [onAutosaveStatus]
  */
-export function Om300TipTapNotesEditor({ sectionId, onPersist, onAutosaveStatus, className }) {
+export function Om300TipTapNotesEditor({ sectionId, onPersist, onAutosaveStatus, className, onEditorReady }) {
   const debounceRef = useRef(null);
   const savedCooldownRef = useRef(null);
   const onPersistRef = useRef(onPersist);
   const onAutosaveStatusRef = useRef(onAutosaveStatus);
   const glossaryTermsRef = useRef([]);
+  const prevTermsRef = useRef([]);
+  const editorRef = useRef(null);
+  const [glossaryTerms, setGlossaryTerms] = useState([]);
   const [popover, setPopover] = useState(null);
+  const glossaryPlugin = useMemo(() => createGlossaryPlugin(() => glossaryTermsRef.current), []);
+  const GlossaryHighlightExtension = useMemo(
+    () =>
+      Extension.create({
+        name: "glossaryHighlight",
+        addProseMirrorPlugins() {
+          return [glossaryPlugin];
+        },
+      }),
+    [glossaryPlugin]
+  );
 
   useEffect(() => {
     onPersistRef.current = onPersist;
@@ -131,6 +145,7 @@ export function Om300TipTapNotesEditor({ sectionId, onPersist, onAutosaveStatus,
 
   useEffect(() => {
     const terms = getGlossaryTermsForChapter(sectionId);
+    setGlossaryTerms(terms);
     glossaryTermsRef.current = terms;
   }, [sectionId]);
 
@@ -158,9 +173,9 @@ export function Om300TipTapNotesEditor({ sectionId, onPersist, onAutosaveStatus,
       TaskItem.configure({
         nested: true,
       }),
-      GlossaryMark,
+      GlossaryHighlightExtension,
     ],
-    []
+    [GlossaryHighlightExtension]
   );
 
   function handleEditorClick(e) {
@@ -203,9 +218,6 @@ export function Om300TipTapNotesEditor({ sectionId, onPersist, onAutosaveStatus,
           saveOm300ChapterNote(sectionId, html);
           onPersistRef.current?.();
           onAutosaveStatusRef.current?.("saved");
-          window.setTimeout(() => {
-            applyGlossaryHighlights(ed, glossaryTermsRef.current);
-          }, 50);
           window.clearTimeout(savedCooldownRef.current);
           savedCooldownRef.current = window.setTimeout(() => {
             onAutosaveStatusRef.current?.("local");
@@ -221,6 +233,23 @@ export function Om300TipTapNotesEditor({ sectionId, onPersist, onAutosaveStatus,
     },
     [sectionId, extensions, initialContent]
   );
+
+  useEffect(() => {
+    editorRef.current = editor;
+    onEditorReady?.(editor ?? null);
+    return () => onEditorReady?.(null);
+  }, [editor, onEditorReady]);
+
+  useEffect(() => {
+    const termsChanged = JSON.stringify(prevTermsRef.current) !== JSON.stringify(glossaryTerms);
+    if (!termsChanged) return;
+    prevTermsRef.current = glossaryTerms;
+    glossaryTermsRef.current = glossaryTerms;
+    const ed = editorRef.current;
+    if (ed && !ed.isDestroyed && glossaryTerms.length > 0) {
+      ed.view.dispatch(ed.state.tr.setMeta(glossaryPluginKey, true));
+    }
+  }, [glossaryTerms]);
 
   useEffect(() => {
     return () => {

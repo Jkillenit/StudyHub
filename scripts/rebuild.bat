@@ -1,6 +1,7 @@
 @echo off
 setlocal EnableExtensions
-cd /d "%~dp0"
+set "ROOT=%~dp0.."
+cd /d "%ROOT%"
 
 where npm >nul 2>&1
 if errorlevel 1 (
@@ -25,7 +26,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-set "EXE=%~dp0App\Study Hub.exe"
+set "EXE=%ROOT%\App\Study Hub.exe"
 if exist "%EXE%" (
   echo.
   echo  Done. Starting Study Hub...

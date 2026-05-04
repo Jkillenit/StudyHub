@@ -218,6 +218,22 @@ function StudyHubAppInner() {
 
   const activeUserCourse = userCourses.find((c) => c.id === courseId);
   const onHub = courseId === null;
+  const handleOm300ActiveChapterChange = useCallback((ch) => {
+    setPaletteChapterMeta((prev) => {
+      if (prev.courseId === "om300" && prev.chapterId === ch) return prev;
+      return { courseId: "om300", chapterId: ch };
+    });
+  }, []);
+  const handleUserCourseActiveChapterChange = useCallback(
+    (ch) => {
+      if (!activeUserCourse?.id) return;
+      setPaletteChapterMeta((prev) => {
+        if (prev.courseId === activeUserCourse.id && prev.chapterId === ch) return prev;
+        return { courseId: activeUserCourse.id, chapterId: ch };
+      });
+    },
+    [activeUserCourse?.id]
+  );
 
   return (
     <div data-bs-theme="dark" className="sh-app-root sh-app-shell">
@@ -236,7 +252,7 @@ function StudyHubAppInner() {
             {courseId === "om300" && (
               <Om300StudyApp
                 courseShellLoad={courseShellLoad}
-                onActiveChapterChange={(ch) => setPaletteChapterMeta({ courseId: "om300", chapterId: ch })}
+                onActiveChapterChange={handleOm300ActiveChapterChange}
               />
             )}
             {activeUserCourse && courseId !== "om300" && (
@@ -245,7 +261,7 @@ function StudyHubAppInner() {
                 onChangeCourse={persistUserCourse}
                 onDeleteCourse={deleteUserCourse}
                 courseShellLoad={courseShellLoad}
-                onActiveChapterChange={(ch) => setPaletteChapterMeta({ courseId: activeUserCourse.id, chapterId: ch })}
+                onActiveChapterChange={handleUserCourseActiveChapterChange}
               />
             )}
           </div>

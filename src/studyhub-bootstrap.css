@@ -653,6 +653,29 @@ button.sh-titlebar-wordmark--btn:hover {
   gap: 0;
 }
 
+.sh-export-btn {
+  background: transparent;
+  border: none;
+  color: var(--sh-text-dim);
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin-left: auto;
+  transition: color 60ms linear;
+  flex-shrink: 0;
+}
+
+.sh-export-btn:hover {
+  color: var(--sh-text-secondary);
+}
+
+.sh-export-btn.copied {
+  color: var(--sh-green);
+}
+
 .sh-tab,
 .tab {
   font-family: "JetBrains Mono", monospace;

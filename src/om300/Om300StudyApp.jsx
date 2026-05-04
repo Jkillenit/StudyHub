@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { STORAGE, loadJson, saveJson } from "../lib/storage.js";
 import { FONT_STEPS } from "../constants/fontSteps.js";
 import { OM300_CHAPTERS } from "./chapters.js";
@@ -17,6 +17,32 @@ import { CourseSidebarSkeleton } from "./CourseSidebarSkeleton.jsx";
 import { useDelayedSkeletonVisible } from "../hooks/useDelayedSkeletonVisible.js";
 import Form from "react-bootstrap/Form";
 
+function htmlToPlainText(html) {
+  const div = document.createElement("div");
+  div.innerHTML = html;
+
+  div.querySelectorAll("h2").forEach((el) => {
+    el.textContent = `\n${el.textContent.toUpperCase()}\n`;
+  });
+  div.querySelectorAll("h3").forEach((el) => {
+    el.textContent = `\n${el.textContent}\n`;
+  });
+
+  div.querySelectorAll("li").forEach((el) => {
+    el.textContent = `• ${el.textContent}`;
+  });
+
+  div.querySelectorAll('input[type="checkbox"]').forEach((el) => {
+    el.replaceWith(document.createTextNode(el.checked ? "[x] " : "[ ] "));
+  });
+
+  div.querySelectorAll("p, li, h2, h3, blockquote").forEach((el) => {
+    el.insertAdjacentText("afterend", "\n");
+  });
+
+  return div.textContent.replace(/\n{3,}/g, "\n\n").trim();
+}
+
 function Om300StudyAppInner({ courseShellLoad = false, onActiveChapterChange }) {
   const { panelApi } = useFlashcardDeckContext();
   const { setBreadcrumb, setStatusBar, setApiLive } = useShell();
@@ -30,6 +56,9 @@ function Om300StudyAppInner({ courseShellLoad = false, onActiveChapterChange }) 
   const [notesTick, setNotesTick] = useState(0);
   const [notesAutosaveStatus, setNotesAutosaveStatus] = useState("local");
   const [materialsOpen, setMaterialsOpen] = useState(false);
+  const [exportStatus, setExportStatus] = useState("EXPORT ↗");
+  const notesEditorRef = useRef(null);
+  const exportTimerRef = useRef(null);
 
   const [isPending, startTransition] = useTransition();
   const shellSkelVis = useDelayedSkeletonVisible(!!courseShellLoad, courseShellLoad ? "shell" : "");
@@ -72,6 +101,14 @@ function Om300StudyAppInner({ courseShellLoad = false, onActiveChapterChange }) 
   useEffect(() => {
     onActiveChapterChange?.(active);
   }, [active, onActiveChapterChange]);
+
+  useEffect(() => {
+    if (mainTab !== "notes") setExportStatus("EXPORT ↗");
+  }, [mainTab]);
+
+  useEffect(() => {
+    return () => window.clearTimeout(exportTimerRef.current);
+  }, []);
 
   const visibleChapters = useMemo(
     () => OM300_CHAPTERS.filter((c) => !disabledIds.has(c.id)),
@@ -229,6 +266,27 @@ function Om300StudyAppInner({ courseShellLoad = false, onActiveChapterChange }) 
     [filteredChapters]
   );
 
+  const exportNotes = useCallback(async () => {
+    const editor = notesEditorRef.current;
+    if (!editor || editor.isDestroyed) return;
+    const html = editor.getHTML();
+    if (!html || html === "<p></p>") return;
+    const plain = htmlToPlainText(html);
+    try {
+      await navigator.clipboard.writeText(plain);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = plain;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setExportStatus("COPIED");
+    window.clearTimeout(exportTimerRef.current);
+    exportTimerRef.current = window.setTimeout(() => setExportStatus("EXPORT ↗"), 2000);
+  }, []);
+
   return (
     <>
       <style>{`
@@ -309,6 +367,15 @@ function Om300StudyAppInner({ courseShellLoad = false, onActiveChapterChange }) 
                 NOTES
                 {chapterHasNotes ? " ·" : ""}
               </button>
+              {mainTab === "notes" ? (
+                <button
+                  type="button"
+                  className={`sh-export-btn ${exportStatus === "COPIED" ? "copied" : ""}`}
+                  onClick={exportNotes}
+                >
+                  {exportStatus}
+                </button>
+              ) : null}
             </div>
           </div>
           <div
@@ -345,6 +412,9 @@ function Om300StudyAppInner({ courseShellLoad = false, onActiveChapterChange }) 
                     sectionTitle={current ? `${current.label} — ${current.title}` : ""}
                     onPersist={() => setNotesTick((n) => n + 1)}
                     onAutosaveStatus={setNotesAutosaveStatus}
+                    onEditorReady={(ed) => {
+                      notesEditorRef.current = ed;
+                    }}
                   />
                 ) : null}
               </>

@@ -1,75 +1,69 @@
-export function escapeRegex(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
+
+export const glossaryPluginKey = new PluginKey("glossaryHighlight");
+
+export function createGlossaryPlugin(getTerms) {
+  return new Plugin({
+    key: glossaryPluginKey,
+    state: {
+      init(_, { doc }) {
+        return buildDecorations(doc, getTerms());
+      },
+      apply(tr, old) {
+        if (!tr.docChanged && !tr.getMeta(glossaryPluginKey)) return old;
+        return buildDecorations(tr.doc, getTerms());
+      },
+    },
+    props: {
+      decorations(state) {
+        return this.getState(state);
+      },
+    },
+  });
 }
 
-function overlaps(a1, a2, b1, b2) {
-  return Math.max(a1, b1) < Math.min(a2, b2);
-}
-
-function textNodeSkipped(schema, node, state, pos) {
-  if (!node.isText) return true;
-  if (schema.marks.code && schema.marks.code.isInSet(node.marks)) return true;
-  const mid = pos + Math.min(1, node.text.length);
-  const $p = state.doc.resolve(mid);
-  for (let d = $p.depth; d > 0; d--) {
-    if ($p.node(d).type.name === "codeBlock") return true;
+function buildDecorations(doc, terms) {
+  if (!terms?.length) {
+    return DecorationSet.empty;
   }
-  return false;
-}
+  const sorted = [...terms].sort((a, b) => b.term.length - a.term.length);
+  const decorations = [];
 
-/**
- * Strips and reapplies glossary marks after save. Restores selection.
- * Longer terms win overlaps; skips codeBlock + inline code.
- */
-export function applyGlossaryHighlights(editor, glossaryTerms) {
-  if (!editor || editor.isDestroyed) return;
-  if (!glossaryTerms?.length) return;
-  if (!editor.state.schema.marks.glossaryTerm) return;
+  doc.descendants((node, pos) => {
+    if (!node.isText) return true;
+    const hasCode = node.marks.some((m) => m.type.name === "code");
+    if (hasCode) return true;
+    const mid = pos + Math.min(1, node.text.length);
+    const $p = doc.resolve(mid);
+    for (let d = $p.depth; d > 0; d--) {
+      if ($p.node(d).type.name === "codeBlock") return true;
+    }
 
-  const savedSelection = editor.state.selection;
-  const sortedTerms = [...glossaryTerms].sort((a, b) => b.term.length - a.term.length);
-  const occupied = [];
-  const matches = [];
-
-  editor.chain().selectAll().unsetMark("glossaryTerm").run();
-
-  const state = editor.state;
-  for (const { term, definition } of sortedTerms) {
-    const raw = term.trim();
-    if (!raw) continue;
-    const rx = new RegExp(`\\b${escapeRegex(raw)}\\b`, "gi");
-
-    state.doc.descendants((node, pos) => {
-      if (!node.isText) return;
-      if (textNodeSkipped(state.schema, node, state, pos)) return;
-      rx.lastIndex = 0;
+    sorted.forEach(({ term, definition }) => {
+      const raw = term.trim();
+      if (!raw) return;
+      const regex = new RegExp(`(?:^|[^a-zA-Z0-9])${escapeRegex(raw)}(?:[^a-zA-Z0-9]|$)`, "gi");
       let match;
-      while ((match = rx.exec(node.text)) !== null) {
-        const from = pos + match.index;
-        const to = from + match[0].length;
-        if (occupied.some(([a, b]) => overlaps(from, to, a, b))) continue;
-        occupied.push([from, to]);
-        matches.push({
-          from,
-          to,
-          term: raw,
-          definition: definition ?? "",
-        });
+      while ((match = regex.exec(node.text)) !== null) {
+        const leadingChar = /^[a-zA-Z0-9]/.test(match[0][0]) ? 0 : 1;
+        const from = pos + match.index + leadingChar;
+        const to = from + raw.length;
+        decorations.push(
+          Decoration.inline(from, to, {
+            class: "sh-glossary-mark",
+            "data-glossary": raw,
+            "data-definition": definition ?? "",
+          })
+        );
       }
     });
-  }
+    return true;
+  });
 
-  matches.sort((a, b) => b.from - a.from);
-  for (const { from, to, term, definition } of matches) {
-    editor
-      .chain()
-      .setTextSelection({ from, to })
-      .setMark("glossaryTerm", { term, definition })
-      .run();
-  }
+  return DecorationSet.create(doc, decorations);
+}
 
-  const maxPos = editor.state.doc.content.size;
-  const anchor = Math.max(1, Math.min(savedSelection.anchor, maxPos));
-  const head = Math.max(1, Math.min(savedSelection.head, maxPos));
-  editor.chain().setTextSelection({ anchor, head }).run();
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
