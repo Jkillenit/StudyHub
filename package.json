@@ -1,0 +1,87 @@
+{
+  "name": "study-hub",
+  "productName": "Study Hub",
+  "private": true,
+  "version": "1.1.0",
+  "author": "Study Hub User",
+  "description": "Local study hub — courses, flashcards, notes.",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "electron": "electron .",
+    "electron:dev": "vite build && electron .",
+    "dist:win": "vite build && electron-builder --win --x64 && node scripts/sync-app-exe.mjs"
+  },
+  "dependencies": {
+    "@floating-ui/dom": "^1.7.6",
+    "@tiptap/extension-highlight": "^3.22.5",
+    "@tiptap/extension-placeholder": "^3.22.5",
+    "@tiptap/extension-task-item": "^3.22.5",
+    "@tiptap/extension-task-list": "^3.22.5",
+    "@tiptap/extension-typography": "^3.22.5",
+    "@tiptap/pm": "^3.22.5",
+    "@tiptap/react": "^3.22.5",
+    "@tiptap/starter-kit": "^3.22.5",
+    "bootstrap": "^5.3.8",
+    "dotenv": "^16.4.7",
+    "pdf-parse": "^2.4.5",
+    "react": "^18.3.1",
+    "react-bootstrap": "^2.10.10",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
+    "vite": "^6.0.3"
+  },
+  "build": {
+    "appId": "com.local.studyhub",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "executableName": "StudyHub",
+      "signAndEditExecutable": false,
+      "signDlls": false,
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Study Hub"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-Portable.${ext}"
+    },
+    "extraMetadata": {
+      "main": "electron/main.cjs"
+    }
+  }
+}

@@ -1,0 +1,35 @@
+node_modules
+dist
+release
+App/*.exe
+.env
+.DS_Store
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+release/
+out/
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Electron builder cache
+.cache/
