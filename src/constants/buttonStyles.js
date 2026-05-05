@@ -1,4 +1,4 @@
-/** Shared pill button — used across OM300, user courses, and Study Hub chrome. */
+/** Shared pill button — used across built-in course, user courses, and Study Hub chrome. */
 export const btnBase = {
   padding: "5px 12px",
   borderRadius: 20,

@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { STORAGE, loadJson, saveJson } from "../lib/storage.js";
 import { FONT_STEPS } from "../constants/fontSteps.js";
-import { OM300_CHAPTERS } from "./chapters.js";
-import { hasOm300SectionContent, StudySectionBody } from "./contentRegistry.jsx";
+import { STUDY_CHAPTERS } from "./chapters.js";
+import { hasStudySectionContent, StudySectionBody } from "./contentRegistry.jsx";
 import { GlossarySplitProvider, useGlossarySplit } from "../glossary/index.js";
 import { GlossaryContextBlock } from "../glossary/GlossaryContextBlock.jsx";
-import { getOm300ChapterNote, om300NoteHasVisibleBody } from "./chapterNotesStorage.js";
-import { loadOm300Materials } from "./materialsStorage.js";
+import { getStudyChapterNote, studyNoteHasVisibleBody } from "./chapterNotesStorage.js";
+import { loadStudyMaterials } from "./materialsStorage.js";
 import { MaterialsOffcanvas } from "./MaterialsOffcanvas.jsx";
 import { ChapterNotesEditorBody } from "./ChapterNotesEditorBody.jsx";
 import { useShell } from "../shell/ShellContext.jsx";
-import { OM300_SIDEBAR_GROUPS, om300BreadcrumbChapter, om300PrefixClassName, om300SidebarPrefix } from "./chapterUiMeta.js";
+import { STUDY_SIDEBAR_GROUPS, studyBreadcrumbChapter, studyPrefixClassName, studySidebarPrefix } from "./chapterUiMeta.js";
 import { FlashcardDeckProvider, useFlashcardDeckContext } from "./flashcards/FlashcardDeckContext.jsx";
 import { ChapterContentSkeleton } from "./ChapterContentSkeleton.jsx";
 import { CourseSidebarSkeleton } from "./CourseSidebarSkeleton.jsx";
@@ -62,7 +62,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
 
   const [isPending, startTransition] = useTransition();
   const shellSkelVis = useDelayedSkeletonVisible(!!courseShellLoad, courseShellLoad ? "shell" : "");
-  /* Pending skeleton only applies to the content tab; OM300 bodies are lazy — no sync “sections” gate. */
+  /* Pending skeleton only applies to the content tab; built-in course bodies are lazy — no sync “sections” gate. */
   const pendingSkelVis = useDelayedSkeletonVisible(isPending && mainTab === "content", active, false);
   const showContentSkeleton = mainTab === "content" && (shellSkelVis || pendingSkelVis);
 
@@ -111,7 +111,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
   }, []);
 
   const visibleChapters = useMemo(
-    () => OM300_CHAPTERS.filter((c) => !disabledIds.has(c.id)),
+    () => STUDY_CHAPTERS.filter((c) => !disabledIds.has(c.id)),
     [disabledIds]
   );
 
@@ -130,7 +130,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
     }
   }, [visibleChapters, active, startTransition]);
 
-  const current = OM300_CHAPTERS.find((c) => c.id === active);
+  const current = STUDY_CHAPTERS.find((c) => c.id === active);
   const fontScale = FONT_STEPS[fontStep];
   const completedCount = [...completedIds].filter((id) => visibleChapters.some((c) => c.id === id)).length;
   const totalVisible = visibleChapters.length;
@@ -140,7 +140,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
     setDisabledIds((prev) => {
       const next = new Set(prev);
       const isDisabled = next.has(id);
-      const enabledCount = OM300_CHAPTERS.length - prev.size;
+      const enabledCount = STUDY_CHAPTERS.length - prev.size;
       if (isDisabled) next.delete(id);
       else {
         if (enabledCount <= 1) return prev;
@@ -200,7 +200,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
   useEffect(() => {
     const onNav = (e) => {
       const d = e.detail;
-      if (d?.courseId === "om300" && d?.chapterId) {
+      if (d?.courseId === "builtin" && d?.chapterId) {
         /* Same path as sidebar chapter click — no startTransition — keeps useTransition
          * pending state aligned with sidebar/palette so skeleton timers always reset. */
         setActive(d.chapterId);
@@ -235,7 +235,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
   }, [setApiLive]);
 
   useEffect(() => {
-    const ch = om300BreadcrumbChapter(active, current?.label);
+    const ch = studyBreadcrumbChapter(active, current?.label);
     setBreadcrumb(["OM 300", "EXAM 4 STUDY GUIDE", ch]);
   }, [active, current, setBreadcrumb]);
 
@@ -249,20 +249,20 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
   useEffect(() => {
     const bridge = typeof window !== "undefined" ? window.studyHub : null;
     if (!bridge?.registerMaterialPaths) return;
-    const mats = loadOm300Materials();
+    const mats = loadStudyMaterials();
     if (mats.length) bridge.registerMaterialPaths(mats.map((m) => m.path)).catch(() => {});
   }, []);
 
   const chapterHasNotes = useMemo(
-    () => om300NoteHasVisibleBody(getOm300ChapterNote(active)),
+    () => studyNoteHasVisibleBody(getStudyChapterNote(active)),
     [active, notesTick]
   );
-  const hasContent = useMemo(() => hasOm300SectionContent(active), [active]);
+  const hasContent = useMemo(() => hasStudySectionContent(active), [active]);
 
   const contentLineHeight = comfortable ? 1.75 : 1.55;
 
   const filteredByGroup = useCallback(
-    (ids) => ids.map((id) => OM300_CHAPTERS.find((c) => c.id === id)).filter(Boolean).filter((c) => filteredChapters.some((x) => x.id === c.id)),
+    (ids) => ids.map((id) => STUDY_CHAPTERS.find((c) => c.id === id)).filter(Boolean).filter((c) => filteredChapters.some((x) => x.id === c.id)),
     [filteredChapters]
   );
 
@@ -315,7 +315,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
             />
           </div>
           <div className="sh-sidebar-scroll sh-scroll-hover">
-            {OM300_SIDEBAR_GROUPS.map((g) => {
+            {STUDY_SIDEBAR_GROUPS.map((g) => {
               const rows = filteredByGroup(g.ids);
               if (!rows.length) return null;
               return (
@@ -334,7 +334,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
                           setMainTab("content");
                         }}
                       >
-                        <span className={om300PrefixClassName(ch.id)}>{om300SidebarPrefix(ch.id)}</span>
+                        <span className={studyPrefixClassName(ch.id)}>{studySidebarPrefix(ch.id)}</span>
                         <span className="ch-title">{ch.title}</span>
                       </button>
                     );
@@ -349,7 +349,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
           <div className="sh-main-header">
             <div className="sh-title-row">
               <h1 className="sh-main-title">{current?.title ?? "—"}</h1>
-              <span className="sh-ch-tag">{om300SidebarPrefix(active)}</span>
+              <span className="sh-ch-tag">{studySidebarPrefix(active)}</span>
             </div>
             <div className="sh-tab-row">
               <button
@@ -495,9 +495,9 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
                 </button>
                 <div className="ctx-label mt-3">MODULE VISIBILITY</div>
                 <div className="d-flex flex-column gap-1 mb-2">
-                  {OM300_CHAPTERS.map((ch) => {
+                  {STUDY_CHAPTERS.map((ch) => {
                     const enabled = !disabledIds.has(ch.id);
-                    const onlyOne = OM300_CHAPTERS.length - disabledIds.size <= 1 && enabled;
+                    const onlyOne = STUDY_CHAPTERS.length - disabledIds.size <= 1 && enabled;
                     return (
                       <label key={ch.id} className="mono d-flex align-items-center gap-2" style={{ fontSize: 10, cursor: onlyOne ? "not-allowed" : "pointer" }}>
                         <input type="checkbox" checked={enabled} disabled={onlyOne} onChange={() => toggleModule(ch.id)} />

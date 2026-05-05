@@ -10,7 +10,7 @@ import Typography from "@tiptap/extension-typography";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getGlossaryTermsForChapter } from "../glossary/index.js";
 import { createGlossaryPlugin, glossaryPluginKey } from "./applyGlossaryHighlights.js";
-import { getOm300ChapterNote, saveOm300ChapterNote } from "./chapterNotesStorage.js";
+import { getStudyChapterNote, saveStudyChapterNote } from "./chapterNotesStorage.js";
 
 /** Escape legacy markdown to HTML paragraphs for one-time migration into TipTap. */
 function legacyMarkdownToHtml(md) {
@@ -20,7 +20,7 @@ function legacyMarkdownToHtml(md) {
 }
 
 function initialHtmlForSection(sectionId) {
-  const note = getOm300ChapterNote(sectionId);
+  const note = getStudyChapterNote(sectionId);
   if (note.html && note.html.trim()) return note.html;
   if (note.markdown && note.markdown.trim()) return legacyMarkdownToHtml(note.markdown);
   return "";
@@ -215,7 +215,7 @@ export function NotesEditor({ sectionId, onPersist, onAutosaveStatus, className,
         window.clearTimeout(debounceRef.current);
         debounceRef.current = window.setTimeout(() => {
           const html = ed.getHTML();
-          saveOm300ChapterNote(sectionId, html);
+          saveStudyChapterNote(sectionId, html);
           onPersistRef.current?.();
           onAutosaveStatusRef.current?.("saved");
           window.clearTimeout(savedCooldownRef.current);
@@ -256,7 +256,7 @@ export function NotesEditor({ sectionId, onPersist, onAutosaveStatus, className,
       window.clearTimeout(debounceRef.current);
       window.clearTimeout(savedCooldownRef.current);
       if (editor && !editor.isDestroyed) {
-        saveOm300ChapterNote(sectionId, editor.getHTML());
+        saveStudyChapterNote(sectionId, editor.getHTML());
         onPersistRef.current?.();
       }
     };

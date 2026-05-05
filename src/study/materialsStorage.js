@@ -10,8 +10,8 @@ function newId() {
 }
 
 /** @returns {{ id: string, path: string, name: string, addedAt: string }[]} */
-export function loadOm300Materials() {
-  const raw = loadJson(STORAGE.om300Materials, []);
+export function loadStudyMaterials() {
+  const raw = loadJson(STORAGE.builtinMaterials, []);
   if (!Array.isArray(raw)) return [];
   return raw
     .filter((x) => x && typeof x.path === "string")
@@ -23,8 +23,8 @@ export function loadOm300Materials() {
     }));
 }
 
-export function saveOm300Materials(list) {
-  saveJson(STORAGE.om300Materials, list);
+export function saveStudyMaterials(list) {
+  saveJson(STORAGE.builtinMaterials, list);
 }
 
 /** @param {string[]} paths */

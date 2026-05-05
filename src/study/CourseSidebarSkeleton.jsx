@@ -1,4 +1,4 @@
-/** UI-010 — placeholder matching OM300 sidebar chapter list */
+/** UI-010 — placeholder matching built-in sidebar chapter list */
 
 const TITLE_WIDTHS = ["85%", "70%", "90%", "60%", "80%", "75%"];
 

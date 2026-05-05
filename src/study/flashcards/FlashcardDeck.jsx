@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { om300SidebarPrefix } from "../chapterUiMeta.js";
+import { studySidebarPrefix } from "../chapterUiMeta.js";
 import { useDelayedSkeletonVisible } from "../../hooks/useDelayedSkeletonVisible.js";
 import { useFlashcardDeckContext } from "./FlashcardDeckContext.jsx";
 import {
@@ -331,7 +331,7 @@ export default function FlashcardDeck({
 
   const fillPct = n ? ((progressDisplayPos + 1) / n) * 100 : 0;
 
-  const chapterTag = om300SidebarPrefix("flashcards");
+  const chapterTag = studySidebarPrefix("flashcards");
   const typeTag = current?.kind ? cardTypeLabel(current.kind) : null;
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 /**
  * Shared glossary entry shape for built-in and future imported courses.
- * Runtime data for OM 300 lives in `./om300Data.js`.
+ * Runtime data for the built-in course lives in `./courseData.js`.
  *
  * @typedef {Object} GlossaryEntry
  * @property {string} id Stable key for links and `GlossaryTerm`.

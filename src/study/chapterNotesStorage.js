@@ -5,13 +5,13 @@ function normalizeMap(raw) {
   return raw;
 }
 
-export function loadOm300NotesMap() {
-  return normalizeMap(loadJson(STORAGE.om300ChapterNotes, {}));
+export function loadStudyNotesMap() {
+  return normalizeMap(loadJson(STORAGE.builtinChapterNotes, {}));
 }
 
 /** @returns {{ markdown: string, html: string, updatedAt: string | null }} */
-export function getOm300ChapterNote(sectionId) {
-  const map = loadOm300NotesMap();
+export function getStudyChapterNote(sectionId) {
+  const map = loadStudyNotesMap();
   const row = map[sectionId];
   if (!row || typeof row !== "object") return { markdown: "", html: "", updatedAt: null };
   return {
@@ -22,17 +22,17 @@ export function getOm300ChapterNote(sectionId) {
 }
 
 /** Persists TipTap HTML under the existing chapter-scoped storage key. */
-export function saveOm300ChapterNote(sectionId, html) {
-  const map = loadOm300NotesMap();
+export function saveStudyChapterNote(sectionId, html) {
+  const map = loadStudyNotesMap();
   map[sectionId] = {
     html,
     updatedAt: new Date().toISOString(),
   };
-  saveJson(STORAGE.om300ChapterNotes, map);
+  saveJson(STORAGE.builtinChapterNotes, map);
 }
 
 /** Whether notes have user-visible body text (legacy markdown or TipTap HTML). */
-export function om300NoteHasVisibleBody(note) {
+export function studyNoteHasVisibleBody(note) {
   const md = (note.markdown || "").trim();
   if (md.length > 0) return true;
   const html = note.html || "";

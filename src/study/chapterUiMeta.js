@@ -1,6 +1,6 @@
 /** Sidebar grouping and display prefixes for OM 300 tiling UI. */
 
-export const OM300_SIDEBAR_GROUPS = [
+export const STUDY_SIDEBAR_GROUPS = [
   {
     key: "mod",
     label: "MODULES",
@@ -25,17 +25,17 @@ const PREFIX = {
   flashcards: "QZ",
 };
 
-export function om300SidebarPrefix(id) {
+export function studySidebarPrefix(id) {
   return PREFIX[id] || String(id).toUpperCase();
 }
 
-export function om300PrefixClassName(id) {
+export function studyPrefixClassName(id) {
   if (id === "final" || id === "formulas") return "ch-num ch-num--amber";
   if (id === "flashcards") return "ch-num ch-num--cyan";
   return "ch-num";
 }
 
-export function om300BreadcrumbChapter(id, label) {
+export function studyBreadcrumbChapter(id, label) {
   if (id === "ch1") return "CH·01–02";
-  return om300SidebarPrefix(id);
+  return studySidebarPrefix(id);
 }

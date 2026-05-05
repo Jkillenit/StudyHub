@@ -1,12 +1,12 @@
 /** localStorage keys — shared with any legacy standalone HTML using the same profile. */
 export const STORAGE = {
-  disabled: "studyHub.v2.om300.disabledModules",
-  completed: "studyHub.v2.om300.completedChapters",
+  disabled: "studyHub.v2.builtin.disabledModules",
+  completed: "studyHub.v2.builtin.completedChapters",
   fontStep: "studyHub.v2.prefs.fontStep",
   comfortable: "studyHub.v2.prefs.comfortableReading",
-  om300ChapterNotes: "studyHub.v2.om300.chapterNotes",
-  /** @type {string} OM300 materials library JSON (Electron paths from pickers) */
-  om300Materials: "studyHub.v2.om300.materialsLibrary",
+  builtinChapterNotes: "studyHub.v2.builtin.chapterNotes",
+  /** @type {string} Built-in course materials library JSON (Electron paths from pickers) */
+  builtinMaterials: "studyHub.v2.builtin.materialsLibrary",
 };
 
 export function loadJson(key, fallback) {

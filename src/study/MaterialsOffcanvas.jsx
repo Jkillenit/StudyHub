@@ -6,9 +6,9 @@ import Offcanvas from "react-bootstrap/Offcanvas";
 import Spinner from "react-bootstrap/Spinner";
 import Table from "react-bootstrap/Table";
 import {
-  loadOm300Materials,
+  loadStudyMaterials,
   mergePathsIntoMaterials,
-  saveOm300Materials,
+  saveStudyMaterials,
 } from "./materialsStorage.js";
 
 const FILE_FILTERS = [
@@ -30,7 +30,7 @@ function isPdfPath(p) {
 
 export function MaterialsOffcanvas({ show, onHide }) {
   const bridge = typeof window !== "undefined" ? window.studyHub : null;
-  const [items, setItems] = useState(() => loadOm300Materials());
+  const [items, setItems] = useState(() => loadStudyMaterials());
 
   const [readerOpen, setReaderOpen] = useState(false);
   const [readerTitle, setReaderTitle] = useState("");
@@ -42,7 +42,7 @@ export function MaterialsOffcanvas({ show, onHide }) {
 
   useEffect(() => {
     if (!show) return;
-    setItems(loadOm300Materials());
+    setItems(loadStudyMaterials());
   }, [show]);
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export function MaterialsOffcanvas({ show, onHide }) {
     if (!paths?.length) return;
     setItems((prev) => {
       const next = mergePathsIntoMaterials(prev, paths);
-      saveOm300Materials(next);
+      saveStudyMaterials(next);
       return next;
     });
   };
@@ -67,7 +67,7 @@ export function MaterialsOffcanvas({ show, onHide }) {
     if (!paths?.length) return;
     setItems((prev) => {
       const next = mergePathsIntoMaterials(prev, paths);
-      saveOm300Materials(next);
+      saveStudyMaterials(next);
       return next;
     });
   };
@@ -117,7 +117,7 @@ export function MaterialsOffcanvas({ show, onHide }) {
   const removeAt = (id) => {
     setItems((prev) => {
       const next = prev.filter((m) => m.id !== id);
-      saveOm300Materials(next);
+      saveStudyMaterials(next);
       return next;
     });
   };

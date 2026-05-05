@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { OM300_CHAPTERS } from "../study/chapters.js";
-import { om300SidebarPrefix } from "../study/chapterUiMeta.js";
+import { STUDY_CHAPTERS } from "../study/chapters.js";
+import { studySidebarPrefix } from "../study/chapterUiMeta.js";
 import { ensureUserCourse } from "../hub/userCourseModel.js";
 
 function matches(query, primary, sub) {
@@ -66,7 +66,7 @@ export function CommandPalette({
   onImportFile,
   onMarkChapterReviewed,
   onShuffleDeck,
-  om300ActiveChapter,
+  builtinActiveChapter,
 }) {
   const [query, setQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -139,13 +139,13 @@ export function CommandPalette({
   const indexRows = useMemo(() => {
     const courseRows = [];
     courseRows.push({
-      key: "course-om300",
+      key: "course-builtin",
       group: "courses",
       icon: "◎",
       primary: "OM 300",
-      sub: `${OM300_CHAPTERS.length} MODULES`,
+      sub: `${STUDY_CHAPTERS.length} MODULES`,
       shortcut: null,
-      run: () => onSelectCourse("om300"),
+      run: () => onSelectCourse("builtin"),
     });
     for (const c of userCourses) {
       const ec = ensureUserCourse(c);
@@ -162,15 +162,15 @@ export function CommandPalette({
     }
 
     const chapterRows = [];
-    for (const ch of OM300_CHAPTERS) {
+    for (const ch of STUDY_CHAPTERS) {
       chapterRows.push({
-        key: `ch-om300-${ch.id}`,
+        key: `ch-builtin-${ch.id}`,
         group: "chapters",
         icon: "CH·",
         primary: ch.title,
-        sub: `OM 300 · ${om300SidebarPrefix(ch.id)}`,
+        sub: `BUILT-IN · ${studySidebarPrefix(ch.id)}`,
         shortcut: null,
-        run: () => onNavigateCourseChapter("om300", ch.id),
+        run: () => onNavigateCourseChapter("builtin", ch.id),
       });
     }
     for (const c of userCourses) {
@@ -189,15 +189,15 @@ export function CommandPalette({
     }
 
     const referenceRows =
-      courseId === "om300"
+      courseId === "builtin"
         ? REFERENCE_ENTRIES.map((r) => ({
             key: `ref-${r.chapterId}`,
             group: "reference",
             icon: "§",
             primary: r.primary,
-            sub: `OM 300 · ${om300SidebarPrefix(r.chapterId)}`,
+            sub: `BUILT-IN · ${studySidebarPrefix(r.chapterId)}`,
             shortcut: null,
-            run: () => onNavigateCourseChapter("om300", r.chapterId),
+            run: () => onNavigateCourseChapter("builtin", r.chapterId),
           }))
         : [];
 
@@ -231,7 +231,7 @@ export function CommandPalette({
     }
 
     const inCourse = courseId !== null;
-    const shuffleVisible = courseId === "om300" && om300ActiveChapter === "flashcards";
+    const shuffleVisible = courseId === "builtin" && builtinActiveChapter === "flashcards";
 
     const actionRows = [
       {
@@ -356,7 +356,7 @@ export function CommandPalette({
     onExport,
     onMarkChapterReviewed,
     onShuffleDeck,
-    om300ActiveChapter,
+    builtinActiveChapter,
   ]);
 
   const flatRows = indexRows.flat;

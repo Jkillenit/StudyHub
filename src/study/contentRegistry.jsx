@@ -29,7 +29,7 @@ const byId = {
   flashcards: Flashcards,
 };
 
-export function hasOm300SectionContent(sectionId) {
+export function hasStudySectionContent(sectionId) {
   return !!byId[sectionId];
 }
 

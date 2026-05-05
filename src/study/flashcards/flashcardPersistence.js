@@ -1,7 +1,7 @@
 import { loadJson, saveJson } from "../../lib/storage.js";
 import { SEED_FLASHCARDS } from "./seedCards.js";
 
-const KEY = "studyHub.v2.om300.flashcards.v1";
+const KEY = "studyHub.v2.builtin.flashcards.v1";
 
 function cloneSeed() {
   return SEED_FLASHCARDS.map((c) => ({ ...c }));

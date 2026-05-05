@@ -101,7 +101,7 @@ function StudyHubAppInner() {
 
   useEffect(() => {
     if (courseId === null) return;
-    if (courseId !== "om300" && !userCourses.some((x) => x.id === courseId)) {
+    if (courseId !== "builtin" && !userCourses.some((x) => x.id === courseId)) {
       setCourseId(null);
     }
   }, [userCourses, courseId]);
@@ -414,10 +414,10 @@ function StudyHubAppInner() {
 
   const activeUserCourse = userCourses.find((c) => c.id === courseId);
   const onHub = courseId === null;
-  const handleOm300ActiveChapterChange = useCallback((ch) => {
+  const handleBuiltinActiveChapterChange = useCallback((ch) => {
     setPaletteChapterMeta((prev) => {
-      if (prev.courseId === "om300" && prev.chapterId === ch) return prev;
-      return { courseId: "om300", chapterId: ch };
+      if (prev.courseId === "builtin" && prev.chapterId === ch) return prev;
+      return { courseId: "builtin", chapterId: ch };
     });
   }, []);
   const handleUserCourseActiveChapterChange = useCallback(
@@ -445,13 +445,13 @@ function StudyHubAppInner() {
       ) : (
         <>
           <div className="sh-shell-body">
-            {courseId === "om300" && (
+            {courseId === "builtin" && (
               <BuiltinCourseApp
                 courseShellLoad={courseShellLoad}
-                onActiveChapterChange={handleOm300ActiveChapterChange}
+                onActiveChapterChange={handleBuiltinActiveChapterChange}
               />
             )}
-            {activeUserCourse && courseId !== "om300" && (
+            {activeUserCourse && courseId !== "builtin" && (
               <UserCourseApp
                 course={activeUserCourse}
                 onChangeCourse={persistUserCourse}
@@ -479,8 +479,8 @@ function StudyHubAppInner() {
         onImportFile={importHub}
         onMarkChapterReviewed={() => window.dispatchEvent(new CustomEvent("studyhub-mark-chapter-reviewed"))}
         onShuffleDeck={() => window.dispatchEvent(new CustomEvent("studyhub-shuffle-flashcards"))}
-        om300ActiveChapter={
-          paletteChapterMeta.courseId === "om300" ? paletteChapterMeta.chapterId : null
+        builtinActiveChapter={
+          paletteChapterMeta.courseId === "builtin" ? paletteChapterMeta.chapterId : null
         }
       />
       <AiAssistantPanel open={aiOpen} onClose={() => setAiOpen(false)} />

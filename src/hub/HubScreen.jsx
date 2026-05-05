@@ -23,14 +23,14 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
           <div className="sh-hub-list">
             <button
               type="button"
-              className={`sh-hub-course-row sh-hub-course-row--cyan ${highlightId === "om300" ? "sh-hub-course-row--recent" : ""}`}
-              onClick={() => onOpenCourse("om300")}
+              className={`sh-hub-course-row sh-hub-course-row--cyan ${highlightId === "builtin" ? "sh-hub-course-row--recent" : ""}`}
+              onClick={() => onOpenCourse("builtin")}
             >
               <div className="sh-hub-course-row-text">
                 <div className="sh-hub-course-name">OM 300</div>
                 <div className="sh-hub-course-sub mono">
                   BUILT-IN · OM 300
-                  {highlightId === "om300" ? " · LAST OPENED" : ""}
+                  {highlightId === "builtin" ? " · LAST OPENED" : ""}
                 </div>
               </div>
               <span className="sh-hub-course-open mono">OPEN →</span>

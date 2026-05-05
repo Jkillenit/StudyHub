@@ -1,5 +1,5 @@
 /**
- * OM 300 course glossary — standalone data module (no UI).
+ * Built-in course glossary — standalone data module (no UI).
  * Anchors `sectionId` match Final Review element ids (final-sec-*).
  */
 
@@ -18,7 +18,7 @@ export const FINAL_SECTION_IDS = {
 /** @typedef {{ id: string, term: string, sectionId: string, hover: string, detail: string[] }} GlossaryEntry */
 
 /** @type {GlossaryEntry[]} */
-export const OM300_GLOSSARY = [
+export const BUILTIN_GLOSSARY = [
   {
     id: "operations_management",
     term: "Operations management",
@@ -345,7 +345,7 @@ export const OM300_GLOSSARY = [
 
 /** @returns {Record<string, GlossaryEntry>} */
 export function glossaryById() {
-  return Object.fromEntries(OM300_GLOSSARY.map((e) => [e.id, e]));
+  return Object.fromEntries(BUILTIN_GLOSSARY.map((e) => [e.id, e]));
 }
 
 /**
@@ -356,7 +356,7 @@ export function glossaryById() {
 export function getGlossaryTermsForChapter(chapterId) {
   const sectionId = FINAL_SECTION_IDS[chapterId];
   if (!sectionId) return [];
-  return OM300_GLOSSARY.filter((e) => e.sectionId === sectionId).map((e) => ({
+  return BUILTIN_GLOSSARY.filter((e) => e.sectionId === sectionId).map((e) => ({
     term: e.term,
     definition: e.hover,
   }));

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { glossaryById } from "./om300Data.js";
+import { glossaryById } from "./courseData.js";
 import { useGlossarySplit } from "./GlossarySplitContext.jsx";
 
 const byId = glossaryById();

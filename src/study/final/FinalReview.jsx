@@ -2,7 +2,7 @@ import Button from "react-bootstrap/Button";
 import Card from "react-bootstrap/Card";
 import Stack from "react-bootstrap/Stack";
 import { BulletList, Card as ContentCard, SLabel } from "../../components/study/StudyTypography.jsx";
-import { FINAL_SECTION_IDS, OM300_GLOSSARY, GlossaryTerm, useGlossarySplit } from "../../glossary/index.js";
+import { FINAL_SECTION_IDS, BUILTIN_GLOSSARY, GlossaryTerm, useGlossarySplit } from "../../glossary/index.js";
 
 function JumpNav() {
   const links = [
@@ -38,7 +38,7 @@ function JumpNav() {
 
 function GlossaryIndexRows() {
   const { openTerm } = useGlossarySplit();
-  const sorted = [...OM300_GLOSSARY].sort((a, b) => a.term.localeCompare(b.term));
+  const sorted = [...BUILTIN_GLOSSARY].sort((a, b) => a.term.localeCompare(b.term));
 
   return (
     <Stack gap={2}>

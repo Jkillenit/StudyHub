@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { glossaryById } from "./om300Data.js";
+import { glossaryById } from "./courseData.js";
 import { useGlossarySplit } from "./GlossarySplitContext.jsx";
 
 const byId = glossaryById();

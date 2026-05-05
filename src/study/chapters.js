@@ -1,5 +1,5 @@
-/** Tab metadata for the built-in OM 300 course. */
-export const OM300_CHAPTERS = [
+/** Tab metadata for the built-in course. */
+export const STUDY_CHAPTERS = [
   { id: "ch1", label: "Ch 1–2", title: "Operations & Strategy" },
   { id: "ch3", label: "Ch 3", title: "Project Management" },
   { id: "ch4", label: "Ch 4", title: "Forecasting" },
