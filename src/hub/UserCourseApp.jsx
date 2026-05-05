@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChapterContentSkeleton } from "../om300/ChapterContentSkeleton.jsx";
-import { CourseSidebarSkeleton } from "../om300/CourseSidebarSkeleton.jsx";
+import { ChapterContentSkeleton } from "../study/ChapterContentSkeleton.jsx";
+import { CourseSidebarSkeleton } from "../study/CourseSidebarSkeleton.jsx";
 import { useDelayedSkeletonVisible } from "../hooks/useDelayedSkeletonVisible.js";
 import { FONT_STEPS } from "../constants/fontSteps.js";
 import { loadJson, saveJson, STORAGE } from "../lib/storage.js";
@@ -10,7 +10,7 @@ import { usePptxImport } from "../pptx/usePptxImport.js";
 import { buildOutput } from "../pptx/pptxOutputBuilder.js";
 import { classifySlides, textToSlides } from "../pptx/pptxClassifier.js";
 import { UserCourseTipTapNotesEditor } from "./UserCourseTipTapNotesEditor.jsx";
-import Om300Flashcards from "../om300/flashcards/Om300Flashcards.jsx";
+import FlashcardDeck from "../study/flashcards/FlashcardDeck.jsx";
 import { hasApiKey } from "../ai/apiKeyUtils.js";
 import { enhanceWithClaude } from "../ai/pptxEnhancer.js";
 import { mergeEnhancedOutput } from "../ai/mergeEnhancedOutput.js";
@@ -1174,7 +1174,7 @@ export function UserCourseApp({
                     </div>
                     {activeItem === "qz-deck" ? (
                       <div className="main-content">
-                        <Om300Flashcards
+                        <FlashcardDeck
                           key={`${c.id}-qz`}
                           cards={userFlashcards}
                           courseId={c.id}

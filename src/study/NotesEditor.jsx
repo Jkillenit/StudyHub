@@ -113,7 +113,7 @@ function NotesBubbleToolbar({ editor }) {
  * Rich notes editor (TipTap). Remount with key={sectionId} for clean chapter state.
  * @param {(phase: 'saving' | 'saved' | 'local') => void} [onAutosaveStatus]
  */
-export function Om300TipTapNotesEditor({ sectionId, onPersist, onAutosaveStatus, className, onEditorReady }) {
+export function NotesEditor({ sectionId, onPersist, onAutosaveStatus, className, onEditorReady }) {
   const debounceRef = useRef(null);
   const savedCooldownRef = useRef(null);
   const onPersistRef = useRef(onPersist);

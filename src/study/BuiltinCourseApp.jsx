@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { STORAGE, loadJson, saveJson } from "../lib/storage.js";
 import { FONT_STEPS } from "../constants/fontSteps.js";
 import { OM300_CHAPTERS } from "./chapters.js";
-import { hasOm300SectionContent, Om300SectionBody } from "./contentRegistry.jsx";
+import { hasOm300SectionContent, StudySectionBody } from "./contentRegistry.jsx";
 import { GlossarySplitProvider, useGlossarySplit } from "../glossary/index.js";
 import { GlossaryContextBlock } from "../glossary/GlossaryContextBlock.jsx";
 import { getOm300ChapterNote, om300NoteHasVisibleBody } from "./chapterNotesStorage.js";
 import { loadOm300Materials } from "./materialsStorage.js";
-import { Om300MaterialsOffcanvas } from "./Om300MaterialsOffcanvas.jsx";
+import { MaterialsOffcanvas } from "./MaterialsOffcanvas.jsx";
 import { ChapterNotesEditorBody } from "./ChapterNotesEditorBody.jsx";
 import { useShell } from "../shell/ShellContext.jsx";
 import { OM300_SIDEBAR_GROUPS, om300BreadcrumbChapter, om300PrefixClassName, om300SidebarPrefix } from "./chapterUiMeta.js";
@@ -43,7 +43,7 @@ function htmlToPlainText(html) {
   return div.textContent.replace(/\n{3,}/g, "\n\n").trim();
 }
 
-function Om300StudyAppInner({ courseShellLoad = false, onActiveChapterChange }) {
+function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange }) {
   const { panelApi } = useFlashcardDeckContext();
   const { setBreadcrumb, setStatusBar, setApiLive } = useShell();
   const { splitOpen, closeSplit } = useGlossarySplit();
@@ -402,7 +402,7 @@ function Om300StudyAppInner({ courseShellLoad = false, onActiveChapterChange }) 
                       className={`font-sans ${contentEnterClass} ${active === "flashcards" ? "sh-section-body--drill" : ""}`}
                       style={{ fontSize: `calc(15px * ${fontScale})`, lineHeight: contentLineHeight }}
                     >
-                      <Om300SectionBody sectionId={active} />
+                      <StudySectionBody sectionId={active} />
                     </div>
                   )
                 ) : null}
@@ -581,19 +581,19 @@ function Om300StudyAppInner({ courseShellLoad = false, onActiveChapterChange }) 
         </aside>
       </div>
 
-      <Om300MaterialsOffcanvas show={materialsOpen} onHide={() => setMaterialsOpen(false)} />
+      <MaterialsOffcanvas show={materialsOpen} onHide={() => setMaterialsOpen(false)} />
     </>
   );
 }
 
-export function Om300StudyApp({ courseShellLoad = false, onActiveChapterChange }) {
+export function BuiltinCourseApp({ courseShellLoad = false, onActiveChapterChange }) {
   return (
     <GlossarySplitProvider>
       <FlashcardDeckProvider>
-        <Om300StudyAppInner courseShellLoad={courseShellLoad} onActiveChapterChange={onActiveChapterChange} />
+        <BuiltinCourseAppInner courseShellLoad={courseShellLoad} onActiveChapterChange={onActiveChapterChange} />
       </FlashcardDeckProvider>
     </GlossarySplitProvider>
   );
 }
 
-export default Om300StudyApp;
+export default BuiltinCourseApp;

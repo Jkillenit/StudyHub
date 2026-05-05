@@ -3,7 +3,7 @@ import { ShellProvider, useShell } from "../shell/ShellContext.jsx";
 import { TitleBar } from "../components/TitleBar.jsx";
 import { StatusBar } from "../shell/TilingChrome.jsx";
 import { CommandPalette } from "../shell/CommandPalette.jsx";
-import { Om300StudyApp } from "../om300/Om300StudyApp.jsx";
+import { BuiltinCourseApp } from "../study/BuiltinCourseApp.jsx";
 import { saveJson } from "../lib/storage.js";
 import { ensureUserCourse, uid } from "../hub/userCourseModel.js";
 import { UserCourseApp } from "../hub/UserCourseApp.jsx";
@@ -446,7 +446,7 @@ function StudyHubAppInner() {
         <>
           <div className="sh-shell-body">
             {courseId === "om300" && (
-              <Om300StudyApp
+              <BuiltinCourseApp
                 courseShellLoad={courseShellLoad}
                 onActiveChapterChange={handleOm300ActiveChapterChange}
               />

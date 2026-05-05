@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { OM300_CHAPTERS } from "../om300/chapters.js";
-import { om300SidebarPrefix } from "../om300/chapterUiMeta.js";
+import { OM300_CHAPTERS } from "../study/chapters.js";
+import { om300SidebarPrefix } from "../study/chapterUiMeta.js";
 import { ensureUserCourse } from "../hub/userCourseModel.js";
 
 function matches(query, primary, sub) {
@@ -425,6 +425,7 @@ export function CommandPalette({
       />
       <div
         className={`sh-palette ${fadeClass}`}
+        data-palette="true"
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"

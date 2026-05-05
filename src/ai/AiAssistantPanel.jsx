@@ -5,7 +5,7 @@ import Form from "react-bootstrap/Form";
 import Modal from "react-bootstrap/Modal";
 import Stack from "react-bootstrap/Stack";
 import { useShell } from "../shell/ShellContext.jsx";
-import { loadFlashcardDeck, persistFlashcardDeck } from "../om300/flashcards/flashcardPersistence.js";
+import { loadFlashcardDeck, persistFlashcardDeck } from "../study/flashcards/flashcardPersistence.js";
 
 function mergeAiCardsIntoDeck(newCards) {
   const existing = loadFlashcardDeck();

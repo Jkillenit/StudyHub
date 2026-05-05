@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Badge from "react-bootstrap/Badge";
 import Button from "react-bootstrap/Button";
-import { Om300TipTapNotesEditor } from "./Om300TipTapNotesEditor.jsx";
+import { NotesEditor } from "./NotesEditor.jsx";
 
 /**
  * Notes beside chapter content (split) or stacked below on narrow viewports.
@@ -52,7 +52,7 @@ export function ChapterNotesSplitPanel({ show, onClose, sectionId, sectionTitle,
       </div>
       <div className="flex-grow-1 overflow-hidden min-h-0 d-flex flex-column">
         <div className="sh-notes-wrapper sh-notes-wrapper--split flex-grow-1 min-h-0 d-flex flex-column">
-          <Om300TipTapNotesEditor
+          <NotesEditor
             key={sectionId}
             sectionId={sectionId}
             onPersist={onPersist}

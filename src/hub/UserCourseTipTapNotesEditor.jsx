@@ -6,7 +6,7 @@ import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
 import Typography from "@tiptap/extension-typography";
 import { useEffect, useMemo, useRef } from "react";
-import { createGlossaryPlugin, glossaryPluginKey } from "../om300/applyGlossaryHighlights.js";
+import { createGlossaryPlugin, glossaryPluginKey } from "../study/applyGlossaryHighlights.js";
 
 function plainTextToHtml(text) {
   const escaped = String(text || "")

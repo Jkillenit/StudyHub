@@ -28,7 +28,7 @@ function isPdfPath(p) {
   return extOf(p) === "pdf";
 }
 
-export function Om300MaterialsOffcanvas({ show, onHide }) {
+export function MaterialsOffcanvas({ show, onHide }) {
   const bridge = typeof window !== "undefined" ? window.studyHub : null;
   const [items, setItems] = useState(() => loadOm300Materials());
 

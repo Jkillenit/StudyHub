@@ -12,7 +12,7 @@ const Ch12 = lazy(() => import("./sections/Ch12.jsx"));
 const Ch16 = lazy(() => import("./sections/Ch16.jsx"));
 const FinalReview = lazy(() => import("./final/FinalReview.jsx"));
 const Formulas = lazy(() => import("./sections/Formulas.jsx"));
-const Flashcards = lazy(() => import("./flashcards/Om300Flashcards.jsx"));
+const Flashcards = lazy(() => import("./flashcards/FlashcardDeck.jsx"));
 
 const byId = {
   ch1: Ch1,
@@ -33,7 +33,7 @@ export function hasOm300SectionContent(sectionId) {
   return !!byId[sectionId];
 }
 
-export const Om300SectionBody = memo(function Om300SectionBody({ sectionId }) {
+export const StudySectionBody = memo(function StudySectionBody({ sectionId }) {
   const Comp = byId[sectionId];
   if (!Comp) return null;
   return (

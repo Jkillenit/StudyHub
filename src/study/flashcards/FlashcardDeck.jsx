@@ -29,7 +29,7 @@ function cardTypeLabel(kind) {
   return null;
 }
 
-export default function Om300Flashcards({
+export default function FlashcardDeck({
   cards: externalCards = null,
   onSaveCards = null,
   courseId = null,
@@ -267,12 +267,20 @@ export default function Om300Flashcards({
 
   const handleKeyDown = useCallback(
     (e) => {
-      const paletteOpen = document.querySelector(".sh-palette") !== null;
-      if (paletteOpen) return;
-      const activeEl = document.activeElement;
-      const tag = activeEl?.tagName;
-      const isEditable = activeEl?.contentEditable === "true";
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || isEditable) return;
+      // Do not handle keys when command palette is open
+      if (
+        document.querySelector(
+          '.sh-palette, .sh-cmd-palette, ' +
+            '[data-palette="true"]'
+        )
+      )
+        return;
+
+      // Do not handle keys when focus is in an input
+      const tag = document.activeElement?.tagName;
+      const isEditable =
+        document.activeElement?.contentEditable === "true";
+      if (tag === "INPUT" || tag === "TEXTAREA" || isEditable) return;
 
       if (slide || flipPhase) {
         if (e.key === " " || e.key === "Enter") e.preventDefault();
@@ -304,12 +312,14 @@ export default function Om300Flashcards({
     [slide, flipPhase, beginFlip, startSlide, flipped, onKnowIt, onAgain]
   );
 
+  const handleKeyDownStable = useCallback(handleKeyDown, [handleKeyDown]);
+
   useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", handleKeyDownStable);
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDownStable);
     };
-  }, [handleKeyDown]);
+  }, [handleKeyDownStable]);
 
   const progressDisplayPos = slide ? slide.toPos : pos;
   const progressText = useMemo(() => {
