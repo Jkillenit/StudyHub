@@ -14,6 +14,7 @@ import FlashcardDeck from "../study/flashcards/FlashcardDeck.jsx";
 import { hasApiKey } from "../ai/apiKeyUtils.js";
 import { enhanceWithClaude } from "../ai/pptxEnhancer.js";
 import { mergeEnhancedOutput } from "../ai/mergeEnhancedOutput.js";
+import { getDueCards, masteryPercent } from "../study/sm2.js";
 
 const COLLAPSE_THRESHOLD = 120;
 const VISIBLE_DEFAULT = 4;
@@ -788,9 +789,12 @@ export function UserCourseApp({
     [c.glossary]
   );
   const userFlashcards = Array.isArray(c.flashcards) ? c.flashcards : [];
+  const dueCount = useMemo(() => getDueCards(userFlashcards).length, [userFlashcards]);
   const filteredFlashcards =
     sourceFilter === "all"
       ? userFlashcards
+      : sourceFilter === "due"
+        ? getDueCards(userFlashcards)
       : userFlashcards.filter((card) =>
           sourceFilter === "manual" ? (card.source || "manual") === "manual" : card.source === "pptx"
         );
@@ -801,7 +805,7 @@ export function UserCourseApp({
   const contentLineHeight = comfortable ? 1.75 : 1.55;
   const totalVisible = visibleChapters.length;
   const completedCount = [...completedIds].filter((id) => visibleChapters.some((ch) => ch.id === id)).length;
-  const masteryPct = totalVisible ? Math.round((completedCount / totalVisible) * 100) : 0;
+  const masteryPct = useMemo(() => masteryPercent(c.flashcards || []), [c.flashcards]);
 
   const chNum = (id) => {
     const i = chapters.findIndex((x) => x.id === id);
@@ -1277,6 +1281,7 @@ export function UserCourseApp({
                       { id: "all", label: "ALL" },
                       { id: "manual", label: "MANUAL" },
                       { id: "pptx", label: "IMPORTED" },
+                      { id: "due", label: "DUE" },
                     ].map((opt) => (
                       <button
                         key={opt.id}
@@ -1285,12 +1290,24 @@ export function UserCourseApp({
                         style={{ width: "auto", marginBottom: 0, padding: "4px 8px", fontSize: 10 }}
                         onClick={() => setSourceFilter(opt.id)}
                       >
-                        {opt.label}
+                        {opt.id === "due" ? (
+                          <>
+                            DUE{" "}
+                            {dueCount > 0 ? (
+                              <span className="sh-due-badge" style={{ color: "var(--sh-amber)" }}>
+                                · {dueCount}
+                              </span>
+                            ) : null}
+                          </>
+                        ) : (
+                          opt.label
+                        )}
                       </button>
                     ))}
                   </div>
                   <p className="mono mb-2" style={{ fontSize: 10, color: "var(--sh-text-dim)" }}>
-                    {filteredFlashcards.length}/{userFlashcards.length} cards
+                    {filteredFlashcards.length}/{userFlashcards.length} cards{" "}
+                    <span style={{ color: dueCount > 0 ? "var(--sh-amber)" : "var(--sh-text-dim)" }}>· {dueCount} due</span>
                   </p>
                 </>
               ) : null}

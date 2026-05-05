@@ -2229,6 +2229,86 @@ button.sh-titlebar-wordmark--btn:hover {
   flex-shrink: 0;
 }
 
+.sh-session-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 32px;
+  max-width: 480px;
+  margin: 0 auto;
+  height: 100%;
+  justify-content: center;
+}
+
+.sh-session-stats {
+  background: var(--sh-surface);
+  border: 1px solid var(--sh-border);
+  border-left: 3px solid var(--sh-green);
+  padding: 0;
+}
+
+.sh-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--sh-border);
+}
+
+.sh-stat-row:last-child {
+  border-bottom: none;
+}
+
+.sh-stat-divider {
+  height: 1px;
+  background: var(--sh-border);
+}
+
+.sh-stat-label {
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--sh-text-dim);
+  text-transform: uppercase;
+}
+
+.sh-stat-value {
+  font-family: monospace;
+  font-size: 18px;
+  color: var(--sh-text-primary);
+}
+
+.sh-stat-know {
+  color: var(--sh-green) !important;
+}
+
+.sh-stat-again {
+  color: var(--sh-amber) !important;
+}
+
+.sh-session-next {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sh-next-review-text {
+  font-size: 13px;
+  color: var(--sh-text-secondary);
+}
+
+.sh-session-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.sh-due-badge {
+  color: var(--sh-amber);
+  font-family: monospace;
+  font-size: 9px;
+}
+
 .ctx-deck-collapsible {
   padding-top: 6px;
 }
