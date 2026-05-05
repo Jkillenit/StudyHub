@@ -4,8 +4,8 @@ import { TitleBar } from "../components/TitleBar.jsx";
 import { StatusBar } from "../shell/TilingChrome.jsx";
 import { CommandPalette } from "../shell/CommandPalette.jsx";
 import { Om300StudyApp } from "../om300/Om300StudyApp.jsx";
-import { loadJson, saveJson } from "../lib/storage.js";
-import { HUB_KEYS, ensureUserCourse, uid } from "../hub/userCourseModel.js";
+import { saveJson } from "../lib/storage.js";
+import { ensureUserCourse, uid } from "../hub/userCourseModel.js";
 import { UserCourseApp } from "../hub/UserCourseApp.jsx";
 import { HubScreen } from "../hub/HubScreen.jsx";
 import { AiAssistantPanel } from "../ai/AiAssistantPanel.jsx";
@@ -16,6 +16,8 @@ import { classifySlides, detectChapters } from "../pptx/pptxClassifier.js";
 import { hasApiKey } from "../ai/apiKeyUtils.js";
 import { enhanceWithClaude } from "../ai/pptxEnhancer.js";
 import { mergeEnhancedOutput } from "../ai/mergeEnhancedOutput.js";
+import { migrateIfNeeded } from "../db/migrateFromLocalStorage.js";
+import { courseStore } from "../db/courseStore.js";
 
 function mergeFlashcards(existingCards, newCards, moduleId) {
   const current = Array.isArray(existingCards) ? existingCards : [];
@@ -66,11 +68,7 @@ function ApiStatusSync() {
 
 function StudyHubAppInner() {
   const { setBreadcrumb } = useShell();
-  const [userCourses, setUserCourses] = useState(() => {
-    const raw = loadJson(HUB_KEYS.userCourses, []);
-    const list = Array.isArray(raw) ? raw.map(ensureUserCourse) : [];
-    return list;
-  });
+  const [userCourses, setUserCourses] = useState([]);
   const [courseId, setCourseId] = useState(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -78,12 +76,19 @@ function StudyHubAppInner() {
   const [paletteChapterMeta, setPaletteChapterMeta] = useState(() => ({ courseId: null, chapterId: null }));
 
   useEffect(() => {
-    saveJson(HUB_KEYS.userCourses, userCourses);
-  }, [userCourses]);
+    async function init() {
+      await migrateIfNeeded();
+      const courses = await courseStore.getAllCourses();
+      const withModules = await Promise.all(courses.map((course) => courseStore.getCourseWithModules(course.id)));
+      const hydrated = withModules.filter(Boolean).map((course) => ensureUserCourse(course));
+      setUserCourses(hydrated);
+    }
+    void init();
+  }, []);
 
   useEffect(() => {
     if (courseId != null) {
-      saveJson(HUB_KEYS.lastCourse, courseId);
+      saveJson("studyHub.v2.lastCourseId", courseId);
     }
   }, [courseId]);
 
@@ -148,10 +153,13 @@ function StudyHubAppInner() {
   }, []);
 
   const persistUserCourse = useCallback((updated) => {
-    setUserCourses((prev) => prev.map((c) => (c.id === updated.id ? ensureUserCourse(updated) : c)));
+    const normalized = ensureUserCourse(updated);
+    setUserCourses((prev) => prev.map((c) => (c.id === normalized.id ? normalized : c)));
+    void courseStore.syncCourse(normalized);
   }, []);
 
   const deleteUserCourse = useCallback((id) => {
+    void window.studyHub?.db?.courses?.delete(id);
     setUserCourses((prev) => {
       const next = prev.filter((c) => c.id !== id);
       setCourseId((cur) => {
@@ -178,6 +186,7 @@ function StudyHubAppInner() {
     });
     setUserCourses((p) => [...p, course]);
     setCourseId(course.id);
+    void courseStore.syncCourse(course);
   }, []);
 
   const onHubManualCreate = useCallback(
@@ -333,6 +342,7 @@ function StudyHubAppInner() {
         }
         setUserCourses((p) => [...p, enrichedCourse]);
         setCourseId(enrichedCourse.id);
+        void courseStore.syncCourse(enrichedCourse);
         try {
           sessionStorage.setItem("studyhub.pendingToast", `COURSE BUILT · ${modules.length || 1} CHAPTERS`);
         } catch {

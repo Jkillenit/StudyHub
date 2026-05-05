@@ -52,4 +52,48 @@ contextBridge.exposeInMainWorld("studyHub", {
     generateFlashcards: (payload) =>
       ipcRenderer.invoke("studyhub:ai-generate-flashcards", payload),
   },
+
+  db: {
+    courses: {
+      getAll: () => ipcRenderer.invoke("db:courses:getAll"),
+      get: (uuid) => ipcRenderer.invoke("db:courses:get", uuid),
+      create: (course) => ipcRenderer.invoke("db:courses:create", course),
+      update: (data) => ipcRenderer.invoke("db:courses:update", data),
+      delete: (uuid) => ipcRenderer.invoke("db:courses:delete", uuid),
+    },
+    modules: {
+      getByCourse: (courseUuid) => ipcRenderer.invoke("db:modules:getByCourse", courseUuid),
+      create: (moduleData) => ipcRenderer.invoke("db:modules:create", moduleData),
+      update: (data) => ipcRenderer.invoke("db:modules:update", data),
+      delete: (uuid) => ipcRenderer.invoke("db:modules:delete", uuid),
+    },
+    notes: {
+      get: (moduleUuid) => ipcRenderer.invoke("db:notes:get", moduleUuid),
+      save: (data) => ipcRenderer.invoke("db:notes:save", data),
+    },
+    content: {
+      getByModule: (moduleUuid) => ipcRenderer.invoke("db:content:getByModule", moduleUuid),
+      saveMany: (data) => ipcRenderer.invoke("db:content:saveMany", data),
+    },
+    flashcards: {
+      getByCourse: (courseUuid) => ipcRenderer.invoke("db:flashcards:getByCourse", courseUuid),
+      getDue: (courseUuid) => ipcRenderer.invoke("db:flashcards:getDue", courseUuid),
+      saveMany: (data) => ipcRenderer.invoke("db:flashcards:saveMany", data),
+      replaceForCourse: (data) => ipcRenderer.invoke("db:flashcards:replaceForCourse", data),
+    },
+    mastery: {
+      update: (data) => ipcRenderer.invoke("db:mastery:update", data),
+    },
+    glossary: {
+      getByCourse: (courseUuid) => ipcRenderer.invoke("db:glossary:getByCourse", courseUuid),
+      saveMany: (data) => ipcRenderer.invoke("db:glossary:saveMany", data),
+      replaceForCourse: (data) => ipcRenderer.invoke("db:glossary:replaceForCourse", data),
+      delete: (uuid) => ipcRenderer.invoke("db:glossary:delete", uuid),
+    },
+    settings: {
+      get: (key) => ipcRenderer.invoke("db:settings:get", key),
+      set: (data) => ipcRenderer.invoke("db:settings:set", data),
+      getAll: () => ipcRenderer.invoke("db:settings:getAll"),
+    },
+  },
 });

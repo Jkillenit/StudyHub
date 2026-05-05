@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react()],
   build: {
     rollupOptions: {
-      external: ["officeparser"],
+      external: ["better-sqlite3", "officeparser"],
       output: {
         manualChunks(id) {
           if (
