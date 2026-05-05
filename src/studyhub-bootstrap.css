@@ -1635,6 +1635,16 @@ button.sh-titlebar-wordmark--btn:hover {
   opacity: 1;
 }
 
+.sh-ai-badge {
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--sh-cyan);
+  opacity: 0.6;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
 .sh-glossary-card {
   position: relative;
 }

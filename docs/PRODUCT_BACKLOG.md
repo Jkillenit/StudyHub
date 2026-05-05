@@ -70,7 +70,7 @@ Study Hub is designed local-first. Every core feature works without an Anthropic
 | **B3** | PPTX slide text extraction | 3 | **3** | ~1 wk | `local-first` |
 | **CAL-001** | Semester calendar — week and month views, all courses, importance-weighted color coding (component weight × urgency score), manual entry, mark complete | 5 | **3** | ~1 wk | `local-first` |
 | **EST-002** | Exam study time estimate — computed from SM-2 mastery data. Cards due + unmastered cards × average session time = total estimate. Splits into daily recommended sessions between now and exam date. Requires QZ-005 (SM-2) complete. | 5 | **3** | ~1 wk | `local-first` |
-| **B3-B** | PPTX AI enhancement — Claude API classifies unclassified content, ENHANCE WITH AI button, requires API key | 4 | **3** | ~3 d | `AI-optional` | 📋 Planned |
+| **B3-B** | PPTX AI enhancement — Claude Haiku cleans definitions, finds missed terms in unclassified content, adds AI badge to enhanced cards, ENHANCE WITH AI button in review block, graceful fallback to local if no key | 4 | **3** | ~3 d | `AI-optional` | ✓ Done |
 | **QZ-003** | Filtered drill modes — by chapter, weak cards only, recent cards, exam cram cross-chapter | 4 | **3** | ~2–3 d | `content`, `local-first` |
 | **QZ-004** | Session history + drill streak — days drilled, cards per session, visible in context panel | 3 | **3** | ~2–3 d | `content`, `local-first` |
 | **INF-001** | Migrate localStorage → better-sqlite3 via Electron IPC bridge | 5 | **3** | ~3–5 d | `infra` `local-first` |
@@ -100,6 +100,7 @@ _Time is rough engineering time for a solo/small pass, not a guarantee._
 | **Phase 1a — Notes editor** (NT-001 TipTap editor, NT-002 glossary highlighting, NT-003 export) | **Complete** |
 | **Phase 1b-A — PPTX local pipeline** | ✓ Complete |
 | **Phase 1b classifier improvements** (term cleaning, deduplication, confidence scoring, collapsible cards, glossary auto-population, flashcard merge with source tagging, search index integration) | ✓ Complete |
+| **Phase 1b-B — AI enhancement layer** | ✓ Complete |
 | **NT-002 — inline glossary highlighting** | **Done** |
 | **B2 — PDF** | **In progress** — Phase 1 shipped: main-process text via `pdf-parse` (`studyhub:extract-pdf-text`), preload `extractPdfText`, Materials **Read text** modal. Remaining: in-document search, large-file tuning, optional embedded PDF.js viewer, OCR path (ties **D1**). |
 

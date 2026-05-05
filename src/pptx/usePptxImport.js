@@ -1,6 +1,9 @@
 import { useCallback, useState } from "react";
 import { buildOutput } from "./pptxOutputBuilder.js";
 import { classifySlides } from "./pptxClassifier.js";
+import { hasApiKey } from "../ai/apiKeyUtils.js";
+import { enhanceWithClaude } from "../ai/pptxEnhancer.js";
+import { mergeEnhancedOutput } from "../ai/mergeEnhancedOutput.js";
 
 export function usePptxImport() {
   const [status, setStatus] = useState("idle");
@@ -39,10 +42,25 @@ export function usePptxImport() {
       output.pptxMeta = {
         firstSlideTitle: extracted?.slides?.[0]?.title || "",
       };
+      let finalOutput = output;
+      if (hasApiKey() && output.contentCards.length > 0) {
+        setProgress("ENHANCING WITH AI...");
+        const aiResult = await enhanceWithClaude(output);
+        finalOutput = mergeEnhancedOutput(output, aiResult);
+        if (aiResult) {
+          console.log(
+            "[AI] Enhanced:",
+            "cleaned",
+            aiResult.definitions?.length || 0,
+            "added",
+            aiResult.newDefinitions?.length || 0
+          );
+        }
+      }
       setStatus("complete");
       setProgress("");
-      setResult(output);
-      return output;
+      setResult(finalOutput);
+      return finalOutput;
     } catch (err) {
       setStatus("error");
       setProgress("");

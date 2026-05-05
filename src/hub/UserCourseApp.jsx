@@ -11,6 +11,9 @@ import { buildOutput } from "../pptx/pptxOutputBuilder.js";
 import { classifySlides, textToSlides } from "../pptx/pptxClassifier.js";
 import { UserCourseTipTapNotesEditor } from "./UserCourseTipTapNotesEditor.jsx";
 import Om300Flashcards from "../om300/flashcards/Om300Flashcards.jsx";
+import { hasApiKey } from "../ai/apiKeyUtils.js";
+import { enhanceWithClaude } from "../ai/pptxEnhancer.js";
+import { mergeEnhancedOutput } from "../ai/mergeEnhancedOutput.js";
 
 const COLLAPSE_THRESHOLD = 120;
 const VISIBLE_DEFAULT = 4;
@@ -62,7 +65,10 @@ function DefinitionCard({ item }) {
       }}
     >
       <div className="def-card-header">
-        <div className="def-term" style={{ opacity: tierStyles.termOpacity }}>{item.term}</div>
+        <div className="def-term" style={{ opacity: tierStyles.termOpacity }}>
+          {item.term}
+          {item.enhancedByAI ? <span className="sh-ai-badge">✦ AI</span> : null}
+        </div>
         {tierStyles.showDot ? (
           <div
             className="sh-confidence-dot"
@@ -286,7 +292,7 @@ export function UserCourseApp({
   const [toastMsg, setToastMsg] = useState("");
   const [importError, setImportError] = useState("");
   const [reviewMeta, setReviewMeta] = useState(null);
-  const [apiConfigured, setApiConfigured] = useState(false);
+  const [enhancing, setEnhancing] = useState(false);
   const [sourceFilter, setSourceFilter] = useState("all");
   const [activeItem, setActiveItem] = useState(null);
   const wasShellLoading = useRef(false);
@@ -366,15 +372,6 @@ export function UserCourseApp({
   }, [active, completedIds, disabledIds, onChangeCourse, course.id]);
 
   useEffect(() => {
-    const bridge = typeof window !== "undefined" ? window.studyHub : null;
-    if (!bridge?.ai?.getStatus) return;
-    bridge.ai
-      .getStatus()
-      .then((s) => setApiConfigured(!!s?.configured))
-      .catch(() => setApiConfigured(false));
-  }, []);
-
-  useEffect(() => {
     onActiveChapterChange?.(active);
   }, [active, onActiveChapterChange]);
 
@@ -444,6 +441,7 @@ export function UserCourseApp({
           id: card.id,
           confidence: card.confidence || "high",
           source: "pptx",
+          enhancedByAI: !!card.enhancedByAI,
         })),
       });
     }
@@ -692,6 +690,64 @@ export function UserCourseApp({
       });
     }
   }, [active, completedIds, disabledIds, onChangeCourse, reviewMeta]);
+
+  const handleEnhanceReview = useCallback(async () => {
+    const cur = ensureUserCourse(courseRef.current);
+    const module = cur.modules.find((m) => m.id === active);
+    if (!module) return;
+    if (!hasApiKey()) {
+      setToastMsg("Add API key in Settings to use AI enhancement");
+      window.setTimeout(() => setToastMsg(""), 3000);
+      return;
+    }
+
+    setEnhancing(true);
+    try {
+      const currentOutput = {
+        contentCards:
+          module.contentData
+            ?.flatMap((s) => s.items || [])
+            .filter((i) => i && i.term && i.definition)
+            .map((i) => ({
+              id: i.id || uid("pptx"),
+              term: i.term,
+              definition: i.definition,
+              confidence: i.confidence || "high",
+              source: i.source || "pptx",
+              enhancedByAI: !!i.enhancedByAI,
+            })) || [],
+        notesReviewBlock: { html: module.body || "" },
+        flashcards: [],
+      };
+
+      const aiResult = await enhanceWithClaude(currentOutput);
+      const merged = mergeEnhancedOutput(currentOutput, aiResult);
+      if (!aiResult) {
+        setToastMsg("No AI changes were returned");
+        window.setTimeout(() => setToastMsg(""), 2500);
+        return;
+      }
+
+      const rebuiltContent = buildChapterContent(merged);
+      const modules = cur.modules.map((m) => (m.id === module.id ? { ...m, contentData: rebuiltContent } : m));
+      let nextCourse = { ...cur, modules };
+      nextCourse = addTermsToGlossary(nextCourse, module.id, merged.contentCards || []);
+      const taggedCards = (merged.flashcards || []).map((card) => ({ ...card, source: "pptx" }));
+      nextCourse = { ...nextCourse, flashcards: mergeFlashcards(cur.flashcards || [], taggedCards, module.id) };
+      onChangeCourse({
+        ...nextCourse,
+        disabledModuleIds: [...disabledIds],
+        completedModuleIds: [...completedIds],
+        activeModuleId: active,
+      });
+      setToastMsg(
+        `AI enhanced ${aiResult.definitions?.length || 0} terms, found ${aiResult.newDefinitions?.length || 0} new`
+      );
+      window.setTimeout(() => setToastMsg(""), 3500);
+    } finally {
+      setEnhancing(false);
+    }
+  }, [active, completedIds, disabledIds, onChangeCourse]);
 
   useEffect(() => {
     const cur = ensureUserCourse(courseRef.current);
@@ -1155,19 +1211,15 @@ export function UserCourseApp({
                       <div className="sh-review-banner">
                         <span>{`REVIEW NEEDED — ${reviewMeta.slideCount} slides could not be auto-classified. Edit below, then click MOVE TO CONTENT.`}</span>
                         <div className="d-flex gap-2 align-items-center">
-                          {apiConfigured ? (
-                            <button
-                              type="button"
-                              className="sh-review-move-btn"
-                              style={{ opacity: 0.7 }}
-                              onClick={() => {
-                                setToastMsg("AI enhancement coming in Phase 1b-B");
-                                window.setTimeout(() => setToastMsg(""), 3000);
-                              }}
-                            >
-                              ✦ ENHANCE WITH AI
-                            </button>
-                          ) : null}
+                          <button
+                            type="button"
+                            className="sh-review-move-btn"
+                            style={{ opacity: 0.7 }}
+                            onClick={() => void handleEnhanceReview()}
+                            disabled={enhancing}
+                          >
+                            {enhancing ? "ENHANCING..." : "✦ ENHANCE WITH AI"}
+                          </button>
                           <button type="button" className="sh-review-move-btn" onClick={moveReviewToContent}>
                             MOVE TO CONTENT
                           </button>

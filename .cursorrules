@@ -1,0 +1,208 @@
+# Study Hub — Cursor Rules
+# Electron + React desktop study application
+# Read this file before every response.
+
+## IDENTITY
+Study Hub is a local-first Electron + React desktop
+application that helps students import course materials,
+build flashcard decks, track mastery, and calculate
+grades. It is NOT a web app. It runs as a native
+desktop window via Electron.
+
+## TECH STACK
+- Runtime: Electron (main process) + React (renderer)
+- Bundler: Vite
+- Styling: Bootstrap reset ONLY + custom CSS tokens
+- Notes editor: TipTap (ProseMirror-based)
+- Database: better-sqlite3 via IPC (INF-001)
+- File parsing: officeparser v6 (PPTX/DOCX/XLSX)
+- AI layer: Anthropic Claude Haiku via fetch (optional)
+- No Firebase. No server. No cloud. Local only.
+
+## FILE STRUCTURE
+electron/
+  main.cjs          ← Main process, IPC handlers
+  preload.cjs       ← Renderer bridge (window.studyHub)
+  database.cjs      ← SQLite init + schema
+  dbHandlers.cjs    ← All db:* IPC handlers
+
+src/
+  app/
+    StudyHubApp.jsx     ← Root app, course state
+  hub/
+    UserCourseApp.jsx   ← User course view (tabs,
+                          modules, content, notes,
+                          glossary, QZ)
+  welcome/
+    WelcomeScreen.jsx
+    ExpressImportModal.jsx
+    ExpressProcessingView.jsx
+  om300/
+    Om300Flashcards.jsx   ← Flashcard drill component
+    Om300TipTapNotesEditor.jsx ← Notes editor
+  pptx/
+    pptxClassifier.js   ← 4-type local classifier
+    pptxOutputBuilder.js
+    usePptxImport.js
+  ai/
+    apiKeyUtils.js
+    pptxEnhancer.js     ← Claude Haiku enhancement
+    mergeEnhancedOutput.js
+  db/
+    courseStore.js      ← Data access layer
+    migrateFromLocalStorage.js
+  shell/
+    ShellContext.jsx
+  studyhub-bootstrap.css  ← ONLY CSS file
+
+docs/
+  PRODUCT_BACKLOG.md
+  ROADMAP.md
+
+## CSS DESIGN SYSTEM
+NEVER use hardcoded colors. ALWAYS use tokens:
+
+  --sh-base           background
+  --sh-surface        card surface
+  --sh-raised         elevated surface
+  --sh-border         border color
+  --sh-green          primary accent (cyan-green)
+  --sh-green-dim      muted green background
+  --sh-amber          warning / medium confidence
+  --sh-cyan           QZ/flashcard accent
+  --sh-red            danger / delete actions
+  --sh-text-primary   main text
+  --sh-text-secondary secondary text
+  --sh-text-dim       muted/label text
+  --sh-muted          very muted
+
+Typography rules:
+  - Section labels: monospace, 9-11px,
+    letter-spacing 0.1em, uppercase
+  - Body text: Inter, 13px, line-height 1.5
+  - Terms/cards: Inter, normal weight (not bold)
+  - Code/numbers: monospace
+
+Tab active state: border-bottom only, NEVER full border
+  .active-tab {
+    border-bottom: 2px solid var(--sh-green);
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    background: transparent;
+  }
+
+## IPC PATTERN
+Main process registers handlers in electron/main.cjs:
+  ipcMain.handle('namespace:action', async (_, args) => {})
+
+Preload exposes via window.studyHub:
+  window.studyHub.db.courses.getAll()
+  window.studyHub.extractPptx(filePath)
+  window.studyHub.openFileDialog(options)
+
+Renderer calls via bridge only. NEVER require()
+Node modules in renderer. NEVER use remote module.
+
+## DATABASE RULES
+- All course data in SQLite (better-sqlite3)
+- localStorage is ONLY for migration flag and
+  legacy compatibility during transition
+- All DB calls go through IPC: db:* handlers
+- Use courseStore.js in renderer, not direct IPC
+- Transactions for multi-table writes always
+- Foreign keys ON always
+- WAL mode always
+
+## DATA FLOW FOR PPTX IMPORT
+1. User selects file via native dialog (IPC)
+2. officeparser extracts AST in main process
+3. groupIntoSlides groups by type:'slide' nodes
+4. pptxClassifier.js classifies: definitions,
+   sections, formulas, unclassified
+5. pptxOutputBuilder.js builds output object
+6. Optional: Claude Haiku enhances if API key set
+7. mergeEnhancedOutput merges AI + local
+8. UserCourseApp writes to SQLite via courseStore
+9. Module title updated from first slide title
+10. Glossary terms auto-added to glossary_terms
+11. Flashcards added to flashcards table
+12. UI re-renders from fresh DB read
+
+## COMPONENT RULES
+UserCourseApp.jsx — three tabs per module:
+  CONTENT | NOTES | GLOSSARY
+  Plus QZ-01 as separate DRILL sidebar item
+
+Active sidebar item state:
+  'module:{uuid}' | 'qz-deck' | null
+  NEVER use array index for active state
+
+Definition cards — three tiers:
+  high: full green accent, no dot
+  medium: muted green accent, amber dot
+  low: border only, goes to NEEDS REVIEW section
+
+Section blocks — three types:
+  numbered: 01 02 03 in monospace green
+  bullets: — dash prefix
+  deflist: term bold above, definition indented
+
+Show 4 items default, expand for more (cognitive
+load principle — working memory 4±1).
+
+Collapsible threshold: 120 characters.
+
+## KEYBOARD HANDLERS
+Flashcard drill keyboard handler MUST:
+  1. Check palette is closed before firing
+  2. Use useCallback with proper deps
+  3. Clean up in useEffect return
+  4. Debounce flip with 200ms ref guard
+
+Chapter navigation arrow keys MUST:
+  Stop when activeItem === 'qz-deck'
+
+## AI ENHANCEMENT
+Model: claude-haiku-4-5-20251001 ONLY
+  (never Sonnet or Opus for enhancement)
+Always graceful fallback if:
+  - No API key configured
+  - API call fails
+  - Response is not valid JSON
+Local pipeline always runs first.
+AI enhances, never replaces.
+Enhanced cards get enhancedByAI: true flag.
+
+## WHAT NEVER TO TOUCH
+- OM 300 built-in course data and rendering
+  (src/om300/ hardcoded content)
+- officeparser in renderer bundle
+  (must stay in Vite externals)
+- Bootstrap classes for layout logic
+  (use custom --sh-* tokens)
+- Any direct localStorage for course data
+  (use SQLite via courseStore)
+
+## BUILD REQUIREMENTS
+Every response that changes code must:
+1. Ensure npm run build passes
+2. Ensure officeparser NOT in renderer bundle
+3. Not introduce console.error in production
+4. Not break existing OM 300 course functionality
+
+## COMMIT MESSAGE FORMAT
+"Phase X.Y — Short description
+
+- Bullet 1
+- Bullet 2
+- Bullet 3"
+
+## CURRENT STATUS
+Phase 0  ✓ UI foundation
+Phase 1a ✓ Notes editor + TipTap
+Phase 1b-A ✓ PPTX local pipeline + integrations
+Phase 1b-B ✓ Claude AI enhancement layer
+INF-001  ▶ SQLite migration (IN PROGRESS)
+Phase 2  ○ SM-2, grade calculator, Blackboard ZIP
+Phase 3  ○ Packaging + alpha release

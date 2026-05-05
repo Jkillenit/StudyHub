@@ -13,6 +13,9 @@ import { titleCaseFromFilename } from "../lib/filenameToCourseName.js";
 import { EXPRESS_FILTERS } from "../welcome/ExpressImportModal.jsx";
 import { buildContentText, buildOutput } from "../pptx/pptxOutputBuilder.js";
 import { classifySlides, detectChapters } from "../pptx/pptxClassifier.js";
+import { hasApiKey } from "../ai/apiKeyUtils.js";
+import { enhanceWithClaude } from "../ai/pptxEnhancer.js";
+import { mergeEnhancedOutput } from "../ai/mergeEnhancedOutput.js";
 
 function mergeFlashcards(existingCards, newCards, moduleId) {
   const current = Array.isArray(existingCards) ? existingCards : [];
@@ -194,7 +197,9 @@ function StudyHubAppInner() {
           term: card.term,
           definition: card.definition,
           id: card.id,
+          confidence: card.confidence || "high",
           source: "pptx",
+          enhancedByAI: !!card.enhancedByAI,
         })),
       });
     }
@@ -258,20 +263,47 @@ function StudyHubAppInner() {
         }
         const chapterGroups = detectChapters(extracted.slides, title);
         const moduleOutputs = [];
-        const modules = chapterGroups.map((group, idx) => {
+        const modules = await Promise.all(chapterGroups.map(async (group, idx) => {
           onProgress?.({
-            label: "BUILDING YOUR COURSE...",
+            label: "CLASSIFYING CONTENT...",
             chapter: `CH·${String(idx + 1).padStart(2, "0")} — ${(group.title || `Chapter ${idx + 1}`).toUpperCase()}`,
           });
           const classified = classifySlides(group.slides);
+          onProgress?.({
+            label: "BUILDING OUTPUT...",
+            chapter: `CH·${String(idx + 1).padStart(2, "0")} — ${(group.title || `Chapter ${idx + 1}`).toUpperCase()}`,
+          });
           const output = buildOutput(classified);
+          let finalOutput = output;
+          if (hasApiKey() && output.contentCards.length > 0) {
+            onProgress?.({
+              label: "ENHANCING WITH AI...",
+              chapter: `CH·${String(idx + 1).padStart(2, "0")} — ${(group.title || `Chapter ${idx + 1}`).toUpperCase()}`,
+            });
+            const aiResult = await enhanceWithClaude(output);
+            finalOutput = mergeEnhancedOutput(output, aiResult);
+            if (aiResult) {
+              console.log(
+                "[AI] Enhanced:",
+                "cleaned",
+                aiResult.definitions?.length || 0,
+                "added",
+                aiResult.newDefinitions?.length || 0
+              );
+            }
+          }
           console.log("[PPTX] Import output:", output);
           console.log("[PPTX] Taking pipeline path:", !!output);
-          const contentData = buildChapterContent(output);
-          const body = output.notesReviewBlock?.text || "";
+          const contentData = buildChapterContent(finalOutput);
+          const body = finalOutput.notesReviewBlock?.text || "";
           const moduleId = uid("m");
-          moduleOutputs.push({ output, moduleId });
-          console.log("[CONTENT] Writing contentData to module:", `chapter-${idx + 1}`, "cards:", output.contentCards.length);
+          moduleOutputs.push({ output: finalOutput, moduleId });
+          console.log(
+            "[CONTENT] Writing contentData to module:",
+            `chapter-${idx + 1}`,
+            "cards:",
+            finalOutput.contentCards.length
+          );
           return {
             id: moduleId,
             label: `Notes ${idx + 1}`,
@@ -279,7 +311,7 @@ function StudyHubAppInner() {
             contentData,
             body,
           };
-        });
+        }));
         const course = ensureUserCourse({
           id: uid("uc"),
           name: title,
