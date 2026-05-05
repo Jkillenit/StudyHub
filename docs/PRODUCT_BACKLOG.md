@@ -57,18 +57,26 @@ Study Hub is designed local-first. Every core feature works without an Anthropic
 |----|---------|--------|------------|-----------|------|
 | **UI-001** | Formulas page — Bootstrap layout (`Container`, `Alert`, cards) | 2 | **1** | ~0.5 d | `UI` |
 | **UI-002** | Materials offcanvas — align with hub patterns | 2 | **1** | ~0.5 d | `UI` |
+| **CAL-002** | Calendar quick view — context panel widget showing next 3-5 upcoming assignments across all courses, color coded, always visible while studying | 4 | **1** | ~1 d | `local-first` |
+| **EST-001** | Assignment completion estimate — category-based time defaults (homework, essay, lab, reading), editable per assignment, shown in assignment detail view | 3 | **1** | ~1 d | `local-first` |
 | **UI-003** | AI assistant — React Bootstrap `Modal` | 3 | **2** | ~1 d | `UI` |
 | **QZ-001** | Flashcard card editor — inline front/back edit without leaving drill | 3 | **2** | ~1 d | `content`, `UI` |
+| **CAL-003** | Syllabus date extraction — parse exam dates, quiz schedules, assignment deadlines from syllabus PDF/DOCX into calendar automatically. Local rules + AI-enhanced. Extends SYL-001. | 4 | **2** | ~2 d | `local-first` `AI-optional` |
+| **EST-003** | AI assignment scope estimate — Claude reads assignment description, estimates completion time based on scope and type. Requires API key. Supplements EST-001 defaults. | 3 | **2** | ~1 d | `AI-optional` |
+| **EST-004** | Session history tracking — log actual time spent per assignment on completion. Use to calibrate EST-001 defaults over time. "This took you 2.8 hours last time" feedback loop. | 3 | **2** | ~2 d | `local-first` |
 | **QZ-002** | End-of-session summary screen — known/again breakdown, weak card list, review again shortcut | 4 | **2** | ~1–2 d | `UI`, `content` |
 | **UI-004** | User courses shell — Navbar / Nav / Collapse / Forms (match OM300) | 3 | **3** | ~1–2 d | `UI` |
 | **B2** | PDF text extraction + in-app read view | 4 | **3** | ~1–2 wk | `local-first`, `Electron` |
 | **B3** | PPTX slide text extraction | 3 | **3** | ~1 wk | `local-first` |
+| **CAL-001** | Semester calendar — week and month views, all courses, importance-weighted color coding (component weight × urgency score), manual entry, mark complete | 5 | **3** | ~1 wk | `local-first` |
+| **EST-002** | Exam study time estimate — computed from SM-2 mastery data. Cards due + unmastered cards × average session time = total estimate. Splits into daily recommended sessions between now and exam date. Requires QZ-005 (SM-2) complete. | 5 | **3** | ~1 wk | `local-first` |
 | **B3-B** | PPTX AI enhancement — Claude API classifies unclassified content, ENHANCE WITH AI button, requires API key | 4 | **3** | ~3 d | `AI-optional` | 📋 Planned |
 | **QZ-003** | Filtered drill modes — by chapter, weak cards only, recent cards, exam cram cross-chapter | 4 | **3** | ~2–3 d | `content`, `local-first` |
 | **QZ-004** | Session history + drill streak — days drilled, cards per session, visible in context panel | 3 | **3** | ~2–3 d | `content`, `local-first` |
 | **INF-001** | Migrate localStorage → better-sqlite3 via Electron IPC bridge | 5 | **3** | ~3–5 d | `infra` `local-first` |
 | **QZ-006** | Deck export — CSV and Anki-compatible .apkg export | 3 | **4** | ~1 wk | `local-first`, `Electron` |
-| **B3-A** | PPTX local extraction + classification (officeparser AST, 4-type classifier, bold term detection, chapter + course import, review block) | 5 | **3** | ~1 wk | `local-first` `Electron` | 🔄 In progress |
+| **CAL-004** | Blackboard assignment sync — live due dates from Blackboard via C3, auto-maps to grade components and calendar. | 5 | **4** | ~1 wk | `Electron` |
+| **B3-A** | PPTX local extraction + classification (officeparser AST, 4-type classifier, bold term detection, chapter + course import, review block) | 5 | **3** | ~1 wk | `local-first` `Electron` | ✓ Done |
 | **NT-003** | Export chapter notes as plain text / markdown — copy to clipboard, one button | 3 | **1** | ~0.5 d | `content` | ✓ Done |
 | **NT-002** | Notes autosave + floating bubble toolbar + inline glossary highlighting (Option A — on save) | 4 | **2** | ~2 d | `content` | ✓ Done |
 | **NT-004** | AI-assisted notes — summarize, expand, simplify selected text via Claude API | 4 | **3** | ~1 wk | `AI-optional` `content` |
@@ -90,7 +98,8 @@ _Time is rough engineering time for a solo/small pass, not a guarantee._
 |-------|--------|
 | **UI overhaul** (UI-001–004, shared chapter `Card` → React Bootstrap, Quizlet/flashcards, Final review chrome, glossary panel button, lazy-load spinner) | **Complete** |
 | **Phase 1a — Notes editor** (NT-001 TipTap editor, NT-002 glossary highlighting, NT-003 export) | **Complete** |
-| **Phase 1b-A — PPTX local pipeline** | 🔄 In progress |
+| **Phase 1b-A — PPTX local pipeline** | ✓ Complete |
+| **Phase 1b classifier improvements** (term cleaning, deduplication, confidence scoring, collapsible cards, glossary auto-population, flashcard merge with source tagging, search index integration) | ✓ Complete |
 | **NT-002 — inline glossary highlighting** | **Done** |
 | **B2 — PDF** | **In progress** — Phase 1 shipped: main-process text via `pdf-parse` (`studyhub:extract-pdf-text`), preload `extractPdfText`, Materials **Read text** modal. Remaining: in-document search, large-file tuning, optional embedded PDF.js viewer, OCR path (ties **D1**). |
 
@@ -156,6 +165,43 @@ Optional “extra variant” only; core loop stays local. *(See roadmap for full
 | **Tags** | UI, content |
 
 Triggered when user reaches the last card in a deck pass and clicks KNOW IT or AGAIN on the final card. Full-screen overlay on `--sh-base`. Shows: total cards drilled, known count in green, again count in amber, list of flagged card fronts, session duration in monospace, and two CTAs — "REVIEW WEAK CARDS" (starts filtered deck of again-flagged cards) and "DONE" (returns to normal drill view with deck reset to front face). No persistence required — session state only.
+
+---
+
+## EST-002 — Exam study time estimate (expanded)
+
+| Field | Value |
+|-------|-------|
+| Impact | 5 |
+| Difficulty | 3 |
+| Est. time | ~1 week |
+| Prerequisite | QZ-005 (SM-2) must be complete |
+| Tags | local-first |
+
+Computation:
+
+For each chapter covered by the exam:
+- cardsNeedingReview = cards where next_review <= examDate (from SM-2 mastery table)
+- cardsUnmastered = cards with repetitions < 3
+- cardsMastered = cards with repetitions >= 3 and ease_factor > 2.0
+
+timePerReviewCard = avgSessionTime / sessionCards (derived from session history, default 2.5 min)
+timePerLearningCard = timePerReviewCard x 3.2 (learning takes ~3x longer than review)
+
+totalEstimate =
+- (cardsNeedingReview x timePerReviewCard) +
+- (cardsUnmastered x timePerLearningCard)
+
+recommendedDailySchedule = split totalEstimate evenly across days between today and (examDate - 1), capped at 2 hours per day.
+
+Surface: assignment detail view for exam-type components. Shows estimate, daily breakdown, START REVIEW SESSION button that opens filtered drill covering exam chapters only.
+
+This closes the full loop:
+- Syllabus -> grade weights + exam scope
+- Mastery data -> what needs work
+- Estimate -> how long it will take
+- Scheduled sessions -> when to study
+- Filtered drill -> the actual studying
 
 ---
 

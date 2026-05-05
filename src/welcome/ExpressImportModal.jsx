@@ -19,6 +19,7 @@ export function ExpressImportModal({ open, onClose, onExpressComplete }) {
   const [expressLabel, setExpressLabel] = useState("");
   const [processingLabel, setProcessingLabel] = useState("");
   const [chapterLabel, setChapterLabel] = useState("");
+  const [expressError, setExpressError] = useState("");
   const [dragExpress, setDragExpress] = useState(false);
   const completeRef = useRef(onExpressComplete);
   completeRef.current = onExpressComplete;
@@ -29,6 +30,7 @@ export function ExpressImportModal({ open, onClose, onExpressComplete }) {
       setExpressLabel("");
       setProcessingLabel("");
       setChapterLabel("");
+      setExpressError("");
       setDragExpress(false);
     }
   }, [open]);
@@ -48,29 +50,47 @@ export function ExpressImportModal({ open, onClose, onExpressComplete }) {
     });
   }, []);
 
-  const handleFile = useCallback(
-    (file) => {
-      if (!file) return;
-      const name = file.name || "file";
-      const path = typeof file.path === "string" && file.path ? file.path : undefined;
-      void runExpressFinish(name, path);
+  const handleFileSelected = useCallback(
+    (filePath) => {
+      if (!filePath) return;
+      const ext = String(filePath).split(".").pop().toLowerCase();
+      console.log("[IMPORT] File selected:", filePath);
+      console.log("[IMPORT] Extension:", ext);
+
+      const base = String(filePath).split(/[/\\]/).pop() || String(filePath);
+      setExpressError("");
+      void runExpressFinish(base, String(filePath));
     },
     [runExpressFinish]
   );
 
-  const onPickFiles = useCallback(async () => {
+  const handleBrowseFiles = useCallback(async () => {
     const bridge = typeof window !== "undefined" ? window.studyHub : null;
-    if (!bridge?.pickFiles) return;
-    try {
-      const paths = await bridge.pickFiles(EXPRESS_FILTERS);
-      if (!paths?.length) return;
-      const p = paths[0];
-      const base = p.split(/[/\\]/).pop() || p;
-      void runExpressFinish(base, p);
-    } catch {
-      /* ignore */
+    if (bridge?.openFileDialog) {
+      const result = await bridge.openFileDialog({
+        filters: [
+          { name: "PPTX Files", extensions: ["pptx"] },
+          { name: "PDF Files", extensions: ["pdf"] },
+          { name: "All Supported", extensions: ["pptx", "pdf", "docx", "zip"] },
+        ],
+      });
+      if (!result?.canceled && result?.filePath) {
+        handleFileSelected(result.filePath);
+      }
+      return;
     }
-  }, [runExpressFinish]);
+
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".pptx,.pdf,.docx,.zip";
+    input.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      console.warn("[IMPORT] Browser mode: file.path unavailable. Run in Electron for full import.");
+      handleFileSelected(file.path || file.name);
+    };
+    input.click();
+  }, [handleFileSelected]);
 
   const onRootDragOver = (e) => {
     e.preventDefault();
@@ -88,8 +108,20 @@ export function ExpressImportModal({ open, onClose, onExpressComplete }) {
     e.preventDefault();
     e.stopPropagation();
     setDragExpress(false);
-    const f = e.dataTransfer?.files?.[0];
-    if (f) handleFile(f);
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    const filePath = file.path;
+    if (
+      !filePath ||
+      typeof filePath !== "string" ||
+      (!filePath.includes("/") && !filePath.includes("\\"))
+    ) {
+      setExpressError(
+        "Drag-and-drop requires running in the Electron app. Click BROWSE FILES above to select your file."
+      );
+      return;
+    }
+    handleFileSelected(filePath);
   };
 
   return (
@@ -114,25 +146,19 @@ export function ExpressImportModal({ open, onClose, onExpressComplete }) {
               <div className="sh-welcome-panel-label sh-welcome-panel-label--amber">EXPRESS</div>
               <pre className="sh-welcome-ascii">{ASCII_EXPRESS}</pre>
               <div className="sh-welcome-sublabel">PPTX · PDF · BLACKBOARD ZIP</div>
-              <input
-                type="file"
-                className="sh-welcome-file-input"
-                accept=".pptx,.pdf,.zip,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/pdf,application/zip"
-                aria-label="Choose file for express import"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleFile(f);
-                  e.target.value = "";
-                }}
-              />
             </div>
             <button
               type="button"
               className="sh-btn-ghost sh-btn-ghost-amber sh-express-modal-browse"
-              onClick={() => void onPickFiles()}
+              onClick={() => void handleBrowseFiles()}
             >
               BROWSE FILES…
             </button>
+            {expressError ? (
+              <div className="mono mt-2" style={{ color: "var(--sh-amber)", fontSize: 10 }}>
+                {expressError}
+              </div>
+            ) : null}
           </div>
         )}
       </Modal.Body>

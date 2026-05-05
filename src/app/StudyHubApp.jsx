@@ -152,16 +152,70 @@ function StudyHubAppInner() {
     [addCourse]
   );
 
+  function buildChapterContent(output) {
+    const sections = [];
+    if ((output?.contentCards || []).length > 0) {
+      sections.push({
+        type: "definitions",
+        title: "DEFINITIONS",
+        items: output.contentCards.map((card) => ({
+          term: card.term,
+          definition: card.definition,
+          id: card.id,
+          source: "pptx",
+        })),
+      });
+    }
+    for (const section of output?.contentSections || []) {
+      sections.push({
+        type: "section",
+        title: section.title,
+        items: section.items,
+        source: "pptx",
+      });
+    }
+    if ((output?.contentFormulas || []).length > 0) {
+      sections.push({
+        type: "formulas",
+        title: "FORMULAS",
+        items: output.contentFormulas.map((f) => ({
+          formula: f.formula,
+          context: f.context,
+          source: "pptx",
+        })),
+      });
+    }
+    return sections;
+  }
+
   const onHubExpressComplete = useCallback(
     async ({ fileName, absPath, onProgress }) => {
       const title = titleCaseFromFilename(fileName);
-      const paths = absPath ? [absPath] : [];
       const bridge = typeof window !== "undefined" ? window.studyHub : null;
-      const ext = (String(absPath || "").split(".").pop() || "").toLowerCase();
+      if (!absPath || typeof absPath !== "string") {
+        console.error("[PPTX] No file path available:", absPath);
+        try {
+          sessionStorage.setItem(
+            "studyhub.pendingToast",
+            "Drag-and-drop requires running in the Electron app. Click BROWSE FILES above to select your file."
+          );
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+      const paths = [absPath];
+      const ext = (absPath.split(".").pop() || "").toLowerCase();
+      console.log("[PPTX] absPath value:", absPath);
+      console.log("[PPTX] absPath type:", typeof absPath);
+      console.log("[PPTX] ext extracted:", ext);
+      console.log("[PPTX] bridge.extractPptx exists:", !!bridge?.extractPptx);
       if (ext === "pptx" && bridge?.extractPptx) {
         onProgress?.({ label: "EXTRACTING CONTENT..." });
         const extracted = await bridge.extractPptx(absPath);
+        console.log("[PPTX] Express extracted:", extracted);
         if (!extracted?.success || !extracted?.slides?.length) {
+          console.log("[PPTX] Taking pipeline path:", false);
           addCourse(title, "", { materialPaths: paths });
           try {
             sessionStorage.setItem("studyhub.pendingToast", "Import attached to Materials. PPTX parsing failed.");
@@ -178,11 +232,16 @@ function StudyHubAppInner() {
           });
           const classified = classifySlides(group.slides);
           const output = buildOutput(classified);
-          const body = buildContentText(output);
+          console.log("[PPTX] Import output:", output);
+          console.log("[PPTX] Taking pipeline path:", !!output);
+          const contentData = buildChapterContent(output);
+          const body = output.notesReviewBlock?.text || "";
+          console.log("[CONTENT] Writing contentData to module:", `chapter-${idx + 1}`, "cards:", output.contentCards.length);
           return {
             id: uid("m"),
             label: `Notes ${idx + 1}`,
             title: group.title || `Chapter ${idx + 1}`,
+            contentData,
             body,
           };
         });
@@ -204,6 +263,7 @@ function StudyHubAppInner() {
           /* ignore */
         }
       } else {
+        console.log("[PPTX] Taking pipeline path:", false);
         addCourse(title, "", { materialPaths: paths });
         try {
           sessionStorage.setItem("studyhub.pendingToast", "File attached to Materials.");

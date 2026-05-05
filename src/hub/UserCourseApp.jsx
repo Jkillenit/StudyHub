@@ -7,8 +7,85 @@ import { loadJson, saveJson, STORAGE } from "../lib/storage.js";
 import { appendMaterialPaths, ensureUserCourse, uid } from "./userCourseModel.js";
 import { useShell } from "../shell/ShellContext.jsx";
 import { usePptxImport } from "../pptx/usePptxImport.js";
-import { buildContentText, buildOutput } from "../pptx/pptxOutputBuilder.js";
+import { buildOutput } from "../pptx/pptxOutputBuilder.js";
 import { classifySlides, textToSlides } from "../pptx/pptxClassifier.js";
+
+function getFirstSentence(text) {
+  const match = String(text || "").match(/^[^.!?]+[.!?]/);
+  return match ? match[0] : String(text || "");
+}
+
+function DefinitionCard({ item }) {
+  const [expanded, setExpanded] = useState(false);
+  const firstSentence = getFirstSentence(item.definition);
+  const hasMore = String(item.definition || "").length > firstSentence.length + 2;
+  const confidenceColor = {
+    high: "var(--sh-green)",
+    medium: "var(--sh-amber)",
+    low: "var(--sh-text-dim)",
+  }[item.confidence || "high"];
+
+  return (
+    <div className="def-card sh-pptx-card">
+      <div className="def-card-header">
+        <div className="def-term">{item.term}</div>
+        <div
+          className="sh-confidence-dot"
+          style={{ background: confidenceColor }}
+          title={`${item.confidence || "high"} confidence`}
+        />
+      </div>
+      <div className="def-body">
+        {firstSentence}
+        {hasMore && !expanded ? (
+          <span className="sh-expand-btn" onClick={() => setExpanded(true)}>
+            {" "}more →
+          </span>
+        ) : null}
+        {expanded ? (
+          <span>
+            {String(item.definition || "").slice(firstSentence.length)}
+            <span className="sh-expand-btn" onClick={() => setExpanded(false)}>
+              {" "}← less
+            </span>
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function addTermsToGlossary(courseData, moduleId, cards) {
+  const existingTerms = new Set(
+    (courseData?.glossary || []).map((g) => String(g.term || "").toLowerCase().trim())
+  );
+  const newTerms = (cards || [])
+    .filter((card) => !existingTerms.has(String(card.term || "").toLowerCase().trim()))
+    .map((card) => ({
+      id: `gls_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      term: card.term,
+      definition: card.definition,
+      confidence: card.confidence || "high",
+      source: "pptx",
+      moduleId,
+      addedAt: new Date().toISOString(),
+    }));
+  return { ...courseData, glossary: [...(courseData?.glossary || []), ...newTerms] };
+}
+
+function mergeFlashcards(existingCards, newCards, moduleId) {
+  const current = Array.isArray(existingCards) ? existingCards : [];
+  const existingFronts = new Set(current.map((c) => String(c.front || "").toLowerCase().trim()));
+  const dedupedNew = (newCards || [])
+    .filter((card) => !existingFronts.has(String(card.front || "").toLowerCase().trim()))
+    .map((card) => ({
+      ...card,
+      source: card.source || "pptx",
+      moduleId,
+      addedAt: new Date().toISOString(),
+    }));
+  return [...current, ...dedupedNew];
+}
 
 export function UserCourseApp({
   course,
@@ -25,13 +102,14 @@ export function UserCourseApp({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [ctxCollapsed, setCtxCollapsed] = useState(false);
-  const [notesSurface, setNotesSurface] = useState(false);
+  const [mainTab, setMainTab] = useState("content");
   const [expressBusy, setExpressBusy] = useState(false);
   const [expressLabel, setExpressLabel] = useState("");
   const [toastMsg, setToastMsg] = useState("");
   const [importError, setImportError] = useState("");
   const [reviewMeta, setReviewMeta] = useState(null);
   const [apiConfigured, setApiConfigured] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState("all");
   const notesRef = useRef(null);
   const wasShellLoading = useRef(false);
   const shellSkelVis = useDelayedSkeletonVisible(!!courseShellLoad, courseShellLoad ? "shell" : "");
@@ -80,11 +158,10 @@ export function UserCourseApp({
     setDisabledIds(new Set(ec.disabledModuleIds || []));
     setCompletedIds(new Set(ec.completedModuleIds || []));
     setActive(ec.activeModuleId);
-    setNotesSurface(false);
   }, [course.id]);
 
   useEffect(() => {
-    setNotesSurface(false);
+    setMainTab("content");
   }, [active]);
 
   useEffect(() => {
@@ -118,6 +195,17 @@ export function UserCourseApp({
   }, [course.id]);
 
   useEffect(() => {
+    const onTermNav = (e) => {
+      const d = e.detail;
+      if (d?.courseId !== course.id) return;
+      if (d?.moduleId) setActive(d.moduleId);
+      setMainTab("content");
+    };
+    window.addEventListener("studyhub-open-content-tab", onTermNav);
+    return () => window.removeEventListener("studyhub-open-content-tab", onTermNav);
+  }, [course.id]);
+
+  useEffect(() => {
     const onSettings = () => setSettingsOpen(true);
     window.addEventListener("studyhub-open-settings", onSettings);
     return () => window.removeEventListener("studyhub-open-settings", onSettings);
@@ -145,6 +233,43 @@ export function UserCourseApp({
     }
   }, [course.id, materialPathsKey]);
 
+  function buildChapterContent(output) {
+    const sections = [];
+    if ((output?.contentCards || []).length > 0) {
+      sections.push({
+        type: "definitions",
+        title: "DEFINITIONS",
+        items: output.contentCards.map((card) => ({
+          term: card.term,
+          definition: card.definition,
+          id: card.id,
+          confidence: card.confidence || "high",
+          source: "pptx",
+        })),
+      });
+    }
+    for (const section of output?.contentSections || []) {
+      sections.push({
+        type: "section",
+        title: section.title,
+        items: section.items,
+        source: "pptx",
+      });
+    }
+    if ((output?.contentFormulas || []).length > 0) {
+      sections.push({
+        type: "formulas",
+        title: "FORMULAS",
+        items: output.contentFormulas.map((f) => ({
+          formula: f.formula,
+          context: f.context,
+          source: "pptx",
+        })),
+      });
+    }
+    return sections;
+  }
+
   const runChapterExpressImport = useCallback(async () => {
     const bridge = typeof window !== "undefined" ? window.studyHub : null;
     if (!bridge?.pickFiles) {
@@ -158,7 +283,15 @@ export function UserCourseApp({
       ]);
       if (!paths?.length) return;
       const p = paths[0];
+      if (!p || typeof p !== "string") {
+        console.error("[PPTX] No file path available:", p);
+        setImportError(
+          "Drag-and-drop requires running in the Electron app. Click BROWSE FILES above to select your file."
+        );
+        return;
+      }
       const base = p.split(/[/\\]/).pop() || p;
+      const targetModuleId = active;
       setExpressLabel(base);
       setExpressBusy(true);
       setImportError("");
@@ -166,33 +299,61 @@ export function UserCourseApp({
       let nextCourse = appendMaterialPaths(cur, [p]);
       if (bridge.registerMaterialPaths) void bridge.registerMaterialPaths([p]);
       const ext = (p.split(".").pop() || "").toLowerCase();
+      console.log("[PPTX] absPath value:", p);
+      console.log("[PPTX] absPath type:", typeof p);
+      console.log("[PPTX] ext extracted:", ext);
+      console.log("[PPTX] bridge.extractPptx exists:", !!bridge?.extractPptx);
 
       if (ext === "pptx") {
-        const output = await importPptx(p, active);
+        const output = await importPptx(p, targetModuleId);
+        console.log("[PPTX] Import output:", output);
+        console.log("[PPTX] Taking pipeline path:", !!output);
         if (!output) {
           setImportError(`IMPORT FAILED\n${pptxError || "Could not parse this PPTX file."}\n\n[ TRY AGAIN ]`);
           setExpressBusy(false);
           return;
         }
+        const contentData = buildChapterContent(output);
+        console.log(
+          "[CONTENT] Writing contentData to module:",
+          targetModuleId,
+          "cards:",
+          output.contentCards.length
+        );
         const modules = nextCourse.modules.map((m) => {
-          if (m.id !== active) return m;
-          const add = buildContentText(output);
-          const sep = m.body?.trim() && add ? "\n\n" : "";
-          return { ...m, body: `${m.body || ""}${sep}${add}`.trim() };
+          if (m.id !== targetModuleId) return m;
+          console.log("[PPTX] Applying to chapter:", targetModuleId);
+          console.log("[PPTX] Cards to apply:", output.contentCards.length);
+          const mergedContent = [...(Array.isArray(m.contentData) ? m.contentData : []), ...contentData];
+          const reviewText = output.notesReviewBlock?.text || "";
+          const sep = m.body?.trim() && reviewText ? "\n\n" : "";
+          const body = reviewText ? `${reviewText}${sep}${m.body || ""}`.trim() : m.body || "";
+          return { ...m, contentData: mergedContent, body };
         });
         const blocks = { ...(nextCourse.pptxReviewBlocks || {}) };
         if (output.notesReviewBlock) {
-          blocks[active] = {
+          blocks[targetModuleId] = {
             slideCount: output.notesReviewBlock.slideCount,
             text: output.notesReviewBlock.text,
           };
-          setReviewMeta(blocks[active]);
-          setNotesSurface(true);
+          setReviewMeta(blocks[targetModuleId]);
         } else {
-          delete blocks[active];
+          delete blocks[targetModuleId];
           setReviewMeta(null);
         }
-        nextCourse = { ...nextCourse, modules, pptxReviewBlocks: blocks };
+        const taggedCards = (output.flashcards || []).map((card) => ({ ...card, source: "pptx" }));
+        const flashcards = mergeFlashcards(nextCourse.flashcards || [], taggedCards, targetModuleId);
+        nextCourse = { ...nextCourse, modules, pptxReviewBlocks: blocks, flashcards };
+        nextCourse = addTermsToGlossary(nextCourse, targetModuleId, output.contentCards || []);
+        console.log("[PPTX] Routing:", {
+          contentCards: output.contentCards.length,
+          toContentTab: true,
+          reviewBlock: !!output.notesReviewBlock,
+          toNotesTab: !!output.notesReviewBlock,
+          flashcards: output.flashcards.length,
+          toQzDeck: output.flashcards.length > 0,
+        });
+        if (output.notesReviewBlock) setMainTab("notes");
         setToastMsg(
           `IMPORT COMPLETE\n✓ ${output.stats.cards} cards  ✓ ${output.flashcards.length} flashcards${
             output.stats.unclassified ? `\n↻ ${output.stats.unclassified} slides need review` : ""
@@ -206,7 +367,7 @@ export function UserCourseApp({
         ...nextCourse,
         disabledModuleIds: [...(cur.disabledModuleIds || [])],
         completedModuleIds: [...(cur.completedModuleIds || [])],
-        activeModuleId: cur.activeModuleId,
+        activeModuleId: targetModuleId,
       });
       window.setTimeout(() => setToastMsg(""), 4500);
       setExpressBusy(false);
@@ -220,18 +381,20 @@ export function UserCourseApp({
   }, [active, importPptx, onChangeCourse, resetPptx]);
 
   const moveReviewToContent = useCallback(() => {
-    const review = reviewMeta;
-    if (!review?.text) return;
-    const slides = textToSlides(review.text, currentModule?.title || "Notes Review");
+    const activeModule = ensureUserCourse(courseRef.current).modules.find((m) => m.id === active);
+    const sourceText = String(activeModule?.body || reviewMeta?.text || "").trim();
+    if (!sourceText) return;
+    const slides = textToSlides(sourceText, activeModule?.title || "Notes Review");
     const classified = classifySlides(slides);
     const output = buildOutput(classified);
-    const add = buildContentText(output);
-    if (add) {
+    const contentData = buildChapterContent(output);
+    if (contentData.length) {
       const cur = ensureUserCourse(courseRef.current);
       const modules = cur.modules.map((m) => {
         if (m.id !== active) return m;
-        const sep = m.body?.trim() ? "\n\n" : "";
-        return { ...m, body: `${m.body || ""}${sep}${add}`.trim() };
+        const mergedContent = [...(Array.isArray(m.contentData) ? m.contentData : []), ...contentData];
+        const remainingText = output.notesReviewBlock?.text || "";
+        return { ...m, contentData: mergedContent, body: remainingText };
       });
       const blocks = { ...(cur.pptxReviewBlocks || {}) };
       if (output.notesReviewBlock?.text) {
@@ -240,19 +403,21 @@ export function UserCourseApp({
       } else {
         delete blocks[active];
         setReviewMeta(null);
-        setToastMsg("CONTENT UPDATED");
-        window.setTimeout(() => setToastMsg(""), 3000);
       }
+      const taggedCards = (output.flashcards || []).map((card) => ({ ...card, source: "pptx" }));
+      const flashcards = mergeFlashcards(cur.flashcards || [], taggedCards, active);
+      let nextCourse = { ...cur, modules, pptxReviewBlocks: blocks, flashcards };
+      nextCourse = addTermsToGlossary(nextCourse, active, output.contentCards || []);
+      setToastMsg(`CONTENT UPDATED · ${output.contentCards.length} cards added`);
+      window.setTimeout(() => setToastMsg(""), 3000);
       onChangeCourse({
-        ...cur,
-        modules,
-        pptxReviewBlocks: blocks,
+        ...nextCourse,
         disabledModuleIds: [...disabledIds],
         completedModuleIds: [...completedIds],
         activeModuleId: active,
       });
     }
-  }, [active, completedIds, currentModule?.title, disabledIds, onChangeCourse, reviewMeta]);
+  }, [active, completedIds, disabledIds, onChangeCourse, reviewMeta]);
 
   useEffect(() => {
     const cur = ensureUserCourse(courseRef.current);
@@ -285,8 +450,16 @@ export function UserCourseApp({
   }, [visibleChapters, active]);
 
   const currentModule = c.modules.find((m) => m.id === active);
+  const userFlashcards = Array.isArray(c.flashcards) ? c.flashcards : [];
+  const filteredFlashcards =
+    sourceFilter === "all"
+      ? userFlashcards
+      : userFlashcards.filter((card) =>
+          sourceFilter === "manual" ? (card.source || "manual") === "manual" : card.source === "pptx"
+        );
+  const currentContentData = Array.isArray(currentModule?.contentData) ? currentModule.contentData : [];
   const bodyEmpty = !(currentModule?.body || "").trim();
-  const showChapterEmpty = bodyEmpty && !notesSurface;
+  const showChapterEmpty = currentContentData.length === 0 && bodyEmpty;
   const fontScale = FONT_STEPS[fontStep];
   const contentLineHeight = comfortable ? 1.75 : 1.55;
   const totalVisible = visibleChapters.length;
@@ -431,6 +604,87 @@ export function UserCourseApp({
     return () => window.removeEventListener("keydown", onKey);
   }, [goChapter, markComplete]);
 
+  useEffect(() => {
+    console.log(
+      "[CONTENT] activeModule contentData:",
+      currentModule?.contentData?.length,
+      currentModule?.contentData?.[0]
+    );
+  }, [currentModule]);
+
+  const handleImportFile = useCallback(() => {
+    void runChapterExpressImport();
+  }, [runChapterExpressImport]);
+
+  function renderContentData(contentData) {
+    if (!contentData || contentData.length === 0) {
+      return (
+        <div className="sh-chapter-empty">
+          <pre className="sh-empty-ascii">{`┌─────────────────────┐
+│   NO CONTENT YET    │
+│                     │
+│   DROP A FILE  →    │
+│   OR WRITE NOTES    │
+└─────────────────────┘`}</pre>
+          <div className="sh-empty-actions">
+            <button className="sh-btn-ghost sh-btn-ghost-amber" onClick={handleImportFile}>
+              + IMPORT FILE
+            </button>
+            <button className="sh-btn-ghost" onClick={() => setMainTab("notes")}>
+              ✎ WRITE NOTES
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return contentData.map((section, i) => {
+      if (section.type === "definitions") {
+        return (
+          <div key={i} className="sh-content-section">
+            <div className="sh-section-label">{section.title}</div>
+            {section.items.map((item) => (
+              <DefinitionCard key={item.id} item={item} />
+            ))}
+          </div>
+        );
+      }
+
+      if (section.type === "section") {
+        return (
+          <div key={i} className="sh-content-section">
+            <div className="sh-section-label">{section.title}</div>
+            <div className="def-card">
+              {section.items.map((item, j) => (
+                <div key={j} className="def-body" style={{ marginBottom: 4 }}>
+                  • {item}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      }
+
+      if (section.type === "formulas") {
+        return (
+          <div key={i} className="sh-content-section">
+            <div className="sh-section-label">{section.title}</div>
+            {section.items.map((item, j) => (
+              <div key={j} className="def-card sh-formula-block">
+                <div className="def-term" style={{ fontFamily: "monospace" }}>
+                  {item.formula}
+                </div>
+                {item.context ? <div className="def-body">{item.context}</div> : null}
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      return null;
+    });
+  }
+
   return (
     <>
       <style>{`
@@ -438,7 +692,7 @@ export function UserCourseApp({
           .sh-sidebar, .sh-ctx, .sh-topbar, .sh-statusbar { display: none !important; }
         }
       `}</style>
-      <div className="sh-workspace sh-workspace--cyan">
+      <div className="sh-workspace sh-workspace--cyan sh-app-usercourse">
         <aside className={`sh-sidebar sh-scroll-hover ${sidebarCollapsed ? "collapsed" : ""}`}>
           {shellSkelVis ? (
             <CourseSidebarSkeleton />
@@ -494,6 +748,14 @@ export function UserCourseApp({
               <h1 className="sh-main-title">{currentModule?.title || "Notes"}</h1>
               <span className="sh-ch-tag">{currentModule ? chNum(currentModule.id) : ""}</span>
             </div>
+            <div className="sh-tab-row">
+              <button type="button" className={`sh-tab sh-usercourse-tab ${mainTab === "content" ? "active" : ""}`} onClick={() => setMainTab("content")}>
+                CONTENT
+              </button>
+              <button type="button" className={`sh-tab sh-usercourse-tab ${mainTab === "notes" ? "active" : ""}`} onClick={() => setMainTab("notes")}>
+                NOTES
+              </button>
+            </div>
           </div>
           <div className="sh-main-body sh-scroll-hover position-relative">
             {toastMsg ? (
@@ -534,30 +796,6 @@ export function UserCourseApp({
                   </button>
                 </div>
               </div>
-            ) : showChapterEmpty ? (
-              <div className={`sh-main-empty-wrap ${mainEnterClass}`}>
-                <pre className="sh-empty-ascii-box">{`┌──────────────────────┐
-│   NO CONTENT YET     │
-│                      │
-│   DROP A FILE  →     │
-│   OR WRITE NOTES     │
-└──────────────────────┘`}</pre>
-                <div className="sh-empty-actions">
-                  <button type="button" className="sh-btn-ghost sh-btn-ghost-amber ctx-btn" onClick={() => void runChapterExpressImport()}>
-                    + IMPORT FILE
-                  </button>
-                  <button
-                    type="button"
-                    className="sh-btn-ghost ctx-btn"
-                    onClick={() => {
-                      setNotesSurface(true);
-                      window.requestAnimationFrame(() => notesRef.current?.focus());
-                    }}
-                  >
-                    ✎ WRITE NOTES
-                  </button>
-                </div>
-              </div>
             ) : (
               <div
                 className={`font-sans ${mainEnterClass}`}
@@ -566,48 +804,59 @@ export function UserCourseApp({
                   lineHeight: contentLineHeight,
                 }}
               >
-                <div className="ctx-label" style={{ marginBottom: 12 }}>
-                  NOTES (LOCAL)
-                </div>
-                {reviewMeta ? (
-                  <div className="sh-review-banner">
-                    <span>{`REVIEW NEEDED — ${reviewMeta.slideCount} slides could not be auto-classified. Edit below, then click MOVE TO CONTENT.`}</span>
-                    <div className="d-flex gap-2 align-items-center">
-                      {apiConfigured ? (
-                        <button
-                          type="button"
-                          className="sh-review-move-btn"
-                          style={{ opacity: 0.7 }}
-                          onClick={() => {
-                            setToastMsg("AI enhancement coming in Phase 1b-B");
-                            window.setTimeout(() => setToastMsg(""), 3000);
-                          }}
-                        >
-                          ✦ ENHANCE WITH AI
-                        </button>
-                      ) : null}
-                      <button type="button" className="sh-review-move-btn" onClick={moveReviewToContent}>
-                        MOVE TO CONTENT
-                      </button>
+                {mainTab === "content" ? (
+                  <>
+                    <div className="ctx-label" style={{ marginBottom: 12 }}>
+                      CONTENT (LOCAL)
                     </div>
-                  </div>
-                ) : null}
-                <textarea
-                  ref={notesRef}
-                  value={currentModule?.body || reviewMeta?.text || ""}
-                  onChange={(e) => updateModuleBody(e.target.value)}
-                  className="sh-input font-sans w-100"
-                  placeholder="TYPE NOTES…"
-                  style={{
-                    minHeight: "55vh",
-                    resize: "vertical",
-                    border: "1px solid var(--sh-border)",
-                    background: "var(--sh-base)",
-                    color: "var(--sh-text-secondary)",
-                    borderRadius: 2,
-                    padding: 12,
-                  }}
-                />
+                    <div className="main-content">{renderContentData(currentModule?.contentData)}</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="ctx-label" style={{ marginBottom: 12 }}>
+                      NOTES (LOCAL)
+                    </div>
+                    {reviewMeta ? (
+                      <div className="sh-review-banner">
+                        <span>{`REVIEW NEEDED — ${reviewMeta.slideCount} slides could not be auto-classified. Edit below, then click MOVE TO CONTENT.`}</span>
+                        <div className="d-flex gap-2 align-items-center">
+                          {apiConfigured ? (
+                            <button
+                              type="button"
+                              className="sh-review-move-btn"
+                              style={{ opacity: 0.7 }}
+                              onClick={() => {
+                                setToastMsg("AI enhancement coming in Phase 1b-B");
+                                window.setTimeout(() => setToastMsg(""), 3000);
+                              }}
+                            >
+                              ✦ ENHANCE WITH AI
+                            </button>
+                          ) : null}
+                          <button type="button" className="sh-review-move-btn" onClick={moveReviewToContent}>
+                            MOVE TO CONTENT
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                    <textarea
+                      ref={notesRef}
+                      value={currentModule?.body || reviewMeta?.text || ""}
+                      onChange={(e) => updateModuleBody(e.target.value)}
+                      className="sh-input font-sans w-100"
+                      placeholder="TYPE NOTES…"
+                      style={{
+                        minHeight: "55vh",
+                        resize: "vertical",
+                        border: "1px solid var(--sh-border)",
+                        background: "var(--sh-base)",
+                        color: "var(--sh-text-secondary)",
+                        borderRadius: 2,
+                        padding: 12,
+                      }}
+                    />
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -639,6 +888,31 @@ export function UserCourseApp({
             </div>
             <div className="ctx-section">
               <div className="ctx-label">QUICK</div>
+              {userFlashcards.length > 0 ? (
+                <>
+                  <div className="ctx-label">QZ SOURCES</div>
+                  <div className="d-flex gap-2 mb-2">
+                    {[
+                      { id: "all", label: "ALL" },
+                      { id: "manual", label: "MANUAL" },
+                      { id: "pptx", label: "IMPORTED" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        className={`sh-btn-ghost ${sourceFilter === opt.id ? "sh-btn-ghost--active" : ""}`}
+                        style={{ width: "auto", marginBottom: 0, padding: "4px 8px", fontSize: 10 }}
+                        onClick={() => setSourceFilter(opt.id)}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mono mb-2" style={{ fontSize: 10, color: "var(--sh-text-dim)" }}>
+                    {filteredFlashcards.length}/{userFlashcards.length} cards
+                  </p>
+                </>
+              ) : null}
               {(c.materialPaths || []).length > 0 ? (
                 <p className="mono mb-2" style={{ fontSize: 10, color: "var(--sh-text-dim)" }}>
                   MATERIALS · {(c.materialPaths || []).length} FILE(S)

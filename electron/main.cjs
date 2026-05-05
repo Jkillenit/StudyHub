@@ -28,6 +28,27 @@ ipcMain.handle("studyhub:pick-files", async (_evt, filters) => {
   return filePaths;
 });
 
+ipcMain.handle("studyhub:open-file-dialog", async (_evt, options) => {
+  const win = BrowserWindow.getFocusedWindow();
+  const result = await dialog.showOpenDialog(win ?? undefined, {
+    properties: ["openFile"],
+    filters: options?.filters || [
+      {
+        name: "Supported Files",
+        extensions: ["pptx", "pdf", "docx", "zip"],
+      },
+    ],
+  });
+
+  if (result.canceled || !result.filePaths.length) {
+    return { canceled: true, filePath: null };
+  }
+
+  const filePath = result.filePaths[0];
+  allowedReadPaths.add(path.normalize(filePath));
+  return { canceled: false, filePath };
+});
+
 ipcMain.handle("studyhub:read-text", async (_evt, filePath) => {
   const normalized = path.normalize(filePath);
   if (!allowedReadPaths.has(normalized)) {
@@ -140,6 +161,34 @@ ipcMain.handle("studyhub:extract-pptx", async (_evt, filePath) => {
     }
     const ast = await officeParser.parseOffice(normalized, { ignoreNotes: true });
     const slides = groupIntoSlides(Array.isArray(ast?.content) ? ast.content : []);
+    console.log("[PPTX] Total AST nodes:", ast?.content?.length || 0);
+    (ast?.content || []).slice(0, 10).forEach((node, i) => {
+      console.log(
+        `[PPTX] Node ${i}:`,
+        JSON.stringify({
+          type: node?.type,
+          text: node?.text?.slice(0, 80),
+          childCount: node?.children?.length,
+          formatting: node?.formatting,
+        })
+      );
+    });
+    console.log("[PPTX] groupIntoSlides result:", slides.length, "slides");
+    slides.slice(0, 3).forEach((slide, i) => {
+      console.log(
+        `[PPTX] Slide ${i}:`,
+        JSON.stringify({
+          title: slide?.title,
+          nodeCount: slide?.nodes?.length,
+          firstNodeText: slide?.nodes?.[0]?.text?.slice(0, 60),
+        })
+      );
+    });
+    console.log("[PPTX] AST type:", ast?.type);
+    console.log("[PPTX] AST content length:", ast?.content?.length);
+    console.log("[PPTX] First 3 content nodes:", JSON.stringify(ast?.content?.slice(0, 3), null, 2));
+    console.log("[PPTX] groupIntoSlides result length:", slides.length);
+    console.log("[PPTX] First slide:", JSON.stringify(slides[0], null, 2));
     return { success: true, slides };
   } catch (err) {
     return { success: false, error: err?.message || String(err) };
@@ -148,34 +197,52 @@ ipcMain.handle("studyhub:extract-pptx", async (_evt, filePath) => {
 
 function groupIntoSlides(contentNodes) {
   const slides = [];
-  let current = null;
   let slideIndex = 0;
 
-  for (const node of contentNodes) {
-    if (node?.type === "heading") {
-      if (current) slides.push(current);
+  for (const node of contentNodes || []) {
+    const text = String(node?.text || "").trim();
+    if (!text && !Array.isArray(node?.children)) continue;
+
+    if (node?.type === "slide") {
       slideIndex += 1;
-      current = {
+      const childNodes = Array.isArray(node?.children) ? node.children.map((child) => flattenNode(child)) : [];
+      const runs = flattenNode(node).runs || [];
+      const titleFromRuns = runs
+        .map((run) => String(run?.text || "").trim())
+        .find((runText) => runText && runText.length < 80 && !/^\d+$/.test(runText));
+      const title = titleFromRuns || text.split(/\s+/).slice(0, 8).join(" ");
+      slides.push({
         slideNumber: slideIndex,
-        title: node?.text || "",
+        title,
         titleFormatting: node?.formatting || {},
-        nodes: [],
-      };
-    } else {
-      if (!current) {
+        nodes: childNodes.length ? childNodes : [flattenNode(node)],
+      });
+      continue;
+    }
+
+    const isTitle =
+      node?.type === "heading" ||
+      (node?.formatting?.size && Number.parseFloat(node.formatting.size) >= 20 && text.length < 80) ||
+      (node?.formatting?.bold === true && text.length < 80 && (!node?.children || node.children.length === 0)) ||
+      (text === text.toUpperCase() && text.length > 3 && text.length < 60 && /[A-Z]/.test(text));
+
+    if (isTitle || slides.length === 0) {
+      if (!isTitle && slides.length > 0) {
+        slides[slides.length - 1].nodes.push(flattenNode(node || {}));
+      } else {
         slideIndex += 1;
-        current = {
+        slides.push({
           slideNumber: slideIndex,
-          title: "",
-          titleFormatting: {},
+          title: text,
+          titleFormatting: node?.formatting || {},
           nodes: [],
-        };
+        });
       }
-      current.nodes.push(flattenNode(node || {}));
+    } else {
+      slides[slides.length - 1].nodes.push(flattenNode(node || {}));
     }
   }
 
-  if (current) slides.push(current);
   return slides;
 }
 

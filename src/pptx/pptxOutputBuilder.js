@@ -21,6 +21,7 @@ export function buildOutput(classified) {
       id: makeId("pptx", seed, idx),
       term: def.term,
       definition: def.definition,
+      confidence: def.confidence || "high",
       source: "pptx",
     })),
     contentSections: sections.map((section) => ({
@@ -38,6 +39,7 @@ export function buildOutput(classified) {
       id: makeId("pptx_fc", seed, idx),
       front: def.term,
       back: def.definition,
+      source: "pptx",
     })),
     stats: {
       cards: definitions.length,

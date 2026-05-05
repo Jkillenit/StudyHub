@@ -2,7 +2,73 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function cleanTerm(raw) {
+  return String(raw || "")
+    .replace(/^[\-\u2022\*\d\.\)]+\s*/, "")
+    .replace(/[:\-–—]+$/, "")
+    .replace(/\s+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((word) =>
+      word.length > 3
+        ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        : word.toLowerCase()
+    )
+    .join(" ")
+    .trim();
+}
+
+function cleanDefinition(raw) {
+  return String(raw || "")
+    .replace(/^(is |are |was |were |refers to |defined as |the |a |an )/i, "")
+    .replace(/^./, (c) => c.toUpperCase())
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function scoreConfidence(term, definition, method, rawDefinition = "") {
+  const cleanedTerm = String(term || "");
+  const cleanedDefinition = String(definition || "");
+  const linkedVerbStart = /^(is |are |was |were |refers to |defined as )/i.test(
+    String(rawDefinition || "").trim()
+  );
+  if (cleanedTerm.length >= 50) return "low";
+  if (/[^a-zA-Z\s-]/.test(cleanedTerm)) return /\d/.test(cleanedTerm) ? "medium" : "low";
+  if (linkedVerbStart) return "low";
+  if (
+    (method === "bold" || method === "pattern") &&
+    cleanedTerm.length < 50 &&
+    cleanedDefinition.length > 10
+  ) {
+    return "high";
+  }
+  if (/\d/.test(cleanedTerm)) return "medium";
+  return "medium";
+}
+
+function deduplicateDefs(defs) {
+  const seen = new Map();
+  for (const def of defs || []) {
+    const key = String(def.term || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!key) continue;
+    if (!seen.has(key)) {
+      seen.set(key, def);
+    } else {
+      const existing = seen.get(key);
+      if (String(def.definition || "").length > String(existing.definition || "").length) {
+        seen.set(key, def);
+      }
+    }
+  }
+  return Array.from(seen.values());
+}
+
 export function classifySlides(slides) {
+  console.log("[PPTX] Classifying", (slides || []).length, "slides");
+  console.log("[PPTX] First slide sample:", JSON.stringify((slides || [])[0], null, 2));
   const result = {
     definitions: [],
     sections: [],
@@ -27,7 +93,14 @@ export function classifySlides(slides) {
         break;
     }
   }
+  result.definitions = deduplicateDefs(result.definitions);
 
+  console.log("[PPTX] Classification result:", {
+    definitions: result.definitions.length,
+    sections: result.sections.length,
+    formulas: result.formulas.length,
+    unclassified: result.unclassified.length,
+  });
   return result;
 }
 
@@ -53,6 +126,8 @@ export function detectSlideType(slide) {
   const hasBullets = (slide?.nodes || []).some((node) => node?.type === "list");
   const titleIsShort = String(slide?.title || "").trim().length > 0 && String(slide?.title || "").trim().length < 60;
   if (titleIsShort && hasBullets) return "section";
+  const hasBodyText = (slide?.nodes || []).some((node) => String(node?.text || "").trim().length > 30);
+  if (titleIsShort && hasBodyText) return "section";
 
   return "unclassified";
 }
@@ -67,7 +142,17 @@ export function extractDefinitions(slide) {
     for (const pattern of patterns) {
       const match = text.match(pattern);
       if (match && String(match[1] || "").trim().length < 60) {
-        defs.push({ term: String(match[1]).trim(), definition: String(match[2]).trim() });
+        const term = cleanTerm(match[1]);
+        const rawDefinition = String(match[2]).trim();
+        const definition = cleanDefinition(rawDefinition);
+        if (term && definition) {
+          defs.push({
+            term,
+            definition,
+            confidence: scoreConfidence(term, definition, "pattern", rawDefinition),
+            source: "pptx",
+          });
+        }
         matchedPattern = true;
         break;
       }
@@ -80,17 +165,19 @@ export function extractDefinitions(slide) {
     const plainRuns = runs.filter((run) => !run?.bold);
     if (!boldRuns.length || !plainRuns.length) continue;
 
-    const term = boldRuns.map((run) => run.text).join(" ").trim();
-    const definition = plainRuns.map((run) => run.text).join(" ").trim();
-    if (term.length > 2 && definition.length > 5) defs.push({ term, definition });
+    const term = cleanTerm(boldRuns.map((run) => run.text).join(" ").trim());
+    const rawDefinition = plainRuns.map((run) => run.text).join(" ").trim();
+    const definition = cleanDefinition(rawDefinition);
+    if (term.length > 2 && definition.length > 5) {
+      defs.push({
+        term,
+        definition,
+        confidence: scoreConfidence(term, definition, "bold", rawDefinition),
+        source: "pptx",
+      });
+    }
   }
-
-  const unique = new Map();
-  defs.forEach((def) => {
-    const key = `${def.term.toLowerCase()}::${def.definition.toLowerCase()}`;
-    if (!unique.has(key)) unique.set(key, def);
-  });
-  return [...unique.values()];
+  return defs;
 }
 
 export function buildSection(slide) {
@@ -98,10 +185,19 @@ export function buildSection(slide) {
     .filter((node) => node?.type === "list" || node?.type === "paragraph")
     .map((node) => String(node?.text || "").trim())
     .filter(Boolean);
+  const fallbackBullets =
+    bullets.length > 0
+      ? bullets
+      : (slide?.nodes || [])
+          .map((node) => String(node?.text || "").trim())
+          .filter(Boolean)
+          .flatMap((line) => line.split(/(?<=[.!?])\s+/).map((part) => part.trim()))
+          .filter((part) => part.length > 6);
+  const lines = bullets.length ? bullets : fallbackBullets;
 
   return {
-    title: String(slide?.title || "").trim() || bullets[0] || "Untitled",
-    bullets: String(slide?.title || "").trim() ? bullets : bullets.slice(1),
+    title: String(slide?.title || "").trim() || lines[0] || "Untitled",
+    bullets: String(slide?.title || "").trim() ? lines : lines.slice(1),
   };
 }
 

@@ -23,6 +23,8 @@ export function usePptxImport() {
       if (!bridge?.extractPptx) throw new Error("PPTX extraction requires the Study Hub desktop app.");
 
       const extracted = await bridge.extractPptx(filePath);
+      console.log("[PPTX] IPC result:", extracted);
+      console.log("[PPTX] Slides received:", extracted?.slides?.length);
       if (!extracted?.success) throw new Error(extracted?.error || "PPTX extraction failed.");
       if (!extracted?.slides?.length) {
         throw new Error("No readable content found in this file. The slides may contain only images.");

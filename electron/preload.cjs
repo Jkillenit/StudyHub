@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld("studyHub", {
   platform: process.platform,
 
   pickFiles: (filters) => ipcRenderer.invoke("studyhub:pick-files", filters),
+  openFileDialog: (options) => ipcRenderer.invoke("studyhub:open-file-dialog", options),
 
   pickFolderMaterials: () => ipcRenderer.invoke("studyhub:pick-folder-materials"),
 

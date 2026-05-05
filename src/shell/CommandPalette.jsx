@@ -10,6 +10,15 @@ function matches(query, primary, sub) {
   return t.includes(q);
 }
 
+function termMatches(query, termItem) {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  return (
+    String(termItem.primary || "").toLowerCase().includes(q) ||
+    String(termItem.sub || "").toLowerCase().includes(q)
+  );
+}
+
 function matchHighlightParts(primary, query) {
   const q = query.trim();
   if (!q) return { pre: primary, match: null, post: null };
@@ -185,6 +194,35 @@ export function CommandPalette({
           }))
         : [];
 
+    const termRows = [];
+    const activeCourse = userCourses.find((c) => c.id === courseId);
+    const activeUserCourse = activeCourse ? ensureUserCourse(activeCourse) : null;
+    if (activeUserCourse?.glossary?.length > 0) {
+      activeUserCourse.glossary
+        .filter((g) => g.confidence !== "low")
+        .forEach((g, idx) => {
+          const sub = `${String(g.definition || "").slice(0, 60)}${
+            String(g.definition || "").length > 60 ? "..." : ""
+          }`;
+          termRows.push({
+            key: `term-${activeUserCourse.id}-${g.id || idx}`,
+            group: "terms",
+            icon: "◆",
+            primary: g.term,
+            sub,
+            shortcut: null,
+            run: () => {
+              onNavigateCourseChapter(activeUserCourse.id, g.moduleId);
+              window.dispatchEvent(
+                new CustomEvent("studyhub-open-content-tab", {
+                  detail: { courseId: activeUserCourse.id, moduleId: g.moduleId },
+                })
+              );
+            },
+          });
+        });
+    }
+
     const inCourse = courseId !== null;
     const shuffleVisible = courseId === "om300" && om300ActiveChapter === "flashcards";
 
@@ -278,17 +316,20 @@ export function CommandPalette({
     let chaptersF = chapterRows.filter(filterRow);
     let referenceF = referenceRows.filter(filterRow);
     let actionsF = actionRows.filter(filterRow);
+    let termsF = termRows.filter((row) => termMatches(q, row));
 
     if (!q) {
       coursesF = coursesF.slice(0, 4);
       chaptersF = chaptersF.slice(0, 4);
       referenceF = referenceF.slice(0, 4);
       actionsF = actionsF.slice(0, 4);
+      termsF = termsF.slice(0, 4);
     }
 
     const groups = [
       { key: "courses", label: "COURSES", rows: coursesF },
       { key: "chapters", label: "CHAPTERS", rows: chaptersF },
+      { key: "terms", label: "TERMS", rows: termsF },
       { key: "reference", label: "REFERENCE", rows: referenceF },
       { key: "actions", label: "ACTIONS", rows: actionsF },
     ].filter((g) => g.rows.length > 0);
@@ -416,7 +457,7 @@ export function CommandPalette({
                     return (
                       <div
                         key={row.key}
-                        className={`sh-palette-row ${hi ? "highlighted" : ""}`}
+                        className={`sh-palette-row sh-palette-row--${row.group} ${hi ? "highlighted" : ""}`}
                         role="option"
                         aria-label={`${row.primary} ${row.sub || ""}`}
                         aria-selected={hi}
