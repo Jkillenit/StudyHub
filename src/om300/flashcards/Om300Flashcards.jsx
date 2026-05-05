@@ -29,7 +29,16 @@ function cardTypeLabel(kind) {
   return null;
 }
 
-export default function Om300Flashcards() {
+export default function Om300Flashcards({
+  cards: externalCards = null,
+  onSaveCards = null,
+  courseId = null,
+  showMasteryButtons = true,
+  sourceFilter = "all",
+  onSourceFilterChange = null,
+}) {
+  void courseId;
+  void onSourceFilterChange;
   const { setPanelApi } = useFlashcardDeckContext();
   const [cards, setCards] = useState(null);
   const [order, setOrder] = useState([]);
@@ -46,8 +55,26 @@ export default function Om300Flashcards() {
   const [flipReveal, setFlipReveal] = useState(true);
 
   const nRef = useRef(0);
+  const syncingFromExternalRef = useRef(false);
+  const lastFlipRef = useRef(0);
 
   useEffect(() => {
+    if (Array.isArray(externalCards)) {
+      syncingFromExternalRef.current = true;
+      const validCards = externalCards
+        .filter((c) => String(c?.front || "").trim() && String(c?.back || "").trim())
+        .filter((c) => {
+          if (sourceFilter === "all") return true;
+          if (sourceFilter === "manual") return (c.source || "manual") === "manual";
+          if (sourceFilter === "pptx") return c.source === "pptx";
+          return true;
+        })
+        .map((c) => ({ ...c }));
+      const next = validCards;
+      setCards(next);
+      setOrder(shuffleOrder(next.length));
+      return;
+    }
     let alive = true;
     const r = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -61,15 +88,23 @@ export default function Om300Flashcards() {
       alive = false;
       cancelAnimationFrame(r);
     };
-  }, []);
+  }, [externalCards, sourceFilter]);
 
   const deckHydrating = cards === null;
   const showDeckSkel = useDelayedSkeletonVisible(deckHydrating, deckHydrating ? "deck" : "");
 
   useEffect(() => {
     if (cards == null) return;
+    if (syncingFromExternalRef.current) {
+      syncingFromExternalRef.current = false;
+      return;
+    }
+    if (typeof onSaveCards === "function") {
+      onSaveCards(cards);
+      return;
+    }
     persistFlashcardDeck(cards);
-  }, [cards]);
+  }, [cards, onSaveCards]);
 
   useEffect(() => {
     const reload = () => {
@@ -210,6 +245,9 @@ export default function Om300Flashcards() {
 
   const beginFlip = useCallback(() => {
     if (!nRef.current || slide || flipPhase) return;
+    const now = Date.now();
+    if (now - lastFlipRef.current < 200) return;
+    lastFlipRef.current = now;
     setFlipPhase("out");
   }, [slide, flipPhase]);
 
@@ -227,9 +265,15 @@ export default function Om300Flashcards() {
     startSlide(1);
   }, [flipped, flipPhase, current, startSlide]);
 
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
+  const handleKeyDown = useCallback(
+    (e) => {
+      const paletteOpen = document.querySelector(".sh-palette") !== null;
+      if (paletteOpen) return;
+      const activeEl = document.activeElement;
+      const tag = activeEl?.tagName;
+      const isEditable = activeEl?.contentEditable === "true";
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || isEditable) return;
+
       if (slide || flipPhase) {
         if (e.key === " " || e.key === "Enter") e.preventDefault();
         return;
@@ -248,18 +292,24 @@ export default function Om300Flashcards() {
         e.stopPropagation();
         startSlide(-1);
       }
-      if (flipped && (e.key === "k" || e.key === "K")) {
+      if (!e.metaKey && !e.ctrlKey && flipped && (e.key === "k" || e.key === "K")) {
         e.preventDefault();
         onKnowIt();
       }
-      if (flipped && (e.key === "a" || e.key === "A")) {
+      if (!e.metaKey && !e.ctrlKey && flipped && (e.key === "a" || e.key === "A")) {
         e.preventDefault();
         onAgain();
       }
+    },
+    [slide, flipPhase, beginFlip, startSlide, flipped, onKnowIt, onAgain]
+  );
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [beginFlip, startSlide, slide, flipPhase, flipped, onKnowIt, onAgain]);
+  }, [handleKeyDown]);
 
   const progressDisplayPos = slide ? slide.toPos : pos;
   const progressText = useMemo(() => {
@@ -274,6 +324,11 @@ export default function Om300Flashcards() {
   const chapterTag = om300SidebarPrefix("flashcards");
   const typeTag = current?.kind ? cardTypeLabel(current.kind) : null;
 
+  useEffect(() => {
+    if (!current?.front) return;
+    console.log("[QZ] Front render class:", "check DOM inspector");
+  }, [current?.front]);
+
   const cardAtOrderPos = (p) => {
     if (!order.length || !cards.length) return null;
     const i = order[Math.min(p, order.length - 1)] ?? order[0];
@@ -282,7 +337,7 @@ export default function Om300Flashcards() {
 
   const bodyOpacity = flipPhase === "out" || (flipPhase === "in" && !flipReveal) ? 0 : 1;
   const bodyTransition = flipPhase === "out" ? "opacity 60ms linear" : "opacity 80ms linear";
-  const masteryVisible = flipped && flipPhase === null && !slide;
+  const masteryVisible = showMasteryButtons && flipped && flipPhase === null && !slide;
 
   useEffect(() => {
     setPanelApi({
@@ -362,10 +417,10 @@ export default function Om300Flashcards() {
                     className={`drill-slide-layer drill-slide-exit drill-slide-exit--${slide.dir > 0 ? "next" : "prev"}`}
                     aria-hidden
                   >
-                    <div className="drill-face drill-face--front">{cardAtOrderPos(slide.fromPos)?.front}</div>
+                    <div className="drill-face drill-face--front drill-term">{cardAtOrderPos(slide.fromPos)?.front}</div>
                   </div>
                   <div className={`drill-slide-layer drill-slide-enter drill-slide-enter--${slide.dir > 0 ? "next" : "prev"}`}>
-                    <div className="drill-face drill-face--front">{cardAtOrderPos(slide.toPos)?.front}</div>
+                    <div className="drill-face drill-face--front drill-term">{cardAtOrderPos(slide.toPos)?.front}</div>
                   </div>
                 </div>
               ) : (
@@ -377,7 +432,7 @@ export default function Om300Flashcards() {
                   }}
                 >
                   {!flipped ? (
-                    <div className="drill-face drill-face--front">{current?.front}</div>
+                    <div className="drill-face drill-face--front drill-term">{current?.front}</div>
                   ) : (
                     <div className="drill-face drill-face--back">{current?.back}</div>
                   )}
@@ -394,30 +449,32 @@ export default function Om300Flashcards() {
             </footer>
           </div>
 
-          <div
-            className="drill-mastery"
-            style={{
-              opacity: masteryVisible ? 1 : 0,
-              pointerEvents: masteryVisible ? "auto" : "none",
-              transition: "opacity 80ms linear",
-            }}
-          >
-            <div className="drill-mastery-inner">
-              <button type="button" className="drill-btn-know" onClick={onKnowIt}>
-                KNOW IT
-              </button>
-              <button type="button" className="drill-btn-again" onClick={onAgain}>
-                AGAIN
-              </button>
+          {showMasteryButtons ? (
+            <div
+              className="drill-mastery"
+              style={{
+                opacity: masteryVisible ? 1 : 0,
+                pointerEvents: masteryVisible ? "auto" : "none",
+                transition: "opacity 80ms linear",
+              }}
+            >
+              <div className="drill-mastery-inner">
+                <button type="button" className="drill-btn-know" onClick={onKnowIt}>
+                  KNOW IT
+                </button>
+                <button type="button" className="drill-btn-again" onClick={onAgain}>
+                  AGAIN
+                </button>
+              </div>
+              <p className="drill-mastery-stats mono">
+                <span>✓ {knownCount}</span>
+                <span className="drill-mastery-stats-gap">↻ {againCount}</span>
+                {reviewAgainIds.length > 0 ? (
+                  <span className="drill-mastery-stats-gap">· {reviewAgainIds.length} weak</span>
+                ) : null}
+              </p>
             </div>
-            <p className="drill-mastery-stats mono">
-              <span>✓ {knownCount}</span>
-              <span className="drill-mastery-stats-gap">↻ {againCount}</span>
-              {reviewAgainIds.length > 0 ? (
-                <span className="drill-mastery-stats-gap">· {reviewAgainIds.length} weak</span>
-              ) : null}
-            </p>
-          </div>
+          ) : null}
         </>
       )}
 

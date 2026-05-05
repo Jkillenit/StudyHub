@@ -1406,6 +1406,65 @@ button.sh-titlebar-wordmark--btn:hover {
   outline: none !important;
 }
 
+.sh-app-usercourse .ch-divider {
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--sh-muted);
+  text-transform: uppercase;
+  padding: 6px 12px 3px;
+  user-select: none;
+}
+
+.sh-app-usercourse .ch-num.qz-prefix {
+  color: var(--sh-cyan);
+}
+
+.sh-app-usercourse .ch-num.frm-prefix {
+  color: var(--sh-amber);
+}
+
+/* User course flashcard card — match OM 300 style */
+.sh-app-usercourse .drill-card-body,
+.sh-app-usercourse .drill-card .card-term,
+.sh-app-usercourse .drill-card p,
+.sh-app-usercourse .drill-card h1,
+.sh-app-usercourse .drill-card h2,
+.sh-app-usercourse .drill-card h3 {
+  font-family: "Inter", system-ui, sans-serif !important;
+  font-size: clamp(20px, 3vw, 32px) !important;
+  font-weight: 500 !important;
+  color: var(--sh-text-primary) !important;
+  text-align: center !important;
+  text-wrap: balance !important;
+}
+
+.sh-app-usercourse .drill-card-body > *:first-child,
+.sh-app-usercourse .drill-card-body .drill-term,
+.sh-app-usercourse .drill-card-body p,
+.sh-app-usercourse .drill-card-body span,
+.sh-app-usercourse .drill-card-body div:not(.drill-card-footer) {
+  font-family: "Inter", system-ui, sans-serif !important;
+  font-size: clamp(20px, 3vw, 32px) !important;
+  font-weight: 500 !important;
+  color: var(--sh-text-primary) !important;
+  text-align: center !important;
+  line-height: 1.3 !important;
+  text-shadow: none !important;
+  -webkit-text-stroke: 0 !important;
+}
+
+.drill-term {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: clamp(20px, 3vw, 32px);
+  font-weight: 500;
+  color: var(--sh-text-primary);
+  text-align: center;
+  text-wrap: balance;
+  max-width: 60ch;
+  line-height: 1.3;
+}
+
 .sh-formula-block {
   border-left-color: var(--sh-amber) !important;
 }
@@ -1418,6 +1477,134 @@ button.sh-titlebar-wordmark--btn:hover {
 
 .sh-content-section {
   margin-bottom: 20px;
+}
+
+.sh-section-block {
+  background: var(--sh-surface);
+  border: 1px solid var(--sh-border);
+  border-left: 3px solid var(--sh-green);
+  padding: 0;
+  margin-bottom: 8px;
+}
+
+.sh-section-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--sh-border);
+}
+
+.sh-section-item:last-child {
+  border-bottom: none;
+}
+
+.sh-section-item--numbered {
+  align-items: center;
+}
+
+.sh-item-number {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--sh-green);
+  min-width: 24px;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.sh-item-text {
+  font-size: 13px;
+  color: var(--sh-text-primary);
+  line-height: 1.5;
+  flex: 1;
+}
+
+.sh-item-bullet {
+  font-family: monospace;
+  color: var(--sh-text-dim);
+  min-width: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.sh-section-item--def {
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sh-item-sublabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sh-text-primary);
+}
+
+.sh-item-sublabel + .sh-item-text {
+  color: var(--sh-text-secondary);
+  font-size: 12px;
+  padding-left: 12px;
+}
+
+.sh-section-expand {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--sh-border);
+  padding: 7px 14px;
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--sh-text-dim);
+  text-align: left;
+  cursor: pointer;
+  transition: color 60ms linear, background 60ms linear;
+}
+
+.sh-section-expand:hover {
+  color: var(--sh-green);
+  background: var(--sh-green-dim);
+}
+
+.sh-needs-review {
+  margin-top: 24px;
+  border: 1px solid var(--sh-border);
+  border-left: 3px solid var(--sh-amber);
+}
+
+.sh-needs-review-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: rgba(245, 166, 35, 0.04);
+  border: none;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.sh-needs-review-body {
+  padding: 0 14px 14px;
+}
+
+.sh-needs-review-note {
+  font-family: monospace;
+  font-size: 10px;
+  color: var(--sh-amber);
+  opacity: 0.7;
+  padding: 8px 0;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--sh-border);
+  margin-bottom: 10px;
+}
+
+.sh-tier-medium {
+  border-left-color: var(--sh-green) !important;
+  border-left-width: 3px !important;
+  opacity: 0.85;
+}
+
+.sh-tier-low {
+  border-left-color: var(--sh-border) !important;
 }
 
 .sh-pptx-card .def-card-header {
@@ -1446,6 +1633,49 @@ button.sh-titlebar-wordmark--btn:hover {
 
 .sh-expand-btn:hover {
   opacity: 1;
+}
+
+.sh-glossary-card {
+  position: relative;
+}
+
+.sh-glossary-card--other {
+  opacity: 0.6;
+  border-left-color: var(--sh-cyan);
+}
+
+.sh-glossary-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.sh-glossary-source {
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--sh-text-dim);
+  text-transform: uppercase;
+}
+
+.sh-glossary-remove {
+  background: transparent;
+  border: none;
+  color: var(--sh-text-dim);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 4px;
+  opacity: 0;
+  transition: opacity 60ms linear, color 60ms linear;
+}
+
+.sh-glossary-card:hover .sh-glossary-remove {
+  opacity: 1;
+}
+
+.sh-glossary-remove:hover {
+  color: var(--sh-red);
 }
 
 .sh-workspace--cyan .sh-ch-tag {

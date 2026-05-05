@@ -14,6 +14,38 @@ import { EXPRESS_FILTERS } from "../welcome/ExpressImportModal.jsx";
 import { buildContentText, buildOutput } from "../pptx/pptxOutputBuilder.js";
 import { classifySlides, detectChapters } from "../pptx/pptxClassifier.js";
 
+function mergeFlashcards(existingCards, newCards, moduleId) {
+  const current = Array.isArray(existingCards) ? existingCards : [];
+  const existingFronts = new Set(current.map((c) => String(c.front || "").toLowerCase().trim()));
+  const dedupedNew = (newCards || [])
+    .filter((card) => !existingFronts.has(String(card.front || "").toLowerCase().trim()))
+    .map((card) => ({
+      ...card,
+      source: card.source || "pptx",
+      moduleId,
+      addedAt: new Date().toISOString(),
+    }));
+  return [...current, ...dedupedNew];
+}
+
+function addTermsToGlossary(courseData, moduleId, cards) {
+  const existingTerms = new Set(
+    (courseData?.glossary || []).map((g) => String(g.term || "").toLowerCase().trim())
+  );
+  const newTerms = (cards || [])
+    .filter((card) => !existingTerms.has(String(card.term || "").toLowerCase().trim()))
+    .map((card) => ({
+      id: `gls_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      term: card.term,
+      definition: card.definition,
+      confidence: card.confidence || "high",
+      source: "pptx",
+      moduleId,
+      addedAt: new Date().toISOString(),
+    }));
+  return { ...courseData, glossary: [...(courseData?.glossary || []), ...newTerms] };
+}
+
 function ApiStatusSync() {
   const { setApiLive } = useShell();
   useEffect(() => {
@@ -225,6 +257,7 @@ function StudyHubAppInner() {
           return;
         }
         const chapterGroups = detectChapters(extracted.slides, title);
+        const moduleOutputs = [];
         const modules = chapterGroups.map((group, idx) => {
           onProgress?.({
             label: "BUILDING YOUR COURSE...",
@@ -236,9 +269,11 @@ function StudyHubAppInner() {
           console.log("[PPTX] Taking pipeline path:", !!output);
           const contentData = buildChapterContent(output);
           const body = output.notesReviewBlock?.text || "";
+          const moduleId = uid("m");
+          moduleOutputs.push({ output, moduleId });
           console.log("[CONTENT] Writing contentData to module:", `chapter-${idx + 1}`, "cards:", output.contentCards.length);
           return {
-            id: uid("m"),
+            id: moduleId,
             label: `Notes ${idx + 1}`,
             title: group.title || `Chapter ${idx + 1}`,
             contentData,
@@ -255,8 +290,17 @@ function StudyHubAppInner() {
           completedModuleIds: [],
           materialPaths: paths,
         });
-        setUserCourses((p) => [...p, course]);
-        setCourseId(course.id);
+        let enrichedCourse = { ...course, flashcards: [], glossary: [] };
+        for (const meta of moduleOutputs) {
+          const output = meta.output;
+          if (!output) continue;
+          const taggedCards = (output.flashcards || []).map((card) => ({ ...card, source: "pptx" }));
+          const flashcards = mergeFlashcards(enrichedCourse.flashcards || [], taggedCards, meta.moduleId);
+          enrichedCourse = { ...enrichedCourse, flashcards };
+          enrichedCourse = addTermsToGlossary(enrichedCourse, meta.moduleId, output.contentCards || []);
+        }
+        setUserCourses((p) => [...p, enrichedCourse]);
+        setCourseId(enrichedCourse.id);
         try {
           sessionStorage.setItem("studyhub.pendingToast", `COURSE BUILT · ${modules.length || 1} CHAPTERS`);
         } catch {

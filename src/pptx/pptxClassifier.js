@@ -9,13 +9,20 @@ function cleanTerm(raw) {
     .replace(/\s+/g, " ")
     .split(" ")
     .filter(Boolean)
-    .map((word) =>
-      word.length > 3
+    .map((word) => {
+      // Preserve all-caps words as acronyms
+      if (word === word.toUpperCase() && word.length >= 2 && /^[A-Z]+$/.test(word)) {
+        return word; // keep PKI, SIEM, TCP, IP etc
+      }
+      // Normal title case for everything else
+      return word.length > 3
         ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-        : word.toLowerCase()
-    )
+        : word.toLowerCase();
+    })
     .join(" ")
-    .trim();
+    .trim()
+    // Handle parenthetical acronyms like "(ike)" → "(IKE)"
+    .replace(/\(([a-z]+)\)/g, (_, p) => `(${String(p).toUpperCase()})`);
 }
 
 function cleanDefinition(raw) {
@@ -181,10 +188,16 @@ export function extractDefinitions(slide) {
 }
 
 export function buildSection(slide) {
+  const noiseFilter = (text) =>
+    text.length > 5 && // no "7" or "•"
+    !/^\d+$/.test(text) && // no lone numbers
+    !/^[•\-\*]+$/.test(text) && // no lone bullets
+    !/^\s*$/.test(text); // no whitespace only
+
   const bullets = (slide?.nodes || [])
     .filter((node) => node?.type === "list" || node?.type === "paragraph")
     .map((node) => String(node?.text || "").trim())
-    .filter(Boolean);
+    .filter(noiseFilter);
   const fallbackBullets =
     bullets.length > 0
       ? bullets
@@ -192,7 +205,7 @@ export function buildSection(slide) {
           .map((node) => String(node?.text || "").trim())
           .filter(Boolean)
           .flatMap((line) => line.split(/(?<=[.!?])\s+/).map((part) => part.trim()))
-          .filter((part) => part.length > 6);
+          .filter(noiseFilter);
   const lines = bullets.length ? bullets : fallbackBullets;
 
   return {

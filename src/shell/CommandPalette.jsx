@@ -115,6 +115,13 @@ export function CommandPalette({
 
   useEffect(() => {
     if (!open) return;
+    const activeCourse = userCourses.find((c) => c.id === courseId);
+    const activeUserCourse = activeCourse ? ensureUserCourse(activeCourse) : null;
+    console.log("[PALETTE] glossary terms available:", activeUserCourse?.glossary?.length);
+  }, [open, userCourses, courseId]);
+
+  useEffect(() => {
+    if (!open) return;
     const fn = (e) => {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -215,7 +222,7 @@ export function CommandPalette({
               onNavigateCourseChapter(activeUserCourse.id, g.moduleId);
               window.dispatchEvent(
                 new CustomEvent("studyhub-open-content-tab", {
-                  detail: { courseId: activeUserCourse.id, moduleId: g.moduleId },
+                  detail: { courseId: activeUserCourse.id, moduleId: g.moduleId, tab: "glossary" },
                 })
               );
             },
@@ -320,7 +327,7 @@ export function CommandPalette({
 
     if (!q) {
       coursesF = coursesF.slice(0, 4);
-      chaptersF = chaptersF.slice(0, 4);
+      chaptersF = chaptersF.slice(0, 12);
       referenceF = referenceF.slice(0, 4);
       actionsF = actionsF.slice(0, 4);
       termsF = termsF.slice(0, 4);

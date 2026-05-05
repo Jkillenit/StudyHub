@@ -9,47 +9,211 @@ import { useShell } from "../shell/ShellContext.jsx";
 import { usePptxImport } from "../pptx/usePptxImport.js";
 import { buildOutput } from "../pptx/pptxOutputBuilder.js";
 import { classifySlides, textToSlides } from "../pptx/pptxClassifier.js";
+import { UserCourseTipTapNotesEditor } from "./UserCourseTipTapNotesEditor.jsx";
+import Om300Flashcards from "../om300/flashcards/Om300Flashcards.jsx";
 
-function getFirstSentence(text) {
-  const match = String(text || "").match(/^[^.!?]+[.!?]/);
-  return match ? match[0] : String(text || "");
+const COLLAPSE_THRESHOLD = 120;
+const VISIBLE_DEFAULT = 4;
+
+function confidenceColor(g) {
+  return g.confidence === "high"
+    ? "var(--sh-green)"
+    : g.confidence === "medium"
+      ? "var(--sh-amber)"
+      : "var(--sh-text-dim)";
 }
 
 function DefinitionCard({ item }) {
   const [expanded, setExpanded] = useState(false);
-  const firstSentence = getFirstSentence(item.definition);
-  const hasMore = String(item.definition || "").length > firstSentence.length + 2;
-  const confidenceColor = {
-    high: "var(--sh-green)",
-    medium: "var(--sh-amber)",
-    low: "var(--sh-text-dim)",
-  }[item.confidence || "high"];
+  const definition = String(item?.definition || "");
+  const shouldCollapse = definition.length > COLLAPSE_THRESHOLD;
+  const preview = shouldCollapse
+    ? `${definition.slice(0, COLLAPSE_THRESHOLD).replace(/\s\S+$/, "")}...`
+    : definition;
+  const tier = item.confidence || "high";
+  const tierStyles = {
+    high: {
+      borderColor: "var(--sh-green)",
+      termOpacity: 1,
+      showDot: false,
+      dotColor: "var(--sh-green)",
+    },
+    medium: {
+      borderColor: "var(--sh-green)",
+      termOpacity: 0.85,
+      showDot: true,
+      dotColor: "var(--sh-amber)",
+    },
+    low: {
+      borderColor: "var(--sh-border)",
+      termOpacity: 0.6,
+      showDot: true,
+      dotColor: "var(--sh-text-dim)",
+    },
+  }[tier];
 
   return (
-    <div className="def-card sh-pptx-card">
+    <div
+      className={`def-card sh-pptx-card sh-tier-${tier}`}
+      style={{
+        borderLeftColor: tierStyles.borderColor,
+        borderLeftWidth: "3px",
+        opacity: tier === "low" ? 0.75 : 1,
+      }}
+    >
       <div className="def-card-header">
-        <div className="def-term">{item.term}</div>
-        <div
-          className="sh-confidence-dot"
-          style={{ background: confidenceColor }}
-          title={`${item.confidence || "high"} confidence`}
-        />
+        <div className="def-term" style={{ opacity: tierStyles.termOpacity }}>{item.term}</div>
+        {tierStyles.showDot ? (
+          <div
+            className="sh-confidence-dot"
+            style={{ background: tierStyles.dotColor }}
+            title={`${tier} confidence — verify this term`}
+          />
+        ) : null}
       </div>
       <div className="def-body">
-        {firstSentence}
-        {hasMore && !expanded ? (
+        {!expanded ? preview : definition}
+        {shouldCollapse && !expanded ? (
           <span className="sh-expand-btn" onClick={() => setExpanded(true)}>
             {" "}more →
           </span>
         ) : null}
-        {expanded ? (
-          <span>
-            {String(item.definition || "").slice(firstSentence.length)}
-            <span className="sh-expand-btn" onClick={() => setExpanded(false)}>
-              {" "}← less
-            </span>
+        {shouldCollapse && expanded ? (
+          <span className="sh-expand-btn" onClick={() => setExpanded(false)}>
+            {" "}← less
           </span>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+function detectSectionType(items) {
+  if (!items?.length) return "empty";
+  const numbered = items.filter((i) => /^\d+[\.\)]\s/.test(i));
+  if (numbered.length >= items.length * 0.6) return "numbered";
+  const defLike = items.filter((i) => /^[A-Z][^:]{2,40}:\s+\S/.test(i));
+  if (defLike.length >= items.length * 0.5) return "deflist";
+  return "bullets";
+}
+
+function SectionItem({ item, type, index }) {
+  if (type === "numbered") {
+    const text = String(item || "").replace(/^\d+[\.\)]\s*/, "");
+    return (
+      <div className="sh-section-item sh-section-item--numbered">
+        <span className="sh-item-number mono">{String(index + 1).padStart(2, "0")}</span>
+        <span className="sh-item-text">{text}</span>
+      </div>
+    );
+  }
+  if (type === "deflist") {
+    const match = String(item || "").match(/^([^:]+):\s+(.+)$/);
+    if (match) {
+      return (
+        <div className="sh-section-item sh-section-item--def">
+          <span className="sh-item-sublabel">{match[1].trim()}</span>
+          <span className="sh-item-text">{match[2].trim()}</span>
+        </div>
+      );
+    }
+  }
+  return (
+    <div className="sh-section-item sh-section-item--bullet">
+      <span className="sh-item-bullet">—</span>
+      <span className="sh-item-text">{item}</span>
+    </div>
+  );
+}
+
+function SectionBlock({ section }) {
+  const [showAll, setShowAll] = useState(false);
+  const items = (section.items || []).filter((i) => String(i || "").length > 5);
+  const type = detectSectionType(items);
+  const hasMore = items.length > VISIBLE_DEFAULT;
+  const visible = showAll ? items : items.slice(0, VISIBLE_DEFAULT);
+  if (items.length === 0) return null;
+  return (
+    <div className="sh-content-section">
+      <div className="sh-section-label">{String(section.title || "SECTION").toUpperCase()}</div>
+      <div className={`sh-section-block sh-section-${type}`}>
+        {visible.map((item, i) => (
+          <SectionItem key={i} item={item} type={type} index={i} />
+        ))}
+        {hasMore && !showAll ? (
+          <button className="sh-section-expand" onClick={() => setShowAll(true)}>
+            + {items.length - VISIBLE_DEFAULT} more
+          </button>
+        ) : null}
+        {hasMore && showAll ? (
+          <button className="sh-section-expand" onClick={() => setShowAll(false)}>
+            ← show less
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function NeedsReviewSection({ items }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="sh-needs-review">
+      <button className="sh-needs-review-toggle" onClick={() => setOpen((o) => !o)}>
+        <span className="sh-section-label" style={{ color: "var(--sh-amber)", marginBottom: 0 }}>
+          NEEDS REVIEW — {items.length} TERM{items.length !== 1 ? "S" : ""}
+        </span>
+        <span className="sh-expand-btn" style={{ color: "var(--sh-amber)" }}>
+          {open ? "↑ hide" : "↓ show"}
+        </span>
+      </button>
+      {open ? (
+        <div className="sh-needs-review-body">
+          <div className="sh-needs-review-note">
+            These terms were detected with low confidence. Verify against your source material before studying.
+          </div>
+          {items.map((item) => (
+            <DefinitionCard key={item.id} item={item} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function GlossaryCard({ g, onRemove, muted = false }) {
+  const [expanded, setExpanded] = useState(false);
+  const definition = String(g?.definition || "");
+  const shouldCollapse = definition.length > COLLAPSE_THRESHOLD;
+  const preview = shouldCollapse
+    ? `${definition.slice(0, COLLAPSE_THRESHOLD).replace(/\s\S+$/, "")}...`
+    : definition;
+  return (
+    <div className={`def-card sh-glossary-card ${muted ? "sh-glossary-card--other" : ""}`}>
+      <div className="def-card-header">
+        <div className="def-term">{g.term}</div>
+        <div className="sh-confidence-dot" style={{ background: confidenceColor(g) }} />
+      </div>
+      <div className="def-body">
+        {!expanded ? preview : definition}
+        {shouldCollapse && !expanded ? (
+          <span className="sh-expand-btn" onClick={() => setExpanded(true)}>
+            {" "}more →
+          </span>
+        ) : null}
+        {shouldCollapse && expanded ? (
+          <span className="sh-expand-btn" onClick={() => setExpanded(false)}>
+            {" "}← less
+          </span>
+        ) : null}
+      </div>
+      <div className="sh-glossary-meta">
+        <span className="sh-glossary-source">{g.source === "pptx" ? "↓ IMPORTED" : "✎ MANUAL"}</span>
+        {!muted ? (
+          <button className="sh-glossary-remove" onClick={() => onRemove(g.id)}>
+            ✕
+          </button>
+        ) : <span />}
       </div>
     </div>
   );
@@ -87,6 +251,20 @@ function mergeFlashcards(existingCards, newCards, moduleId) {
   return [...current, ...dedupedNew];
 }
 
+function cleanupEmptyDefaultModules(modules, protectedModuleId = null) {
+  const defaultTitlePattern = /^(section\s+\d+|general)$/i;
+  const list = Array.isArray(modules) ? modules : [];
+  return list.filter((m) => {
+    if (protectedModuleId && m.id === protectedModuleId) return true;
+    const title = String(m?.title || "").trim();
+    const hasDefaultTitle = defaultTitlePattern.test(title);
+    const hasContent = Array.isArray(m?.contentData) && m.contentData.length > 0;
+    const hasBody = String(m?.body || "").trim().length > 0;
+    if (hasDefaultTitle && !hasContent && !hasBody) return false;
+    return true;
+  });
+}
+
 export function UserCourseApp({
   course,
   onChangeCourse,
@@ -110,7 +288,7 @@ export function UserCourseApp({
   const [reviewMeta, setReviewMeta] = useState(null);
   const [apiConfigured, setApiConfigured] = useState(false);
   const [sourceFilter, setSourceFilter] = useState("all");
-  const notesRef = useRef(null);
+  const [activeItem, setActiveItem] = useState(null);
   const wasShellLoading = useRef(false);
   const shellSkelVis = useDelayedSkeletonVisible(!!courseShellLoad, courseShellLoad ? "shell" : "");
   const [mainEnterClass, setMainEnterClass] = useState("");
@@ -158,10 +336,12 @@ export function UserCourseApp({
     setDisabledIds(new Set(ec.disabledModuleIds || []));
     setCompletedIds(new Set(ec.completedModuleIds || []));
     setActive(ec.activeModuleId);
+    setActiveItem(`module:${ec.activeModuleId}`);
   }, [course.id]);
 
   useEffect(() => {
     setMainTab("content");
+    setActiveItem((prev) => (prev === "qz-deck" ? prev : `module:${active}`));
   }, [active]);
 
   useEffect(() => {
@@ -169,6 +349,21 @@ export function UserCourseApp({
     const blocks = cur.pptxReviewBlocks || {};
     setReviewMeta(blocks[active] || null);
   }, [active, course.id]);
+
+  useEffect(() => {
+    const cur = ensureUserCourse(courseRef.current);
+    const cleanedModules = cleanupEmptyDefaultModules(cur.modules, active);
+    if (cleanedModules.length === cur.modules.length) return;
+    onChangeCourse({
+      ...cur,
+      modules: cleanedModules,
+      activeModuleId: cleanedModules.some((m) => m.id === cur.activeModuleId)
+        ? cur.activeModuleId
+        : cleanedModules[0]?.id,
+      disabledModuleIds: [...disabledIds].filter((id) => cleanedModules.some((m) => m.id === id)),
+      completedModuleIds: [...completedIds].filter((id) => cleanedModules.some((m) => m.id === id)),
+    });
+  }, [active, completedIds, disabledIds, onChangeCourse, course.id]);
 
   useEffect(() => {
     const bridge = typeof window !== "undefined" ? window.studyHub : null;
@@ -188,6 +383,7 @@ export function UserCourseApp({
       const d = e.detail;
       if (d?.courseId === course.id && d?.chapterId) {
         setActive(d.chapterId);
+        setActiveItem(`module:${d.chapterId}`);
       }
     };
     window.addEventListener("studyhub-navigate-chapter", onNav);
@@ -198,8 +394,11 @@ export function UserCourseApp({
     const onTermNav = (e) => {
       const d = e.detail;
       if (d?.courseId !== course.id) return;
-      if (d?.moduleId) setActive(d.moduleId);
-      setMainTab("content");
+      if (d?.moduleId) {
+        setActive(d.moduleId);
+        setActiveItem(`module:${d.moduleId}`);
+      }
+      setMainTab(d?.tab || "content");
     };
     window.addEventListener("studyhub-open-content-tab", onTermNav);
     return () => window.removeEventListener("studyhub-open-content-tab", onTermNav);
@@ -270,6 +469,56 @@ export function UserCourseApp({
     return sections;
   }
 
+  const removeGlossaryTerm = useCallback(
+    (termId) => {
+      const cur = ensureUserCourse(courseRef.current);
+      onChangeCourse({
+        ...cur,
+        glossary: (cur.glossary || []).filter((g) => g.id !== termId),
+        disabledModuleIds: [...disabledIds],
+        completedModuleIds: [...completedIds],
+        activeModuleId: active,
+      });
+    },
+    [active, completedIds, disabledIds, onChangeCourse]
+  );
+
+  function renderGlossary(courseData, moduleId) {
+    const moduleTerms = (courseData?.glossary || []).filter((g) => g.moduleId === moduleId);
+    const otherTerms = (courseData?.glossary || []).filter((g) => g.moduleId !== moduleId);
+    if (moduleTerms.length === 0 && otherTerms.length === 0) {
+      return (
+        <div className="sh-chapter-empty">
+          <pre className="sh-empty-ascii">{`┌─────────────────────┐
+│   NO TERMS YET      │
+│                     │
+│   IMPORT A FILE  →  │
+└─────────────────────┘`}</pre>
+        </div>
+      );
+    }
+    return (
+      <div className="sh-glossary-view">
+        {moduleTerms.length > 0 ? (
+          <div className="sh-content-section">
+            <div className="sh-section-label">THIS CHAPTER</div>
+            {moduleTerms
+              .sort((a, b) => String(a.term || "").localeCompare(String(b.term || "")))
+              .map((g) => <GlossaryCard key={g.id} g={g} onRemove={removeGlossaryTerm} />)}
+          </div>
+        ) : null}
+        {otherTerms.length > 0 ? (
+          <div className="sh-content-section">
+            <div className="sh-section-label">OTHER CHAPTERS</div>
+            {otherTerms
+              .sort((a, b) => String(a.term || "").localeCompare(String(b.term || "")))
+              .map((g) => <GlossaryCard key={g.id} g={g} onRemove={removeGlossaryTerm} muted />)}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   const runChapterExpressImport = useCallback(async () => {
     const bridge = typeof window !== "undefined" ? window.studyHub : null;
     if (!bridge?.pickFiles) {
@@ -328,7 +577,13 @@ export function UserCourseApp({
           const reviewText = output.notesReviewBlock?.text || "";
           const sep = m.body?.trim() && reviewText ? "\n\n" : "";
           const body = reviewText ? `${reviewText}${sep}${m.body || ""}`.trim() : m.body || "";
-          return { ...m, contentData: mergedContent, body };
+          const pptxTitle = String(output?.pptxMeta?.firstSlideTitle || "").trim();
+          const hasMeaningfulTitle =
+            pptxTitle &&
+            pptxTitle.length > 3 &&
+            pptxTitle.length < 120 &&
+            !/^slide\s*\d+$/i.test(pptxTitle);
+          return { ...m, contentData: mergedContent, body, title: hasMeaningfulTitle ? pptxTitle : m.title };
         });
         const blocks = { ...(nextCourse.pptxReviewBlocks || {}) };
         if (output.notesReviewBlock) {
@@ -343,8 +598,27 @@ export function UserCourseApp({
         }
         const taggedCards = (output.flashcards || []).map((card) => ({ ...card, source: "pptx" }));
         const flashcards = mergeFlashcards(nextCourse.flashcards || [], taggedCards, targetModuleId);
-        nextCourse = { ...nextCourse, modules, pptxReviewBlocks: blocks, flashcards };
+        nextCourse = {
+          ...nextCourse,
+          modules: cleanupEmptyDefaultModules(modules, targetModuleId),
+          pptxReviewBlocks: blocks,
+          flashcards,
+        };
         nextCourse = addTermsToGlossary(nextCourse, targetModuleId, output.contentCards || []);
+        console.log("[INTEGRATION] course.glossary length:", nextCourse.glossary?.length);
+        console.log("[INTEGRATION] course.glossary sample:", nextCourse.glossary?.[0]);
+        console.log(
+          "[INTEGRATION] course flashcards:",
+          nextCourse.flashcards?.length || nextCourse.pptxFlashcards?.length
+        );
+        console.log(
+          "[INTEGRATION] modules:",
+          nextCourse.modules?.map((m) => ({
+            id: m.id,
+            title: m.title,
+            contentDataLength: m.contentData?.length,
+          }))
+        );
         console.log("[PPTX] Routing:", {
           contentCards: output.contentCards.length,
           toContentTab: true,
@@ -450,6 +724,13 @@ export function UserCourseApp({
   }, [visibleChapters, active]);
 
   const currentModule = c.modules.find((m) => m.id === active);
+  const courseGlossaryTerms = useMemo(
+    () =>
+      (c.glossary || [])
+        .filter((g) => g.confidence !== "low")
+        .map((g) => ({ term: g.term, definition: g.definition })),
+    [c.glossary]
+  );
   const userFlashcards = Array.isArray(c.flashcards) ? c.flashcards : [];
   const filteredFlashcards =
     sourceFilter === "all"
@@ -554,6 +835,7 @@ export function UserCourseApp({
       return next;
     });
     setActive(nextActive);
+    setActiveItem(`module:${nextActive}`);
     onChangeCourse({
       ...cur,
       modules,
@@ -586,6 +868,7 @@ export function UserCourseApp({
       if (i < 0) i = 0;
       const ni = (i + delta + list.length) % list.length;
       setActive(list[ni].id);
+      setActiveItem(`module:${list[ni].id}`);
     },
     [filteredChapters, active]
   );
@@ -593,6 +876,7 @@ export function UserCourseApp({
   useEffect(() => {
     const onKey = (e) => {
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+      if (activeItem === "qz-deck") return;
       if (e.key === "ArrowLeft") goChapter(-1);
       if (e.key === "ArrowRight") goChapter(1);
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "r") {
@@ -602,7 +886,7 @@ export function UserCourseApp({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [goChapter, markComplete]);
+  }, [activeItem, goChapter, markComplete]);
 
   useEffect(() => {
     console.log(
@@ -638,35 +922,34 @@ export function UserCourseApp({
       );
     }
 
-    return contentData.map((section, i) => {
+    const highMedItems = [];
+    const lowItems = [];
+
+    contentData.forEach((section, i) => {
       if (section.type === "definitions") {
-        return (
-          <div key={i} className="sh-content-section">
-            <div className="sh-section-label">{section.title}</div>
-            {section.items.map((item) => (
-              <DefinitionCard key={item.id} item={item} />
-            ))}
-          </div>
-        );
+        const high = (section.items || []).filter((item) => item.confidence !== "low");
+        const low = (section.items || []).filter((item) => item.confidence === "low");
+        if (high.length > 0) {
+          highMedItems.push(
+            <div key={i} className="sh-content-section">
+              <div className="sh-section-label">DEFINITIONS</div>
+              {high.map((item) => (
+                <DefinitionCard key={item.id} item={item} />
+              ))}
+            </div>
+          );
+        }
+        if (low.length > 0) lowItems.push(...low);
+        return;
       }
 
       if (section.type === "section") {
-        return (
-          <div key={i} className="sh-content-section">
-            <div className="sh-section-label">{section.title}</div>
-            <div className="def-card">
-              {section.items.map((item, j) => (
-                <div key={j} className="def-body" style={{ marginBottom: 4 }}>
-                  • {item}
-                </div>
-              ))}
-            </div>
-          </div>
-        );
+        highMedItems.push(<SectionBlock key={i} section={section} />);
+        return;
       }
 
       if (section.type === "formulas") {
-        return (
+        highMedItems.push(
           <div key={i} className="sh-content-section">
             <div className="sh-section-label">{section.title}</div>
             {section.items.map((item, j) => (
@@ -680,9 +963,14 @@ export function UserCourseApp({
           </div>
         );
       }
-
-      return null;
     });
+
+    return (
+      <>
+        {highMedItems}
+        {lowItems.length > 0 ? <NeedsReviewSection items={lowItems} /> : null}
+      </>
+    );
   }
 
   return (
@@ -722,14 +1010,18 @@ export function UserCourseApp({
                   </pre>
                 ) : (
                   filteredChapters.map((ch) => {
-                    const isAct = active === ch.id;
+                    const isAct = activeItem === `module:${ch.id}`;
                     const done = completedIds.has(ch.id);
                     return (
                       <button
                         key={ch.id}
                         type="button"
                         className={`ch-item ${isAct ? "active" : ""} ${done ? "ch-item--complete" : ""}`}
-                        onClick={() => setActive(ch.id)}
+                        onClick={() => {
+                          setActive(ch.id);
+                          setActiveItem(`module:${ch.id}`);
+                          setMainTab("content");
+                        }}
                       >
                         <span className="ch-num">{chNum(ch.id)}</span>
                         <span className="ch-title">{ch.title}</span>
@@ -737,6 +1029,18 @@ export function UserCourseApp({
                     );
                   })
                 )}
+                <div className="ch-divider mono">DRILL</div>
+                <button
+                  type="button"
+                  className={`ch-item ${activeItem === "qz-deck" ? "active" : ""}`}
+                  onClick={() => {
+                    setActiveItem("qz-deck");
+                    setMainTab("content");
+                  }}
+                >
+                  <span className="ch-num mono qz-prefix">QZ·01</span>
+                  <span className="ch-title">Flashcard Deck</span>
+                </button>
               </div>
             </>
           )}
@@ -745,8 +1049,8 @@ export function UserCourseApp({
         <main className="sh-main">
           <div className="sh-main-header">
             <div className="sh-title-row">
-              <h1 className="sh-main-title">{currentModule?.title || "Notes"}</h1>
-              <span className="sh-ch-tag">{currentModule ? chNum(currentModule.id) : ""}</span>
+              <h1 className="sh-main-title">{activeItem === "qz-deck" ? "Flashcard Deck" : currentModule?.title || "Notes"}</h1>
+              <span className="sh-ch-tag">{activeItem === "qz-deck" ? "QZ·01" : currentModule ? chNum(currentModule.id) : ""}</span>
             </div>
             <div className="sh-tab-row">
               <button type="button" className={`sh-tab sh-usercourse-tab ${mainTab === "content" ? "active" : ""}`} onClick={() => setMainTab("content")}>
@@ -754,6 +1058,9 @@ export function UserCourseApp({
               </button>
               <button type="button" className={`sh-tab sh-usercourse-tab ${mainTab === "notes" ? "active" : ""}`} onClick={() => setMainTab("notes")}>
                 NOTES
+              </button>
+              <button type="button" className={`sh-tab sh-usercourse-tab ${mainTab === "glossary" ? "active" : ""}`} onClick={() => setMainTab("glossary")}>
+                GLOSSARY
               </button>
             </div>
           </div>
@@ -807,11 +1114,39 @@ export function UserCourseApp({
                 {mainTab === "content" ? (
                   <>
                     <div className="ctx-label" style={{ marginBottom: 12 }}>
-                      CONTENT (LOCAL)
+                      {activeItem === "qz-deck" ? "QZ DECK (LOCAL)" : "CONTENT (LOCAL)"}
                     </div>
-                    <div className="main-content">{renderContentData(currentModule?.contentData)}</div>
+                    {activeItem === "qz-deck" ? (
+                      <div className="main-content">
+                        <Om300Flashcards
+                          key={`${c.id}-qz`}
+                          cards={userFlashcards}
+                          courseId={c.id}
+                          showMasteryButtons={true}
+                          sourceFilter={sourceFilter}
+                          onSourceFilterChange={setSourceFilter}
+                          onSaveCards={(updatedCards) => {
+                            const cur = ensureUserCourse(courseRef.current);
+                            onChangeCourse({
+                              ...cur,
+                              flashcards: (updatedCards || []).map((card) => ({
+                                ...card,
+                                source: card.source || "manual",
+                                moduleId: card.moduleId || active,
+                                addedAt: card.addedAt || new Date().toISOString(),
+                              })),
+                              disabledModuleIds: [...disabledIds],
+                              completedModuleIds: [...completedIds],
+                              activeModuleId: active,
+                            });
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="main-content">{renderContentData(currentModule?.contentData)}</div>
+                    )}
                   </>
-                ) : (
+                ) : mainTab === "notes" ? (
                   <>
                     <div className="ctx-label" style={{ marginBottom: 12 }}>
                       NOTES (LOCAL)
@@ -839,23 +1174,17 @@ export function UserCourseApp({
                         </div>
                       </div>
                     ) : null}
-                    <textarea
-                      ref={notesRef}
+                    <UserCourseTipTapNotesEditor
+                      key={currentModule?.id}
+                      sectionId={currentModule?.id}
                       value={currentModule?.body || reviewMeta?.text || ""}
-                      onChange={(e) => updateModuleBody(e.target.value)}
-                      className="sh-input font-sans w-100"
-                      placeholder="TYPE NOTES…"
-                      style={{
-                        minHeight: "55vh",
-                        resize: "vertical",
-                        border: "1px solid var(--sh-border)",
-                        background: "var(--sh-base)",
-                        color: "var(--sh-text-secondary)",
-                        borderRadius: 2,
-                        padding: 12,
-                      }}
+                      glossaryTerms={courseGlossaryTerms}
+                      onAutosaveStatus={() => {}}
+                      onChangeValue={updateModuleBody}
                     />
                   </>
+                ) : (
+                  <div className="main-content">{renderGlossary(c, currentModule?.id)}</div>
                 )}
               </div>
             )}
@@ -888,7 +1217,7 @@ export function UserCourseApp({
             </div>
             <div className="ctx-section">
               <div className="ctx-label">QUICK</div>
-              {userFlashcards.length > 0 ? (
+              {activeItem === "qz-deck" && userFlashcards.length > 0 ? (
                 <>
                   <div className="ctx-label">QZ SOURCES</div>
                   <div className="d-flex gap-2 mb-2">
@@ -929,6 +1258,17 @@ export function UserCourseApp({
               </button>
               <button type="button" className="sh-btn-ghost ctx-btn ctx-btn--utility" onClick={() => setCtxCollapsed((v) => !v)}>
                 {ctxCollapsed ? "SHOW PANEL" : "HIDE PANEL"}
+              </button>
+              <button
+                type="button"
+                className="sh-btn-ghost sh-btn-danger-ghost"
+                disabled={c.modules.length <= 1}
+                onClick={() => {
+                  if (c.modules.length <= 1 || !currentModule) return;
+                  if (window.confirm(`Delete module "${currentModule.title}"?`)) removeModule(currentModule.id);
+                }}
+              >
+                DELETE MODULE
               </button>
               <button
                 type="button"

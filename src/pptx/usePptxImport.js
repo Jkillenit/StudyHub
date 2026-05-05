@@ -36,6 +36,9 @@ export function usePptxImport() {
 
       setProgress("BUILDING OUTPUT...");
       const output = buildOutput(classified);
+      output.pptxMeta = {
+        firstSlideTitle: extracted?.slides?.[0]?.title || "",
+      };
       setStatus("complete");
       setProgress("");
       setResult(output);
