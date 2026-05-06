@@ -196,6 +196,55 @@ ipcMain.handle("studyhub:extract-pptx", async (_evt, filePath) => {
   }
 });
 
+function extractTableText(tableNode) {
+  const rows = [];
+  const children = tableNode?.children || [];
+  children.forEach((row) => {
+    if (row?.type !== "row") return;
+    const cells = (row?.children || [])
+      .filter((cell) => cell?.type === "cell")
+      .map((cell) => String(cell?.text || "").trim());
+    if (cells.some((cell) => cell.length > 0)) {
+      rows.push(cells.join("\t"));
+    }
+  });
+  return rows.join("\n");
+}
+
+function extractTextFromAst(node) {
+  if (!node) return "";
+  if (typeof node === "string") return node;
+
+  if (Array.isArray(node)) {
+    const parts = [];
+    node.forEach((child) => {
+      const text = extractTextFromAst(child);
+      if (text.trim()) parts.push(text);
+    });
+    return parts.join("\n");
+  }
+
+  if (node.type === "table") {
+    return `${extractTableText(node)}\n`;
+  }
+
+  if (node.text && typeof node.text === "string" && node.text.trim()) {
+    const childTypes = (node.children || []).map((child) => child?.type);
+    const hasTableChild = childTypes.includes("table");
+    if (!hasTableChild) return `${node.text}\n`;
+  }
+
+  const parts = [];
+  const children = node.children || node.content || [];
+  if (Array.isArray(children)) {
+    children.forEach((child) => {
+      const text = extractTextFromAst(child);
+      if (text.trim()) parts.push(text);
+    });
+  }
+  return parts.join("\n");
+}
+
 ipcMain.handle("studyhub:extract-text", async (_evt, filePath) => {
   try {
     const normalized = path.normalize(String(filePath || ""));
@@ -207,19 +256,20 @@ ipcMain.handle("studyhub:extract-text", async (_evt, filePath) => {
       };
     }
     const officeParserModule = require("officeparser");
-    const text = await new Promise((resolve, reject) => {
+    const data = await new Promise((resolve, reject) => {
       officeParserModule.parseOffice(
         normalized,
-        (data, err) => {
+        (result, err) => {
           if (err) reject(err);
-          else resolve(data);
+          else resolve(result);
         },
         { ignoreNotes: false }
       );
     });
+    const text = typeof data === "string" ? data : extractTextFromAst(data);
     return {
       success: true,
-      text: typeof text === "string" ? text : JSON.stringify(text),
+      text,
       filePath: normalized,
     };
   } catch (err) {
