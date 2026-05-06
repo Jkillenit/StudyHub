@@ -101,6 +101,11 @@ contextBridge.exposeInMainWorld("studyHub", {
       saveComponents: (data) => ipcRenderer.invoke("db:grades:saveComponents", data),
       getEntries: (courseUuid) => ipcRenderer.invoke("db:grades:getEntries", courseUuid),
       upsertEntry: (data) => ipcRenderer.invoke("db:grades:upsertEntry", data),
+      getSubEntries: (componentId) => ipcRenderer.invoke("db:grades:getSubEntries", componentId),
+      saveSubEntry: (data) => ipcRenderer.invoke("db:grades:saveSubEntry", data),
+      deleteSubEntry: (id) => ipcRenderer.invoke("db:grades:deleteSubEntry", id),
+      saveGradingScale: (data) => ipcRenderer.invoke("db:grades:saveGradingScale", data),
+      getGradingScale: (courseUuid) => ipcRenderer.invoke("db:grades:getGradingScale", courseUuid),
     },
   },
 });

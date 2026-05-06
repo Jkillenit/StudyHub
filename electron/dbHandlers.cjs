@@ -392,23 +392,83 @@ function registerDbHandlers() {
         JOIN courses c
           ON c.id = gc.course_id
         WHERE c.uuid = ?
+          AND (ge.label = gc.name OR ge.label IS NULL)
         ORDER BY gc.position ASC
       `)
       .all(courseUuid);
   });
 
   ipcMain.handle("db:grades:upsertEntry", (_, { componentId, score, label }) => {
+    const current = db
+      .prepare(
+        `SELECT ge.id
+         FROM grade_entries ge
+         JOIN grade_components gc ON gc.id = ge.component_id
+         WHERE ge.component_id = ?
+           AND (ge.label = gc.name OR ge.label IS NULL)
+         ORDER BY ge.id ASC
+         LIMIT 1`
+      )
+      .get(componentId);
+    if (current?.id) {
+      db.prepare(
+        `UPDATE grade_entries
+         SET score = ?, label = ?, graded_at = datetime('now')
+         WHERE id = ?`
+      ).run(score ?? null, label || null, current.id);
+    } else {
+      db.prepare(
+        `INSERT INTO grade_entries
+          (component_id, score, label, graded_at)
+         VALUES (?, ?, ?, datetime('now'))`
+      ).run(componentId, score ?? null, label || null);
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle("db:grades:getSubEntries", (_, componentId) => {
+    return db
+      .prepare(`
+        SELECT ge.*
+        FROM grade_entries ge
+        JOIN grade_components gc ON gc.id = ge.component_id
+        WHERE ge.component_id = ?
+          AND ge.label IS NOT NULL
+          AND ge.label != gc.name
+        ORDER BY ge.created_at ASC
+      `)
+      .all(componentId);
+  });
+
+  ipcMain.handle("db:grades:saveSubEntry", (_, { componentId, score, label }) => {
     db.prepare(`
       INSERT INTO grade_entries
         (component_id, score, label, graded_at)
       VALUES (?, ?, ?, datetime('now'))
-      ON CONFLICT(component_id)
-      DO UPDATE SET
-        score = excluded.score,
-        label = excluded.label,
-        graded_at = excluded.graded_at
-    `).run(componentId, score ?? null, label || null);
+    `).run(componentId, score ?? null, label || "Entry");
     return { success: true };
+  });
+
+  ipcMain.handle("db:grades:deleteSubEntry", (_, id) => {
+    db.prepare("DELETE FROM grade_entries WHERE id = ?").run(id);
+    return { success: true };
+  });
+
+  ipcMain.handle("db:grades:saveGradingScale", (_, { courseUuid, scale }) => {
+    const course = db.prepare("SELECT id FROM courses WHERE uuid = ?").get(courseUuid);
+    if (!course) return { success: false };
+    db.prepare(`
+      INSERT INTO settings (key, value)
+      VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE
+      SET value = excluded.value
+    `).run(`grading_scale_${courseUuid}`, JSON.stringify(scale || null));
+    return { success: true };
+  });
+
+  ipcMain.handle("db:grades:getGradingScale", (_, courseUuid) => {
+    const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(`grading_scale_${courseUuid}`);
+    return row?.value ? JSON.parse(row.value) : null;
   });
 }
 

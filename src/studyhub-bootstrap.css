@@ -3782,3 +3782,158 @@ button.sh-titlebar-wordmark--btn:hover {
   color: var(--sh-green) !important;
   border-color: var(--sh-green) !important;
 }
+
+.sh-expand-toggle {
+  background: transparent;
+  border: none;
+  color: var(--sh-text-dim);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0 4px 0 0;
+  line-height: 1;
+  transition: color 60ms linear;
+}
+
+.sh-expand-toggle:hover {
+  color: var(--sh-text-secondary);
+}
+
+.sh-subentries {
+  background: var(--sh-raised);
+  border-bottom: 1px solid var(--sh-border);
+  padding: 8px 14px 8px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sh-subentry-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 3px 0;
+}
+
+.sh-subentry-label {
+  font-size: 12px;
+  color: var(--sh-text-secondary);
+  flex: 1;
+}
+
+.sh-subentry-score {
+  font-size: 12px;
+  color: var(--sh-text-primary);
+  min-width: 40px;
+  text-align: right;
+}
+
+.sh-subentry-delete {
+  background: transparent;
+  border: none;
+  color: var(--sh-text-dim);
+  cursor: pointer;
+  font-size: 9px;
+  opacity: 0;
+  transition: opacity 60ms, color 60ms;
+  padding: 2px 4px;
+}
+
+.sh-subentry-row:hover .sh-subentry-delete {
+  opacity: 1;
+}
+
+.sh-subentry-delete:hover {
+  color: var(--sh-red);
+}
+
+.sh-subentry-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--sh-border);
+}
+
+.sh-subentry-input {
+  background: var(--sh-base);
+  border: 1px solid var(--sh-border);
+  color: var(--sh-text-primary);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 3px 8px;
+  flex: 1;
+  outline: none;
+}
+
+.sh-subentry-input:focus {
+  border-color: var(--sh-green);
+}
+
+.sh-subentry-avg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--sh-border);
+  color: var(--sh-text-secondary);
+}
+
+.sh-grade-scale {
+  background: var(--sh-surface);
+  border: 1px solid var(--sh-border);
+  padding: 14px;
+  margin-top: 8px;
+}
+
+.sh-grade-scale-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 0;
+  margin-top: 10px;
+}
+
+.sh-grade-scale-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  width: 50%;
+  border-radius: 0;
+  transition: background 60ms;
+}
+
+.sh-grade-scale-row--current {
+  background: rgba(0, 255, 136, 0.06);
+  border-left: 2px solid var(--sh-green);
+}
+
+.sh-grade-scale-letter {
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 28px;
+}
+
+.sh-grade-scale-threshold {
+  font-size: 11px;
+  min-width: 48px;
+}
+
+.sh-grade-scale-indicator {
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--sh-green);
+  opacity: 0.7;
+}
+
+.sh-grade-letter {
+  font-family: monospace;
+  font-size: 24px;
+  font-weight: 600;
+  margin-left: 12px;
+  line-height: 1;
+  color: var(--sh-green);
+}
