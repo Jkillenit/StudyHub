@@ -111,7 +111,7 @@ async function isLoggedIn() {
 }
 
 function parseCourseFromUrl(url) {
-  const match = String(url || "").match(/\/ultra\/courses\/(_\\d+_\\d+)\\//);
+  const match = String(url || "").match(/\/ultra\/courses\/(_\d+_\d+)\//);
   if (!match) return null;
   return { bbCourseId: match[1], url };
 }
