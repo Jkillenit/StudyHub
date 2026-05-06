@@ -40,6 +40,253 @@ function GradeScaleDisplay({ scale, currentGrade }) {
   );
 }
 
+function HypotheticalEngine({ components, gradingScale }) {
+  const [target, setTarget] = useState(90);
+  const scored = components.filter((c) => c.score !== null && c.score !== undefined);
+  const unscored = components.filter((c) => c.score === null || c.score === undefined);
+  if (scored.length === 0 || unscored.length === 0) return null;
+
+  const scoredContrib = scored.reduce((sum, c) => sum + Number(c.score || 0) * Number(c.weight || 0), 0);
+  const remainingWeight = unscored.reduce((sum, c) => sum + Number(c.weight || 0), 0);
+  const needed = remainingWeight > 0 ? (target - scoredContrib) / remainingWeight : null;
+  const isPossible = needed !== null && needed <= 100;
+  const isAlreadyAchieved = needed !== null && needed <= 0;
+
+  function getLetter(pct) {
+    return getCurrentLetter(pct, gradingScale);
+  }
+
+  const targetOptions = gradingScale
+    ? Object.entries(gradingScale)
+        .sort((a, b) => b[1] - a[1])
+        .map(([letter, threshold]) => ({ letter, threshold }))
+    : [
+        { letter: "A", threshold: 90 },
+        { letter: "B", threshold: 80 },
+        { letter: "C", threshold: 70 },
+        { letter: "D", threshold: 60 },
+      ];
+
+  return (
+    <div className="sh-hypothetical">
+      <div className="sh-hypothetical-header">
+        <div className="sh-section-label">WHAT DO I NEED?</div>
+        <div className="sh-target-selector">
+          <span className="sh-target-label">TARGET:</span>
+          <div className="sh-target-options">
+            {targetOptions.map((opt) => (
+              <button
+                key={opt.letter}
+                className={`sh-target-btn ${target === opt.threshold ? "sh-target-btn--active" : ""}`}
+                onClick={() => setTarget(opt.threshold)}
+              >
+                {opt.letter}
+              </button>
+            ))}
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={target}
+              onChange={(event) => setTarget(parseFloat(event.target.value) || 0)}
+              className="sh-target-input"
+            />
+          </div>
+        </div>
+      </div>
+      <div className="sh-hypothetical-result">
+        {isAlreadyAchieved ? (
+          <div className="sh-hyp-achieved">
+            <span className="sh-hyp-check">✓</span>
+            <span>Already achieved - you have a {getLetter(target)} regardless of remaining work</span>
+          </div>
+        ) : !isPossible ? (
+          <div className="sh-hyp-impossible">
+            <span className="sh-hyp-x">✕</span>
+            <span>NOT POSSIBLE - would need {needed?.toFixed(1)}% average on remaining work</span>
+          </div>
+        ) : (
+          <div className="sh-hyp-breakdown">
+            <div className="sh-hyp-summary">
+              You need an average of{" "}
+              <span
+                className="sh-hyp-score"
+                style={{
+                  color:
+                    needed <= 70
+                      ? "var(--sh-green)"
+                      : needed <= 85
+                        ? "var(--sh-cyan)"
+                        : needed <= 95
+                          ? "var(--sh-amber)"
+                          : "var(--sh-red)",
+                }}
+              >
+                {needed.toFixed(1)}%
+              </span>{" "}
+              across remaining components to get a {getLetter(target)}.
+            </div>
+            <div className="sh-hyp-components">
+              {unscored.map((component, i) => (
+                <div key={`${component.name}-${i}`} className="sh-hyp-row">
+                  <span className="sh-hyp-name">{component.name}</span>
+                  <span
+                    className="sh-hyp-needed mono"
+                    style={{
+                      color:
+                        needed <= 100
+                          ? needed <= 70
+                            ? "var(--sh-green)"
+                            : needed <= 85
+                              ? "var(--sh-cyan)"
+                              : "var(--sh-amber)"
+                          : "var(--sh-red)",
+                    }}
+                  >
+                    {needed.toFixed(1)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function WhatIfSimulator({ components }) {
+  const unscored = components.filter((c) => c.score === null || c.score === undefined);
+  const [simScores, setSimScores] = useState(() => {
+    const initial = {};
+    unscored.forEach((c) => {
+      initial[c.name] = 80;
+    });
+    return initial;
+  });
+
+  useEffect(() => {
+    setSimScores((prev) => {
+      const next = { ...prev };
+      unscored.forEach((c) => {
+        if (next[c.name] === undefined) next[c.name] = 80;
+      });
+      Object.keys(next).forEach((name) => {
+        if (!unscored.some((component) => component.name === name)) {
+          delete next[name];
+        }
+      });
+      return next;
+    });
+  }, [unscored]);
+
+  if (unscored.length === 0) return null;
+
+  const allWithSim = components.map((c) => {
+    if (c.score !== null && c.score !== undefined) return c;
+    return { ...c, score: simScores[c.name] ?? 80 };
+  });
+  const projectedGrade = allWithSim.reduce((sum, c) => sum + Number(c.score || 0) * Number(c.weight || 0), 0);
+
+  return (
+    <div className="sh-whatif">
+      <div className="sh-section-label">WHAT-IF SIMULATOR</div>
+      <div className="sh-whatif-note">Adjust sliders to simulate future scores. Does not affect saved grades.</div>
+      <div className="sh-whatif-sliders">
+        {unscored.map((component, i) => (
+          <div key={`${component.name}-${i}`} className="sh-whatif-row">
+            <span className="sh-whatif-name">{component.name}</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={simScores[component.name] ?? 80}
+              onChange={(event) =>
+                setSimScores((prev) => ({
+                  ...prev,
+                  [component.name]: parseInt(event.target.value, 10),
+                }))
+              }
+              className="sh-whatif-slider"
+            />
+            <span className="sh-whatif-val mono">{simScores[component.name] ?? 80}%</span>
+          </div>
+        ))}
+      </div>
+      <div className="sh-whatif-projected">
+        <span className="sh-grade-label">PROJECTED GRADE</span>
+        <span
+          className="sh-whatif-grade"
+          style={{
+            color:
+              projectedGrade >= 90
+                ? "var(--sh-green)"
+                : projectedGrade >= 80
+                  ? "var(--sh-cyan)"
+                  : projectedGrade >= 70
+                    ? "var(--sh-amber)"
+                    : "var(--sh-red)",
+          }}
+        >
+          {projectedGrade.toFixed(1)}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function GradeDropCalculator({ components }) {
+  const scored = components.filter((c) => c.score !== null && c.score !== undefined);
+  if (scored.length === 0) return null;
+  const totalGrade = components.reduce((sum, c) => sum + Number(c.score ?? 0) * Number(c.weight || 0), 0);
+  const impacts = components
+    .map((c) => {
+      const withoutThis = components.reduce((sum, other) => {
+        if (other.name === c.name) return sum;
+        return sum + Number(other.score ?? 0) * Number(other.weight || 0);
+      }, 0);
+      return {
+        name: c.name,
+        currentScore: c.score,
+        gradeWithZero: withoutThis,
+        impact: totalGrade - withoutThis,
+      };
+    })
+    .filter((c) => c.currentScore !== null && c.currentScore !== undefined)
+    .sort((a, b) => b.impact - a.impact);
+  return (
+    <div className="sh-drop-calc">
+      <div className="sh-section-label">IF I SCORE ZERO ON...</div>
+      <div className="sh-drop-table">
+        {impacts.map((item, i) => (
+          <div key={`${item.name}-${i}`} className="sh-drop-row">
+            <span className="sh-drop-name">{item.name}</span>
+            <span
+              className="sh-drop-result mono"
+              style={{
+                color:
+                  item.gradeWithZero >= 90
+                    ? "var(--sh-green)"
+                    : item.gradeWithZero >= 80
+                      ? "var(--sh-cyan)"
+                      : item.gradeWithZero >= 70
+                        ? "var(--sh-amber)"
+                        : "var(--sh-red)",
+              }}
+            >
+              {item.gradeWithZero.toFixed(1)}%
+            </span>
+            <span className="sh-drop-delta mono" style={{ color: "var(--sh-red)", opacity: 0.7 }}>
+              -{item.impact.toFixed(1)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ComponentRow({ component, index, onScoreChange }) {
   const [expanded, setExpanded] = useState(false);
   const [subEntries, setSubEntries] = useState([]);
@@ -85,6 +332,8 @@ function ComponentRow({ component, index, onScoreChange }) {
   }
 
   const contrib = component.score !== null && component.score !== undefined ? Number(component.score) * Number(component.weight || 0) : null;
+  const currentContrib = component.score !== null && component.score !== undefined ? Number(component.score) * Number(component.weight || 0) : null;
+  const dropImpact = currentContrib !== null ? currentContrib : Number(component.weight || 0) * 80;
 
   return (
     <>
@@ -95,6 +344,9 @@ function ComponentRow({ component, index, onScoreChange }) {
           </button>
           <span className={`sh-category-dot sh-category-dot--${component.category || "other"}`} />
           {component.name}
+          <span className="sh-drop-impact" title={`Scoring 0 costs ~${dropImpact.toFixed(1)} grade points`}>
+            ↓{dropImpact.toFixed(1)}
+          </span>
         </span>
         <span className="sh-grades-col sh-grades-col--weight mono">{(Number(component.weight || 0) * 100).toFixed(0)}%</span>
         <span className="sh-grades-col sh-grades-col--score">
@@ -117,6 +369,24 @@ function ComponentRow({ component, index, onScoreChange }) {
           {contrib !== null ? contrib.toFixed(2) : "—"}
         </span>
       </div>
+      {component.score !== null && component.score !== undefined ? (
+        <div className="sh-score-bar-wrap">
+          <div
+            className="sh-score-bar"
+            style={{
+              width: `${Math.min(100, Number(component.score || 0))}%`,
+              background:
+                Number(component.score || 0) >= 90
+                  ? "var(--sh-green)"
+                  : Number(component.score || 0) >= 80
+                    ? "var(--sh-cyan)"
+                    : Number(component.score || 0) >= 70
+                      ? "var(--sh-amber)"
+                      : "var(--sh-red)",
+            }}
+          />
+        </div>
+      ) : null}
       {expanded ? (
         <div className="sh-subentries">
           {subEntries.map((entry) => (
@@ -375,6 +645,9 @@ export default function GradesTab({ course, onSaveComponents }) {
         </button>
       </div>
       <GradeScaleDisplay scale={gradingScale} currentGrade={currentGrade} />
+      <HypotheticalEngine components={components} gradingScale={gradingScale} />
+      <WhatIfSimulator components={components} />
+      <GradeDropCalculator components={components} />
     </div>
   );
 }

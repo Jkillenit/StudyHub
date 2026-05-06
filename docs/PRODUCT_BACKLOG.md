@@ -59,17 +59,23 @@ Study Hub is designed local-first. Every core feature works without an Anthropic
 | **UI-002** | Materials offcanvas — align with hub patterns | 2 | **1** | ~0.5 d | `UI` |
 | **CAL-002** | Calendar quick view — context panel widget showing next 3-5 upcoming assignments across all courses, color coded, always visible while studying | 4 | **1** | ~1 d | `local-first` |
 | **EST-001** | Assignment completion estimate — category-based time defaults (homework, essay, lab, reading), editable per assignment, shown in assignment detail view | 3 | **1** | ~1 d | `local-first` |
+| **SYL-011** | [Hypothetical post-alpha] Curve simulator — single input field, "Professor adds X points to all grades." Recalculates current grade with offset applied. | 3 | **1** | ~2 hr | `local-first` |
 | **UI-003** | AI assistant — React Bootstrap `Modal` | 3 | **2** | ~1 d | `UI` |
 | **QZ-001** | Flashcard card editor — inline front/back edit without leaving drill | 3 | **2** | ~1 d | `content`, `UI` |
 | **CAL-003** | Syllabus date extraction — parse exam dates, quiz schedules, assignment deadlines from syllabus PDF/DOCX into calendar automatically. Local rules + AI-enhanced. Extends SYL-001. | 4 | **2** | ~2 d | `local-first` `AI-optional` |
 | **EST-003** | AI assignment scope estimate — Claude reads assignment description, estimates completion time based on scope and type. Requires API key. Supplements EST-001 defaults. | 3 | **2** | ~1 d | `AI-optional` |
 | **EST-004** | Session history tracking — log actual time spent per assignment on completion. Use to calibrate EST-001 defaults over time. "This took you 2.8 hours last time" feedback loop. | 3 | **2** | ~2 d | `local-first` |
 | **QZ-002** | End-of-session summary screen — known/again breakdown, weak card list, review again shortcut | 4 | **2** | ~1–2 d | `UI`, `content` |
+| **SYL-009** | [Hypothetical post-alpha] Score history trend — mini sparkline showing score trend across sub-entries per component. Shows if student is improving or declining over time. Requires 3+ sub-entries to be meaningful. | 3 | **2** | ~2 d | `local-first` |
+| **SYL-012** | [Hypothetical post-alpha] Grade export — export grade calculator state as PDF or CSV. Uses existing PDF pipeline. Useful for scholarship applications requiring grade documentation. | 3 | **2** | ~2 d | `local-first` |
 | **UI-004** | User courses shell — Navbar / Nav / Collapse / Forms (match OM300) | 3 | **3** | ~1–2 d | `UI` |
 | **B2** | PDF text extraction + in-app read view | 4 | **3** | ~1–2 wk | `local-first`, `Electron` |
 | **B3** | PPTX slide text extraction | 3 | **3** | ~1 wk | `local-first` |
 | **CAL-001** | Semester calendar — week and month views, all courses, importance-weighted color coding (component weight × urgency score), manual entry, mark complete | 5 | **3** | ~1 wk | `local-first` |
 | **EST-002** | Exam study time estimate — computed from SM-2 mastery data. Cards due + unmastered cards × average session time = total estimate. Splits into daily recommended sessions between now and exam date. Requires QZ-005 (SM-2) complete. | 5 | **3** | ~1 wk | `local-first` |
+| **SYL-008** | [Hypothetical post-alpha] Weighted GPA tracker — enter credit hours per course, calculate cumulative GPA across all courses using grade scale. Needs credit hour field on course creation. | 4 | **3** | ~1 wk | `local-first` |
+| **SYL-010** | [Hypothetical post-alpha] Extra credit handling — components marked as extra credit add contribution without affecting weight denominator. Requires grade calculation formula change. | 4 | **3** | ~1 wk | `local-first` |
+| **SYL-013** | [Hypothetical post-alpha] Assignment due dates linked to grade components — CAL-001 assignments show component weight context in calendar view. Depends on CAL-001 being complete. | 4 | **3** | ~1 wk | `local-first` |
 | **B3-B** | PPTX AI enhancement — Claude Haiku cleans definitions, finds missed terms in unclassified content, adds AI badge to enhanced cards, ENHANCE WITH AI button in review block, graceful fallback to local if no key | 4 | **3** | ~3 d | `AI-optional` | ✓ Done |
 | **QZ-003** | Filtered drill modes — by chapter, weak cards only, recent cards, exam cram cross-chapter | 4 | **3** | ~2–3 d | `content`, `local-first` |
 | **QZ-004** | Session history + drill streak — days drilled, cards per session, visible in context panel | 3 | **3** | ~2–3 d | `content`, `local-first` |
