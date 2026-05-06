@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { parseSyllabus } from "../../syllabus/syllabusParser";
+import InlineEdit from "./InlineEdit";
 
 function getCurrentLetter(grade, scale) {
   if (grade === null || !scale) return null;
@@ -287,7 +288,7 @@ function GradeDropCalculator({ components }) {
   );
 }
 
-function ComponentRow({ component, index, onScoreChange }) {
+function ComponentRow({ component, index, onScoreChange, components, setComponents, onSaveComponents }) {
   const [expanded, setExpanded] = useState(false);
   const [subEntries, setSubEntries] = useState([]);
   const [newLabel, setNewLabel] = useState("");
@@ -337,56 +338,89 @@ function ComponentRow({ component, index, onScoreChange }) {
 
   return (
     <>
-      <div className="sh-grades-row">
-        <span className="sh-grades-col sh-grades-col--name">
+      <div className="sh-grades-row-wrap">
+        <div className="sh-grades-row">
+          <span className="sh-grades-col sh-grades-col--name">
           <button className="sh-expand-toggle" onClick={() => setExpanded((open) => !open)} title="Add individual grades">
             {expanded ? "▾" : "▸"}
           </button>
           <span className={`sh-category-dot sh-category-dot--${component.category || "other"}`} />
-          {component.name}
+            <InlineEdit
+              value={component.name}
+              className="sh-grade-name-edit"
+              onSave={(newName) => {
+                const updated = components.map((c, j) => (j === index ? { ...c, name: newName } : c));
+                setComponents(updated);
+                void onSaveComponents(updated);
+              }}
+            />
           <span className="sh-drop-impact" title={`Scoring 0 costs ~${dropImpact.toFixed(1)} grade points`}>
             ↓{dropImpact.toFixed(1)}
           </span>
-        </span>
-        <span className="sh-grades-col sh-grades-col--weight mono">{(Number(component.weight || 0) * 100).toFixed(0)}%</span>
-        <span className="sh-grades-col sh-grades-col--score">
-          <input
-            type="number"
-            min="0"
-            max="100"
-            step="0.1"
-            placeholder="—"
-            value={component.score ?? ""}
-            onChange={(event) => onScoreChange(index, event.target.value)}
-            className="sh-score-input"
-            title={subEntries.length > 0 ? `Average of ${subEntries.length} entries` : undefined}
-          />
-        </span>
-        <span
-          className="sh-grades-col sh-grades-col--contribution mono"
-          style={{ color: contrib !== null ? "var(--sh-text-primary)" : "var(--sh-text-dim)" }}
-        >
-          {contrib !== null ? contrib.toFixed(2) : "—"}
-        </span>
-      </div>
-      {component.score !== null && component.score !== undefined ? (
-        <div className="sh-score-bar-wrap">
-          <div
-            className="sh-score-bar"
-            style={{
-              width: `${Math.min(100, Number(component.score || 0))}%`,
-              background:
-                Number(component.score || 0) >= 90
-                  ? "var(--sh-green)"
-                  : Number(component.score || 0) >= 80
-                    ? "var(--sh-cyan)"
-                    : Number(component.score || 0) >= 70
-                      ? "var(--sh-amber)"
-                      : "var(--sh-red)",
+          </span>
+          <span className="sh-grades-col sh-grades-col--weight mono">
+            <InlineEdit
+              value={(Number(component.weight || 0) * 100).toFixed(0)}
+              className="sh-grade-weight-edit mono"
+              onSave={(newVal) => {
+                const pct = parseFloat(newVal);
+                if (Number.isNaN(pct) || pct <= 0 || pct > 100) return;
+                const updated = components.map((c, j) => (j === index ? { ...c, weight: pct / 100 } : c));
+                setComponents(updated);
+                void onSaveComponents(updated);
+              }}
+            />
+          </span>
+          <span className="sh-grades-col sh-grades-col--score">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.1"
+              placeholder="—"
+              value={component.score ?? ""}
+              onChange={(event) => onScoreChange(index, event.target.value)}
+              className="sh-score-input"
+              title={subEntries.length > 0 ? `Average of ${subEntries.length} entries` : undefined}
+            />
+          </span>
+          <span
+            className="sh-grades-col sh-grades-col--contribution mono"
+            style={{ color: contrib !== null ? "var(--sh-text-primary)" : "var(--sh-text-dim)" }}
+          >
+            {contrib !== null ? contrib.toFixed(2) : "—"}
+          </span>
+          <button
+            className="sh-grades-delete-btn"
+            onClick={() => {
+              const updated = components.filter((_, j) => j !== index);
+              setComponents(updated);
+              void onSaveComponents(updated);
             }}
-          />
+            title="Delete component"
+          >
+            ✕
+          </button>
         </div>
-      ) : null}
+        {component.score !== null && component.score !== undefined ? (
+          <div className="sh-score-bar-wrap">
+            <div
+              className="sh-score-bar"
+              style={{
+                width: `${Math.min(100, Number(component.score || 0))}%`,
+                background:
+                  Number(component.score || 0) >= 90
+                    ? "var(--sh-green)"
+                    : Number(component.score || 0) >= 80
+                      ? "var(--sh-cyan)"
+                      : Number(component.score || 0) >= 70
+                        ? "var(--sh-amber)"
+                        : "var(--sh-red)",
+              }}
+            />
+          </div>
+        ) : null}
+      </div>
       {expanded ? (
         <div className="sh-subentries">
           {subEntries.map((entry) => (
@@ -603,6 +637,7 @@ export default function GradesTab({ course, onSaveComponents }) {
           <span className="sh-grades-col sh-grades-col--weight">WEIGHT</span>
           <span className="sh-grades-col sh-grades-col--score">SCORE</span>
           <span className="sh-grades-col sh-grades-col--contribution">CONTRIB</span>
+          <span className="sh-grades-col sh-grades-col--actions" />
         </div>
 
         {components.map((component, i) => (
@@ -611,6 +646,9 @@ export default function GradesTab({ course, onSaveComponents }) {
             component={component}
             index={i}
             onScoreChange={handleScoreChange}
+            components={components}
+            setComponents={setComponents}
+            onSaveComponents={onSaveComponents}
           />
         ))}
 
@@ -624,8 +662,9 @@ export default function GradesTab({ course, onSaveComponents }) {
             className="sh-grades-col sh-grades-col--contribution mono"
             style={{ color: currentGrade !== null ? "var(--sh-green)" : "var(--sh-text-dim)" }}
           >
-            {currentGrade !== null ? currentGrade.toFixed(2) : "—"}
+            {currentGrade !== null ? `${currentGrade.toFixed(1)}%` : "—"}
           </span>
+          <span className="sh-grades-col sh-grades-col--actions" />
         </div>
       </div>
 

@@ -8,6 +8,7 @@ import { useShell } from "../shell/ShellContext.jsx";
 import { usePptxImport } from "../pptx/usePptxImport.js";
 import { buildOutput } from "../pptx/pptxOutputBuilder.js";
 import { classifySlides, textToSlides } from "../pptx/pptxClassifier.js";
+import { courseStore } from "../db/courseStore.js";
 import CourseSidebar from "./components/CourseSidebar.jsx";
 import CourseContentArea from "./components/CourseContentArea.jsx";
 import CourseContextPanel from "./components/CourseContextPanel.jsx";
@@ -284,6 +285,7 @@ export function UserCourseApp({
   courseRef.current = course;
   const mountedRef = useRef(true);
   const sessionCardsRef = useRef(null);
+  const flashcardEditTriggerRef = useRef(null);
 
   const [search, setSearch] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -508,6 +510,42 @@ export function UserCourseApp({
     },
     [active, completedIds, disabledIds, onChangeCourse]
   );
+
+  function handleRenameCourse(newName) {
+    onChangeCourse({
+      ...c,
+      name: newName,
+    });
+  }
+
+  function handleRenameModule(moduleId, title) {
+    onChangeCourse({
+      ...c,
+      modules: c.modules.map((m) => ((m.uuid || m.id) === moduleId ? { ...m, title } : m)),
+    });
+  }
+
+  function handleContentDataChange(moduleId, newData) {
+    onChangeCourse({
+      ...c,
+      modules: c.modules.map((m) => ((m.uuid || m.id) === moduleId ? { ...m, contentData: newData } : m)),
+    });
+  }
+
+  function onContentDataChange(moduleId, newData) {
+    handleContentDataChange(moduleId, newData);
+  }
+
+  async function handleUpdateContentData(newData) {
+    const nextCourse = {
+      ...c,
+      modules: c.modules.map((m) => ((m.uuid || m.id) === activeModuleId ? { ...m, contentData: newData } : m)),
+    };
+    onContentDataChange(activeModuleId, newData);
+    if (currentModule?.uuid || currentModule?.id) {
+      await courseStore.syncCourse(nextCourse);
+    }
+  }
 
   function renderGlossary(courseData, moduleId) {
     const moduleTerms = (courseData?.glossary || []).filter((g) => g.moduleId === moduleId);
@@ -1135,6 +1173,8 @@ export function UserCourseApp({
             <CourseSidebar
               course={c}
               activeItem={activeItem}
+              onRenameCourse={handleRenameCourse}
+              onRenameModule={handleRenameModule}
               onActiveChange={(nextActiveItem) => {
                 setActiveItem(nextActiveItem);
                 if (nextActiveItem.startsWith("module:")) {
@@ -1162,6 +1202,7 @@ export function UserCourseApp({
             sourceFilter={sourceFilter}
             onSourceFilterChange={setSourceFilter}
             onSaveCards={handleSaveCards}
+            flashcardEditTriggerRef={flashcardEditTriggerRef}
             reviewMeta={reviewMeta}
             enhancing={enhancing}
             onEnhanceReview={handleEnhanceReview}
@@ -1202,6 +1243,7 @@ export function UserCourseApp({
               );
               setHasGrades(Array.isArray(components) && components.length > 0);
             }}
+            onUpdateContentData={handleUpdateContentData}
           />
         </main>
 
@@ -1227,6 +1269,7 @@ export function UserCourseApp({
               onHidePanel={() => setCtxCollapsed((v) => !v)}
               onTabChange={setMainTab}
               hasGrades={hasGrades}
+              onEditCard={() => flashcardEditTriggerRef.current?.()}
             />
           </div>
         </aside>

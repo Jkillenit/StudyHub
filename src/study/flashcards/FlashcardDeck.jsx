@@ -129,6 +129,7 @@ export default function FlashcardDeck({
   showMasteryButtons = true,
   sourceFilter = "all",
   onSourceFilterChange = null,
+  editTriggerRef = null,
 }) {
   void courseId;
   void onSourceFilterChange;
@@ -147,6 +148,7 @@ export default function FlashcardDeck({
   const [showSummary, setShowSummary] = useState(false);
   const [reviewAgainIds, setReviewAgainIds] = useState([]);
   const [flipReveal, setFlipReveal] = useState(true);
+  const [editingCard, setEditingCard] = useState(null);
 
   const nRef = useRef(0);
   const syncingFromExternalRef = useRef(false);
@@ -250,6 +252,16 @@ export default function FlashcardDeck({
     setSlide(null);
     setShowSummary(false);
   }, [filteredCards.length, sourceFilter]);
+
+  useEffect(() => {
+    if (editTriggerRef) {
+      editTriggerRef.current = () => {
+        const card = filteredCards[idx];
+        if (!card) return;
+        setEditingCard({ ...card });
+      };
+    }
+  }, [idx, filteredCards, editTriggerRef]);
 
   useEffect(() => {
     setFlipped(false);
@@ -626,6 +638,51 @@ export default function FlashcardDeck({
                 aria-label={flipped ? "Show question" : "Show answer"}
               >
                 <div className="drill-card-body-wrap">
+                  {editingCard ? (
+                    <div className="sh-card-edit-overlay">
+                      <div className="sh-section-label" style={{ marginBottom: 12 }}>
+                        EDIT CARD
+                      </div>
+                      <input
+                        autoFocus
+                        id="edit-card-front"
+                        className="sh-inline-edit-input"
+                        defaultValue={editingCard.front}
+                        placeholder="Front"
+                        style={{ marginBottom: 8 }}
+                      />
+                      <textarea
+                        id="edit-card-back"
+                        className="sh-inline-edit-input"
+                        defaultValue={editingCard.back}
+                        placeholder="Back"
+                        rows={3}
+                        style={{ marginBottom: 12 }}
+                      />
+                      <div className="sh-def-edit-actions">
+                        <button
+                          className="sh-btn-ghost sh-btn-green sh-btn-xs"
+                          onClick={() => {
+                            const front = document.getElementById("edit-card-front")?.value.trim();
+                            const back = document.getElementById("edit-card-back")?.value.trim();
+                            if (front && back) {
+                              const updated = cards.map((c) =>
+                                (c.uuid || c.id) === (editingCard.uuid || editingCard.id) ? { ...c, front, back } : c
+                              );
+                              onSaveCards?.(updated);
+                              setCards(updated);
+                            }
+                            setEditingCard(null);
+                          }}
+                        >
+                          SAVE
+                        </button>
+                        <button className="sh-btn-ghost sh-btn-xs" onClick={() => setEditingCard(null)}>
+                          CANCEL
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                   {slide ? (
                     <div className="drill-slide-stack">
                       <div

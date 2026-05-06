@@ -15,6 +15,7 @@ function CourseContextPanel({
   onHidePanel,
   onTabChange,
   hasGrades,
+  onEditCard,
 }) {
   const userFlashcards = Array.isArray(course?.flashcards) ? course.flashcards : [];
   const filteredFlashcards =
@@ -108,6 +109,11 @@ function CourseContextPanel({
               + SET UP GRADES
             </button>
           </div>
+        ) : null}
+        {activeItem === "qz-deck" ? (
+          <button className="sh-panel-action" onClick={() => onEditCard?.()}>
+            EDIT CARD
+          </button>
         ) : null}
 
         <button type="button" className="sh-btn-ghost sh-btn-ghost-cyan ctx-btn" onClick={onAddModule}>

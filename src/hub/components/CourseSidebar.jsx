@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
+import InlineEdit from "./InlineEdit";
 
-function CourseSidebar({ course, activeItem, onActiveChange }) {
+function CourseSidebar({ course, activeItem, onActiveChange, onRenameCourse, onRenameModule }) {
   const [search, setSearch] = useState("");
   const modules = Array.isArray(course?.modules) ? course.modules : [];
   const completedIds = new Set(course?.completedModuleIds || []);
@@ -24,7 +25,19 @@ function CourseSidebar({ course, activeItem, onActiveChange }) {
     <>
       <div className="sh-sidebar-head">
         <div className="sh-sidebar-label">ACTIVE COURSE</div>
-        <div className="sh-sidebar-course">{course?.name}</div>
+        <div className="sh-sidebar-course">
+          <InlineEdit
+            value={course?.name || ""}
+            className="sh-course-name-edit"
+            onSave={async (newName) => {
+              await window.studyHub?.db?.courses?.update({
+                uuid: course?.uuid || course?.id,
+                name: newName,
+              });
+              onRenameCourse?.(newName);
+            }}
+          />
+        </div>
         <div className="sh-sidebar-meta mono">
           {(course?.subtitle || "NOTES").toUpperCase()} · {modules.length} MODULES
         </div>
@@ -61,7 +74,19 @@ function CourseSidebar({ course, activeItem, onActiveChange }) {
                 onClick={() => onActiveChange(`module:${moduleId}`)}
               >
                 <span className="ch-num">{chapterTag(moduleId)}</span>
-                <span className="ch-title">{m?.title}</span>
+                <span className="ch-title">
+                  <InlineEdit
+                    value={m?.title || ""}
+                    className="ch-title-edit"
+                    onSave={async (newTitle) => {
+                      await window.studyHub?.db?.modules?.update({
+                        uuid: moduleId,
+                        title: newTitle,
+                      });
+                      onRenameModule?.(moduleId, newTitle);
+                    }}
+                  />
+                </span>
               </button>
             );
           })

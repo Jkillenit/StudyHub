@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 const FlashcardDeck = lazy(() => import("../../study/flashcards/FlashcardDeck.jsx"));
 const UserCourseTipTapNotesEditor = lazy(() => import("../UserCourseTipTapNotesEditor.jsx"));
@@ -15,15 +15,106 @@ function confidenceColor(g) {
       : "var(--sh-text-dim)";
 }
 
-function DefinitionCard({ item }) {
+function DefinitionCard({ item, onEdit, onDelete }) {
   const [expanded, setExpanded] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftTerm, setDraftTerm] = useState(item.term);
+  const [draftDef, setDraftDef] = useState(item.definition);
   const definition = String(item?.definition || "");
   const shouldCollapse = definition.length > COLLAPSE_THRESHOLD;
   const preview = shouldCollapse ? `${definition.slice(0, COLLAPSE_THRESHOLD).replace(/\s\S+$/, "")}...` : definition;
+
+  useEffect(() => {
+    setDraftTerm(item.term);
+    setDraftDef(item.definition);
+  }, [item.term, item.definition]);
+
+  function handleSave() {
+    if (draftTerm.trim() && draftDef.trim()) {
+      onEdit?.({
+        ...item,
+        term: draftTerm.trim(),
+        definition: draftDef.trim(),
+      });
+    }
+    setIsEditing(false);
+  }
+
+  if (isEditing) {
+    return (
+      <div className="def-card sh-def-card--editing">
+        <input
+          autoFocus
+          className="sh-inline-edit-input sh-def-term-input"
+          value={draftTerm}
+          onChange={(event) => setDraftTerm(event.target.value)}
+          placeholder="Term"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setDraftTerm(item.term);
+              setDraftDef(item.definition);
+              setIsEditing(false);
+            }
+          }}
+        />
+        <textarea
+          className="sh-inline-edit-input sh-def-body-input"
+          value={draftDef}
+          onChange={(event) => setDraftDef(event.target.value)}
+          placeholder="Definition"
+          rows={3}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setDraftTerm(item.term);
+              setDraftDef(item.definition);
+              setIsEditing(false);
+            }
+          }}
+        />
+        <div className="sh-def-edit-actions">
+          <button className="sh-btn-ghost sh-btn-green sh-btn-xs" onClick={handleSave}>
+            SAVE
+          </button>
+          <button
+            className="sh-btn-ghost sh-btn-xs"
+            onClick={() => {
+              setDraftTerm(item.term);
+              setDraftDef(item.definition);
+              setIsEditing(false);
+            }}
+          >
+            CANCEL
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="def-card sh-pptx-card">
       <div className="def-card-header">
         <div className="def-term">{item.term}</div>
+        <div className="sh-card-actions">
+          {item.confidence ? (
+            <div
+              className="sh-confidence-dot"
+              style={{
+                background:
+                  item.confidence === "high"
+                    ? "var(--sh-green)"
+                    : item.confidence === "medium"
+                      ? "var(--sh-amber)"
+                      : "var(--sh-text-dim)",
+              }}
+            />
+          ) : null}
+          <button className="sh-card-action-btn" onClick={() => setIsEditing(true)} title="Edit">
+            ✎
+          </button>
+          <button className="sh-card-action-btn sh-card-action-btn--delete" onClick={() => onDelete?.(item)} title="Delete">
+            ✕
+          </button>
+        </div>
       </div>
       <div className="def-body">
         {!expanded ? preview : definition}
@@ -73,7 +164,7 @@ function SectionBlock({ section }) {
   );
 }
 
-function NeedsReviewSection({ items }) {
+function NeedsReviewSection({ items, onEdit, onDelete }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="sh-needs-review">
@@ -82,7 +173,13 @@ function NeedsReviewSection({ items }) {
           NEEDS REVIEW — {items.length} TERM{items.length !== 1 ? "S" : ""}
         </span>
       </button>
-      {open ? <div className="sh-needs-review-body">{items.map((item) => <DefinitionCard key={item.id} item={item} />)}</div> : null}
+      {open ? (
+        <div className="sh-needs-review-body">
+          {items.map((item) => (
+            <DefinitionCard key={item.id} item={item} onEdit={onEdit} onDelete={onDelete} />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -127,8 +224,40 @@ export default function CourseContentArea({
   onUpdateModuleBody,
   onRemoveGlossaryTerm,
   onSaveGradeComponents,
+  onUpdateContentData,
+  flashcardEditTriggerRef,
 }) {
   const userFlashcards = Array.isArray(course?.flashcards) ? course.flashcards : [];
+  const localFlashcardEditRef = useRef(null);
+
+  useEffect(() => {
+    if (!flashcardEditTriggerRef) return;
+    flashcardEditTriggerRef.current = () => {
+      localFlashcardEditRef.current?.();
+    };
+  }, [flashcardEditTriggerRef]);
+
+  function handleEditCard(updatedItem) {
+    const newData = currentModule?.contentData?.map((section) => {
+      if (section.type !== "definitions") return section;
+      return {
+        ...section,
+        items: section.items.map((item) => (item.id === updatedItem.id ? updatedItem : item)),
+      };
+    });
+    onUpdateContentData?.(newData || []);
+  }
+
+  function handleDeleteCard(item) {
+    const newData = currentModule?.contentData?.map((section) => {
+      if (section.type !== "definitions") return section;
+      return {
+        ...section,
+        items: section.items.filter((i) => i.id !== item.id),
+      };
+    });
+    onUpdateContentData?.(newData || []);
+  }
 
   const renderContentData = (contentData) => {
     if (!contentData?.length) {
@@ -158,7 +287,9 @@ export default function CourseContentArea({
           highMedItems.push(
             <div key={i} className="sh-content-section">
               <div className="sh-section-label">DEFINITIONS</div>
-              {high.map((item) => <DefinitionCard key={item.id} item={item} />)}
+              {high.map((item) => (
+                <DefinitionCard key={item.id} item={item} onEdit={handleEditCard} onDelete={handleDeleteCard} />
+              ))}
             </div>
           );
         }
@@ -167,7 +298,12 @@ export default function CourseContentArea({
         highMedItems.push(<SectionBlock key={i} section={section} />);
       }
     });
-    return <>{highMedItems}{lowItems.length > 0 ? <NeedsReviewSection items={lowItems} /> : null}</>;
+    return (
+      <>
+        {highMedItems}
+        {lowItems.length > 0 ? <NeedsReviewSection items={lowItems} onEdit={handleEditCard} onDelete={handleDeleteCard} /> : null}
+      </>
+    );
   };
 
   const renderGlossary = useMemo(() => {
@@ -213,6 +349,7 @@ export default function CourseContentArea({
                 sourceFilter={sourceFilter}
                 onSourceFilterChange={onSourceFilterChange}
                 onSaveCards={onSaveCards}
+                editTriggerRef={localFlashcardEditRef}
               />
             </Suspense>
           ) : (
