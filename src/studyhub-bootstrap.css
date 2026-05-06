@@ -3574,3 +3574,211 @@ button.sh-titlebar-wordmark--btn:hover {
   color: var(--sh-text-secondary);
   line-height: 1.6;
 }
+
+.sh-grades-view {
+  padding: 0 0 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sh-grades-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sh-current-grade {
+  background: var(--sh-surface);
+  border: 1px solid var(--sh-border);
+  border-left: 3px solid var(--sh-green);
+  padding: 20px 24px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.sh-grade-value {
+  font-family: monospace;
+  font-size: 36px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.sh-grade-label {
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--sh-text-dim);
+  text-transform: uppercase;
+}
+
+.sh-grades-table {
+  background: var(--sh-surface);
+  border: 1px solid var(--sh-border);
+}
+
+.sh-grades-thead,
+.sh-grades-row {
+  display: grid;
+  grid-template-columns: 1fr 72px 90px 72px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--sh-border);
+  align-items: center;
+}
+
+.sh-grades-thead {
+  background: var(--sh-raised);
+}
+
+.sh-grades-row:last-child {
+  border-bottom: none;
+}
+
+.sh-grades-row:hover {
+  background: var(--sh-raised);
+}
+
+.sh-grades-row--total {
+  background: var(--sh-raised);
+  border-top: 2px solid var(--sh-border);
+}
+
+.sh-grades-col {
+  font-size: 13px;
+  color: var(--sh-text-primary);
+}
+
+.sh-grades-thead .sh-grades-col {
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--sh-text-dim);
+  text-transform: uppercase;
+}
+
+.sh-grades-col--name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sh-grades-col--weight,
+.sh-grades-col--contribution {
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.sh-score-input {
+  background: var(--sh-base);
+  border: 1px solid var(--sh-border);
+  color: var(--sh-text-primary);
+  font-family: monospace;
+  font-size: 13px;
+  padding: 3px 8px;
+  width: 68px;
+  text-align: right;
+  transition: border-color 60ms linear;
+}
+
+.sh-score-input:focus {
+  outline: none;
+  border-color: var(--sh-green);
+}
+
+.sh-score-input::-webkit-inner-spin-button,
+.sh-score-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
+
+.sh-category-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sh-category-dot--exam {
+  background: var(--sh-red);
+}
+
+.sh-category-dot--quiz {
+  background: var(--sh-amber);
+}
+
+.sh-category-dot--homework {
+  background: var(--sh-cyan);
+}
+
+.sh-category-dot--project {
+  background: var(--sh-green);
+}
+
+.sh-category-dot--participation,
+.sh-category-dot--other {
+  background: var(--sh-text-dim);
+}
+
+.sh-grades-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.sh-grades-empty-text {
+  font-size: 13px;
+  color: var(--sh-text-secondary);
+  max-width: 40ch;
+  line-height: 1.5;
+}
+
+.sh-grades-empty-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.sh-grades-status {
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--sh-amber);
+}
+
+.sh-grades-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.sh-btn-xs {
+  font-size: 9px !important;
+  padding: 4px 10px !important;
+  letter-spacing: 0.1em !important;
+}
+
+.sh-panel-action {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--sh-border);
+  color: var(--sh-text-secondary);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 6px;
+  text-align: left;
+  margin-bottom: 6px;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.sh-panel-action--highlight {
+  color: var(--sh-green) !important;
+  border-color: var(--sh-green) !important;
+}

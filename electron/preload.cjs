@@ -40,6 +40,7 @@ contextBridge.exposeInMainWorld("studyHub", {
 
   /** @returns {Promise<{ success: boolean, slides?: Array, error?: string }>} */
   extractPptx: (filePath) => ipcRenderer.invoke("studyhub:extract-pptx", filePath),
+  extractText: (filePath) => ipcRenderer.invoke("studyhub:extract-text", filePath),
 
   /**
    * Claude / Anthropic — key stays in main process only.
@@ -94,6 +95,12 @@ contextBridge.exposeInMainWorld("studyHub", {
       get: (key) => ipcRenderer.invoke("db:settings:get", key),
       set: (data) => ipcRenderer.invoke("db:settings:set", data),
       getAll: () => ipcRenderer.invoke("db:settings:getAll"),
+    },
+    grades: {
+      getComponents: (courseUuid) => ipcRenderer.invoke("db:grades:getComponents", courseUuid),
+      saveComponents: (data) => ipcRenderer.invoke("db:grades:saveComponents", data),
+      getEntries: (courseUuid) => ipcRenderer.invoke("db:grades:getEntries", courseUuid),
+      upsertEntry: (data) => ipcRenderer.invoke("db:grades:upsertEntry", data),
     },
   },
 });

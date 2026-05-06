@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo, useState } from "react";
 
 const FlashcardDeck = lazy(() => import("../../study/flashcards/FlashcardDeck.jsx"));
 const UserCourseTipTapNotesEditor = lazy(() => import("../UserCourseTipTapNotesEditor.jsx"));
+const GradesTab = lazy(() => import("./GradesTab.jsx"));
 
 const COLLAPSE_THRESHOLD = 120;
 const VISIBLE_DEFAULT = 4;
@@ -125,6 +126,7 @@ export default function CourseContentArea({
   onMoveReviewToContent,
   onUpdateModuleBody,
   onRemoveGlossaryTerm,
+  onSaveGradeComponents,
 }) {
   const userFlashcards = Array.isArray(course?.flashcards) ? course.flashcards : [];
 
@@ -196,6 +198,7 @@ export default function CourseContentArea({
           <button type="button" className={`sh-tab sh-usercourse-tab ${mainTab === "content" ? "active" : ""}`} onClick={() => onTabChange("content")}>CONTENT</button>
           <button type="button" className={`sh-tab sh-usercourse-tab ${mainTab === "notes" ? "active" : ""}`} onClick={() => onTabChange("notes")}>NOTES</button>
           <button type="button" className={`sh-tab sh-usercourse-tab ${mainTab === "glossary" ? "active" : ""}`} onClick={() => onTabChange("glossary")}>GLOSSARY</button>
+          <button type="button" className={`sh-tab sh-usercourse-tab ${mainTab === "grades" ? "active" : ""}`} onClick={() => onTabChange("grades")}>GRADES</button>
         </div>
       </div>
       <div className="sh-main-body sh-scroll-hover position-relative">
@@ -239,8 +242,12 @@ export default function CourseContentArea({
               />
             </Suspense>
           </>
-        ) : (
+        ) : mainTab === "glossary" ? (
           <div className="main-content">{renderGlossary}</div>
+        ) : (
+          <Suspense fallback={<div className="sh-skeleton-pulse" style={{ height: 300 }} />}>
+            <GradesTab course={course} onSaveComponents={onSaveGradeComponents} />
+          </Suspense>
         )}
       </div>
     </>

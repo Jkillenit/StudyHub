@@ -341,6 +341,75 @@ function registerDbHandlers() {
     const rows = db.prepare("SELECT key, value FROM settings").all();
     return Object.fromEntries(rows.map((row) => [row.key, row.value]));
   });
+
+  ipcMain.handle("db:grades:getComponents", (_, courseUuid) => {
+    return db
+      .prepare(`
+        SELECT gc.*
+        FROM grade_components gc
+        JOIN courses c ON c.id = gc.course_id
+        WHERE c.uuid = ?
+        ORDER BY gc.position ASC
+      `)
+      .all(courseUuid);
+  });
+
+  ipcMain.handle("db:grades:saveComponents", (_, { courseUuid, components }) => {
+    const course = db.prepare("SELECT id FROM courses WHERE uuid = ?").get(courseUuid);
+    if (!course) throw new Error("Course not found");
+    const transaction = db.transaction((courseId, rows) => {
+      db.prepare("DELETE FROM grade_components WHERE course_id = ?").run(courseId);
+      const stmt = db.prepare(`
+        INSERT INTO grade_components (
+          course_id, name, weight, category, position
+        ) VALUES (
+          @courseId, @name, @weight, @category, @position
+        )
+      `);
+      rows.forEach((component, i) => {
+        stmt.run({
+          courseId,
+          name: component.name,
+          weight: component.weight,
+          category: component.category || "other",
+          position: i,
+        });
+      });
+    });
+    transaction(course.id, Array.isArray(components) ? components : []);
+    return { success: true };
+  });
+
+  ipcMain.handle("db:grades:getEntries", (_, courseUuid) => {
+    return db
+      .prepare(`
+        SELECT ge.*, gc.name as component_name,
+          gc.weight, gc.category,
+          gc.id as component_id
+        FROM grade_entries ge
+        JOIN grade_components gc
+          ON gc.id = ge.component_id
+        JOIN courses c
+          ON c.id = gc.course_id
+        WHERE c.uuid = ?
+        ORDER BY gc.position ASC
+      `)
+      .all(courseUuid);
+  });
+
+  ipcMain.handle("db:grades:upsertEntry", (_, { componentId, score, label }) => {
+    db.prepare(`
+      INSERT INTO grade_entries
+        (component_id, score, label, graded_at)
+      VALUES (?, ?, ?, datetime('now'))
+      ON CONFLICT(component_id)
+      DO UPDATE SET
+        score = excluded.score,
+        label = excluded.label,
+        graded_at = excluded.graded_at
+    `).run(componentId, score ?? null, label || null);
+    return { success: true };
+  });
 }
 
 module.exports = { registerDbHandlers };

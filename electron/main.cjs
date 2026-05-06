@@ -196,6 +196,41 @@ ipcMain.handle("studyhub:extract-pptx", async (_evt, filePath) => {
   }
 });
 
+ipcMain.handle("studyhub:extract-text", async (_evt, filePath) => {
+  try {
+    const normalized = path.normalize(String(filePath || ""));
+    if (!allowedReadPaths.has(normalized)) {
+      return {
+        success: false,
+        error: "Path is not registered for this session. Re-add the file from Materials.",
+        text: "",
+      };
+    }
+    const officeParserModule = require("officeparser");
+    const text = await new Promise((resolve, reject) => {
+      officeParserModule.parseOffice(
+        normalized,
+        (data, err) => {
+          if (err) reject(err);
+          else resolve(data);
+        },
+        { ignoreNotes: false }
+      );
+    });
+    return {
+      success: true,
+      text: typeof text === "string" ? text : JSON.stringify(text),
+      filePath: normalized,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err?.message || String(err),
+      text: "",
+    };
+  }
+});
+
 function groupIntoSlides(contentNodes) {
   const slides = [];
   let slideIndex = 0;

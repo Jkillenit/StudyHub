@@ -290,6 +290,7 @@ export function UserCourseApp({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [ctxCollapsed, setCtxCollapsed] = useState(false);
   const [mainTab, setMainTab] = useState("content");
+  const [hasGrades, setHasGrades] = useState(false);
   const [expressBusy, setExpressBusy] = useState(false);
   const [expressLabel, setExpressLabel] = useState("");
   const [toastMsg, setToastMsg] = useState("");
@@ -359,6 +360,19 @@ export function UserCourseApp({
     setMainTab("content");
     setActiveItem((prev) => (prev === "qz-deck" ? prev : `module:${active}`));
   }, [active]);
+
+  useEffect(() => {
+    async function loadHasGrades() {
+      const courseUuid = course?.uuid || course?.id;
+      if (!courseUuid) {
+        setHasGrades(false);
+        return;
+      }
+      const rows = await window.studyHub?.db?.grades?.getComponents(courseUuid);
+      setHasGrades(Array.isArray(rows) && rows.length > 0);
+    }
+    void loadHasGrades();
+  }, [course?.uuid, course?.id]);
 
   useEffect(() => {
     const cur = ensureUserCourse(courseRef.current);
@@ -1154,6 +1168,40 @@ export function UserCourseApp({
             onMoveReviewToContent={moveReviewToContent}
             onUpdateModuleBody={updateModuleBody}
             onRemoveGlossaryTerm={removeGlossaryTerm}
+            onSaveGradeComponents={async (components) => {
+              const courseUuid = c.uuid || c.id;
+              const existing = await window.studyHub?.db?.grades?.getComponents(courseUuid);
+              await window.studyHub?.db?.grades?.saveComponents({
+                courseUuid,
+                components: components.map((component) => ({
+                  name: component.name,
+                  weight: component.weight,
+                  category: component.category || "other",
+                })),
+              });
+              const refreshed = await window.studyHub?.db?.grades?.getComponents(courseUuid);
+              const mapByKey = new Map(
+                refreshed.map((row) => [`${String(row.name).toLowerCase()}|${row.position}`, row.id])
+              );
+              const priorMap = new Map(
+                (existing || []).map((row) => [`${String(row.name).toLowerCase()}|${row.position}`, row.id])
+              );
+              await Promise.all(
+                components.map(async (component, index) => {
+                  if (component.score === null || component.score === undefined) return;
+                  const key = `${String(component.name).toLowerCase()}|${index}`;
+                  const componentId = mapByKey.get(key) || priorMap.get(key) || component.id;
+                  if (!componentId) return;
+                  await window.studyHub?.db?.grades?.upsertEntry({
+                    courseUuid,
+                    componentId,
+                    score: component.score,
+                    label: component.label || null,
+                  });
+                })
+              );
+              setHasGrades(Array.isArray(components) && components.length > 0);
+            }}
           />
         </main>
 
@@ -1177,6 +1225,8 @@ export function UserCourseApp({
               }}
               onHideSidebar={() => setSidebarCollapsed((v) => !v)}
               onHidePanel={() => setCtxCollapsed((v) => !v)}
+              onTabChange={setMainTab}
+              hasGrades={hasGrades}
             />
           </div>
         </aside>

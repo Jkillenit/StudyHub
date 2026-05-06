@@ -13,6 +13,8 @@ function CourseContextPanel({
   onDeleteCourse,
   onHideSidebar,
   onHidePanel,
+  onTabChange,
+  hasGrades,
 }) {
   const userFlashcards = Array.isArray(course?.flashcards) ? course.flashcards : [];
   const filteredFlashcards =
@@ -93,6 +95,19 @@ function CourseContextPanel({
           <p className="mono mb-2" style={{ fontSize: 10, color: "var(--sh-text-dim)" }}>
             MATERIALS · {(course?.materialPaths || []).length} FILE(S)
           </p>
+        ) : null}
+
+        {!hasGrades ? (
+          <div className="sh-panel-section">
+            <div className="sh-section-label">GRADES</div>
+            <button
+              type="button"
+              className="sh-panel-action sh-panel-action--highlight"
+              onClick={() => onTabChange?.("grades")}
+            >
+              + SET UP GRADES
+            </button>
+          </div>
         ) : null}
 
         <button type="button" className="sh-btn-ghost sh-btn-ghost-cyan ctx-btn" onClick={onAddModule}>
