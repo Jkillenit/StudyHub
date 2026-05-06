@@ -6,6 +6,7 @@ export default function InlineEdit({
   className,
   placeholder,
   multiline = false,
+  suffix = "",
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -59,6 +60,7 @@ export default function InlineEdit({
   return (
     <span className={`sh-inline-edit-trigger ${className || ""}`} onClick={() => setEditing(true)} title="Click to rename">
       {value}
+      {suffix}
     </span>
   );
 }

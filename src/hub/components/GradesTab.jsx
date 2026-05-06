@@ -361,6 +361,7 @@ function ComponentRow({ component, index, onScoreChange, components, setComponen
           <span className="sh-grades-col sh-grades-col--weight mono">
             <InlineEdit
               value={(Number(component.weight || 0) * 100).toFixed(0)}
+              suffix="%"
               className="sh-grade-weight-edit mono"
               onSave={(newVal) => {
                 const pct = parseFloat(newVal);
