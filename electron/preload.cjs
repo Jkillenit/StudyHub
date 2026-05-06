@@ -1,4 +1,5 @@
 const { contextBridge, ipcRenderer } = require("electron");
+const bbCourseListenerMap = new WeakMap();
 
 contextBridge.exposeInMainWorld("electronAPI", {
   minimizeWindow: () => ipcRenderer.send("window-minimize"),
@@ -52,6 +53,25 @@ contextBridge.exposeInMainWorld("studyHub", {
     /** @returns {Promise<{ ok: boolean, cards?: Array<{front:string,back:string}>, error?: string }>} */
     generateFlashcards: (payload) =>
       ipcRenderer.invoke("studyhub:ai-generate-flashcards", payload),
+  },
+  blackboard: {
+    open: () => ipcRenderer.invoke("bb:open"),
+    close: () => ipcRenderer.invoke("bb:close"),
+    disconnect: () => ipcRenderer.invoke("bb:disconnect"),
+    isLoggedIn: () => ipcRenderer.invoke("bb:isLoggedIn"),
+    getStatus: () => ipcRenderer.invoke("bb:getStatus"),
+    onCourseDetected: (callback) => {
+      if (typeof callback !== "function") return;
+      const wrapped = (_event, data) => callback(data);
+      bbCourseListenerMap.set(callback, wrapped);
+      ipcRenderer.on("bb:course-detected", wrapped);
+    },
+    offCourseDetected: (callback) => {
+      const wrapped = bbCourseListenerMap.get(callback);
+      if (!wrapped) return;
+      ipcRenderer.removeListener("bb:course-detected", wrapped);
+      bbCourseListenerMap.delete(callback);
+    },
   },
 
   db: {

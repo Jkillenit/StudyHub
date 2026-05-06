@@ -2806,6 +2806,69 @@ button.sh-titlebar-wordmark--btn:hover {
   margin-top: 8px;
 }
 
+.sh-hub-bb-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--sh-border);
+}
+
+.sh-hub-bb-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: var(--sh-surface);
+  border: 1px solid var(--sh-border);
+  border-left: 3px solid var(--sh-green);
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 60ms linear, border-color 60ms linear;
+  text-align: left;
+}
+
+.sh-hub-bb-btn:hover {
+  background: var(--sh-raised);
+  border-left-color: var(--sh-green);
+}
+
+.sh-hub-bb-icon {
+  font-size: 16px;
+  color: var(--sh-green);
+  flex-shrink: 0;
+}
+
+.sh-hub-bb-text {
+  font-family: monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--sh-text-primary);
+  flex: 1;
+}
+
+.sh-hub-bb-status {
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+
+.sh-hub-bb-disconnect {
+  background: transparent;
+  border: none;
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--sh-text-dim);
+  cursor: pointer;
+  padding: 4px 0;
+  margin-top: 4px;
+  transition: color 60ms linear;
+}
+
+.sh-hub-bb-disconnect:hover {
+  color: var(--sh-red);
+}
+
 /* Manual course entry (Fix 2) */
 .sh-manual-entry {
   gap: 0;

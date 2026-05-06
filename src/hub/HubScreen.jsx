@@ -7,6 +7,7 @@ import { ExpressImportModal } from "../welcome/ExpressImportModal.jsx";
 export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpressComplete }) {
   const [manualOpen, setManualOpen] = useState(false);
   const [expressOpen, setExpressOpen] = useState(false);
+  const [bbStatus, setBbStatus] = useState({ loggedIn: false, windowOpen: false });
   const highlightId = loadJson(HUB_KEYS.lastCourse, null);
 
   useEffect(() => {
@@ -14,6 +15,31 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
     window.addEventListener("studyhub-open-manual-add", fn);
     return () => window.removeEventListener("studyhub-open-manual-add", fn);
   }, []);
+
+  useEffect(() => {
+    async function checkStatus() {
+      const status = await window.studyHub?.blackboard?.getStatus?.();
+      if (status) setBbStatus(status);
+    }
+    checkStatus();
+
+    const handleCourseDetected = (course) => {
+      console.log("[BB] Course detected:", course.bbCourseId);
+    };
+
+    window.studyHub?.blackboard?.onCourseDetected?.(handleCourseDetected);
+    return () => {
+      window.studyHub?.blackboard?.offCourseDetected?.(handleCourseDetected);
+    };
+  }, []);
+
+  async function handleOpenBlackboard() {
+    await window.studyHub?.blackboard?.open?.();
+    setTimeout(async () => {
+      const status = await window.studyHub?.blackboard?.getStatus?.();
+      if (status) setBbStatus(status);
+    }, 1000);
+  }
 
   return (
     <div className="sh-hub-root">
@@ -86,6 +112,30 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
               />
             </div>
           ) : null}
+
+          <div className="sh-hub-bb-section">
+            <div className="sh-section-label" style={{ marginBottom: 10 }}>
+              BLACKBOARD
+            </div>
+            <button className="sh-hub-bb-btn" onClick={handleOpenBlackboard}>
+              <span className="sh-hub-bb-icon">⬡</span>
+              <span className="sh-hub-bb-text">{bbStatus.loggedIn ? "OPEN BLACKBOARD" : "CONNECT BLACKBOARD"}</span>
+              <span className="sh-hub-bb-status" style={{ color: bbStatus.loggedIn ? "var(--sh-green)" : "var(--sh-text-dim)" }}>
+                {bbStatus.loggedIn ? "● CONNECTED" : "○ NOT CONNECTED"}
+              </span>
+            </button>
+            {bbStatus.loggedIn ? (
+              <button
+                className="sh-hub-bb-disconnect"
+                onClick={async () => {
+                  await window.studyHub?.blackboard?.disconnect?.();
+                  setBbStatus({ loggedIn: false, windowOpen: false });
+                }}
+              >
+                DISCONNECT
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
 

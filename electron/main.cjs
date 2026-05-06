@@ -13,6 +13,7 @@ try {
 const aiConfig = require("./aiConfig.cjs");
 const { generateFlashcards } = require("./anthropicClient.cjs");
 const { registerDbHandlers } = require("./dbHandlers.cjs");
+const { registerBlackboardHandlers } = require("./blackboardWindow.cjs");
 
 /** Tracks files the user explicitly chose (open dialog); readText allowed only for these paths. */
 const allowedReadPaths = new Set();
@@ -384,6 +385,7 @@ ipcMain.handle("studyhub:ai-clear-key", async () => {
 });
 
 let windowChromeHandlersRegistered = false;
+let mainWindow = null;
 
 function registerWindowChromeHandlersOnce() {
   if (windowChromeHandlersRegistered) return;
@@ -457,6 +459,7 @@ function createWindow() {
     opts.titleBarStyle = "hidden";
   }
   const win = new BrowserWindow(opts);
+  mainWindow = win;
 
   if (process.platform === "darwin") {
     try {
@@ -478,6 +481,7 @@ function createWindow() {
 app.whenReady().then(() => {
   registerDbHandlers();
   createWindow();
+  registerBlackboardHandlers(mainWindow);
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
