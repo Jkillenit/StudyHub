@@ -1,5 +1,4 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChapterContentSkeleton } from "../study/ChapterContentSkeleton.jsx";
 import { CourseSidebarSkeleton } from "../study/CourseSidebarSkeleton.jsx";
 import { useDelayedSkeletonVisible } from "../hooks/useDelayedSkeletonVisible.js";
 import { FONT_STEPS } from "../constants/fontSteps.js";
@@ -9,8 +8,9 @@ import { useShell } from "../shell/ShellContext.jsx";
 import { usePptxImport } from "../pptx/usePptxImport.js";
 import { buildOutput } from "../pptx/pptxOutputBuilder.js";
 import { classifySlides, textToSlides } from "../pptx/pptxClassifier.js";
-import { UserCourseTipTapNotesEditor } from "./UserCourseTipTapNotesEditor.jsx";
-import FlashcardDeck from "../study/flashcards/FlashcardDeck.jsx";
+import CourseSidebar from "./components/CourseSidebar.jsx";
+import CourseContentArea from "./components/CourseContentArea.jsx";
+import CourseContextPanel from "./components/CourseContextPanel.jsx";
 import { hasApiKey } from "../ai/apiKeyUtils.js";
 import { enhanceWithClaude } from "../ai/pptxEnhancer.js";
 import { mergeEnhancedOutput } from "../ai/mergeEnhancedOutput.js";
@@ -282,6 +282,8 @@ export function UserCourseApp({
   const { setBreadcrumb, setStatusBar } = useShell();
   const courseRef = useRef(course);
   courseRef.current = course;
+  const mountedRef = useRef(true);
+  const sessionCardsRef = useRef(null);
 
   const [search, setSearch] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -299,6 +301,13 @@ export function UserCourseApp({
   const wasShellLoading = useRef(false);
   const shellSkelVis = useDelayedSkeletonVisible(!!courseShellLoad, courseShellLoad ? "shell" : "");
   const [mainEnterClass, setMainEnterClass] = useState("");
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (courseShellLoad) {
@@ -414,7 +423,11 @@ export function UserCourseApp({
       if (msg) {
         sessionStorage.removeItem("studyhub.pendingToast");
         setToastMsg(msg);
-        window.setTimeout(() => setToastMsg(""), 4500);
+        window.setTimeout(() => {
+          if (mountedRef.current) {
+            setToastMsg("");
+          }
+        }, 4500);
       }
     } catch {
       /* ignore */
@@ -642,7 +655,11 @@ export function UserCourseApp({
         completedModuleIds: [...(cur.completedModuleIds || [])],
         activeModuleId: targetModuleId,
       });
-      window.setTimeout(() => setToastMsg(""), 4500);
+      window.setTimeout(() => {
+        if (mountedRef.current) {
+          setToastMsg("");
+        }
+      }, 4500);
       setExpressBusy(false);
       setExpressLabel("");
       resetPptx();
@@ -682,7 +699,11 @@ export function UserCourseApp({
       let nextCourse = { ...cur, modules, pptxReviewBlocks: blocks, flashcards };
       nextCourse = addTermsToGlossary(nextCourse, active, output.contentCards || []);
       setToastMsg(`CONTENT UPDATED · ${output.contentCards.length} cards added`);
-      window.setTimeout(() => setToastMsg(""), 3000);
+      window.setTimeout(() => {
+        if (mountedRef.current) {
+          setToastMsg("");
+        }
+      }, 3000);
       onChangeCourse({
         ...nextCourse,
         disabledModuleIds: [...disabledIds],
@@ -698,7 +719,11 @@ export function UserCourseApp({
     if (!module) return;
     if (!hasApiKey()) {
       setToastMsg("Add API key in Settings to use AI enhancement");
-      window.setTimeout(() => setToastMsg(""), 3000);
+      window.setTimeout(() => {
+        if (mountedRef.current) {
+          setToastMsg("");
+        }
+      }, 3000);
       return;
     }
 
@@ -725,7 +750,11 @@ export function UserCourseApp({
       const merged = mergeEnhancedOutput(currentOutput, aiResult);
       if (!aiResult) {
         setToastMsg("No AI changes were returned");
-        window.setTimeout(() => setToastMsg(""), 2500);
+        window.setTimeout(() => {
+          if (mountedRef.current) {
+            setToastMsg("");
+          }
+        }, 2500);
         return;
       }
 
@@ -744,7 +773,11 @@ export function UserCourseApp({
       setToastMsg(
         `AI enhanced ${aiResult.definitions?.length || 0} terms, found ${aiResult.newDefinitions?.length || 0} new`
       );
-      window.setTimeout(() => setToastMsg(""), 3500);
+      window.setTimeout(() => {
+        if (mountedRef.current) {
+          setToastMsg("");
+        }
+      }, 3500);
     } finally {
       setEnhancing(false);
     }
@@ -780,7 +813,11 @@ export function UserCourseApp({
     }
   }, [visibleChapters, active]);
 
-  const currentModule = c.modules.find((m) => m.id === active);
+  const activeModuleId = active;
+  const currentModule = useMemo(
+    () => c.modules.find((m) => (m.uuid || m.id) === activeModuleId),
+    [c.modules, activeModuleId]
+  );
   const courseGlossaryTerms = useMemo(
     () =>
       (c.glossary || [])
@@ -789,7 +826,7 @@ export function UserCourseApp({
     [c.glossary]
   );
   const userFlashcards = Array.isArray(c.flashcards) ? c.flashcards : [];
-  const dueCount = useMemo(() => getDueCards(userFlashcards).length, [userFlashcards]);
+  const dueCount = useMemo(() => getDueCards(c.flashcards || []).length, [c.flashcards]);
   const filteredFlashcards =
     sourceFilter === "all"
       ? userFlashcards
@@ -960,6 +997,42 @@ export function UserCourseApp({
     void runChapterExpressImport();
   }, [runChapterExpressImport]);
 
+  const handleSaveCards = useCallback(
+    (updatedCards) => {
+      const nextCards = (updatedCards || []).map((card) => ({
+        ...card,
+        source: card.source || "manual",
+        moduleId: card.moduleId || active,
+        addedAt: card.addedAt || new Date().toISOString(),
+      }));
+      sessionCardsRef.current = nextCards;
+      window.studyHub?.db?.flashcards
+        ?.saveMany({
+          courseUuid: course?.uuid || course?.id,
+          moduleUuid: null,
+          cards: nextCards,
+        })
+        .catch((err) => console.warn("[CARDS] Save:", err));
+    },
+    [active, course?.uuid, course?.id]
+  );
+
+  useEffect(() => {
+    if (activeItem !== "qz-deck") return undefined;
+    return () => {
+      if (!sessionCardsRef.current) return;
+      const cur = ensureUserCourse(courseRef.current);
+      onChangeCourse({
+        ...cur,
+        flashcards: sessionCardsRef.current,
+        disabledModuleIds: [...disabledIds],
+        completedModuleIds: [...completedIds],
+        activeModuleId: active,
+      });
+      sessionCardsRef.current = null;
+    };
+  }, [activeItem, active, completedIds, disabledIds, onChangeCourse]);
+
   function renderContentData(contentData) {
     if (!contentData || contentData.length === 0) {
       return (
@@ -1045,370 +1118,66 @@ export function UserCourseApp({
           {shellSkelVis ? (
             <CourseSidebarSkeleton />
           ) : (
-            <>
-              <div className="sh-sidebar-head">
-                <div className="sh-sidebar-label">ACTIVE COURSE</div>
-                <div className="sh-sidebar-course">{c.name}</div>
-                <div className="sh-sidebar-meta mono">
-                  {(c.subtitle || "NOTES").toUpperCase()} · {totalVisible} MODULES
-                </div>
-              </div>
-              <div className="sh-sidebar-search">
-                <span className="sh-sidebar-search-prefix" style={{ color: "var(--sh-cyan)" }} aria-hidden>
-                  ›
-                </span>
-                <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="FILTER" aria-label="Filter modules" />
-              </div>
-              <div className="sh-sidebar-scroll sh-scroll-hover">
-                <div className="sh-sidebar-section-label">MODULES</div>
-                {filteredChapters.length === 0 ? (
-                  <pre className="sh-empty-ascii mono px-2">
-                    {`┌─────────────────┐
-│   NO CHAPTERS   │
-│  ADD MODULE →   │
-└─────────────────┘`}
-                  </pre>
-                ) : (
-                  filteredChapters.map((ch) => {
-                    const isAct = activeItem === `module:${ch.id}`;
-                    const done = completedIds.has(ch.id);
-                    return (
-                      <button
-                        key={ch.id}
-                        type="button"
-                        className={`ch-item ${isAct ? "active" : ""} ${done ? "ch-item--complete" : ""}`}
-                        onClick={() => {
-                          setActive(ch.id);
-                          setActiveItem(`module:${ch.id}`);
-                          setMainTab("content");
-                        }}
-                      >
-                        <span className="ch-num">{chNum(ch.id)}</span>
-                        <span className="ch-title">{ch.title}</span>
-                      </button>
-                    );
-                  })
-                )}
-                <div className="ch-divider mono">DRILL</div>
-                <button
-                  type="button"
-                  className={`ch-item ${activeItem === "qz-deck" ? "active" : ""}`}
-                  onClick={() => {
-                    setActiveItem("qz-deck");
-                    setMainTab("content");
-                  }}
-                >
-                  <span className="ch-num mono qz-prefix">QZ·01</span>
-                  <span className="ch-title">Flashcard Deck</span>
-                </button>
-              </div>
-            </>
+            <CourseSidebar
+              course={c}
+              activeItem={activeItem}
+              onActiveChange={(nextActiveItem) => {
+                setActiveItem(nextActiveItem);
+                if (nextActiveItem.startsWith("module:")) {
+                  const moduleId = nextActiveItem.replace("module:", "");
+                  setActive(moduleId);
+                  setMainTab("content");
+                }
+                if (nextActiveItem === "qz-deck") setMainTab("content");
+              }}
+            />
           )}
         </aside>
 
         <main className="sh-main">
-          <div className="sh-main-header">
-            <div className="sh-title-row">
-              <h1 className="sh-main-title">{activeItem === "qz-deck" ? "Flashcard Deck" : currentModule?.title || "Notes"}</h1>
-              <span className="sh-ch-tag">{activeItem === "qz-deck" ? "QZ·01" : currentModule ? chNum(currentModule.id) : ""}</span>
-            </div>
-            <div className="sh-tab-row">
-              <button type="button" className={`sh-tab sh-usercourse-tab ${mainTab === "content" ? "active" : ""}`} onClick={() => setMainTab("content")}>
-                CONTENT
-              </button>
-              <button type="button" className={`sh-tab sh-usercourse-tab ${mainTab === "notes" ? "active" : ""}`} onClick={() => setMainTab("notes")}>
-                NOTES
-              </button>
-              <button type="button" className={`sh-tab sh-usercourse-tab ${mainTab === "glossary" ? "active" : ""}`} onClick={() => setMainTab("glossary")}>
-                GLOSSARY
-              </button>
-            </div>
-          </div>
-          <div className="sh-main-body sh-scroll-hover position-relative">
-            {toastMsg ? (
-              <div
-                className="mono position-absolute top-0 end-0 m-2 px-2 py-1"
-                style={{
-                  fontSize: 10,
-                  color: "var(--sh-green)",
-                  border: "1px solid var(--sh-green)",
-                  background: "var(--sh-surface)",
-                  zIndex: 2,
-                  maxWidth: "min(320px, 90%)",
-                }}
-                role="status"
-              >
-                {toastMsg}
-              </div>
-            ) : null}
-            {shellSkelVis ? (
-              <ChapterContentSkeleton />
-            ) : expressBusy ? (
-              <div className={`sh-main-empty-wrap ${mainEnterClass}`}>
-                <div className="sh-import-processing" aria-busy="true">
-                  <div className="sh-import-filename">{expressLabel}</div>
-                  <div className="sh-import-dots mono" aria-hidden>
-                    <span className="sh-pulse">●</span> <span className="sh-pulse">●</span> <span className="sh-pulse">●</span>{" "}
-                    <span>○</span> <span>○</span>
-                  </div>
-                  <div className="sh-import-label">{progress || "READING FILE..."}</div>
-                </div>
-              </div>
-            ) : importError ? (
-              <div className={`sh-main-empty-wrap ${mainEnterClass}`}>
-                <pre className="sh-empty-ascii-box sh-import-error-box">{importError}</pre>
-                <div className="sh-empty-actions">
-                  <button type="button" className="sh-btn-ghost sh-btn-ghost-amber ctx-btn" onClick={() => void runChapterExpressImport()}>
-                    TRY AGAIN
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div
-                className={`font-sans ${mainEnterClass}`}
-                style={{
-                  fontSize: `calc(15px * ${fontScale})`,
-                  lineHeight: contentLineHeight,
-                }}
-              >
-                {mainTab === "content" ? (
-                  <>
-                    <div className="ctx-label" style={{ marginBottom: 12 }}>
-                      {activeItem === "qz-deck" ? "QZ DECK (LOCAL)" : "CONTENT (LOCAL)"}
-                    </div>
-                    {activeItem === "qz-deck" ? (
-                      <div className="main-content">
-                        <FlashcardDeck
-                          key={`${c.id}-qz`}
-                          cards={userFlashcards}
-                          courseId={c.id}
-                          showMasteryButtons={true}
-                          sourceFilter={sourceFilter}
-                          onSourceFilterChange={setSourceFilter}
-                          onSaveCards={(updatedCards) => {
-                            const cur = ensureUserCourse(courseRef.current);
-                            onChangeCourse({
-                              ...cur,
-                              flashcards: (updatedCards || []).map((card) => ({
-                                ...card,
-                                source: card.source || "manual",
-                                moduleId: card.moduleId || active,
-                                addedAt: card.addedAt || new Date().toISOString(),
-                              })),
-                              disabledModuleIds: [...disabledIds],
-                              completedModuleIds: [...completedIds],
-                              activeModuleId: active,
-                            });
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <div className="main-content">{renderContentData(currentModule?.contentData)}</div>
-                    )}
-                  </>
-                ) : mainTab === "notes" ? (
-                  <>
-                    <div className="ctx-label" style={{ marginBottom: 12 }}>
-                      NOTES (LOCAL)
-                    </div>
-                    {reviewMeta ? (
-                      <div className="sh-review-banner">
-                        <span>{`REVIEW NEEDED — ${reviewMeta.slideCount} slides could not be auto-classified. Edit below, then click MOVE TO CONTENT.`}</span>
-                        <div className="d-flex gap-2 align-items-center">
-                          <button
-                            type="button"
-                            className="sh-review-move-btn"
-                            style={{ opacity: 0.7 }}
-                            onClick={() => void handleEnhanceReview()}
-                            disabled={enhancing}
-                          >
-                            {enhancing ? "ENHANCING..." : "✦ ENHANCE WITH AI"}
-                          </button>
-                          <button type="button" className="sh-review-move-btn" onClick={moveReviewToContent}>
-                            MOVE TO CONTENT
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
-                    <UserCourseTipTapNotesEditor
-                      key={currentModule?.id}
-                      sectionId={currentModule?.id}
-                      value={currentModule?.body || reviewMeta?.text || ""}
-                      glossaryTerms={courseGlossaryTerms}
-                      onAutosaveStatus={() => {}}
-                      onChangeValue={updateModuleBody}
-                    />
-                  </>
-                ) : (
-                  <div className="main-content">{renderGlossary(c, currentModule?.id)}</div>
-                )}
-              </div>
-            )}
-          </div>
+          <CourseContentArea
+            course={c}
+            currentModule={currentModule}
+            mainTab={mainTab}
+            onTabChange={setMainTab}
+            onChangeCourse={onChangeCourse}
+            courseGlossaryTerms={courseGlossaryTerms}
+            notesStatus={() => {}}
+            onImportFile={handleImportFile}
+            activeItem={activeItem}
+            sourceFilter={sourceFilter}
+            onSourceFilterChange={setSourceFilter}
+            onSaveCards={handleSaveCards}
+            reviewMeta={reviewMeta}
+            enhancing={enhancing}
+            onEnhanceReview={handleEnhanceReview}
+            onMoveReviewToContent={moveReviewToContent}
+            onUpdateModuleBody={updateModuleBody}
+            onRemoveGlossaryTerm={removeGlossaryTerm}
+          />
         </main>
 
         <aside className={`sh-ctx sh-scroll-hover ${ctxCollapsed ? "collapsed" : ""}`}>
           <div className="sh-ctx-scroll sh-scroll-hover">
-            <div className="ctx-section">
-              <div className="ctx-label">MASTERY</div>
-              <div className="d-flex align-items-center gap-2 mb-1">
-                <div className="sh-meter-track flex-grow-1">
-                  <div className="sh-meter-fill" style={{ width: `${masteryPct}%`, background: "var(--sh-cyan)" }} />
-                </div>
-                <span className="mono" style={{ fontSize: 10, color: "var(--sh-cyan)" }}>
-                  {masteryPct}%
-                </span>
-              </div>
-            </div>
-            <div className="ctx-section">
-              <div className="ctx-label">SHORTCUTS</div>
-              <div className="kbd-row">
-                <span>Module</span>
-                <span className="kbd">← →</span>
-              </div>
-              <div className="kbd-row">
-                <span>Reviewed</span>
-                <span className="kbd">⌘R</span>
-              </div>
-            </div>
-            <div className="ctx-section">
-              <div className="ctx-label">QUICK</div>
-              {activeItem === "qz-deck" && userFlashcards.length > 0 ? (
-                <>
-                  <div className="ctx-label">QZ SOURCES</div>
-                  <div className="d-flex gap-2 mb-2">
-                    {[
-                      { id: "all", label: "ALL" },
-                      { id: "manual", label: "MANUAL" },
-                      { id: "pptx", label: "IMPORTED" },
-                      { id: "due", label: "DUE" },
-                    ].map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        className={`sh-btn-ghost ${sourceFilter === opt.id ? "sh-btn-ghost--active" : ""}`}
-                        style={{ width: "auto", marginBottom: 0, padding: "4px 8px", fontSize: 10 }}
-                        onClick={() => setSourceFilter(opt.id)}
-                      >
-                        {opt.id === "due" ? (
-                          <>
-                            DUE{" "}
-                            {dueCount > 0 ? (
-                              <span className="sh-due-badge" style={{ color: "var(--sh-amber)" }}>
-                                · {dueCount}
-                              </span>
-                            ) : null}
-                          </>
-                        ) : (
-                          opt.label
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="mono mb-2" style={{ fontSize: 10, color: "var(--sh-text-dim)" }}>
-                    {filteredFlashcards.length}/{userFlashcards.length} cards{" "}
-                    <span style={{ color: dueCount > 0 ? "var(--sh-amber)" : "var(--sh-text-dim)" }}>· {dueCount} due</span>
-                  </p>
-                </>
-              ) : null}
-              {(c.materialPaths || []).length > 0 ? (
-                <p className="mono mb-2" style={{ fontSize: 10, color: "var(--sh-text-dim)" }}>
-                  MATERIALS · {(c.materialPaths || []).length} FILE(S)
-                </p>
-              ) : null}
-              <button type="button" className="sh-btn-ghost sh-btn-ghost-cyan ctx-btn" onClick={addModule}>
-                + MODULE
-              </button>
-              <button type="button" className="sh-btn-ghost sh-btn-ghost-cyan ctx-btn" onClick={() => setSettingsOpen((v) => !v)}>
-                {settingsOpen ? "CLOSE SETTINGS" : "SETTINGS"}
-              </button>
-              <button type="button" className="sh-btn-ghost ctx-btn ctx-btn--utility" onClick={() => setSidebarCollapsed((v) => !v)}>
-                {sidebarCollapsed ? "SHOW SIDEBAR" : "HIDE SIDEBAR"}
-              </button>
-              <button type="button" className="sh-btn-ghost ctx-btn ctx-btn--utility" onClick={() => setCtxCollapsed((v) => !v)}>
-                {ctxCollapsed ? "SHOW PANEL" : "HIDE PANEL"}
-              </button>
-              <button
-                type="button"
-                className="sh-btn-ghost sh-btn-danger-ghost"
-                disabled={c.modules.length <= 1}
-                onClick={() => {
-                  if (c.modules.length <= 1 || !currentModule) return;
-                  if (window.confirm(`Delete module "${currentModule.title}"?`)) removeModule(currentModule.id);
-                }}
-              >
-                DELETE MODULE
-              </button>
-              <button
-                type="button"
-                className="sh-btn-ghost sh-btn-danger-ghost"
-                onClick={() => {
-                  if (window.confirm("Delete this entire course and all notes?")) onDeleteCourse(c.id);
-                }}
-              >
-                DELETE COURSE
-              </button>
-            </div>
-            {settingsOpen ? (
-              <div className="ctx-section border-0">
-                <div className="ctx-label">ADD COURSE</div>
-                <button
-                  type="button"
-                  className="sh-btn-ghost ctx-btn"
-                  onClick={() => {
-                    window.dispatchEvent(new CustomEvent("studyhub-open-welcome"));
-                  }}
-                >
-                  ADD NEW COURSE (WELCOME)
-                </button>
-                <div className="ctx-label mt-3">MODULE VISIBILITY</div>
-                {chapters.map((ch) => {
-                  const enabled = !disabledIds.has(ch.id);
-                  const onlyOne = chapters.length - disabledIds.size <= 1 && enabled;
-                  return (
-                    <label key={ch.id} className="mono d-flex align-items-center gap-2 mb-1" style={{ fontSize: 10 }}>
-                      <input type="checkbox" checked={enabled} disabled={onlyOne} onChange={() => toggleModuleDisabled(ch.id)} />
-                      <span style={{ color: "var(--sh-text-secondary)" }}>
-                        {ch.label} — {ch.title}
-                      </span>
-                    </label>
-                  );
-                })}
-                <div className="ctx-label mt-3">ACTIVE LABELS</div>
-                {currentModule && (
-                  <div className="d-flex flex-column gap-2">
-                    <input
-                      className="sh-input mono"
-                      value={currentModule.label}
-                      onChange={(e) => renameModule(currentModule.id, "label", e.target.value)}
-                      placeholder="TAB"
-                    />
-                    <input
-                      className="sh-input mono"
-                      value={currentModule.title}
-                      onChange={(e) => renameModule(currentModule.id, "title", e.target.value)}
-                      placeholder="TITLE"
-                    />
-                    <button type="button" className="sh-btn-ghost sh-btn-danger-ghost" onClick={() => removeModule(currentModule.id)} disabled={c.modules.length <= 1}>
-                      REMOVE TAB
-                    </button>
-                  </div>
-                )}
-                <label className="mono d-flex align-items-center gap-2 mt-2 mb-2" style={{ fontSize: 10 }}>
-                  <input type="checkbox" checked={comfortable} onChange={(e) => setComfortable(e.target.checked)} />
-                  COMFORT SPACING
-                </label>
-                <div className="d-flex align-items-center gap-2 mono" style={{ fontSize: 10 }}>
-                  <span className="sh-kv-key">TEXT</span>
-                  <button type="button" className="sh-btn-ghost sh-btn-ghost-cyan" style={{ width: "auto", margin: 0, padding: "4px 8px" }} disabled={fontStep <= 0} onClick={() => setFontStep((s) => Math.max(0, s - 1))}>
-                    A−
-                  </button>
-                  <button type="button" className="sh-btn-ghost sh-btn-ghost-cyan" style={{ width: "auto", margin: 0, padding: "4px 8px" }} disabled={fontStep >= FONT_STEPS.length - 1} onClick={() => setFontStep((s) => Math.min(FONT_STEPS.length - 1, s + 1))}>
-                    A+
-                  </button>
-                </div>
-              </div>
-            ) : null}
+            <CourseContextPanel
+              course={c}
+              currentModule={currentModule}
+              activeItem={activeItem}
+              sourceFilter={sourceFilter}
+              onSourceFilterChange={setSourceFilter}
+              masteryPct={masteryPct}
+              dueCount={dueCount}
+              onAddModule={addModule}
+              onDeleteModule={(moduleId) => {
+                if (!moduleId || c.modules.length <= 1) return;
+                if (window.confirm(`Delete module "${currentModule?.title}"?`)) removeModule(moduleId);
+              }}
+              onDeleteCourse={() => {
+                if (window.confirm("Delete this entire course and all notes?")) onDeleteCourse(c.id);
+              }}
+              onHideSidebar={() => setSidebarCollapsed((v) => !v)}
+              onHidePanel={() => setCtxCollapsed((v) => !v)}
+            />
           </div>
         </aside>
       </div>

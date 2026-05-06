@@ -152,6 +152,8 @@ export default function FlashcardDeck({
   const syncingFromExternalRef = useRef(false);
   const lastFlipRef = useRef(0);
   const sessionIdRef = useRef(`session_${Date.now()}`);
+  const pendingUpdatesRef = useRef([]);
+  const cardCountRef = useRef(0);
 
   useEffect(() => {
     if (Array.isArray(externalCards)) {
@@ -186,12 +188,15 @@ export default function FlashcardDeck({
       syncingFromExternalRef.current = false;
       return;
     }
-    if (typeof onSaveCards === "function") {
-      onSaveCards(cards);
-      return;
-    }
-    persistFlashcardDeck(cards);
+    if (typeof onSaveCards !== "function") persistFlashcardDeck(cards);
   }, [cards, onSaveCards]);
+
+  useEffect(
+    () => () => {
+      if (pendingUpdatesRef.current.length > 0) onSaveCards?.(pendingUpdatesRef.current);
+    },
+    [onSaveCards]
+  );
 
   useEffect(() => {
     const reload = () => {
@@ -265,13 +270,14 @@ export default function FlashcardDeck({
     const len = nRef.current;
     if (!len) return;
     if (delta > 0 && pos + 1 >= len) {
+      if (pendingUpdatesRef.current.length > 0) onSaveCards?.(pendingUpdatesRef.current);
       setShowSummary(true);
       return;
     }
     const newPos = Math.min(Math.max(pos + delta, 0), len - 1);
     if (newPos === pos) return;
     setSlide({ fromPos: pos, toPos: newPos, dir: delta > 0 ? 1 : -1 });
-  }, [flipPhase, slide, pos]);
+  }, [flipPhase, slide, pos, onSaveCards]);
 
   useEffect(() => {
     if (!slide) return;
@@ -394,7 +400,9 @@ export default function FlashcardDeck({
       return c;
     });
     setCards(updatedCards);
-    if (onSaveCards) onSaveCards(updatedCards);
+    pendingUpdatesRef.current = updatedCards;
+    cardCountRef.current += 1;
+    if (cardCountRef.current % 5 === 0) onSaveCards?.(pendingUpdatesRef.current);
     setSessionKnow((c) => c + 1);
     startSlide(1);
   }, [flipped, flipPhase, current, cards, onSaveCards, startSlide]);
@@ -429,7 +437,9 @@ export default function FlashcardDeck({
       return c;
     });
     setCards(updatedCards);
-    if (onSaveCards) onSaveCards(updatedCards);
+    pendingUpdatesRef.current = updatedCards;
+    cardCountRef.current += 1;
+    if (cardCountRef.current % 5 === 0) onSaveCards?.(pendingUpdatesRef.current);
     setSessionAgain((c) => c + 1);
     if (card?.id) {
       setReviewAgainIds((ids) => (ids.includes(card.id) ? ids : [...ids, card.id]));
@@ -622,12 +632,16 @@ export default function FlashcardDeck({
                         className={`drill-slide-layer drill-slide-exit drill-slide-exit--${slide.dir > 0 ? "next" : "prev"}`}
                         aria-hidden
                       >
-                        <div className="drill-face drill-face--front drill-term">{cardAtOrderPos(slide.fromPos)?.front}</div>
+                        <div className="drill-face drill-face--front">
+                          <div className="drill-term">{cardAtOrderPos(slide.fromPos)?.front}</div>
+                        </div>
                       </div>
                       <div
                         className={`drill-slide-layer drill-slide-enter drill-slide-enter--${slide.dir > 0 ? "next" : "prev"}`}
                       >
-                        <div className="drill-face drill-face--front drill-term">{cardAtOrderPos(slide.toPos)?.front}</div>
+                        <div className="drill-face drill-face--front">
+                          <div className="drill-term">{cardAtOrderPos(slide.toPos)?.front}</div>
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -639,9 +653,13 @@ export default function FlashcardDeck({
                       }}
                     >
                       {!flipped ? (
-                        <div className="drill-face drill-face--front drill-term">{current?.front}</div>
+                        <div className="drill-face drill-face--front">
+                          <div className="drill-term">{current?.front}</div>
+                        </div>
                       ) : (
-                        <div className="drill-face drill-face--back">{current?.back}</div>
+                        <div className="drill-face drill-face--back">
+                          <div className="drill-term">{current?.back}</div>
+                        </div>
                       )}
                     </div>
                   )}

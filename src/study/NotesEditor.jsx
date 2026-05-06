@@ -253,6 +253,9 @@ export function NotesEditor({ sectionId, onPersist, onAutosaveStatus, className,
 
   useEffect(() => {
     return () => {
+      if (editor && !editor.isDestroyed) {
+        editor.destroy();
+      }
       window.clearTimeout(debounceRef.current);
       window.clearTimeout(savedCooldownRef.current);
       if (editor && !editor.isDestroyed) {

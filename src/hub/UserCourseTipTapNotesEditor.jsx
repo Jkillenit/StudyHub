@@ -28,6 +28,7 @@ export function UserCourseTipTapNotesEditor({
   onAutosaveStatus,
 }) {
   const debounceRef = useRef(null);
+  const autosaveStatusTimerRef = useRef(null);
   const glossaryTermsRef = useRef(glossaryTerms);
   const editorRef = useRef(null);
   const plugin = useMemo(() => createGlossaryPlugin(() => glossaryTermsRef.current), []);
@@ -63,7 +64,14 @@ export function UserCourseTipTapNotesEditor({
         debounceRef.current = window.setTimeout(() => {
           onChangeValue?.(ed.getText({ blockSeparator: "\n\n" }));
           onAutosaveStatus?.("saved");
-          window.setTimeout(() => onAutosaveStatus?.("local"), 1200);
+          if (autosaveStatusTimerRef.current) {
+            window.clearTimeout(autosaveStatusTimerRef.current);
+          }
+          autosaveStatusTimerRef.current = window.setTimeout(() => {
+            if (!ed?.isDestroyed) {
+              onAutosaveStatus?.("local");
+            }
+          }, 1200);
         }, 500);
       },
       editorProps: {
@@ -93,9 +101,15 @@ export function UserCourseTipTapNotesEditor({
 
   useEffect(() => {
     return () => {
+      if (editor && !editor.isDestroyed) {
+        editor.destroy();
+      }
       window.clearTimeout(debounceRef.current);
+      if (autosaveStatusTimerRef.current) {
+        window.clearTimeout(autosaveStatusTimerRef.current);
+      }
     };
-  }, []);
+  }, [editor]);
 
   return (
     <div className="sh-notes-wrapper-inner" style={{ touchAction: "auto" }}>

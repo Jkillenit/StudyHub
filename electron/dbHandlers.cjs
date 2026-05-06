@@ -1,7 +1,15 @@
 const { ipcMain } = require("electron");
 const { getDb } = require("./database.cjs");
 
+let handlersRegistered = false;
+
 function registerDbHandlers() {
+  if (handlersRegistered) {
+    console.warn("[DB] Handlers already registered — skipping");
+    return;
+  }
+  handlersRegistered = true;
+
   const db = getDb();
 
   ipcMain.handle("db:courses:getAll", () => {

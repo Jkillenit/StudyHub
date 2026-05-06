@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ShellProvider, useShell } from "../shell/ShellContext.jsx";
 import { TitleBar } from "../components/TitleBar.jsx";
 import { StatusBar } from "../shell/TilingChrome.jsx";
@@ -412,7 +412,8 @@ function StudyHubAppInner() {
     reader.readAsText(file);
   };
 
-  const activeUserCourse = userCourses.find((c) => c.id === courseId);
+  const userCoursesList = useMemo(() => userCourses.filter((c) => c.type !== "builtin"), [userCourses]);
+  const activeUserCourse = userCoursesList.find((c) => c.id === courseId);
   const onHub = courseId === null;
   const handleBuiltinActiveChapterChange = useCallback((ch) => {
     setPaletteChapterMeta((prev) => {
@@ -437,7 +438,7 @@ function StudyHubAppInner() {
       <TitleBar onCommandPalette={() => setPaletteOpen(true)} onGoToHub={() => setCourseId(null)} />
       {onHub ? (
         <HubScreen
-          userCourses={userCourses}
+          userCourses={userCoursesList}
           onOpenCourse={openCourseFromShell}
           onManualCreate={onHubManualCreate}
           onExpressComplete={onHubExpressComplete}
@@ -468,7 +469,7 @@ function StudyHubAppInner() {
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
         courseId={courseId}
-        userCourses={userCourses}
+        userCourses={userCoursesList}
         onSelectCourse={openCourseFromShell}
         onNavigateCourseChapter={navigateCourseChapter}
         onGoToHub={() => setCourseId(null)}
