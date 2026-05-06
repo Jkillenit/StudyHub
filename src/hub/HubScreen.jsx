@@ -34,6 +34,9 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
   }, []);
 
   async function handleOpenBlackboard() {
+    if (highlightId && highlightId !== "builtin") {
+      await window.studyHub?.blackboard?.setActiveCourse?.(highlightId);
+    }
     await window.studyHub?.blackboard?.open?.();
     setTimeout(async () => {
       const status = await window.studyHub?.blackboard?.getStatus?.();

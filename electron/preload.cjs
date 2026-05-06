@@ -1,5 +1,8 @@
 const { contextBridge, ipcRenderer } = require("electron");
-const bbCourseListenerMap = new WeakMap();
+const bbCourseListenerMap = new Map();
+const bbImportStartedListenerMap = new Map();
+const bbImportReadyListenerMap = new Map();
+const bbImportErrorListenerMap = new Map();
 
 contextBridge.exposeInMainWorld("electronAPI", {
   minimizeWindow: () => ipcRenderer.send("window-minimize"),
@@ -60,6 +63,8 @@ contextBridge.exposeInMainWorld("studyHub", {
     disconnect: () => ipcRenderer.invoke("bb:disconnect"),
     isLoggedIn: () => ipcRenderer.invoke("bb:isLoggedIn"),
     getStatus: () => ipcRenderer.invoke("bb:getStatus"),
+    setActiveCourse: (courseId) => ipcRenderer.invoke("bb:set-active-course", courseId),
+    importFile: (context) => ipcRenderer.invoke("bb:import-file", context),
     onCourseDetected: (callback) => {
       if (typeof callback !== "function") return;
       const wrapped = (_event, data) => callback(data);
@@ -71,6 +76,32 @@ contextBridge.exposeInMainWorld("studyHub", {
       if (!wrapped) return;
       ipcRenderer.removeListener("bb:course-detected", wrapped);
       bbCourseListenerMap.delete(callback);
+    },
+    onImportStarted: (callback) => {
+      if (typeof callback !== "function") return;
+      const wrapped = (_event, data) => callback(data);
+      bbImportStartedListenerMap.set(callback, wrapped);
+      ipcRenderer.on("bb:import-started", wrapped);
+    },
+    onImportReady: (callback) => {
+      if (typeof callback !== "function") return;
+      const wrapped = (_event, data) => callback(data);
+      bbImportReadyListenerMap.set(callback, wrapped);
+      ipcRenderer.on("bb:import-ready", wrapped);
+    },
+    onImportError: (callback) => {
+      if (typeof callback !== "function") return;
+      const wrapped = (_event, data) => callback(data);
+      bbImportErrorListenerMap.set(callback, wrapped);
+      ipcRenderer.on("bb:import-error", wrapped);
+    },
+    offImportEvents: () => {
+      ipcRenderer.removeAllListeners("bb:import-started");
+      ipcRenderer.removeAllListeners("bb:import-ready");
+      ipcRenderer.removeAllListeners("bb:import-error");
+      bbImportStartedListenerMap.clear();
+      bbImportReadyListenerMap.clear();
+      bbImportErrorListenerMap.clear();
     },
   },
 

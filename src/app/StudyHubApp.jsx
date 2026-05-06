@@ -8,6 +8,7 @@ import { saveJson } from "../lib/storage.js";
 import { ensureUserCourse, uid } from "../hub/userCourseModel.js";
 import { UserCourseApp } from "../hub/UserCourseApp.jsx";
 import { HubScreen } from "../hub/HubScreen.jsx";
+import BlackboardImportHandler from "../hub/BlackboardImportHandler.jsx";
 import { AiAssistantPanel } from "../ai/AiAssistantPanel.jsx";
 import { titleCaseFromFilename } from "../lib/filenameToCourseName.js";
 import { EXPRESS_FILTERS } from "../welcome/ExpressImportModal.jsx";
@@ -195,6 +196,83 @@ function StudyHubAppInner() {
     },
     [addCourse]
   );
+
+  const createBlackboardCourse = useCallback(async ({ name, bbCourseId }) => {
+    const mid = uid("m");
+    const created = ensureUserCourse({
+      id: uid("uc"),
+      name: (name || "Blackboard Course").trim(),
+      subtitle: "BLACKBOARD",
+      bbCourseId: bbCourseId || "",
+      modules: [{ id: mid, label: "Notes 1", title: "General", body: "", contentData: [] }],
+      activeModuleId: mid,
+      disabledModuleIds: [],
+      completedModuleIds: [],
+      materialPaths: [],
+    });
+    setUserCourses((prev) => [...prev, created]);
+    void courseStore.syncCourse(created);
+    return created;
+  }, []);
+
+  const upsertBlackboardImport = useCallback(async ({ course, fileName, folderName, action, extracted }) => {
+    const targetCourse = ensureUserCourse(course);
+    const moduleTitle = String(folderName || "General").trim() || "General";
+    const modules = Array.isArray(targetCourse.modules) ? [...targetCourse.modules] : [];
+    let module = modules.find((m) => String(m.title || "").trim().toLowerCase() === moduleTitle.toLowerCase());
+    if (!module) {
+      module = {
+        id: uid("m"),
+        label: `Notes ${modules.length + 1}`,
+        title: moduleTitle,
+        body: "",
+        contentData: [],
+      };
+      modules.push(module);
+    }
+
+    const nextModules = modules.map((m) => {
+      if (m.id !== module.id) return m;
+      if (action === "import-pptx" && extracted?.success && Array.isArray(extracted?.slides)) {
+        const slideText = extracted.slides
+          .map((s, idx) => {
+            const title = String(s?.title || `Slide ${idx + 1}`).trim();
+            const body = Array.isArray(s?.nodes)
+              ? s.nodes.map((n) => String(n?.text || "").trim()).filter(Boolean).join("\n")
+              : "";
+            return `## ${title}\n${body}`;
+          })
+          .join("\n\n");
+        const mergedBody = [m.body || "", `\n\n[BB] ${fileName}\n${slideText}`].join("").trim();
+        return { ...m, body: mergedBody };
+      }
+
+      if ((action === "extract-text" || action === "parse-syllabus") && extracted?.success) {
+        const mergedBody = [m.body || "", `\n\n[BB] ${fileName}\n${extracted.text || ""}`].join("").trim();
+        return { ...m, body: mergedBody };
+      }
+      return m;
+    });
+
+    const nextCourse = {
+      ...targetCourse,
+      modules: nextModules,
+      activeModuleId: module.id,
+    };
+
+    setUserCourses((prev) =>
+      prev.map((c) => (((c.uuid || c.id) === (nextCourse.uuid || nextCourse.id) ? nextCourse : c)))
+    );
+    await courseStore.syncCourse(nextCourse);
+  }, []);
+
+  const showBbToast = useCallback((message) => {
+    try {
+      sessionStorage.setItem("studyhub.pendingToast", message);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   function buildChapterContent(output) {
     const sections = [];
@@ -435,6 +513,12 @@ function StudyHubAppInner() {
   return (
     <div data-bs-theme="dark" className="sh-app-root sh-app-shell">
       <ApiStatusSync />
+      <BlackboardImportHandler
+        courses={userCoursesList}
+        onCreateCourse={createBlackboardCourse}
+        onUpsertImport={upsertBlackboardImport}
+        onShowToast={showBbToast}
+      />
       <TitleBar onCommandPalette={() => setPaletteOpen(true)} onGoToHub={() => setCourseId(null)} />
       {onHub ? (
         <HubScreen
