@@ -203,6 +203,9 @@ function StudyHubAppInner() {
   );
 
   const createBlackboardCourse = useCallback(async ({ name, bbCourseId }) => {
+    const existing = userCourses.find((c) => c.bbCourseId === bbCourseId);
+    if (existing) return existing;
+
     const mid = uid("m");
     const created = ensureUserCourse({
       id: uid("uc"),
@@ -216,9 +219,19 @@ function StudyHubAppInner() {
       materialPaths: [],
     });
     setUserCourses((prev) => [...prev, created]);
-    void courseStore.syncCourse(created);
+
+    try {
+      await courseStore.syncCourse(created);
+    } catch (err) {
+      if (err?.message?.includes("UNIQUE")) {
+        const found = userCourses.find((c) => c.bbCourseId === bbCourseId || c.name === created.name);
+        if (found) return found;
+      }
+      console.error("[BB] createCourse error:", err);
+    }
+
     return created;
-  }, []);
+  }, [userCourses]);
 
   const upsertBlackboardImport = useCallback(async ({ course, fileName, folderName, action, extracted }) => {
     const targetCourse = ensureUserCourse({

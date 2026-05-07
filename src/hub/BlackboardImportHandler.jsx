@@ -1,8 +1,20 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 export default function BlackboardImportHandler({ courses, activeCourse, onCreateCourse, onUpsertImport, onShowToast }) {
+  const coursesRef = useRef(courses);
+  useEffect(() => {
+    coursesRef.current = courses;
+  }, [courses]);
+
+  const activeCourseRef = useRef(activeCourse);
+  useEffect(() => {
+    activeCourseRef.current = activeCourse;
+  }, [activeCourse]);
+
   const handleImportReady = useCallback(
     async (data) => {
+      const freshCourses = coursesRef.current || [];
+      const freshActive = activeCourseRef.current;
       console.log("[BB IMPORT] Event received:", JSON.stringify(data, null, 2));
       console.log("[BB IMPORT] courseId:", data?.courseId);
       console.log("[BB IMPORT] bbCourseId:", data?.bbCourseId);
@@ -11,7 +23,7 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
       console.log("[BB IMPORT] folderName:", data?.folderName);
       console.log(
         "[BB IMPORT] Available courses:",
-        courses?.map((c) => ({
+        freshCourses.map((c) => ({
           id: c.uuid || c.id,
           name: c.name,
           bbCourseId: c.bbCourseId,
@@ -37,12 +49,12 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
         ? "syllabus"
         : role;
 
-      let course = activeCourse || null;
+      let course = freshActive || null;
       if (!course && courseId) {
-        course = (courses || []).find((c) => (c.uuid || c.id) === courseId);
+        course = freshCourses.find((c) => (c.uuid || c.id) === courseId);
       }
       if (!course && bbCourseId) {
-        course = (courses || []).find((c) => c.bbCourseId === bbCourseId);
+        course = freshCourses.find((c) => c.bbCourseId === bbCourseId);
       }
       if (!course && onCreateCourse) {
         course = await onCreateCourse({
@@ -103,7 +115,7 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
         }
       }
     },
-    [courses, activeCourse, onCreateCourse, onShowToast, onUpsertImport]
+    [onCreateCourse, onShowToast, onUpsertImport]
   );
 
   useEffect(() => {

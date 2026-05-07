@@ -21,8 +21,48 @@ function legacyMarkdownToHtml(md) {
 
 function initialHtmlForSection(sectionId) {
   const note = getStudyChapterNote(sectionId);
-  if (note.html && note.html.trim()) return note.html;
-  if (note.markdown && note.markdown.trim()) return legacyMarkdownToHtml(note.markdown);
+
+  function sanitize(raw) {
+    if (!raw || typeof raw !== "string")
+      return "";
+    const trimmed = raw.trim();
+    if (!trimmed) return "";
+
+    // Already valid HTML
+    if (trimmed.startsWith("<")) {
+      return trimmed.length > 100000
+        ? trimmed.substring(0, 100000) +
+          "<p><em>[Truncated]</em></p>"
+        : trimmed;
+    }
+
+    // Plain text — convert to safe HTML
+    return trimmed
+      .replace(/[^\x20-\x7E\n\r\t]/g, " ")
+      .substring(0, 20000)
+      .split(/\n{2,}/)
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .map((p) =>
+        "<p>" +
+        p.replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .split("\n")
+         .map((l) => l.trim())
+         .filter(Boolean)
+         .join("<br>") +
+        "</p>"
+      )
+      .join("") || "";
+  }
+
+  if (note.html && note.html.trim())
+    return sanitize(note.html);
+  if (note.markdown && note.markdown.trim())
+    return sanitize(
+      legacyMarkdownToHtml(note.markdown)
+    );
   return "";
 }
 
