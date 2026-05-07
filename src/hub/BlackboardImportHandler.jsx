@@ -44,10 +44,6 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
       }
       if (!course) return;
 
-      if (localPath) {
-        await window.studyHub?.registerMaterialPaths?.([localPath]);
-      }
-
       if (action === "import-pptx" && window.studyHub?.extractPptx) {
         const extracted = await window.studyHub.extractPptx(localPath);
         await onUpsertImport?.({
@@ -65,10 +61,7 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
 
       const resolvedAction = role === "syllabus" ? "parse-syllabus" : action;
       if ((resolvedAction === "extract-text" || resolvedAction === "parse-syllabus") && window.studyHub?.extractText) {
-        const isPdf = String(fileName || "").toLowerCase().endsWith(".pdf");
-        const extracted = isPdf && window.studyHub?.extractPdfText
-          ? await window.studyHub.extractPdfText(localPath)
-          : await window.studyHub.extractText(localPath);
+        const extracted = await window.studyHub.extractText(localPath);
         if (!extracted?.success && !extracted?.ok) {
           onShowToast?.(`✕ ${fileName}: ${extracted?.error || "text extraction failed"}`);
           return;
@@ -76,6 +69,16 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
         const normalizedExtracted = extracted?.ok
           ? { success: true, text: extracted.text || "" }
           : extracted;
+        console.log('[SYLLABUS DEBUG]',
+          'role:', role,
+          'resolvedAction:', resolvedAction,
+          'extracted.ok:', extracted?.ok,
+          'extracted.success:', extracted?.success,
+          'textLength:', (
+            extracted?.text ||
+            normalizedExtracted?.text || ''
+          ).length
+        );
         await onUpsertImport?.({
           course,
           fileName,
