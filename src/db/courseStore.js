@@ -211,4 +211,14 @@ export const courseStore = {
       })),
     });
   },
+
+  async deleteCourse(courseUuid) {
+    try {
+      await window.studyHub?.db?.courses?.delete(courseUuid);
+      return { success: true };
+    } catch (err) {
+      console.error("[courseStore] deleteCourse error:", err);
+      return { success: false, error: err.message };
+    }
+  },
 };

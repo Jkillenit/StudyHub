@@ -111,7 +111,7 @@ contextBridge.exposeInMainWorld("studyHub", {
       get: (uuid) => ipcRenderer.invoke("db:courses:get", uuid),
       create: (course) => ipcRenderer.invoke("db:courses:create", course),
       update: (data) => ipcRenderer.invoke("db:courses:update", data),
-      delete: (uuid) => ipcRenderer.invoke("db:courses:delete", uuid),
+      delete: (courseUuid) => ipcRenderer.invoke("db:courses:delete", courseUuid),
     },
     modules: {
       getByCourse: (courseUuid) => ipcRenderer.invoke("db:modules:getByCourse", courseUuid),
