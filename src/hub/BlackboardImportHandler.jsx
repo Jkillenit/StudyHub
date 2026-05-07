@@ -24,14 +24,21 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
         folderName,
         courseId,
         bbCourseId,
+        courseTitle,
         role,
         action,
       } = data || {};
 
-      let course = (courses || []).find((c) => (c.uuid || c.id) === courseId || c.bbCourseId === bbCourseId);
+      let course = activeCourse || null;
+      if (!course && courseId) {
+        course = (courses || []).find((c) => (c.uuid || c.id) === courseId);
+      }
+      if (!course && bbCourseId) {
+        course = (courses || []).find((c) => c.bbCourseId === bbCourseId);
+      }
       if (!course && onCreateCourse) {
         course = await onCreateCourse({
-          name: bbCourseId || "Blackboard Course",
+          name: courseTitle || bbCourseId || "Blackboard Course",
           bbCourseId,
         });
       }
@@ -56,8 +63,8 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
         return;
       }
 
-      if ((action === "extract-text" || action === "parse-syllabus") && window.studyHub?.extractText) {
-        const resolvedAction = role === "syllabus" ? "parse-syllabus" : action;
+      const resolvedAction = role === "syllabus" ? "parse-syllabus" : action;
+      if ((resolvedAction === "extract-text" || resolvedAction === "parse-syllabus") && window.studyHub?.extractText) {
         const isPdf = String(fileName || "").toLowerCase().endsWith(".pdf");
         const extracted = isPdf && window.studyHub?.extractPdfText
           ? await window.studyHub.extractPdfText(localPath)
@@ -85,7 +92,7 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
         }
       }
     },
-    [courses, onCreateCourse, onShowToast, onUpsertImport]
+    [courses, activeCourse, onCreateCourse, onShowToast, onUpsertImport]
   );
 
   useEffect(() => {

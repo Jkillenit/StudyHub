@@ -32,6 +32,14 @@ export function UserCourseTipTapNotesEditor({
   const glossaryTermsRef = useRef(glossaryTerms);
   const editorRef = useRef(null);
   const plugin = useMemo(() => createGlossaryPlugin(() => glossaryTermsRef.current), []);
+  const safeBody = useMemo(() => {
+    if (!value || typeof value !== "string") return "";
+    const cleaned = value.replace(/[^\x20-\x7E\n\r\t]/g, " ");
+    if (cleaned.length > 20000) {
+      return cleaned.substring(0, 20000) + "\n\n[Content truncated for display]";
+    }
+    return cleaned;
+  }, [value]);
 
   const GlossaryExtension = useMemo(
     () =>
@@ -57,7 +65,7 @@ export function UserCourseTipTapNotesEditor({
         TaskItem.configure({ nested: true }),
         GlossaryExtension,
       ],
-      content: plainTextToHtml(value),
+      content: plainTextToHtml(safeBody),
       onUpdate: ({ editor: ed }) => {
         onAutosaveStatus?.("saving");
         window.clearTimeout(debounceRef.current);
@@ -81,7 +89,7 @@ export function UserCourseTipTapNotesEditor({
         },
       },
     },
-    [sectionId, GlossaryExtension]
+    [sectionId, GlossaryExtension, safeBody]
   );
 
   useEffect(() => {

@@ -136,6 +136,9 @@ function StudyHubAppInner() {
     (id) => {
       if (courseId === null) setCourseShellLoad(true);
       setCourseId(id);
+      if (id && id !== "builtin") {
+        void window.studyHub?.blackboard?.setActiveCourse?.(id);
+      }
     },
     [courseId]
   );
@@ -349,20 +352,30 @@ function StudyHubAppInner() {
       }
 
       if (action === "extract-text" && extracted?.success) {
-        const rawText = extracted.text || "";
-        const MAX_CHARS = 8000;
+        const rawText = String(extracted.text || "");
+        const MAX_CHARS = 5000;
         const safeText =
           rawText.length > MAX_CHARS
-            ? rawText.substring(0, MAX_CHARS) +
-              "\n\n[Content truncated — " +
-              rawText.length +
-              " total chars]"
-            : rawText;
+            ? rawText
+                .substring(0, MAX_CHARS)
+                .replace(/[^\x20-\x7E\n\r\t]/g, " ")
+                .trim() + `\n\n[${rawText.length} total chars — truncated for display]`
+            : rawText
+                .replace(/[^\x20-\x7E\n\r\t]/g, " ")
+                .trim();
 
-        if (!safeText.trim()) return m;
+        if (!safeText) return m;
 
-        const mergedBody = [m.body || "", `\n\n--- ${fileName} ---\n${safeText}`].join("").trim();
-        if (mergedBody.length > 50000) return m;
+        const entry = `\n\n--- ${fileName} ---\n${safeText}`;
+        const mergedBody = (m.body || "") + entry;
+
+        if (mergedBody.length > 20000) {
+          return {
+            ...m,
+            body: mergedBody.substring(0, 20000) + "\n\n[Notes truncated]",
+          };
+        }
+
         return { ...m, body: mergedBody };
       }
       return m;
@@ -613,9 +626,34 @@ function StudyHubAppInner() {
   useEffect(() => {
     const id = activeUserCourse?.uuid || activeUserCourse?.id;
     if (!id) return;
-    console.log("[APP] Setting BB active course:", id);
     void window.studyHub?.blackboard?.setActiveCourse?.(id);
   }, [activeUserCourse?.uuid, activeUserCourse?.id]);
+
+  useEffect(() => {
+    const handleCourseDetected = (data) => {
+      if (!data?.bbCourseId) return;
+      if (!activeUserCourse) return;
+      if (!activeUserCourse.bbCourseId) {
+        const updated = {
+          ...activeUserCourse,
+          bbCourseId: data.bbCourseId,
+        };
+        setUserCourses((prev) =>
+          prev.map((c) =>
+            (c.uuid || c.id) === (updated.uuid || updated.id)
+              ? updated
+              : c
+          )
+        );
+        void courseStore.syncCourse(updated);
+      }
+    };
+
+    window.studyHub?.blackboard?.onCourseDetected?.(handleCourseDetected);
+    return () => {
+      window.studyHub?.blackboard?.offCourseDetected?.(handleCourseDetected);
+    };
+  }, [activeUserCourse?.uuid, activeUserCourse?.id, activeUserCourse?.bbCourseId]);
   const handleBuiltinActiveChapterChange = useCallback((ch) => {
     setPaletteChapterMeta((prev) => {
       if (prev.courseId === "builtin" && prev.chapterId === ch) return prev;

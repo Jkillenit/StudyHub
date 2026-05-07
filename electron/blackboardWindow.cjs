@@ -309,7 +309,7 @@ function getRoleAction(role, fileExt) {
 }
 
 async function importFileFromUrl(context, mainWindow) {
-  let { fileUrl, fileName, folderName, courseId, bbCourseId, contentId, skipIfRole = [] } = context || {};
+  let { fileUrl, fileName, folderName, courseId, bbCourseId, contentId, courseTitle, skipIfRole = [] } = context || {};
   const ext = String(fileName || "").split(".").pop().toLowerCase();
   const role = detectFileRole(fileName, folderName);
 
@@ -339,6 +339,7 @@ async function importFileFromUrl(context, mainWindow) {
         folderName,
         courseId,
         bbCourseId,
+        courseTitle: String(courseTitle || ""),
         role,
         action,
       });
@@ -447,6 +448,33 @@ function buildInjectionScript(courseId, bbCourseId) {
         return 'unknown_file';
       }
 
+      function getCourseTitle() {
+        const selectors = [
+          'h1[class*="course-title"]',
+          'h1[class*="courseName"]',
+          '.base-page-header h1',
+          '[class*="course-banner"] h1',
+          '[class*="courseBanner"] h1',
+          '[aria-label*="Course name"]',
+          'h1',
+        ];
+
+        for (const sel of selectors) {
+          const el = document.querySelector(sel);
+          const text = el?.textContent?.trim();
+          if (text && text.length > 2 && text.length < 120) {
+            return text;
+          }
+        }
+
+        const docTitle = document.title?.trim();
+        if (docTitle && docTitle.length > 2) {
+          return docTitle.replace(/\\s*\\|\\s*Blackboard.*$/i, '').trim();
+        }
+
+        return null;
+      }
+
       function injectImportButtons() {
         const seen = new Set();
         const rows = document.querySelectorAll('[data-content-id], .content-list-item, [class*="content-list-item"]');
@@ -479,13 +507,15 @@ function buildInjectionScript(courseId, bbCourseId) {
           seen.add(item);
           item.setAttribute(INJECTED_ATTR, '1');
           const btn = makeBtn('→ IMPORT', () => {
+            const courseTitle = getCourseTitle();
             window.__shBridge?.importFile?.({
               fileUrl,
               fileName,
               folderName,
               contentId,
               courseId,
-              bbCourseId
+              bbCourseId,
+              courseTitle: courseTitle || ''
             });
           });
 
@@ -516,11 +546,13 @@ function buildInjectionScript(courseId, bbCourseId) {
             const btn = makeBtn(
               '→ IMPORT ALL',
               () => {
+                const courseTitle = getCourseTitle();
                 window.__shImportFolder?.({
                   folderName,
                   folderElement: el,
                   courseId,
-                  bbCourseId
+                  bbCourseId,
+                  courseTitle: courseTitle || ''
                 });
               },
               'border-color:#00ccff;color:#00ccff;'
@@ -549,7 +581,8 @@ function buildInjectionScript(courseId, bbCourseId) {
               contentId: getContentId(item),
               folderName: context.folderName,
               courseId: context.courseId,
-              bbCourseId: context.bbCourseId
+              bbCourseId: context.bbCourseId,
+              courseTitle: context.courseTitle || ''
             });
           }
         });
@@ -557,6 +590,7 @@ function buildInjectionScript(courseId, bbCourseId) {
           folderName: context.folderName,
           courseId: context.courseId,
           bbCourseId: context.bbCourseId,
+          courseTitle: context.courseTitle || '',
           files
         });
       };
