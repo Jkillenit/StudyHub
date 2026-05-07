@@ -160,8 +160,14 @@ function StudyHubAppInner() {
 
   const persistUserCourse = useCallback((updated) => {
     const normalized = ensureUserCourse(updated);
-    setUserCourses((prev) => prev.map((c) => (c.id === normalized.id ? normalized : c)));
-    void courseStore.syncCourse(normalized);
+    setUserCourses((prev) => {
+      const stillExists = prev.some(
+        (c) => c.id === normalized.id || c.uuid === normalized.uuid
+      );
+      if (!stillExists) return prev;
+      void courseStore.syncCourse(normalized);
+      return prev.map((c) => (c.id === normalized.id ? normalized : c));
+    });
   }, []);
 
   const deleteUserCourse = useCallback(
@@ -409,10 +415,22 @@ function StudyHubAppInner() {
       activeModuleId: module.id,
     };
 
-    setUserCourses((prev) =>
-      prev.map((c) => (((c.uuid || c.id) === (nextCourse.uuid || nextCourse.id) ? nextCourse : c)))
-    );
-    await courseStore.syncCourse(nextCourse);
+    let shouldSync = false;
+
+    setUserCourses((prev) => {
+      const stillExists = prev.some(
+        (c) => (c.uuid || c.id) === (nextCourse.uuid || nextCourse.id)
+      );
+      if (!stillExists) return prev;
+      shouldSync = true;
+      return prev.map((c) =>
+        (c.uuid || c.id) === (nextCourse.uuid || nextCourse.id) ? nextCourse : c
+      );
+    });
+
+    if (shouldSync) {
+      await courseStore.syncCourse(nextCourse);
+    }
   }, []);
 
   const showBbToast = useCallback((message) => {
@@ -660,14 +678,18 @@ function StudyHubAppInner() {
           ...activeUserCourse,
           bbCourseId: data.bbCourseId,
         };
-        setUserCourses((prev) =>
-          prev.map((c) =>
-            (c.uuid || c.id) === (updated.uuid || updated.id)
-              ? updated
-              : c
-          )
-        );
-        void courseStore.syncCourse(updated);
+        setUserCourses((prev) => {
+          const next = prev.map((c) =>
+            (c.uuid || c.id) === (updated.uuid || updated.id) ? updated : c
+          );
+          const stillExists = prev.some(
+            (c) => (c.uuid || c.id) === (updated.uuid || updated.id)
+          );
+          if (stillExists) {
+            void courseStore.syncCourse(updated);
+          }
+          return next;
+        });
       }
     };
 
