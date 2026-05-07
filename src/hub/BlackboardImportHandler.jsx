@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { ensureUserCourse } from "./userCourseModel.js";
 
-export default function BlackboardImportHandler({ courses, activeCourse, onCreateCourse, onUpsertImport, onShowToast }) {
+export default function BlackboardImportHandler({ courses, activeCourse, onCreateCourse, onUpsertImport }) {
   const coursesRef = useRef(courses);
   useEffect(() => {
     coursesRef.current = courses;
@@ -11,6 +11,10 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
   useEffect(() => {
     activeCourseRef.current = activeCourse;
   }, [activeCourse]);
+
+  const bbToast = useCallback((message, type = "success") => {
+    void window.studyHub?.blackboard?.showBbToast?.(message, type);
+  }, []);
 
   useEffect(() => {
     const handleCreateRequest = async (data) => {
@@ -41,7 +45,7 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
         bbCourseId,
       });
 
-      onShowToast?.(`✓ Course created: ${course.name}`);
+      bbToast(`✓ Course created: ${course.name}`);
     };
 
     window.studyHub?.blackboard?.onCreateCourseRequest?.(handleCreateRequest);
@@ -49,7 +53,7 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
     return () => {
       window.studyHub?.blackboard?.offCreateCourseRequest?.();
     };
-  }, [onCreateCourse, onShowToast]);
+  }, [onCreateCourse, bbToast]);
 
   const handleImportReady = useCallback(
     async (data) => {
@@ -94,9 +98,7 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
       }
 
       if (!course) {
-        onShowToast?.(
-          "○ Open a course in Study Hub first, or click CREATE COURSE in the toolbar"
-        );
+        bbToast("○ Click CREATE STUDY HUB COURSE in the toolbar first", "warning");
         return;
       }
 
@@ -111,7 +113,9 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
           extracted,
           localPath,
         });
-        onShowToast?.(effectiveRole === "syllabus" ? "✓ Syllabus detected — checking grades" : `✓ Importing ${fileName}...`);
+        bbToast(
+          effectiveRole === "syllabus" ? "✓ Syllabus detected — checking grades" : `✓ Importing ${fileName}...`
+        );
         return;
       }
 
@@ -119,7 +123,7 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
       if ((resolvedAction === "extract-text" || resolvedAction === "parse-syllabus") && window.studyHub?.extractText) {
         const extracted = await window.studyHub.extractText(localPath);
         if (!extracted?.success && !extracted?.ok) {
-          onShowToast?.(`✕ ${fileName}: ${extracted?.error || "text extraction failed"}`);
+          bbToast(`✕ ${fileName}: ${extracted?.error || "text extraction failed"}`, "error");
           return;
         }
         const normalizedExtracted = extracted?.ok ? { success: true, text: extracted.text || "" } : extracted;
@@ -133,13 +137,13 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
           localPath,
         });
         if (effectiveRole === "syllabus") {
-          onShowToast?.("✓ Syllabus — setting up GRADES tab");
+          bbToast("✓ Syllabus — setting up GRADES tab");
         } else {
-          onShowToast?.(`✓ ${fileName} → notes`);
+          bbToast(`✓ ${fileName} → notes`);
         }
       }
     },
-    [onShowToast, onUpsertImport]
+    [bbToast, onUpsertImport]
   );
 
   useEffect(() => {
@@ -147,16 +151,16 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
     window.studyHub?.blackboard?.onImportError?.((data) => {
       const fileName = data?.fileName || "File";
       const error = data?.error || "Import failed";
-      onShowToast?.(`✕ ${fileName}: ${error}`);
+      bbToast(`✕ ${fileName}: ${error}`, "error");
     });
     window.studyHub?.blackboard?.onImportStarted?.((data) => {
       const fileName = data?.fileName || "file";
-      onShowToast?.(`... importing ${fileName}`);
+      bbToast(`... importing ${fileName}`);
     });
     return () => {
       window.studyHub?.blackboard?.offImportEvents?.();
     };
-  }, [handleImportReady, onShowToast]);
+  }, [handleImportReady, bbToast]);
 
   return null;
 }

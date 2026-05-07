@@ -64,6 +64,7 @@ contextBridge.exposeInMainWorld("studyHub", {
     isLoggedIn: () => ipcRenderer.invoke("bb:isLoggedIn"),
     getStatus: () => ipcRenderer.invoke("bb:getStatus"),
     setActiveCourse: (courseId) => ipcRenderer.invoke("bb:set-active-course", courseId),
+    showBbToast: (message, type) => ipcRenderer.invoke("bb:show-toast", { message, type }),
     importFile: (context) => ipcRenderer.invoke("bb:import-file", context),
     onCourseDetected: (callback) => {
       if (typeof callback !== "function") return;

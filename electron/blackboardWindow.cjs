@@ -540,6 +540,46 @@ function buildInjectionScript(courseId, bbCourseId, _linkedCourseName) {
         return null;
       }
 
+      window.__shToast = function(message, type) {
+        var existingToast = document.getElementById('sh-bb-toast');
+        if (existingToast) existingToast.remove();
+
+        var color =
+          type === 'error' ? '#ff4444' : type === 'warning' ? '#ffaa00' : '#00ff88';
+
+        var toast = document.createElement('div');
+        toast.id = 'sh-bb-toast';
+        toast.style.cssText =
+          'position:fixed;bottom:24px;right:24px;background:#0a0e0a;border:1px solid ' +
+          color +
+          ';border-left:3px solid ' +
+          color +
+          ';color:' +
+          color +
+          ';font-family:Consolas,monospace;font-size:11px;letter-spacing:0.06em;padding:10px 16px;z-index:999999;max-width:320px;line-height:1.4;box-shadow:0 4px 12px rgba(0,0,0,0.4);animation:shSlideIn 150ms ease';
+
+        if (!document.getElementById('sh-toast-style')) {
+          var styleEl = document.createElement('style');
+          styleEl.id = 'sh-toast-style';
+          styleEl.textContent =
+            '@keyframes shSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}';
+          document.head.appendChild(styleEl);
+        }
+
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(function() {
+          if (toast.parentNode) {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 200ms ease';
+            setTimeout(function() {
+              toast.remove();
+            }, 200);
+          }
+        }, 4000);
+      };
+
       function injectImportButtons() {
         const seen = new Set();
         const rows = document.querySelectorAll('[data-content-id], .content-list-item, [class*="content-list-item"]');
@@ -667,13 +707,52 @@ function buildInjectionScript(courseId, bbCourseId, _linkedCourseName) {
         ].join(';');
 
         panel.innerHTML =
-          '<div style="color:#00ff88;font-weight:600;letter-spacing:0.12em;margin-bottom:12px;">COURSE STATUS</div>' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+          '<div style="color:#00ff88;font-weight:600;letter-spacing:0.12em;font-size:11px;">COURSE STATUS</div>' +
+          '<button id="sh-status-refresh" style="background:transparent;border:1px solid #1a3a1a;color:#8ea88e;font-family:inherit;font-size:9px;letter-spacing:0.1em;padding:2px 8px;cursor:pointer;">\u21bb REFRESH</button>' +
+          '</div>' +
           '<div id="sh-status-content" style="color:#8ea88e;font-size:10px;">Loading...</div>';
 
         document.body.appendChild(panel);
 
+        function renderStatus(status, content) {
+          if (!content) return;
+          if (!status) {
+            content.textContent = 'No data available';
+            return;
+          }
+
+          var syllabusLine = status.hasSyllabus
+            ? '<div style="color:#00ff88;margin-bottom:4px">\\u2713 Syllabus \\u2014 ' +
+              status.gradeComponentCount +
+              ' components</div>'
+            : '<div style="color:#8ea88e;margin-bottom:4px">\\u25cb Syllabus \\u2014 not imported</div>';
+
+          var modulesHtml = (status.modules || [])
+            .map(function(m) {
+              return (
+                '<div style="margin:3px 0;padding-left:8px">' +
+                (m.itemCount > 0
+                  ? '<span style="color:#00ff88">\\u2713</span>'
+                  : '<span style="color:#8ea88e">\\u25cb</span>') +
+                ' ' +
+                String(m.title || '') +
+                ' <span style="color:#4a6a4a">(' +
+                m.itemCount +
+                ' items)</span></div>'
+              );
+            })
+            .join('');
+
+          content.innerHTML =
+            syllabusLine +
+            '<div style="color:#00ccff;letter-spacing:0.1em;font-size:9px;margin:8px 0 4px">CONTENT</div>' +
+            (modulesHtml ||
+              '<div style="color:#4a6a4a;padding-left:8px">No content yet</div>');
+        }
+
         var bridge = window.__shBridge;
-        var status =
+        var initialStatus =
           bridge && bridge.getCourseStatus
             ? await bridge.getCourseStatus({
                 courseId: courseId,
@@ -682,49 +761,25 @@ function buildInjectionScript(courseId, bbCourseId, _linkedCourseName) {
             : null;
 
         var contentEl = document.getElementById('sh-status-content');
-        if (!contentEl) return;
+        renderStatus(initialStatus, contentEl);
 
-        if (!status) {
-          contentEl.innerHTML = '<div>No data available</div>';
-          return;
+        var refreshBtn = document.getElementById('sh-status-refresh');
+        if (refreshBtn) {
+          refreshBtn.addEventListener('click', async function() {
+            var content = document.getElementById('sh-status-content');
+            if (content) {
+              content.textContent = 'Refreshing...';
+            }
+            var fresh =
+              bridge && bridge.getCourseStatus
+                ? await bridge.getCourseStatus({
+                    courseId: courseId,
+                    bbCourseId: bbCourseId
+                  })
+                : null;
+            renderStatus(fresh, content);
+          });
         }
-
-        var syllabusLine = status.hasSyllabus
-          ? '<div style="color:#00ff88">\\u2713 Syllabus \\u2014 ' +
-            status.gradeComponentCount +
-            ' components</div>'
-          : '<div style="color:#8ea88e">\\u25cb Syllabus \\u2014 not imported</div>';
-
-        var modulesHtml = (status.modules || [])
-          .map(function(m) {
-            var mark =
-              m.itemCount > 0
-                ? '<span style="color:#00ff88">\\u2713</span>'
-                : '<span style="color:#8ea88e">\\u25cb</span>';
-            return (
-              '<div style="margin:4px 0">' +
-              mark +
-              ' ' +
-              String(m.title || '') +
-              ' (' +
-              m.itemCount +
-              ' items)</div>'
-            );
-          })
-          .join('');
-
-        var emptyState =
-          status.moduleCount === 0
-            ? '<div style="color:#8ea88e;margin-top:8px">No content imported yet.<br>Click \\u2192 IMPORT on files below.</div>'
-            : '';
-
-        contentEl.innerHTML =
-          '<div style="margin-bottom:8px">' +
-          syllabusLine +
-          '</div>' +
-          '<div style="color:#00ccff;letter-spacing:0.1em;font-size:9px;margin-bottom:6px">CONTENT</div>' +
-          modulesHtml +
-          emptyState;
       };
 
       window.__shInjectImportButtons = injectImportButtons;
@@ -925,6 +980,17 @@ function registerBlackboardHandlers(mainWindow) {
 
   ipcMain.handle("bb:set-active-course", async (_event, courseId) => {
     activeCourseId = String(courseId || "");
+    return { success: true };
+  });
+
+  ipcMain.handle("bb:show-toast", async (_event, { message, type }) => {
+    if (bbWindow && !bbWindow.isDestroyed()) {
+      await bbWindow.webContents
+        .executeJavaScript(
+          `window.__shToast?.(${JSON.stringify(message)}, ${JSON.stringify(type || "success")})`
+        )
+        .catch(() => {});
+    }
     return { success: true };
   });
 
