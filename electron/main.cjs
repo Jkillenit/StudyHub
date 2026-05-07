@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const officeParser = require("officeparser");
 
@@ -17,6 +18,12 @@ const { registerBlackboardHandlers } = require("./blackboardWindow.cjs");
 
 /** Tracks files the user explicitly chose (open dialog); readText allowed only for these paths. */
 const allowedReadPaths = new Set();
+
+/** Files under OS temp/studyhub-bb/ (Blackboard downloads) may be read without picker registration. */
+function isBbTempPath(normalized) {
+  const bbTempDir = path.normalize(path.join(os.tmpdir(), "studyhub-bb"));
+  return normalized === bbTempDir || normalized.startsWith(bbTempDir + path.sep);
+}
 
 ipcMain.handle("studyhub:pick-files", async (_evt, filters) => {
   const win = BrowserWindow.getFocusedWindow();
@@ -119,7 +126,7 @@ ipcMain.handle("studyhub:open-path", async (_evt, filePath) => {
 
 ipcMain.handle("studyhub:extract-pdf-text", async (_evt, filePath) => {
   const normalized = path.normalize(String(filePath || ""));
-  if (!allowedReadPaths.has(normalized)) {
+  if (!isBbTempPath(normalized) && !allowedReadPaths.has(normalized)) {
     return {
       ok: false,
       error: "Path is not registered for this session. Re-add the file from Materials.",
@@ -249,7 +256,7 @@ function extractTextFromAst(node) {
 ipcMain.handle("studyhub:extract-text", async (_evt, filePath) => {
   try {
     const normalized = path.normalize(String(filePath || ""));
-    if (!allowedReadPaths.has(normalized)) {
+    if (!isBbTempPath(normalized) && !allowedReadPaths.has(normalized)) {
       return {
         success: false,
         error: "Path is not registered for this session. Re-add the file from Materials.",
