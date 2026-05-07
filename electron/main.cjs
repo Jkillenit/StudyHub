@@ -2,7 +2,6 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { pathToFileURL } = require("url");
 const officeParser = require("officeparser");
 
 const rootDir = path.join(__dirname, "..");
@@ -169,8 +168,7 @@ ipcMain.handle("studyhub:extract-pptx", async (_evt, filePath) => {
         error: "Path is not registered for this session. Re-add the file from Materials.",
       };
     }
-    const fileUrl = pathToFileURL(normalized).href;
-    const ast = await officeParser.parseOffice(fileUrl, { ignoreNotes: true });
+    const ast = await officeParser.parseOffice(normalized, { ignoreNotes: true });
     const slides = groupIntoSlides(Array.isArray(ast?.content) ? ast.content : []);
     console.log("[PPTX] Total AST nodes:", ast?.content?.length || 0);
     (ast?.content || []).slice(0, 10).forEach((node, i) => {
@@ -266,10 +264,9 @@ ipcMain.handle("studyhub:extract-text", async (_evt, filePath) => {
       };
     }
     const officeParserModule = require("officeparser");
-    const fileUrl = pathToFileURL(normalized).href;
     const data = await new Promise((resolve, reject) => {
       officeParserModule.parseOffice(
-        fileUrl,
+        normalized,
         (result, err) => {
           if (err) reject(err);
           else resolve(result);
