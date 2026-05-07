@@ -120,8 +120,14 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
       }
 
       const resolvedAction = effectiveRole === "syllabus" ? "parse-syllabus" : action;
-      if ((resolvedAction === "extract-text" || resolvedAction === "parse-syllabus") && window.studyHub?.extractText) {
-        const extracted = await window.studyHub.extractText(localPath);
+      if (
+        (resolvedAction === "extract-text" || resolvedAction === "parse-syllabus") &&
+        (window.studyHub?.extractText || window.studyHub?.extractPdfText)
+      ) {
+        const isPdf = String(fileName || "").toLowerCase().endsWith(".pdf");
+        const extracted = isPdf
+          ? await window.studyHub.extractPdfText(localPath)
+          : await window.studyHub.extractText(localPath);
         if (!extracted?.success && !extracted?.ok) {
           bbToast(`✕ ${fileName}: ${extracted?.error || "text extraction failed"}`, "error");
           return;

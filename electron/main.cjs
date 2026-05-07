@@ -125,37 +125,50 @@ ipcMain.handle("studyhub:open-path", async (_evt, filePath) => {
 });
 
 ipcMain.handle("studyhub:extract-pdf-text", async (_evt, filePath) => {
-  const normalized = path.normalize(String(filePath || ""));
-  if (!isBbTempPath(normalized) && !allowedReadPaths.has(normalized)) {
+  try {
+    const normalized = path.normalize(String(filePath || ""));
+
+    if (!isBbTempPath(normalized) && !allowedReadPaths.has(normalized)) {
+      return {
+        ok: false,
+        error: "Path is not registered for this session.",
+      };
+    }
+
+    if (path.extname(normalized).toLowerCase() !== ".pdf") {
+      return {
+        ok: false,
+        error: "Only PDF files supported.",
+      };
+    }
+
+    const { PDFParse } = require("pdf-parse");
+    const buf = await fs.promises.readFile(normalized);
+    const parser = new PDFParse({ data: buf });
+    try {
+      const textResult = await parser.getText();
+      const text = String(textResult?.text ?? "").trim();
+      const numpages = typeof textResult?.total === "number" ? textResult.total : 0;
+      await parser.destroy();
+      return {
+        ok: true,
+        text,
+        numpages,
+        empty: !text,
+      };
+    } catch (e) {
+      try {
+        await parser.destroy();
+      } catch {
+        /* ignore */
+      }
+      throw e;
+    }
+  } catch (err) {
     return {
       ok: false,
-      error: "Path is not registered for this session. Re-add the file from Materials.",
+      error: err?.message || String(err),
     };
-  }
-  if (path.extname(normalized).toLowerCase() !== ".pdf") {
-    return { ok: false, error: "Only PDF files support in-app text extraction." };
-  }
-  let PDFParse;
-  try {
-    ({ PDFParse } = require("pdf-parse"));
-  } catch {
-    return { ok: false, error: "pdf-parse is not installed in this build." };
-  }
-  const buf = await fs.promises.readFile(normalized);
-  const parser = new PDFParse({ data: buf });
-  try {
-    const result = await parser.getText();
-    await parser.destroy();
-    const text = String(result?.text ?? "").trim();
-    const numpages = typeof result?.total === "number" ? result.total : 0;
-    return { ok: true, text, numpages, empty: !text };
-  } catch (e) {
-    try {
-      await parser.destroy();
-    } catch {
-      /* ignore */
-    }
-    return { ok: false, error: e?.message || String(e) };
   }
 });
 
@@ -264,6 +277,16 @@ ipcMain.handle("studyhub:extract-text", async (_evt, filePath) => {
         text: "",
       };
     }
+
+    const ext = path.extname(normalized).toLowerCase();
+    if (ext === ".pdf") {
+      return {
+        success: false,
+        error: "Use extract-pdf-text for PDFs.",
+        text: "",
+      };
+    }
+
     const officeParserModule = require("officeparser");
     const fileBuffer = await fs.promises.readFile(normalized);
     const data = await new Promise((resolve, reject) => {
