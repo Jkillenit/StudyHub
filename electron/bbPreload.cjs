@@ -7,4 +7,7 @@ contextBridge.exposeInMainWorld("__shBridge", {
   importFolder: (context) => {
     ipcRenderer.invoke("bb:import-folder", context);
   },
+  createCourse: (data) => ipcRenderer.invoke("bb:create-course", data),
+  getCourseStatus: (data) => ipcRenderer.invoke("bb:get-course-status", data),
+  closeWindow: () => ipcRenderer.invoke("bb:close"),
 });

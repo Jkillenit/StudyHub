@@ -4,79 +4,143 @@ const path = require("path");
 
 let bbWindow = null;
 let activeCourseId = "";
+let linkedCourseName = "";
+let linkedBbCourseId = "";
 
 const BB_PARTITION = "persist:blackboard";
 const BB_URL = "https://ualearn.blackboard.com";
 const BB_TEMP_DIR = path.join(app.getPath("temp"), "studyhub-bb");
 
-const TOOLBAR_SCRIPT = `
-  (function() {
-    if (!document.body) return;
-    if (document.getElementById("sh-bb-toolbar")) return;
+function buildToolbarScript(_courseId, bbCourseId, linkedNameForPage) {
+  const safeBbCourseId = JSON.stringify(String(bbCourseId || ""));
+  const safeLinked = JSON.stringify(String(linkedNameForPage || ""));
+  const isLinked = !!(linkedNameForPage && String(linkedNameForPage).trim());
 
-    const toolbar = document.createElement("div");
-    toolbar.id = "sh-bb-toolbar";
-    toolbar.style.cssText = [
-      "position: fixed",
-      "top: 0",
-      "left: 0",
-      "right: 0",
-      "height: 36px",
-      "background: #0a0e0a",
-      "border-bottom: 1px solid #1a2a1a",
-      "display: flex",
-      "align-items: center",
-      "padding: 0 16px",
-      "gap: 12px",
-      "z-index: 999999",
-      "font-family: 'JetBrains Mono', 'Consolas', monospace",
-      "font-size: 11px",
-      "color: #8ea88e",
-      "letter-spacing: 0.08em"
-    ].join(";");
+  return `
+(function() {
+  if (!document.body) return;
 
-    const logo = document.createElement("span");
-    logo.style.cssText = "color:#00ff88;font-weight:600;letter-spacing:0.12em;";
-    logo.textContent = "STUDY HUB";
+  const existing = document.getElementById("sh-bb-toolbar");
+  if (existing) existing.remove();
 
-    const divider = document.createElement("span");
-    divider.style.cssText = "color:#1a2a1a;font-size:14px;";
-    divider.textContent = "|";
+  const toolbar = document.createElement("div");
+  toolbar.id = "sh-bb-toolbar";
+  toolbar.style.cssText = [
+    "position: fixed",
+    "top: 0",
+    "left: 0",
+    "right: 0",
+    "height: 40px",
+    "background: #0a0e0a",
+    "border-bottom: 2px solid #1a2a1a",
+    "display: flex",
+    "align-items: center",
+    "padding: 0 16px",
+    "gap: 12px",
+    "z-index: 999999",
+    "font-family: Consolas, monospace",
+    "font-size: 11px",
+    "color: #8ea88e",
+    "letter-spacing: 0.08em"
+  ].join(";");
 
-    const status = document.createElement("span");
-    status.id = "sh-bb-status";
-    status.style.color = "#8ea88e";
-    status.textContent = "CONNECTED";
+  const logo = document.createElement("span");
+  logo.style.cssText = "color:#00ff88;font-weight:600;letter-spacing:0.12em;font-size:12px;";
+  logo.textContent = "STUDY HUB";
 
-    const spacer = document.createElement("div");
-    spacer.style.flex = "1";
+  const div1 = document.createElement("span");
+  div1.style.color = "#1a2a1a";
+  div1.textContent = "|";
 
-    const closeBtn = document.createElement("button");
-    closeBtn.textContent = "✕ CLOSE";
-    closeBtn.style.cssText = [
+  const courseArea = document.createElement("div");
+  courseArea.style.cssText = "display:flex;align-items:center;gap:8px;flex:1;";
+
+  if (${isLinked}) {
+    const courseLabel = document.createElement("span");
+    courseLabel.style.cssText = "color:#00ff88;font-size:11px;letter-spacing:0.06em;";
+    courseLabel.textContent = "\\u25cf " + ${safeLinked};
+    courseArea.appendChild(courseLabel);
+
+    const statusBtn = document.createElement("button");
+    statusBtn.id = "sh-status-toggle";
+    statusBtn.textContent = "STATUS \\u25be";
+    statusBtn.style.cssText = [
       "background: transparent",
-      "border: 1px solid #1a2a1a",
+      "border: 1px solid #1a3a1a",
       "color: #8ea88e",
+      "font-family: inherit",
+      "font-size: 9px",
+      "letter-spacing: 0.1em",
+      "padding: 3px 8px",
+      "cursor: pointer"
+    ].join(";");
+    statusBtn.addEventListener("click", function() {
+      if (window.__shToggleStatus) window.__shToggleStatus();
+    });
+    courseArea.appendChild(statusBtn);
+  } else {
+    const createBtn = document.createElement("button");
+    createBtn.id = "sh-create-course-btn";
+    createBtn.textContent = "+ CREATE STUDY HUB COURSE";
+    createBtn.style.cssText = [
+      "background: transparent",
+      "border: 1px solid #00ff88",
+      "color: #00ff88",
       "font-family: inherit",
       "font-size: 10px",
       "letter-spacing: 0.1em",
-      "padding: 3px 10px",
-      "cursor: pointer"
+      "padding: 4px 12px",
+      "cursor: pointer",
+      "transition: background 100ms"
     ].join(";");
-    closeBtn.addEventListener("click", function() {
-      window.close();
+    createBtn.addEventListener("click", function() {
+      var title = window.__shGetCourseTitle ? window.__shGetCourseTitle() : null;
+      createBtn.textContent = "CREATING...";
+      createBtn.disabled = true;
+      if (window.__shBridge && window.__shBridge.createCourse) {
+        window.__shBridge.createCourse({
+          courseTitle: title || ${safeBbCourseId},
+          bbCourseId: ${safeBbCourseId}
+        });
+      }
     });
+    courseArea.appendChild(createBtn);
+  }
 
-    toolbar.appendChild(logo);
-    toolbar.appendChild(divider);
-    toolbar.appendChild(status);
-    toolbar.appendChild(spacer);
-    toolbar.appendChild(closeBtn);
+  const closeBtn = document.createElement("button");
+  closeBtn.textContent = "\\u2715 CLOSE";
+  closeBtn.style.cssText = [
+    "background: transparent",
+    "border: 1px solid #1a2a1a",
+    "color: #8ea88e",
+    "font-family: inherit",
+    "font-size: 10px",
+    "letter-spacing: 0.1em",
+    "padding: 3px 10px",
+    "cursor: pointer"
+  ].join(";");
+  closeBtn.addEventListener("click", function() {
+    if (window.__shBridge && window.__shBridge.closeWindow) window.__shBridge.closeWindow();
+    else window.close();
+  });
 
-    document.body.prepend(toolbar);
-    document.body.style.paddingTop = "36px";
-  })();
+  toolbar.appendChild(logo);
+  toolbar.appendChild(div1);
+  toolbar.appendChild(courseArea);
+  toolbar.appendChild(closeBtn);
+
+  document.body.prepend(toolbar);
+  document.body.style.paddingTop = "40px";
+
+  window.__shUpdateToolbar = function(data) {
+    if (data && data.linked) {
+      var t = document.getElementById("sh-bb-toolbar");
+      if (t) t.remove();
+    }
+  };
+})();
 `;
+}
 
 const OBSERVER_SCRIPT = `
   (function() {
@@ -116,6 +180,10 @@ function parseCourseFromUrl(url) {
   const match = String(url || "").match(/\/ultra\/courses\/(_\d+_\d+)\//);
   if (!match) return null;
   return { bbCourseId: match[1], url };
+}
+
+function displayLinkedCourseName(pageBbCourseId) {
+  return linkedBbCourseId && pageBbCourseId && pageBbCourseId === linkedBbCourseId ? linkedCourseName : "";
 }
 
 function ensureTempDir() {
@@ -328,9 +396,7 @@ async function importFileFromUrl(context, mainWindow) {
       if (!fileUrl) throw new Error("Could not resolve Blackboard download URL from content item");
     }
 
-    console.log("[BB] Starting download:", fileName, fileUrl?.substring(0, 80));
     const localPath = await downloadBBFile(fileUrl, fileName);
-    console.log("[BB] Download complete:", localPath);
 
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("bb:import-ready", {
@@ -358,8 +424,7 @@ async function importFileFromUrl(context, mainWindow) {
   }
 }
 
-function buildInjectionScript(courseId, bbCourseId) {
-  console.log("[BB] Building injection with", "courseId:", courseId, "bbCourseId:", bbCourseId);
+function buildInjectionScript(courseId, bbCourseId, _linkedCourseName) {
   const safeCourseId = JSON.stringify(String(courseId || ""));
   const safeBbCourseId = JSON.stringify(String(bbCourseId || ""));
   return `
@@ -573,6 +638,95 @@ function buildInjectionScript(courseId, bbCourseId) {
         });
       }
 
+      window.__shGetCourseTitle = getCourseTitle;
+
+      window.__shToggleStatus = async function() {
+        var existingPanel = document.getElementById('sh-status-panel');
+        if (existingPanel) {
+          existingPanel.remove();
+          return;
+        }
+
+        var panel = document.createElement('div');
+        panel.id = 'sh-status-panel';
+        panel.style.cssText = [
+          'position: fixed',
+          'top: 40px',
+          'right: 0',
+          'width: 280px',
+          'max-height: calc(100vh - 40px)',
+          'background: #0a0e0a',
+          'border-left: 2px solid #1a3a1a',
+          'border-bottom: 2px solid #1a3a1a',
+          'padding: 16px',
+          'z-index: 999998',
+          'font-family: Consolas, monospace',
+          'font-size: 11px',
+          'color: #8ea88e',
+          'overflow-y: auto'
+        ].join(';');
+
+        panel.innerHTML =
+          '<div style="color:#00ff88;font-weight:600;letter-spacing:0.12em;margin-bottom:12px;">COURSE STATUS</div>' +
+          '<div id="sh-status-content" style="color:#8ea88e;font-size:10px;">Loading...</div>';
+
+        document.body.appendChild(panel);
+
+        var bridge = window.__shBridge;
+        var status =
+          bridge && bridge.getCourseStatus
+            ? await bridge.getCourseStatus({
+                courseId: courseId,
+                bbCourseId: bbCourseId
+              })
+            : null;
+
+        var contentEl = document.getElementById('sh-status-content');
+        if (!contentEl) return;
+
+        if (!status) {
+          contentEl.innerHTML = '<div>No data available</div>';
+          return;
+        }
+
+        var syllabusLine = status.hasSyllabus
+          ? '<div style="color:#00ff88">\\u2713 Syllabus \\u2014 ' +
+            status.gradeComponentCount +
+            ' components</div>'
+          : '<div style="color:#8ea88e">\\u25cb Syllabus \\u2014 not imported</div>';
+
+        var modulesHtml = (status.modules || [])
+          .map(function(m) {
+            var mark =
+              m.itemCount > 0
+                ? '<span style="color:#00ff88">\\u2713</span>'
+                : '<span style="color:#8ea88e">\\u25cb</span>';
+            return (
+              '<div style="margin:4px 0">' +
+              mark +
+              ' ' +
+              String(m.title || '') +
+              ' (' +
+              m.itemCount +
+              ' items)</div>'
+            );
+          })
+          .join('');
+
+        var emptyState =
+          status.moduleCount === 0
+            ? '<div style="color:#8ea88e;margin-top:8px">No content imported yet.<br>Click \\u2192 IMPORT on files below.</div>'
+            : '';
+
+        contentEl.innerHTML =
+          '<div style="margin-bottom:8px">' +
+          syllabusLine +
+          '</div>' +
+          '<div style="color:#00ccff;letter-spacing:0.1em;font-size:9px;margin-bottom:6px">CONTENT</div>' +
+          modulesHtml +
+          emptyState;
+      };
+
       window.__shInjectImportButtons = injectImportButtons;
 
       window.__shImportFile = (context) => {
@@ -612,9 +766,14 @@ function buildInjectionScript(courseId, bbCourseId) {
   `;
 }
 
-async function injectToolbarAndObserver() {
+async function injectToolbarAndObserver(pageUrl) {
   if (!bbWindow || bbWindow.isDestroyed()) return;
-  await bbWindow.webContents.executeJavaScript(TOOLBAR_SCRIPT).catch(() => {});
+  const url = pageUrl || bbWindow.webContents.getURL();
+  const courseId = activeCourseId || "";
+  const bbCourse = parseCourseFromUrl(url);
+  const pageBbId = bbCourse?.bbCourseId || "";
+  const displayLinked = displayLinkedCourseName(pageBbId);
+  await bbWindow.webContents.executeJavaScript(buildToolbarScript(courseId, pageBbId, displayLinked)).catch(() => {});
   await bbWindow.webContents.executeJavaScript(OBSERVER_SCRIPT).catch(() => {});
 }
 
@@ -638,32 +797,47 @@ async function openBlackboardWindow(mainWindow) {
   });
 
   bbWindow.webContents.on("did-navigate", async (_event, url) => {
-    await bbWindow.webContents.executeJavaScript(TOOLBAR_SCRIPT).catch(() => {});
-    await bbWindow.webContents.executeJavaScript(OBSERVER_SCRIPT).catch(() => {});
     const courseId = activeCourseId || "";
     const bbCourse = parseCourseFromUrl(url);
     const bbCourseId = bbCourse?.bbCourseId || "";
-    await bbWindow.webContents.executeJavaScript(buildInjectionScript(courseId, bbCourseId)).catch(() => {});
+    const displayLinked = displayLinkedCourseName(bbCourseId);
+    await bbWindow.webContents
+      .executeJavaScript(buildToolbarScript(courseId, bbCourseId, displayLinked))
+      .catch(() => {});
+    await bbWindow.webContents.executeJavaScript(OBSERVER_SCRIPT).catch(() => {});
+    await bbWindow.webContents
+      .executeJavaScript(buildInjectionScript(courseId, bbCourseId, displayLinked))
+      .catch(() => {});
     if (bbCourse && mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("bb:course-detected", bbCourse);
     }
   });
 
   bbWindow.webContents.on("did-navigate-in-page", async (_event, url) => {
-    await bbWindow.webContents.executeJavaScript(TOOLBAR_SCRIPT).catch(() => {});
-    await bbWindow.webContents.executeJavaScript(OBSERVER_SCRIPT).catch(() => {});
     const courseId = activeCourseId || "";
     const bbCourse = parseCourseFromUrl(url);
     const bbCourseId = bbCourse?.bbCourseId || "";
-    await bbWindow.webContents.executeJavaScript(buildInjectionScript(courseId, bbCourseId)).catch(() => {});
+    const displayLinked = displayLinkedCourseName(bbCourseId);
+    await bbWindow.webContents
+      .executeJavaScript(buildToolbarScript(courseId, bbCourseId, displayLinked))
+      .catch(() => {});
+    await bbWindow.webContents.executeJavaScript(OBSERVER_SCRIPT).catch(() => {});
+    await bbWindow.webContents
+      .executeJavaScript(buildInjectionScript(courseId, bbCourseId, displayLinked))
+      .catch(() => {});
     if (bbCourse && mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("bb:course-detected", bbCourse);
     }
-    await bbWindow.webContents.executeJavaScript(TOOLBAR_SCRIPT).catch(() => {});
   });
 
   bbWindow.webContents.on("did-finish-load", async () => {
-    await injectToolbarAndObserver();
+    const url = bbWindow.webContents.getURL();
+    await injectToolbarAndObserver(url);
+    const cid = activeCourseId || "";
+    const bbCourse = parseCourseFromUrl(url);
+    const bbCourseIdNav = bbCourse?.bbCourseId || "";
+    const displayLinked = displayLinkedCourseName(bbCourseIdNav);
+    const reinjectToolbar = buildToolbarScript(cid, bbCourseIdNav, displayLinked);
     await bbWindow.webContents
       .executeJavaScript(
         `
@@ -671,7 +845,7 @@ async function openBlackboardWindow(mainWindow) {
           if (window.__shToolbarReinjectBound) return;
           window.__shToolbarReinjectBound = true;
           window.addEventListener("sh-bb-reinject-toolbar", function() {
-            ${TOOLBAR_SCRIPT}
+            ${reinjectToolbar}
           });
         })();
       `
@@ -750,9 +924,91 @@ function registerBlackboardHandlers(mainWindow) {
   });
 
   ipcMain.handle("bb:set-active-course", async (_event, courseId) => {
-    console.log("[BB] Active course set to:", courseId);
     activeCourseId = String(courseId || "");
     return { success: true };
+  });
+
+  ipcMain.handle("bb:create-course", async (_event, data) => {
+    activeCourseId = "";
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("bb:create-course-request", {
+        courseTitle: data?.courseTitle,
+        bbCourseId: data?.bbCourseId,
+      });
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle("bb:course-created", async (_event, payload) => {
+    const { courseId, courseTitle, bbCourseId } = payload || {};
+    activeCourseId = String(courseId || "");
+    linkedCourseName = courseTitle || "";
+    linkedBbCourseId = String(bbCourseId || "");
+    console.log("[BB] Course created and active:", courseTitle, courseId);
+
+    if (bbWindow && !bbWindow.isDestroyed()) {
+      bbWindow.webContents.send("bb:toolbar-update", {
+        courseId,
+        courseTitle,
+        bbCourseId,
+        linked: true,
+      });
+      const url = bbWindow.webContents.getURL();
+      const bbCourse = parseCourseFromUrl(url);
+      const pageBbId = bbCourse?.bbCourseId || linkedBbCourseId || "";
+      const displayLinked = displayLinkedCourseName(pageBbId);
+      await bbWindow.webContents
+        .executeJavaScript(buildToolbarScript(activeCourseId, pageBbId, displayLinked))
+        .catch(() => {});
+      await bbWindow.webContents
+        .executeJavaScript(buildInjectionScript(activeCourseId, pageBbId, displayLinked))
+        .catch(() => {});
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle("bb:get-course-status", async (_event, { courseId }) => {
+    if (!courseId) return null;
+    try {
+      const { getDb } = require("./database.cjs");
+      const db = getDb();
+      const gradeRows = db
+        .prepare(
+          `
+        SELECT COUNT(*) as count
+        FROM grade_components gc
+        JOIN courses c ON c.id = gc.course_id
+        WHERE c.uuid = ?
+      `
+        )
+        .get(courseId);
+
+      const modules = db
+        .prepare(
+          `
+        SELECT m.title,
+          COUNT(ci.id) as item_count
+        FROM modules m
+        LEFT JOIN content_items ci ON ci.module_id = m.id
+        JOIN courses c ON c.id = m.course_id
+        WHERE c.uuid = ?
+        GROUP BY m.id
+      `
+        )
+        .all(courseId);
+
+      return {
+        hasSyllabus: (gradeRows?.count || 0) > 0,
+        gradeComponentCount: gradeRows?.count || 0,
+        moduleCount: modules.length,
+        modules: modules.map((m) => ({
+          title: m.title,
+          itemCount: m.item_count,
+        })),
+      };
+    } catch {
+      return null;
+    }
   });
 
   // SESSION C: Course Sweep

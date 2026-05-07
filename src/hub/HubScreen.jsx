@@ -23,9 +23,7 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
     }
     checkStatus();
 
-    const handleCourseDetected = (course) => {
-      console.log("[BB] Course detected:", course.bbCourseId);
-    };
+    const handleCourseDetected = () => {};
 
     window.studyHub?.blackboard?.onCourseDetected?.(handleCourseDetected);
     return () => {
@@ -35,7 +33,6 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
 
   async function handleOpenBlackboard() {
     if (highlightId && highlightId !== "builtin") {
-      console.log("[HUB] Setting BB active course:", highlightId);
       await window.studyHub?.blackboard?.setActiveCourse?.(highlightId);
     }
     await window.studyHub?.blackboard?.open?.();

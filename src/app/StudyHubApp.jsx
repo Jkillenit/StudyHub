@@ -166,12 +166,7 @@ function StudyHubAppInner() {
 
   const deleteUserCourse = useCallback(
     async (id) => {
-      console.log("[DELETE] called with id:", id);
-      const result = await
-        window.studyHub?.db?.courses
-          ?.delete?.(id);
-      console.log("[DELETE] SQLite result:",
-        JSON.stringify(result));
+      await window.studyHub?.db?.courses?.delete?.(id);
 
       setUserCourses((prev) => {
         const next = prev.filter(

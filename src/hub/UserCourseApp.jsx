@@ -1037,14 +1037,6 @@ export function UserCourseApp({
     return () => window.removeEventListener("keydown", onKey);
   }, [activeItem, goChapter, markComplete]);
 
-  useEffect(() => {
-    console.log(
-      "[CONTENT] activeModule contentData:",
-      currentModule?.contentData?.length,
-      currentModule?.contentData?.[0]
-    );
-  }, [currentModule]);
-
   const handleImportFile = useCallback(() => {
     void runChapterExpressImport();
   }, [runChapterExpressImport]);

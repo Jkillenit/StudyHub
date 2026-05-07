@@ -103,6 +103,15 @@ contextBridge.exposeInMainWorld("studyHub", {
       bbImportReadyListenerMap.clear();
       bbImportErrorListenerMap.clear();
     },
+    createCourseFromBB: (data) => ipcRenderer.invoke("bb:create-course", data),
+    reportCourseCreated: (data) => ipcRenderer.invoke("bb:course-created", data),
+    onCreateCourseRequest: (callback) => {
+      if (typeof callback !== "function") return;
+      ipcRenderer.on("bb:create-course-request", (_event, data) => callback(data));
+    },
+    offCreateCourseRequest: () => {
+      ipcRenderer.removeAllListeners("bb:create-course-request");
+    },
   },
 
   db: {
