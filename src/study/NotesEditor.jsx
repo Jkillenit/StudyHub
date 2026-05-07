@@ -149,7 +149,48 @@ export function NotesEditor({ sectionId, onPersist, onAutosaveStatus, className,
     glossaryTermsRef.current = terms;
   }, [sectionId]);
 
-  const initialContent = useMemo(() => initialHtmlForSection(sectionId), [sectionId]);
+  const initialContent = useMemo(() => {
+    const raw = initialHtmlForSection(sectionId);
+
+    if (!raw || typeof raw !== "string") {
+      return "";
+    }
+
+    const trimmed = raw.trim();
+
+    if (trimmed.startsWith("<")) {
+      if (trimmed.length > 100000) {
+        return trimmed.substring(0, 100000) + "<p><em>[Content truncated]</em></p>";
+      }
+      return trimmed;
+    }
+
+    const safe = trimmed
+      .replace(/[^\x20-\x7E\n\r\t]/g, " ")
+      .substring(0, 20000);
+
+    if (!safe.trim()) return "";
+
+    const html = safe
+      .split(/\n{2,}/)
+      .map((para) => para.trim())
+      .filter(Boolean)
+      .map((para) =>
+        "<p>" +
+        para
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .join("<br>")
+        + "</p>"
+      )
+      .join("");
+
+    return html || "";
+  }, [sectionId]);
 
   const extensions = useMemo(
     () => [

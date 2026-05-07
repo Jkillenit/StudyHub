@@ -508,9 +508,20 @@ function buildInjectionScript(courseId, bbCourseId) {
           item.setAttribute(INJECTED_ATTR, '1');
           const btn = makeBtn('→ IMPORT', () => {
             const courseTitle = getCourseTitle();
+            let effectiveFileName = fileName;
+            if (fileUrl) {
+              try {
+                const urlParts = fileUrl.split('/');
+                const lastPart = urlParts[urlParts.length - 1].split('?')[0];
+                const decoded = decodeURIComponent(lastPart);
+                if (decoded.includes('.') && decoded.length > 3) {
+                  effectiveFileName = decoded;
+                }
+              } catch (e) {}
+            }
             window.__shBridge?.importFile?.({
               fileUrl,
-              fileName,
+              fileName: effectiveFileName || fileName,
               folderName,
               contentId,
               courseId,

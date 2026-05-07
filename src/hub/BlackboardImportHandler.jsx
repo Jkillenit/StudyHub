@@ -28,6 +28,14 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
         role,
         action,
       } = data || {};
+      const lowerFileName = String(fileName || "").toLowerCase();
+      const effectiveRole = (
+        lowerFileName.includes("syllabus") ||
+        lowerFileName.includes("course outline") ||
+        lowerFileName.includes("course_outline")
+      )
+        ? "syllabus"
+        : role;
 
       let course = activeCourse || null;
       if (!course && courseId) {
@@ -50,16 +58,16 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
           course,
           fileName,
           folderName,
-          role,
+          role: effectiveRole,
           action,
           extracted,
           localPath,
         });
-        onShowToast?.(role === "syllabus" ? "✓ Syllabus detected — checking grades" : `✓ Importing ${fileName}...`);
+        onShowToast?.(effectiveRole === "syllabus" ? "✓ Syllabus detected — checking grades" : `✓ Importing ${fileName}...`);
         return;
       }
 
-      const resolvedAction = role === "syllabus" ? "parse-syllabus" : action;
+      const resolvedAction = effectiveRole === "syllabus" ? "parse-syllabus" : action;
       if ((resolvedAction === "extract-text" || resolvedAction === "parse-syllabus") && window.studyHub?.extractText) {
         const extracted = await window.studyHub.extractText(localPath);
         if (!extracted?.success && !extracted?.ok) {
@@ -70,7 +78,7 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
           ? { success: true, text: extracted.text || "" }
           : extracted;
         console.log('[SYLLABUS DEBUG]',
-          'role:', role,
+          'role:', effectiveRole,
           'resolvedAction:', resolvedAction,
           'extracted.ok:', extracted?.ok,
           'extracted.success:', extracted?.success,
@@ -83,12 +91,12 @@ export default function BlackboardImportHandler({ courses, activeCourse, onCreat
           course,
           fileName,
           folderName,
-          role,
+          role: effectiveRole,
           action: resolvedAction,
           extracted: normalizedExtracted,
           localPath,
         });
-        if (role === "syllabus") {
+        if (effectiveRole === "syllabus") {
           onShowToast?.("✓ Syllabus — setting up GRADES tab");
         } else {
           onShowToast?.(`✓ ${fileName} → notes`);
