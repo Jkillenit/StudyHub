@@ -72,92 +72,96 @@ function registerDbHandlers() {
 
       const courseId = course.id;
 
-      db.prepare(`
-        DELETE FROM grade_entries
-        WHERE component_id IN (
-          SELECT id FROM grade_components
+      const deleteAll = db.transaction(() => {
+        db.prepare(`
+          DELETE FROM grade_entries
+          WHERE component_id IN (
+            SELECT id FROM grade_components
+            WHERE course_id = ?
+          )
+        `).run(courseId);
+
+        db.prepare(`
+          DELETE FROM grade_components
           WHERE course_id = ?
-        )
-      `).run(courseId);
+        `).run(courseId);
 
-      db.prepare(`
-        DELETE FROM grade_components
-        WHERE course_id = ?
-      `).run(courseId);
+        db.prepare(`
+          DELETE FROM mastery
+          WHERE flashcard_id IN (
+            SELECT id FROM flashcards
+            WHERE module_id IN (
+              SELECT id FROM modules
+              WHERE course_id = ?
+            )
+          )
+        `).run(courseId);
 
-      db.prepare(`
-        DELETE FROM mastery
-        WHERE card_id IN (
-          SELECT id FROM flashcards
+        db.prepare(`
+          DELETE FROM card_reviews
+          WHERE flashcard_id IN (
+            SELECT id FROM flashcards
+            WHERE module_id IN (
+              SELECT id FROM modules
+              WHERE course_id = ?
+            )
+          )
+        `).run(courseId);
+
+        db.prepare(`
+          DELETE FROM flashcards
           WHERE module_id IN (
             SELECT id FROM modules
             WHERE course_id = ?
           )
-        )
-      `).run(courseId);
+        `).run(courseId);
 
-      db.prepare(`
-        DELETE FROM card_reviews
-        WHERE card_id IN (
-          SELECT id FROM flashcards
+        db.prepare(`
+          DELETE FROM glossary_terms
           WHERE module_id IN (
             SELECT id FROM modules
             WHERE course_id = ?
           )
-        )
-      `).run(courseId);
+        `).run(courseId);
 
-      db.prepare(`
-        DELETE FROM flashcards
-        WHERE module_id IN (
-          SELECT id FROM modules
+        db.prepare(`
+          DELETE FROM content_items
+          WHERE module_id IN (
+            SELECT id FROM modules
+            WHERE course_id = ?
+          )
+        `).run(courseId);
+
+        db.prepare(`
+          DELETE FROM notes
+          WHERE module_id IN (
+            SELECT id FROM modules
+            WHERE course_id = ?
+          )
+        `).run(courseId);
+
+        db.prepare(`
+          DELETE FROM assignments
           WHERE course_id = ?
-        )
-      `).run(courseId);
+        `).run(courseId);
 
-      db.prepare(`
-        DELETE FROM glossary_terms
-        WHERE module_id IN (
-          SELECT id FROM modules
+        db.prepare(`
+          DELETE FROM settings
+          WHERE key LIKE ?
+        `).run(`%${courseUuid}%`);
+
+        db.prepare(`
+          DELETE FROM modules
           WHERE course_id = ?
-        )
-      `).run(courseId);
+        `).run(courseId);
 
-      db.prepare(`
-        DELETE FROM content_items
-        WHERE module_id IN (
-          SELECT id FROM modules
-          WHERE course_id = ?
-        )
-      `).run(courseId);
+        db.prepare(`
+          DELETE FROM courses
+          WHERE id = ?
+        `).run(courseId);
+      });
 
-      db.prepare(`
-        DELETE FROM notes
-        WHERE module_id IN (
-          SELECT id FROM modules
-          WHERE course_id = ?
-        )
-      `).run(courseId);
-
-      db.prepare(`
-        DELETE FROM assignments
-        WHERE course_id = ?
-      `).run(courseId);
-
-      db.prepare(`
-        DELETE FROM settings
-        WHERE key LIKE ?
-      `).run(`%${courseUuid}%`);
-
-      db.prepare(`
-        DELETE FROM modules
-        WHERE course_id = ?
-      `).run(courseId);
-
-      db.prepare(`
-        DELETE FROM courses
-        WHERE id = ?
-      `).run(courseId);
+      deleteAll();
 
       return { success: true };
     } catch (err) {
