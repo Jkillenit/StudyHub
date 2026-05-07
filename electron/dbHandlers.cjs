@@ -190,7 +190,7 @@ function registerDbHandlers() {
     if (!course) throw new Error("Course not found");
 
     const result = db
-      .prepare("INSERT INTO modules (uuid, course_id, title, position, reviewed) VALUES (@uuid, @courseId, @title, @position, @reviewed)")
+      .prepare("INSERT OR IGNORE INTO modules (uuid, course_id, title, position, reviewed) VALUES (@uuid, @courseId, @title, @position, @reviewed)")
       .run({
         uuid: moduleData.uuid,
         courseId: course.id,
@@ -201,15 +201,43 @@ function registerDbHandlers() {
     return db.prepare("SELECT * FROM modules WHERE id = ?").get(result.lastInsertRowid);
   });
 
-  ipcMain.handle("db:modules:update", (_, { uuid, ...fields }) => {
-    const allowed = ["title", "position", "reviewed"];
-    const sets = Object.keys(fields)
-      .filter((key) => allowed.includes(key))
-      .map((key) => `${key} = @${key}`)
-      .join(", ");
-    if (!sets) return null;
-    db.prepare(`UPDATE modules SET ${sets}, updated_at = datetime('now') WHERE uuid = @uuid`).run({ uuid, ...fields });
-    return db.prepare("SELECT * FROM modules WHERE uuid = ?").get(uuid);
+  ipcMain.handle("db:modules:update", (_, { uuid, courseUuid, title, position, reviewed }) => {
+    try {
+      const result = db
+        .prepare(`
+          UPDATE modules
+          SET title = ?,
+              position = ?,
+              reviewed = ?,
+              updated_at = datetime('now')
+          WHERE uuid = ?
+        `)
+        .run(title || "General", position ?? 0, reviewed ?? 0, uuid);
+
+      if (result.changes === 0 && courseUuid) {
+        const course = db.prepare(`
+          SELECT id FROM courses
+          WHERE uuid = ?
+        `).get(courseUuid);
+
+        if (course) {
+          db.prepare(`
+            INSERT OR IGNORE INTO modules
+              (uuid, course_id, title,
+               position, reviewed)
+            VALUES (?, ?, ?, ?, ?)
+          `).run(uuid, course.id, title || "General", position ?? 0, reviewed ?? 0);
+        }
+      }
+
+      return { success: true };
+    } catch (err) {
+      console.error("[DB] modules:update error:", err);
+      return {
+        success: false,
+        error: err.message,
+      };
+    }
   });
 
   ipcMain.handle("db:modules:delete", (_, uuid) => {
@@ -229,12 +257,35 @@ function registerDbHandlers() {
   });
 
   ipcMain.handle("db:notes:save", (_, { moduleUuid, html }) => {
-    const moduleRow = db.prepare("SELECT id FROM modules WHERE uuid = ?").get(moduleUuid);
-    if (!moduleRow) throw new Error("Module not found");
-    db.prepare(
-      "INSERT INTO notes (module_id, html) VALUES (@moduleId, @html) ON CONFLICT(module_id) DO UPDATE SET html = @html, updated_at = datetime('now')"
-    ).run({ moduleId: moduleRow.id, html });
-    return { success: true };
+    try {
+      const mod = db.prepare(`
+        SELECT id FROM modules
+        WHERE uuid = ?
+      `).get(moduleUuid);
+
+      if (!mod) {
+        return { success: true, skipped: true };
+      }
+
+      db.prepare(`
+        INSERT INTO notes
+          (module_id, html, updated_at)
+        VALUES
+          (?, ?, datetime('now'))
+        ON CONFLICT(module_id)
+        DO UPDATE SET
+          html = excluded.html,
+          updated_at = excluded.updated_at
+      `).run(mod.id, html || "");
+
+      return { success: true };
+    } catch (err) {
+      console.error("[DB] notes:save error:", err);
+      return {
+        success: false,
+        error: err.message,
+      };
+    }
   });
 
   ipcMain.handle("db:content:getByModule", (_, moduleUuid) => {
