@@ -6,6 +6,11 @@ let bbWindow = null;
 let activeCourseId = "";
 let linkedCourseName = "";
 let linkedBbCourseId = "";
+let awaitBBDownload = null;
+
+/** filename → { resolve, reject, timeoutId } for BB will-download interceptor */
+const bbPendingDownloads = new Map();
+let bbWillDownloadListenerAttached = false;
 
 const BB_PARTITION = "persist:blackboard";
 const BB_URL = "https://ualearn.blackboard.com";
@@ -192,71 +197,169 @@ function ensureTempDir() {
   }
 }
 
-async function downloadBBFile(fileUrl, fileName) {
-  ensureTempDir();
-  const safeName = String(fileName || "bb_file")
-    .replace(/[^a-zA-Z0-9._\-\s]/g, "_")
-    .trim();
-  const finalName = safeName || `bb_${Date.now()}`;
-  const localPath = path.join(BB_TEMP_DIR, finalName);
+function setupDownloadInterceptor(_mainWindow) {
+  const bbSession = session.fromPartition(BB_PARTITION);
 
-  return new Promise((resolve, reject) => {
-    if (!bbWindow || bbWindow.isDestroyed()) {
-      reject(new Error("Blackboard window is not open"));
-      return;
-    }
+  if (!bbWillDownloadListenerAttached) {
+    bbWillDownloadListenerAttached = true;
+    bbSession.on("will-download", (event, item) => {
+      const suggestedName = item.getFilename() || "";
 
-    const bbSession = session.fromPartition(BB_PARTITION);
+      let pendingKey = null;
+      let entry = bbPendingDownloads.get(suggestedName);
+      if (entry) {
+        pendingKey = suggestedName;
+      } else if (bbPendingDownloads.size === 1) {
+        pendingKey = bbPendingDownloads.keys().next().value;
+        entry = bbPendingDownloads.get(pendingKey);
+      }
 
-    let settled = false;
-    let timeoutId;
+      if (!entry) {
+        const lower = suggestedName.toLowerCase();
+        for (const [k, v] of bbPendingDownloads.entries()) {
+          const kl = k.toLowerCase();
+          if (
+            kl === lower ||
+            lower.endsWith(kl) ||
+            kl.endsWith(lower) ||
+            suggestedName.includes(k) ||
+            k.includes(suggestedName)
+          ) {
+            pendingKey = k;
+            entry = v;
+            break;
+          }
+        }
+      }
 
-    const cleanup = () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      bbSession.removeListener("will-download", onWillDownload);
-    };
-
-    const finish = (fn) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      fn();
-    };
-
-    const onWillDownload = (event, item) => {
-      const itemUrl = item.getURL() || "";
-      const baseFileUrl = String(fileUrl || "").split("?")[0];
-      const baseItemUrl = itemUrl.split("?")[0];
-      const urlTail = baseFileUrl.split("/").pop() || "";
-      const matchesOurUrl =
-        baseItemUrl === baseFileUrl ||
-        itemUrl === fileUrl ||
-        (urlTail && itemUrl.includes(urlTail)) ||
-        itemUrl.includes(encodeURIComponent(String(fileName || "")));
-
-      if (!matchesOurUrl) {
+      if (!entry || pendingKey == null) {
         return;
       }
 
-      item.setSavePath(localPath);
+      ensureTempDir();
+      const safeName = suggestedName.replace(/[^a-zA-Z0-9._\-\s]/g, "_").trim();
+      const finalName = safeName || `bb_${Date.now()}`;
+      const localPath = path.join(BB_TEMP_DIR, finalName);
 
-      item.once("done", (_event, state) => {
+      item.setSavePath(localPath);
+      bbPendingDownloads.delete(pendingKey);
+      if (entry.timeoutId) clearTimeout(entry.timeoutId);
+
+      item.once("done", (_e, state) => {
         if (state === "completed") {
-          finish(() => resolve(localPath));
+          entry.resolve(localPath);
         } else {
-          finish(() => reject(new Error(`Download ${state}: ${fileName}`)));
+          entry.reject(new Error(`Download ${state}: ${suggestedName}`));
         }
       });
-    };
+    });
+  }
 
-    bbSession.on("will-download", onWillDownload);
+  return function awaitDownload(fileName, timeoutMs = 15000) {
+    return new Promise((resolve, reject) => {
+      const key = String(fileName || "bb_file");
+      const timeoutId = setTimeout(() => {
+        if (bbPendingDownloads.has(key)) {
+          bbPendingDownloads.delete(key);
+          reject(new Error(`Download timeout: ${fileName}`));
+        }
+      }, timeoutMs);
 
-    timeoutId = setTimeout(() => {
-      finish(() => reject(new Error(`Download timeout: ${fileName}`)));
-    }, 30000);
+      bbPendingDownloads.set(key, { resolve, reject, timeoutId });
+    });
+  };
+}
 
-    bbWindow.webContents.downloadURL(fileUrl);
+async function downloadBBFile(fileUrl, fileName, _folderName) {
+  if (!bbWindow || bbWindow.isDestroyed()) {
+    throw new Error("Blackboard window is not open");
+  }
+
+  if (!awaitBBDownload) {
+    throw new Error("Download interceptor not initialized");
+  }
+
+  const downloadPromise = awaitBBDownload(fileName);
+  let downloadSettled = false;
+  downloadPromise.finally(() => {
+    downloadSettled = true;
   });
+
+  const safeFileUrl = JSON.stringify(String(fileUrl || ""));
+  const safeFileName = JSON.stringify(String(fileName || ""));
+
+  await bbWindow.webContents
+    .executeJavaScript(
+      `
+      (function() {
+        try {
+          var targetName = ${safeFileName};
+          var targetBtn = null;
+          var items = document.querySelectorAll("[title], [aria-label]");
+          for (var i = 0; i < items.length; i++) {
+            var el = items[i];
+            var text = (
+              el.getAttribute("title") ||
+              el.getAttribute("aria-label") ||
+              el.textContent ||
+              ""
+            ).trim();
+            var baseName = targetName.replace(/\\.[^.]+$/, "");
+            if (text.indexOf(baseName) !== -1 || text.indexOf(targetName) !== -1) {
+              var container =
+                el.closest('[class*="item"],[class*="content"],[role="listitem"]') ||
+                el.parentElement;
+              if (container) {
+                targetBtn = container.querySelector(
+                  '[data-testid*="more"],[aria-label*="more"],[aria-label*="option"],button[aria-haspopup],[class*="context-menu"]'
+                );
+                if (targetBtn) break;
+              }
+            }
+          }
+
+          if (targetBtn) {
+            targetBtn.click();
+            setTimeout(function() {
+              var menuItems = document.querySelectorAll(
+                '[role="menuitem"],[role="option"],[class*="menu-item"]'
+              );
+              for (var j = 0; j < menuItems.length; j++) {
+                var item = menuItems[j];
+                var t = (item.textContent || "").toLowerCase();
+                if (t.indexOf("download") !== -1 || t.indexOf("original") !== -1) {
+                  item.click();
+                  return true;
+                }
+              }
+              window.__shFallbackDownload = ${safeFileUrl};
+            }, 300);
+            return true;
+          }
+
+          window.__shFallbackDownload = ${safeFileUrl};
+          return false;
+        } catch (e) {
+          window.__shFallbackDownload = ${safeFileUrl};
+          return false;
+        }
+      })()
+    `
+    )
+    .catch(() => {});
+
+  setTimeout(async () => {
+    if (downloadSettled || !bbWindow || bbWindow.isDestroyed()) return;
+    const fallback = await bbWindow.webContents
+      .executeJavaScript("window.__shFallbackDownload || null")
+      .catch(() => null);
+    if (fallback) {
+      await bbWindow.webContents.executeJavaScript("window.__shFallbackDownload = null").catch(() => {});
+      bbWindow.webContents.downloadURL(fallback);
+    }
+  }, 500);
+
+  return downloadPromise;
 }
 
 function collectUrlsDeep(value, urls = []) {
@@ -431,7 +534,7 @@ async function importFileFromUrl(context, mainWindow) {
       if (!fileUrl) throw new Error("Could not resolve Blackboard download URL from content item");
     }
 
-    const localPath = await downloadBBFile(fileUrl, fileName);
+    const localPath = await downloadBBFile(fileUrl, fileName, folderName);
 
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("bb:import-ready", {
@@ -884,7 +987,11 @@ async function openBlackboardWindow(mainWindow) {
       contextIsolation: true,
       preload: path.join(__dirname, "bbPreload.cjs"),
     },
-  });
+    });
+
+  if (!awaitBBDownload) {
+    awaitBBDownload = setupDownloadInterceptor(mainWindow);
+  }
 
   bbWindow.webContents.on("did-navigate", async (_event, url) => {
     const courseId = activeCourseId || "";
