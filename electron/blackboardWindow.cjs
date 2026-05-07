@@ -201,26 +201,61 @@ async function downloadBBFile(fileUrl, fileName) {
   const localPath = path.join(BB_TEMP_DIR, finalName);
 
   return new Promise((resolve, reject) => {
-    const bbSession = session.fromPartition(BB_PARTITION);
-    const request = net.request({ url: fileUrl, session: bbSession });
-    const chunks = [];
+    if (!bbWindow || bbWindow.isDestroyed()) {
+      reject(new Error("Blackboard window is not open"));
+      return;
+    }
 
-    request.on("response", (response) => {
-      if (response.statusCode !== 200) {
-        reject(new Error(`Download failed: ${response.statusCode}`));
+    const bbSession = session.fromPartition(BB_PARTITION);
+
+    let settled = false;
+    let timeoutId;
+
+    const cleanup = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      bbSession.removeListener("will-download", onWillDownload);
+    };
+
+    const finish = (fn) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      fn();
+    };
+
+    const onWillDownload = (event, item) => {
+      const itemUrl = item.getURL() || "";
+      const baseFileUrl = String(fileUrl || "").split("?")[0];
+      const baseItemUrl = itemUrl.split("?")[0];
+      const urlTail = baseFileUrl.split("/").pop() || "";
+      const matchesOurUrl =
+        baseItemUrl === baseFileUrl ||
+        itemUrl === fileUrl ||
+        (urlTail && itemUrl.includes(urlTail)) ||
+        itemUrl.includes(encodeURIComponent(String(fileName || "")));
+
+      if (!matchesOurUrl) {
         return;
       }
-      response.on("data", (chunk) => chunks.push(chunk));
-      response.on("end", () => {
-        const buffer = Buffer.concat(chunks);
-        fs.writeFileSync(localPath, buffer);
-        resolve(localPath);
-      });
-      response.on("error", reject);
-    });
 
-    request.on("error", reject);
-    request.end();
+      item.setSavePath(localPath);
+
+      item.once("done", (_event, state) => {
+        if (state === "completed") {
+          finish(() => resolve(localPath));
+        } else {
+          finish(() => reject(new Error(`Download ${state}: ${fileName}`)));
+        }
+      });
+    };
+
+    bbSession.on("will-download", onWillDownload);
+
+    timeoutId = setTimeout(() => {
+      finish(() => reject(new Error(`Download timeout: ${fileName}`)));
+    }, 30000);
+
+    bbWindow.webContents.downloadURL(fileUrl);
   });
 }
 

@@ -142,8 +142,9 @@ ipcMain.handle("studyhub:extract-pdf-text", async (_evt, filePath) => {
       };
     }
 
-    const { PDFParse } = require("pdf-parse");
     const buf = await fs.promises.readFile(normalized);
+
+    const { PDFParse } = require("pdf-parse");
     const parser = new PDFParse({ data: buf });
     try {
       const textResult = await parser.getText();
