@@ -35,6 +35,7 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
 
   async function handleOpenBlackboard() {
     if (highlightId && highlightId !== "builtin") {
+      console.log("[HUB] Setting BB active course:", highlightId);
       await window.studyHub?.blackboard?.setActiveCourse?.(highlightId);
     }
     await window.studyHub?.blackboard?.open?.();

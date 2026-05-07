@@ -156,6 +156,109 @@ async function downloadBBFile(fileUrl, fileName) {
   });
 }
 
+function collectUrlsDeep(value, urls = []) {
+  if (!value) return urls;
+  if (typeof value === "string") {
+    if (
+      value.includes("/bbcswebdav/") ||
+      value.includes("/webapps/") ||
+      value.includes("download") ||
+      value.includes("xid-")
+    ) {
+      urls.push(value);
+    }
+    return urls;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((v) => collectUrlsDeep(v, urls));
+    return urls;
+  }
+  if (typeof value === "object") {
+    Object.values(value).forEach((v) => collectUrlsDeep(v, urls));
+  }
+  return urls;
+}
+
+function normalizeBbUrl(candidate) {
+  if (!candidate) return null;
+  if (candidate.startsWith("http://") || candidate.startsWith("https://")) return candidate;
+  if (candidate.startsWith("//")) return `https:${candidate}`;
+  if (candidate.startsWith("/")) return `https://ualearn.blackboard.com${candidate}`;
+  return null;
+}
+
+async function requestJsonFromEndpoint(url, bbSession) {
+  return new Promise((resolve, reject) => {
+    const request = net.request({ url, session: bbSession });
+    request.setHeader("Accept", "application/json, text/plain, */*");
+    const chunks = [];
+    request.on("response", (response) => {
+      response.on("data", (chunk) => chunks.push(chunk));
+      response.on("end", () => {
+        const body = Buffer.concat(chunks).toString("utf8");
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          reject(new Error(`Content lookup failed: ${response.statusCode}`));
+          return;
+        }
+        try {
+          resolve(JSON.parse(body));
+        } catch {
+          resolve(body);
+        }
+      });
+      response.on("error", reject);
+    });
+    request.on("error", reject);
+    request.end();
+  });
+}
+
+async function resolveDownloadUrlFromContent(bbCourseId, contentId) {
+  const bbSession = session.fromPartition(BB_PARTITION);
+  const encodedCourseId = encodeURIComponent(String(bbCourseId || ""));
+  const encodedContentId = encodeURIComponent(String(contentId || ""));
+  const candidates = [
+    `https://ualearn.blackboard.com/learn/api/public/v1/courses/${encodedCourseId}/contents/${encodedContentId}`,
+    `https://ualearn.blackboard.com/learn/api/public/v2/courses/${encodedCourseId}/contents/${encodedContentId}`,
+  ];
+
+  for (const endpoint of candidates) {
+    try {
+      const payload = await requestJsonFromEndpoint(endpoint, bbSession);
+      const urls = collectUrlsDeep(payload, []);
+      const direct = urls
+        .map((u) => normalizeBbUrl(u))
+        .find((u) => u && (u.includes("/bbcswebdav/") || u.includes("download") || u.includes("xid-")));
+      if (direct) return direct;
+    } catch {
+      // continue
+    }
+  }
+
+  const attachmentEndpoints = [
+    `https://ualearn.blackboard.com/learn/api/public/v1/courses/${encodedCourseId}/contents/${encodedContentId}/attachments`,
+    `https://ualearn.blackboard.com/learn/api/public/v2/courses/${encodedCourseId}/contents/${encodedContentId}/attachments`,
+  ];
+
+  for (const endpoint of attachmentEndpoints) {
+    try {
+      const payload = await requestJsonFromEndpoint(endpoint, bbSession);
+      const urls = collectUrlsDeep(payload, []);
+      const direct = urls
+        .map((u) => normalizeBbUrl(u))
+        .find((u) => u && (u.includes("/bbcswebdav/") || u.includes("download") || u.includes("xid-")));
+      if (direct) return direct;
+    } catch {
+      // continue
+    }
+  }
+
+  const ultraFallback = normalizeBbUrl(`/ultra/courses/${bbCourseId}/cl/outline/file/${contentId}`);
+  if (ultraFallback) return ultraFallback;
+
+  return null;
+}
+
 function detectFileRole(fileName, folderName) {
   const name = String(fileName || "").toLowerCase();
   const folder = String(folderName || "").toLowerCase();
@@ -206,7 +309,7 @@ function getRoleAction(role, fileExt) {
 }
 
 async function importFileFromUrl(context, mainWindow) {
-  const { fileUrl, fileName, folderName, courseId, bbCourseId, skipIfRole = [] } = context || {};
+  let { fileUrl, fileName, folderName, courseId, bbCourseId, contentId, skipIfRole = [] } = context || {};
   const ext = String(fileName || "").split(".").pop().toLowerCase();
   const role = detectFileRole(fileName, folderName);
 
@@ -220,7 +323,14 @@ async function importFileFromUrl(context, mainWindow) {
       mainWindow.webContents.send("bb:import-started", { fileName, folderName, role });
     }
 
+    if ((!fileUrl || String(fileUrl).startsWith("bb-content-id:")) && contentId && bbCourseId) {
+      fileUrl = await resolveDownloadUrlFromContent(bbCourseId, contentId);
+      if (!fileUrl) throw new Error("Could not resolve Blackboard download URL from content item");
+    }
+
+    console.log("[BB] Starting download:", fileName, fileUrl?.substring(0, 80));
     const localPath = await downloadBBFile(fileUrl, fileName);
+    console.log("[BB] Download complete:", localPath);
 
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("bb:import-ready", {
@@ -248,6 +358,7 @@ async function importFileFromUrl(context, mainWindow) {
 }
 
 function buildInjectionScript(courseId, bbCourseId) {
+  console.log("[BB] Building injection with", "courseId:", courseId, "bbCourseId:", bbCourseId);
   const safeCourseId = JSON.stringify(String(courseId || ""));
   const safeBbCourseId = JSON.stringify(String(bbCourseId || ""));
   return `
@@ -259,16 +370,18 @@ function buildInjectionScript(courseId, bbCourseId) {
 
       function makeBtn(text, onClick, style) {
         const btn = document.createElement('button');
+        btn.type = 'button';
         btn.textContent = text;
         btn.setAttribute('data-sh-btn', 'true');
         btn.style.cssText =
-          "background:transparent;border:1px solid #00ff88;color:#00ff88;font-family:'Consolas',monospace;font-size:10px;letter-spacing:0.08em;padding:3px 10px;cursor:pointer;margin-left:8px;white-space:nowrap;vertical-align:middle;z-index:99998;position:relative;" + (style || "");
-        btn.addEventListener('mousedown', (e) => e.stopPropagation());
+          "background:transparent;border:1px solid #00ff88;color:#00ff88;font-family:'Consolas',monospace;font-size:10px;letter-spacing:0.08em;padding:3px 10px;cursor:pointer;margin-left:8px;white-space:nowrap;vertical-align:middle;z-index:999999;position:relative;pointer-events:auto;" + (style || "");
+        btn.addEventListener('mousedown', (e) => e.stopPropagation(), true);
         btn.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
+          e.stopImmediatePropagation?.();
           onClick();
-        });
+        }, true);
         return btn;
       }
 
@@ -314,6 +427,14 @@ function buildInjectionScript(courseId, bbCourseId) {
         return null;
       }
 
+      function getContentId(element) {
+        const container = element.closest('[data-content-id]') || element.querySelector('[data-content-id]');
+        const fromAttr = container?.getAttribute('data-content-id');
+        if (fromAttr) return fromAttr;
+        const row = element.closest('[class*="content-list-item"]');
+        return row?.getAttribute('data-content-id') || null;
+      }
+
       function getFileName(element) {
         const title = element.closest('[title]')?.title || element.querySelector('[title]')?.title;
         if (title && title.match(/\\.[a-z]{2,5}$/i)) return title;
@@ -327,39 +448,55 @@ function buildInjectionScript(courseId, bbCourseId) {
       }
 
       function injectImportButtons() {
-        const fileSelectors = [
-          '[title$=".pdf"],[title$=".pptx"],[title$=".docx"],[title$=".ppt"],[title$=".PDF"],[title$=".PPTX"],[title$=".DOCX"]',
-          '[class*="file-icon"]',
-          '[class*="document-icon"]',
-          '[data-ng-init]',
-          'a[href*="bbcswebdav"],a[href*="/xid-"],a[href*="download"]'
-        ];
         const seen = new Set();
-        fileSelectors.forEach((selector) => {
-          document.querySelectorAll(selector).forEach((el) => {
-            const item = el.closest('[class*="content-item"],[class*="list-item"],[role="listitem"],[data-handler]') || el;
-            if (seen.has(item)) return;
-            if (item.hasAttribute(INJECTED_ATTR)) return;
-            const fileUrl = getFileUrl(item);
-            if (!fileUrl) return;
+        const rows = document.querySelectorAll('[data-content-id], .content-list-item, [class*="content-list-item"]');
+        rows.forEach((item) => {
+          if (seen.has(item)) return;
+          if (item.hasAttribute(INJECTED_ATTR)) return;
 
-            const fileName = getFileName(item);
-            const folderName = getFolderContext(item);
-            seen.add(item);
-            item.setAttribute(INJECTED_ATTR, '1');
-            const btn = makeBtn('→ IMPORT', () => {
-              window.__shImportFile?.({
-                fileUrl,
-                fileName,
-                folderName,
-                courseId,
-                bbCourseId
-              });
+          const analyticsId =
+            item.querySelector('[data-analytics-id]')?.getAttribute('data-analytics-id') || '';
+
+          if (
+            analyticsId.includes('folder.toggleFolder') ||
+            analyticsId.includes('assessment.readOnly') ||
+            analyticsId.includes('gradebook')
+          ) {
+            return;
+          }
+
+          const fileName = getFileName(item);
+          const looksLikeFileName = /\.[a-z0-9]{2,5}$/i.test(fileName || '');
+          const isCourseContentLink = analyticsId.includes('course.outline.courseContent.link');
+          if (!looksLikeFileName && !isCourseContentLink) return;
+
+          const folderName = getFolderContext(item);
+          const contentId = getContentId(item);
+          const directUrl = getFileUrl(item);
+          const fileUrl = directUrl || (contentId ? ('bb-content-id:' + contentId) : null);
+          if (!fileUrl) return;
+
+          seen.add(item);
+          item.setAttribute(INJECTED_ATTR, '1');
+          const btn = makeBtn('→ IMPORT', () => {
+            window.__shBridge?.importFile?.({
+              fileUrl,
+              fileName,
+              folderName,
+              contentId,
+              courseId,
+              bbCourseId
             });
-
-            const actions = item.querySelector('[class*="action"],[class*="options"],[data-testid*="action"]') || item;
-            actions.appendChild(btn);
           });
+
+          let actions = item.querySelector('[class*="action"],[class*="options"],[data-testid*="action"]');
+          if (!actions) {
+            actions = document.createElement('div');
+            actions.setAttribute('data-sh-actions', '1');
+            actions.style.cssText = 'display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-top:6px;';
+            item.appendChild(actions);
+          }
+          actions.appendChild(btn);
         });
       }
 
@@ -409,6 +546,7 @@ function buildInjectionScript(courseId, bbCourseId) {
             files.push({
               fileUrl,
               fileName,
+              contentId: getContentId(item),
               folderName: context.folderName,
               courseId: context.courseId,
               bbCourseId: context.bbCourseId
@@ -567,6 +705,7 @@ function registerBlackboardHandlers(mainWindow) {
   });
 
   ipcMain.handle("bb:set-active-course", async (_event, courseId) => {
+    console.log("[BB] Active course set to:", courseId);
     activeCourseId = String(courseId || "");
     return { success: true };
   });

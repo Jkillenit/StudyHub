@@ -1,8 +1,23 @@
 import { useCallback, useEffect } from "react";
 
-export default function BlackboardImportHandler({ courses, onCreateCourse, onUpsertImport, onShowToast }) {
+export default function BlackboardImportHandler({ courses, activeCourse, onCreateCourse, onUpsertImport, onShowToast }) {
   const handleImportReady = useCallback(
     async (data) => {
+      console.log("[BB IMPORT] Event received:", JSON.stringify(data, null, 2));
+      console.log("[BB IMPORT] courseId:", data?.courseId);
+      console.log("[BB IMPORT] bbCourseId:", data?.bbCourseId);
+      console.log("[BB IMPORT] action:", data?.action);
+      console.log("[BB IMPORT] localPath:", data?.localPath);
+      console.log("[BB IMPORT] folderName:", data?.folderName);
+      console.log(
+        "[BB IMPORT] Available courses:",
+        courses?.map((c) => ({
+          id: c.uuid || c.id,
+          name: c.name,
+          bbCourseId: c.bbCourseId,
+        }))
+      );
+
       const {
         localPath,
         fileName,
@@ -22,6 +37,10 @@ export default function BlackboardImportHandler({ courses, onCreateCourse, onUps
       }
       if (!course) return;
 
+      if (localPath) {
+        await window.studyHub?.registerMaterialPaths?.([localPath]);
+      }
+
       if (action === "import-pptx" && window.studyHub?.extractPptx) {
         const extracted = await window.studyHub.extractPptx(localPath);
         await onUpsertImport?.({
@@ -38,14 +57,25 @@ export default function BlackboardImportHandler({ courses, onCreateCourse, onUps
       }
 
       if ((action === "extract-text" || action === "parse-syllabus") && window.studyHub?.extractText) {
-        const extracted = await window.studyHub.extractText(localPath);
+        const resolvedAction = role === "syllabus" ? "parse-syllabus" : action;
+        const isPdf = String(fileName || "").toLowerCase().endsWith(".pdf");
+        const extracted = isPdf && window.studyHub?.extractPdfText
+          ? await window.studyHub.extractPdfText(localPath)
+          : await window.studyHub.extractText(localPath);
+        if (!extracted?.success && !extracted?.ok) {
+          onShowToast?.(`✕ ${fileName}: ${extracted?.error || "text extraction failed"}`);
+          return;
+        }
+        const normalizedExtracted = extracted?.ok
+          ? { success: true, text: extracted.text || "" }
+          : extracted;
         await onUpsertImport?.({
           course,
           fileName,
           folderName,
           role,
-          action,
-          extracted,
+          action: resolvedAction,
+          extracted: normalizedExtracted,
           localPath,
         });
         if (role === "syllabus") {
@@ -59,7 +89,18 @@ export default function BlackboardImportHandler({ courses, onCreateCourse, onUps
   );
 
   useEffect(() => {
+    console.log("[BB HANDLER] Mounted with", courses?.length, "courses");
+    console.log("[BB HANDLER] Active course:", activeCourse?.name || "none");
     window.studyHub?.blackboard?.onImportReady?.(handleImportReady);
+    window.studyHub?.blackboard?.onImportError?.((data) => {
+      const fileName = data?.fileName || "File";
+      const error = data?.error || "Import failed";
+      onShowToast?.(`✕ ${fileName}: ${error}`);
+    });
+    window.studyHub?.blackboard?.onImportStarted?.((data) => {
+      const fileName = data?.fileName || "file";
+      onShowToast?.(`... importing ${fileName}`);
+    });
     return () => {
       window.studyHub?.blackboard?.offImportEvents?.();
     };

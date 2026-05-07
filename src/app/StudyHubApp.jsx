@@ -19,6 +19,7 @@ import { enhanceWithClaude } from "../ai/pptxEnhancer.js";
 import { mergeEnhancedOutput } from "../ai/mergeEnhancedOutput.js";
 import { migrateIfNeeded } from "../db/migrateFromLocalStorage.js";
 import { courseStore } from "../db/courseStore.js";
+import { parseSyllabus } from "../syllabus/syllabusParser.js";
 
 function mergeFlashcards(existingCards, newCards, moduleId) {
   const current = Array.isArray(existingCards) ? existingCards : [];
@@ -73,6 +74,7 @@ function StudyHubAppInner() {
   const [courseId, setCourseId] = useState(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [bbToast, setBbToast] = useState("");
   const [courseShellLoad, setCourseShellLoad] = useState(false);
   const [paletteChapterMeta, setPaletteChapterMeta] = useState(() => ({ courseId: null, chapterId: null }));
 
@@ -216,9 +218,26 @@ function StudyHubAppInner() {
   }, []);
 
   const upsertBlackboardImport = useCallback(async ({ course, fileName, folderName, action, extracted }) => {
-    const targetCourse = ensureUserCourse(course);
+    const targetCourse = ensureUserCourse({
+      ...course,
+      id: course?.id || course?.uuid || uid("uc"),
+    });
     const moduleTitle = String(folderName || "General").trim() || "General";
-    const modules = Array.isArray(targetCourse.modules) ? [...targetCourse.modules] : [];
+    const modules = (Array.isArray(targetCourse.modules) ? targetCourse.modules : []).map((m) => ({
+      ...m,
+      id: m.id || m.uuid || uid("m"),
+      body: m.body || "",
+      contentData: Array.isArray(m.contentData) ? m.contentData : [],
+    }));
+    if (!modules.length) {
+      modules.push({
+        id: uid("m"),
+        label: "Notes 1",
+        title: "General",
+        body: "",
+        contentData: [],
+      });
+    }
     let module = modules.find((m) => String(m.title || "").trim().toLowerCase() === moduleTitle.toLowerCase());
     if (!module) {
       module = {
@@ -231,28 +250,123 @@ function StudyHubAppInner() {
       modules.push(module);
     }
 
-    const nextModules = modules.map((m) => {
+    const nextModules = await Promise.all(modules.map(async (m) => {
       if (m.id !== module.id) return m;
       if (action === "import-pptx" && extracted?.success && Array.isArray(extracted?.slides)) {
-        const slideText = extracted.slides
-          .map((s, idx) => {
-            const title = String(s?.title || `Slide ${idx + 1}`).trim();
-            const body = Array.isArray(s?.nodes)
-              ? s.nodes.map((n) => String(n?.text || "").trim()).filter(Boolean).join("\n")
-              : "";
-            return `## ${title}\n${body}`;
+        const newContentItems = extracted.slides
+          .map((slide, idx) => {
+            const title = String(slide?.title || `Slide ${idx + 1}`).trim();
+            const nodes = Array.isArray(slide?.nodes) ? slide.nodes : [];
+            const definitions = nodes.filter(
+              (n) => n?.type === "definition" || (n?.term && n?.definition)
+            );
+            const sections = nodes.filter(
+              (n) => n?.type !== "definition" && !(n?.term && n?.definition)
+            );
+
+            if (definitions.length > 0) {
+              return {
+                id: uid("ci"),
+                type: "definitions",
+                title,
+                items: definitions.map((n) => ({
+                  id: uid("d"),
+                  term: n.term || n.text || "",
+                  definition: n.definition || "",
+                  confidence: n.confidence || "medium",
+                })),
+              };
+            }
+
+            if (sections.length > 0) {
+              return {
+                id: uid("ci"),
+                type: "section",
+                title,
+                items: sections.map((n) => ({
+                  id: uid("s"),
+                  text: n.text || String(n || ""),
+                  type: n.type || "bullet",
+                })),
+              };
+            }
+
+            const rawText = nodes
+              .map((n) => String(n?.text || n || ""))
+              .filter(Boolean)
+              .join(" ");
+
+            return rawText
+              ? {
+                  id: uid("ci"),
+                  type: "section",
+                  title,
+                  items: [
+                    {
+                      id: uid("s"),
+                      text: rawText,
+                      type: "bullet",
+                    },
+                  ],
+                }
+              : null;
           })
-          .join("\n\n");
-        const mergedBody = [m.body || "", `\n\n[BB] ${fileName}\n${slideText}`].join("").trim();
-        return { ...m, body: mergedBody };
+          .filter(Boolean);
+
+        const mergedContentData = [
+          ...(Array.isArray(m.contentData) ? m.contentData : []),
+          ...newContentItems,
+        ];
+
+        return {
+          ...m,
+          contentData: mergedContentData,
+        };
       }
 
-      if ((action === "extract-text" || action === "parse-syllabus") && extracted?.success) {
-        const mergedBody = [m.body || "", `\n\n[BB] ${fileName}\n${extracted.text || ""}`].join("").trim();
+      if (action === "parse-syllabus" && extracted?.success) {
+        const parsed = parseSyllabus(extracted.text || "");
+        if (parsed?.grading?.length > 0) {
+          const courseUuid = targetCourse.uuid || targetCourse.id;
+          await window.studyHub?.db?.grades?.saveComponents({
+            courseUuid,
+            components: parsed.grading.map((c) => ({
+              ...c,
+              score: null,
+            })),
+          });
+          if (parsed.gradingScale) {
+            await window.studyHub?.db?.grades?.saveGradingScale({
+              courseUuid,
+              scale: parsed.gradingScale,
+            });
+          }
+          onShowToast?.(`✓ Syllabus — found ${parsed.grading.length} grade components`);
+        } else {
+          onShowToast?.("✓ Syllabus imported — no grade components detected");
+        }
+        return m;
+      }
+
+      if (action === "extract-text" && extracted?.success) {
+        const rawText = extracted.text || "";
+        const MAX_CHARS = 8000;
+        const safeText =
+          rawText.length > MAX_CHARS
+            ? rawText.substring(0, MAX_CHARS) +
+              "\n\n[Content truncated — " +
+              rawText.length +
+              " total chars]"
+            : rawText;
+
+        if (!safeText.trim()) return m;
+
+        const mergedBody = [m.body || "", `\n\n--- ${fileName} ---\n${safeText}`].join("").trim();
+        if (mergedBody.length > 50000) return m;
         return { ...m, body: mergedBody };
       }
       return m;
-    });
+    }));
 
     const nextCourse = {
       ...targetCourse,
@@ -267,6 +381,8 @@ function StudyHubAppInner() {
   }, []);
 
   const showBbToast = useCallback((message) => {
+    setBbToast(String(message || ""));
+    window.setTimeout(() => setBbToast(""), 3000);
     try {
       sessionStorage.setItem("studyhub.pendingToast", message);
     } catch {
@@ -493,6 +609,13 @@ function StudyHubAppInner() {
   const userCoursesList = useMemo(() => userCourses.filter((c) => c.type !== "builtin"), [userCourses]);
   const activeUserCourse = userCoursesList.find((c) => c.id === courseId);
   const onHub = courseId === null;
+
+  useEffect(() => {
+    const id = activeUserCourse?.uuid || activeUserCourse?.id;
+    if (!id) return;
+    console.log("[APP] Setting BB active course:", id);
+    void window.studyHub?.blackboard?.setActiveCourse?.(id);
+  }, [activeUserCourse?.uuid, activeUserCourse?.id]);
   const handleBuiltinActiveChapterChange = useCallback((ch) => {
     setPaletteChapterMeta((prev) => {
       if (prev.courseId === "builtin" && prev.chapterId === ch) return prev;
@@ -515,6 +638,7 @@ function StudyHubAppInner() {
       <ApiStatusSync />
       <BlackboardImportHandler
         courses={userCoursesList}
+        activeCourse={activeUserCourse}
         onCreateCourse={createBlackboardCourse}
         onUpsertImport={upsertBlackboardImport}
         onShowToast={showBbToast}
@@ -569,6 +693,26 @@ function StudyHubAppInner() {
         }
       />
       <AiAssistantPanel open={aiOpen} onClose={() => setAiOpen(false)} />
+      {bbToast ? (
+        <div
+          style={{
+            position: "fixed",
+            right: 16,
+            bottom: 30,
+            zIndex: 999999,
+            background: "var(--sh-surface)",
+            border: "1px solid var(--sh-border)",
+            borderLeft: "3px solid var(--sh-green)",
+            padding: "8px 12px",
+            fontFamily: "monospace",
+            fontSize: 11,
+            color: "var(--sh-text-primary)",
+            maxWidth: 420,
+          }}
+        >
+          {bbToast}
+        </div>
+      ) : null}
     </div>
   );
 }
