@@ -1263,7 +1263,7 @@ export function UserCourseApp({
                 if (window.confirm(`Delete module "${currentModule?.title}"?`)) removeModule(moduleId);
               }}
               onDeleteCourse={() => {
-                if (window.confirm("Delete this entire course and all notes?")) onDeleteCourse(c.id);
+                if (window.confirm("Delete this entire course and all notes?")) onDeleteCourse(c.uuid || c.id);
               }}
               onHideSidebar={() => setSidebarCollapsed((v) => !v)}
               onHidePanel={() => setCtxCollapsed((v) => !v)}

@@ -48,7 +48,7 @@ function registerDbHandlers() {
     if (!courseUuid) return { success: false };
 
     try {
-      const course = db
+      let course = db
         .prepare(`
           SELECT id FROM courses
           WHERE uuid = ?
@@ -56,6 +56,17 @@ function registerDbHandlers() {
         .get(courseUuid);
 
       if (!course) {
+        course = db
+          .prepare(`
+            SELECT id FROM courses
+            WHERE uuid = ?
+            OR id = ?
+          `)
+          .get(courseUuid, courseUuid);
+      }
+
+      if (!course) {
+        console.log("[DB] Course not found for delete:", courseUuid);
         return { success: true };
       }
 

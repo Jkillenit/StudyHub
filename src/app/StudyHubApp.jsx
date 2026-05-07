@@ -164,24 +164,31 @@ function StudyHubAppInner() {
     void courseStore.syncCourse(normalized);
   }, []);
 
-  const deleteUserCourse = useCallback(async (id) => {
-    const course = userCoursesList.find((c) => c.id === id || c.uuid === id);
-    const uuid = course?.uuid || id;
+  const deleteUserCourse = useCallback(
+    async (id) => {
+      console.log("[DELETE] called with id:", id);
+      const result = await
+        window.studyHub?.db?.courses
+          ?.delete?.(id);
+      console.log("[DELETE] SQLite result:",
+        JSON.stringify(result));
 
-    const result = await window.studyHub?.db?.courses?.delete?.(uuid);
-    if (result && !result.success) {
-      console.error("[DELETE] SQLite delete failed:", result.error);
-    }
-
-    setUserCourses((prev) => {
-      const next = prev.filter((c) => c.id !== id && c.uuid !== id);
-      setCourseId((cur) => {
-        if (cur !== id) return cur;
-        return next.length ? next[0].id : null;
+      setUserCourses((prev) => {
+        const next = prev.filter(
+          (c) => c.id !== id &&
+               c.uuid !== id
+        );
+        setCourseId((cur) => {
+          if (cur !== id) return cur;
+          return next.length
+            ? next[0].id
+            : null;
+        });
+        return next;
       });
-      return next;
-    });
-  }, [userCoursesList]);
+    },
+    []
+  );
 
   const addCourse = useCallback((name, sub, opts = {}) => {
     const n = (name || "New course").trim();
