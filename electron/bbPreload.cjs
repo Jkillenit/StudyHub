@@ -10,4 +10,9 @@ contextBridge.exposeInMainWorld("__shBridge", {
   createCourse: (data) => ipcRenderer.invoke("bb:create-course", data),
   getCourseStatus: (data) => ipcRenderer.invoke("bb:get-course-status", data),
   closeWindow: () => ipcRenderer.invoke("bb:close"),
+  onToolbarUpdate: (callback) => {
+    ipcRenderer.on("bb:toolbar-update", (_event, data) => {
+      if (typeof callback === "function") callback(data);
+    });
+  },
 });
