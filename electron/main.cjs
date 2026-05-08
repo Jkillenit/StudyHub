@@ -509,11 +509,6 @@ function createWindow() {
 
   const indexHtml = path.join(__dirname, "..", "dist", "index.html");
   win.loadFile(indexHtml);
-  win.webContents.on("did-finish-load", () => {
-    if (process.env.NODE_ENV !== "production") {
-      win.webContents.openDevTools({ mode: "detach" });
-    }
-  });
 }
 
 app.whenReady().then(() => {

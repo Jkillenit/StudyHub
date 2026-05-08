@@ -236,6 +236,8 @@ function setupDownloadInterceptor(_mainWindow) {
         return;
       }
 
+      event.preventDefault();
+
       ensureTempDir();
       const safeName = suggestedName.replace(/[^a-zA-Z0-9._\-\s]/g, "_").trim();
       const finalName = safeName || `bb_${Date.now()}`;
