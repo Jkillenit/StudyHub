@@ -248,6 +248,16 @@ function StudyHubAppInner() {
     return created;
   }, [userCourses]);
 
+  const showBbToast = useCallback((message) => {
+    setBbToast(String(message || ""));
+    window.setTimeout(() => setBbToast(""), 3000);
+    try {
+      sessionStorage.setItem("studyhub.pendingToast", message);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const upsertBlackboardImport = useCallback(async ({ course, fileName, folderName, action, extracted }) => {
     const targetCourse = ensureUserCourse({
       ...course,
@@ -372,9 +382,9 @@ function StudyHubAppInner() {
               scale: parsed.gradingScale,
             });
           }
-          onShowToast?.(`✓ Syllabus — found ${parsed.grading.length} grade components`);
+          showBbToast(`✓ Syllabus — found ${parsed.grading.length} grade components`);
         } else {
-          onShowToast?.("✓ Syllabus imported — no grade components detected");
+          showBbToast("✓ Syllabus imported — no grade components detected");
         }
         return m;
       }
@@ -431,17 +441,7 @@ function StudyHubAppInner() {
     if (shouldSync) {
       await courseStore.syncCourse(nextCourse);
     }
-  }, []);
-
-  const showBbToast = useCallback((message) => {
-    setBbToast(String(message || ""));
-    window.setTimeout(() => setBbToast(""), 3000);
-    try {
-      sessionStorage.setItem("studyhub.pendingToast", message);
-    } catch {
-      /* ignore */
-    }
-  }, []);
+  }, [showBbToast]);
 
   function buildChapterContent(output) {
     const sections = [];

@@ -1,5 +1,14 @@
 const db = window.studyHub?.db;
 
+function safeJsonParse(str, fallback) {
+  if (!str) return fallback;
+  try {
+    return JSON.parse(str);
+  } catch {
+    return fallback;
+  }
+}
+
 function flattenContent(contentData) {
   const items = [];
   (contentData || []).forEach((section, sectionIdx) => {
@@ -65,7 +74,7 @@ function inflateContent(rows) {
         enhancedByAI: !!row.enhanced_by_ai,
       });
     } else if (row.section_type === "section") {
-      section.items = row.items_json ? JSON.parse(row.items_json) : [];
+      section.items = row.items_json ? safeJsonParse(row.items_json, []) : [];
     } else if (row.section_type === "formulas") {
       section.items.push({ formula: row.term, context: row.definition });
     }

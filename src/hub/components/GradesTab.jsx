@@ -482,24 +482,27 @@ export default function GradesTab({ course, onSaveComponents }) {
 
   useEffect(() => {
     async function load() {
-      const uuid = course?.uuid || course?.id;
-      if (!uuid) {
+      try {
+        const uuid = course?.uuid || course?.id;
+        if (!uuid) return;
+        const [rows, entries, scale] = await Promise.all([
+          window.studyHub?.db?.grades?.getComponents(uuid),
+          window.studyHub?.db?.grades?.getEntries(uuid),
+          window.studyHub?.db?.grades?.getGradingScale(uuid),
+        ]);
+        const safeEntries = Array.isArray(entries) ? entries : [];
+        const scoreByComponent = new Map(safeEntries.map((entry) => [entry.component_id, entry.score]));
+        const hydrated = rows.map((row) => ({
+          ...row,
+          score: scoreByComponent.has(row.id) ? scoreByComponent.get(row.id) : null,
+        }));
+        if (hydrated.length > 0) setComponents(hydrated);
+        if (scale) setGradingScale(scale);
+      } catch (err) {
+        console.error("[GradesTab] load error:", err);
+      } finally {
         setLoading(false);
-        return;
       }
-      const [rows, entries, scale] = await Promise.all([
-        window.studyHub?.db?.grades?.getComponents(uuid),
-        window.studyHub?.db?.grades?.getEntries(uuid),
-        window.studyHub?.db?.grades?.getGradingScale(uuid),
-      ]);
-      const scoreByComponent = new Map(entries.map((entry) => [entry.component_id, entry.score]));
-      const hydrated = rows.map((row) => ({
-        ...row,
-        score: scoreByComponent.has(row.id) ? scoreByComponent.get(row.id) : null,
-      }));
-      if (hydrated.length > 0) setComponents(hydrated);
-      if (scale) setGradingScale(scale);
-      setLoading(false);
     }
     void load();
   }, [course?.uuid, course?.id]);
