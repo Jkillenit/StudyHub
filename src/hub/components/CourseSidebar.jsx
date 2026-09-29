@@ -7,7 +7,11 @@ export const COURSE_ITEMS = [
   { id: "course-bb-content", prefix: "BB·03", label: "Blackboard Content" },
 ];
 
-export const STUDY_ITEMS = [{ id: "qz-deck", prefix: "QZ·01", label: "Flashcard Deck" }];
+export const STUDY_ITEMS = [
+  { id: "qz-deck", prefix: "QZ·01", label: "Flashcard Deck" },
+  { id: "study-test", prefix: "PT·02", label: "Practice Test" },
+  { id: "study-progress", prefix: "ST·03", label: "Progress" },
+];
 
 function ItemButton({ item, activeItem, onActiveChange, badge }) {
   return (

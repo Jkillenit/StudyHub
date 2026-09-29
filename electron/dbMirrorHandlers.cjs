@@ -176,14 +176,14 @@ function sessionStats(db, courseUuid) {
        FROM study_sessions ${where}`
     )
     .get(...args);
-  const last7 = [];
-  for (let i = 6; i >= 0; i -= 1) {
+  const last14 = [];
+  for (let i = 13; i >= 0; i -= 1) {
     const day = localDate(-i);
     const hit = days.find((d) => d.day === day);
-    last7.push({ day, reviewed: hit?.reviewed || 0 });
+    last14.push({ day, reviewed: hit?.reviewed || 0 });
   }
   const avgSecondsPerCard = totals.reviewed > 0 ? totals.seconds / totals.reviewed : null;
-  return { streak, last7, ...totals, avgSecondsPerCard };
+  return { streak, last14, ...totals, avgSecondsPerCard };
 }
 
 function registerMirrorHandlers() {
@@ -365,6 +365,19 @@ function registerMirrorHandlers() {
   });
 
   ipcMain.handle("db:sessions:stats", (_, courseUuid) => sessionStats(db, courseUuid || null));
+
+  ipcMain.handle("db:sessions:history", (_, args) => {
+    const courseId = args?.courseUuid ? courseIdFor(db, args.courseUuid) : null;
+    if (args?.courseUuid && !courseId) return [];
+    const limit = Math.min(Math.max(Number(args?.limit) || 20, 1), 200);
+    return db
+      .prepare(`
+        SELECT uuid, kind, started_at, ended_at, cards_reviewed, correct, incorrect
+        FROM study_sessions ${courseId ? "WHERE course_id = ?" : ""}
+        ORDER BY started_at DESC LIMIT ?
+      `)
+      .all(...(courseId ? [courseId, limit] : [limit]));
+  });
 
   /* ---------------- web resources ---------------- */
 

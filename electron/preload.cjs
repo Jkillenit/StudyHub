@@ -256,6 +256,7 @@ contextBridge.exposeInMainWorld("studyHub", {
     sessions: {
       log: (data) => ipcRenderer.invoke("db:sessions:log", data),
       stats: (courseUuid) => ipcRenderer.invoke("db:sessions:stats", courseUuid),
+      history: (args) => ipcRenderer.invoke("db:sessions:history", args),
     },
     web: {
       getByCourse: (courseUuid) => ipcRenderer.invoke("db:web:getByCourse", courseUuid),

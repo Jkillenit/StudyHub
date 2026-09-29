@@ -13,10 +13,19 @@ const BbContentView = lazy(() =>
   import("../../features/mirror/BbContentView.jsx").then((m) => ({ default: m.BbContentView }))
 );
 
+const PracticeTestView = lazy(() =>
+  import("../../features/practice/PracticeTestView.jsx").then((m) => ({ default: m.PracticeTestView }))
+);
+const ProgressView = lazy(() =>
+  import("../../features/progress/ProgressView.jsx").then((m) => ({ default: m.ProgressView }))
+);
+
 const COURSE_VIEWS = {
   "course-assignments": AssignmentsView,
   "course-announcements": AnnouncementsView,
   "course-bb-content": BbContentView,
+  "study-test": PracticeTestView,
+  "study-progress": ProgressView,
 };
 
 const COLLAPSE_THRESHOLD = 120;
@@ -385,7 +394,7 @@ export default function CourseContentArea({
     return (
       <div className="sh-main-body sh-scroll-hover position-relative">
         <Suspense fallback={<div className="sh-skeleton-pulse" style={{ height: 240 }} />}>
-          <CourseView key={`${course?.id}-${activeItem}`} courseUuid={course?.uuid || course?.id} />
+          <CourseView key={`${course?.id}-${activeItem}`} courseUuid={course?.uuid || course?.id} course={course} />
         </Suspense>
       </div>
     );

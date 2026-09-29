@@ -4835,6 +4835,286 @@ button.sh-today-row-main:hover {
   white-space: nowrap;
 }
 
+/* Practice test */
+.sh-pt-setup .sh-hub-section-label {
+  margin-top: 14px;
+}
+.sh-pt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sh-pt-chip {
+  background: transparent;
+  border: 1px solid var(--sh-border);
+  color: var(--sh-text-secondary);
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 4px 8px;
+  cursor: pointer;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sh-pt-chip:hover {
+  border-color: var(--sh-text-dim);
+}
+.sh-pt-chip.active {
+  border-color: var(--sh-green);
+  color: var(--sh-green);
+  background: var(--sh-green-dim);
+}
+.sh-pt-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--sh-text-secondary);
+  cursor: pointer;
+}
+.sh-pt-check input {
+  accent-color: var(--sh-green);
+}
+.sh-pt-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+}
+.sh-pt-card {
+  max-width: 680px;
+}
+.sh-pt-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10px;
+  color: var(--sh-text-dim);
+  margin-bottom: 16px;
+}
+.sh-pt-progress-track {
+  flex: 1;
+  height: 2px;
+  background: var(--sh-border);
+}
+.sh-pt-progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--sh-cyan);
+  transition: width 120ms linear;
+}
+.sh-pt-prompt {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--sh-text-primary);
+  margin-bottom: 16px;
+}
+.sh-pt-prompt--term {
+  font-size: 20px;
+}
+.sh-pt-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sh-pt-option {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  text-align: left;
+  background: var(--sh-surface);
+  border: 1px solid var(--sh-border);
+  color: var(--sh-text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.sh-pt-option:hover:not(:disabled) {
+  border-color: var(--sh-cyan);
+}
+.sh-pt-option:disabled {
+  cursor: default;
+}
+.sh-pt-option-key {
+  font-size: 10px;
+  color: var(--sh-text-dim);
+  padding-top: 2px;
+}
+.sh-pt-option--correct {
+  border-color: var(--sh-green);
+  background: var(--sh-green-dim);
+}
+.sh-pt-option--wrong {
+  border-color: var(--sh-red);
+}
+.sh-pt-typed {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.sh-pt-typed-input {
+  flex: 1;
+  font-size: 14px;
+  padding: 6px 8px;
+}
+.sh-pt-feedback {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--sh-border);
+  background: var(--sh-surface);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.sh-pt-feedback .mono {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+.sh-pt-feedback--ok {
+  border-left-color: var(--sh-green);
+}
+.sh-pt-feedback--ok .mono {
+  color: var(--sh-green);
+}
+.sh-pt-feedback--miss {
+  border-left-color: var(--sh-red);
+}
+.sh-pt-feedback--miss .mono {
+  color: var(--sh-red);
+}
+.sh-pt-feedback-answer {
+  font-size: 14px;
+  color: var(--sh-text-primary);
+}
+.sh-pt-score {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.sh-pt-score-value {
+  font-size: 40px;
+  line-height: 1;
+}
+.sh-pt-score-sub {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--sh-text-dim);
+}
+.sh-pt-missed {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--sh-border);
+}
+.sh-pt-missed-term {
+  font-size: 13px;
+  color: var(--sh-text-primary);
+}
+.sh-pt-missed-def {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--sh-text-secondary);
+}
+
+/* Progress */
+.sh-prog-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+.sh-prog-stats .sh-today-stat {
+  align-items: flex-start;
+}
+.sh-prog-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 90px;
+  padding-bottom: 14px;
+  position: relative;
+}
+.sh-prog-bar-col {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  position: relative;
+}
+.sh-prog-bar {
+  width: 100%;
+  min-height: 1px;
+  background: var(--sh-cyan);
+  opacity: 0.8;
+}
+.sh-prog-bar-label {
+  position: absolute;
+  bottom: -14px;
+  font-size: 8px;
+  color: var(--sh-text-dim);
+}
+.sh-prog-split {
+  display: flex;
+  height: 6px;
+  gap: 2px;
+  background: var(--sh-border);
+}
+.sh-prog-split-seg--mastered {
+  background: var(--sh-green);
+}
+.sh-prog-split-seg--learning {
+  background: var(--sh-cyan);
+}
+.sh-prog-split-seg--weak {
+  background: var(--sh-amber);
+}
+.sh-prog-split-seg--fresh {
+  background: var(--sh-muted);
+}
+.sh-prog-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 6px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--sh-text-dim);
+}
+.sh-prog-swatch {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+}
+.sh-prog-kind {
+  min-width: 46px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.sh-prog-meter {
+  width: 90px;
+  height: 3px;
+  background: var(--sh-border);
+  flex-shrink: 0;
+}
+.sh-prog-meter-fill {
+  display: block;
+  height: 100%;
+  background: var(--sh-green);
+}
+
 /* Blackboard sync panel (hub) */
 .sh-bb-sync {
   margin-top: 16px;
