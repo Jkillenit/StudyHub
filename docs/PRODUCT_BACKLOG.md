@@ -32,6 +32,11 @@ Tags: `local-first` (no API/cloud), `AI-optional`, `AI-required`, `cloud` (Commo
 | DASH-001 | Today dashboard: due soon, announcements, cards due, recent grades (Phase 1) |
 | CAL-001 | Month calendar across courses, manual entry, mark complete (Phase 1) |
 | CAL-004 | Syllabus weights (incl. Simple Syllabus) + BB scores → grade calculator, manual item mapping (Phase 1) |
+| QZ-003 / QZ-001 | Drill modes and in-deck editor (shipped with QZ-005 v2, Phase 0) |
+| QZ-004 | Progress view: streak, 14-day activity, accuracy, deck + per-module mastery, session history (Phase 2) |
+| PT-001 | Practice tests: pick term / pick definition / typed, weak-first, missed retake, optional Haiku application questions (Phase 2) |
+| SG-001 | Study guide per exam scope: focus list, terms, outline, formulas, notes; print + Markdown copy (Phase 2) |
+| EST-002 | Exam time estimate (per-exam scope, own pace), Exam Prep strip on Today (Phase 2) |
 
 ## Phase 1 — Blackboard Mirror (remaining)
 
@@ -39,16 +44,11 @@ Tags: `local-first` (no API/cloud), `AI-optional`, `AI-required`, `cloud` (Commo
 |----|---------|--------|------|------|------|
 | CAL-002 | Upcoming-assignments widget in course context panel | 4 | 1 | 0.5 d | `local-first` |
 | CAL-003 | Syllabus date extraction into calendar | 4 | 2 | 2 d | `local-first` `AI-optional` |
-## Phase 2 — Study suite
+
+## Phase 2 — Study suite (remaining)
 
 | ID | Feature | Impact | Diff | Est. | Tags |
 |----|---------|--------|------|------|------|
-| QZ-003 | Filtered drill modes: due, weak, module | 4 | 2 | 1 d | `local-first` |
-| QZ-001 | Inline deck editor | 3 | 2 | 1 d | `UI` |
-| QZ-004 | Session history + streak | 3 | 2 | 1 d | `local-first` |
-| PT-001 | Practice tests from definitions/glossary (MC + typed), optional Haiku variants | 5 | 3 | 3 d | `local-first` `AI-optional` |
-| SG-001 | Study guide generator per exam scope | 4 | 2 | 2 d | `local-first` |
-| EST-002 | Exam study time estimate from mastery + exam date | 5 | 3 | 2 d | `local-first` |
 | FR-001 | Formula practice generators (EOQ, SPC, …) | 5 | 4 | 3–6 wk | `local-first` |
 
 ## Phase 3 — Web study guides

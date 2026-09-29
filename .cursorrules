@@ -140,5 +140,5 @@ Every code change must:
 
 ## CURRENT STATUS
 See docs/ROADMAP.md. Phase 0 ✓ (stabilize + data layer) → 1 Blackboard
-mirror ✓ → 2 study suite → 3 web guides → 4 Commons → 5 grade insights
+mirror ✓ → 2 study suite ✓ → 3 web guides → 4 Commons → 5 grade insights
 → 6 professor reviews → 7 alpha release.

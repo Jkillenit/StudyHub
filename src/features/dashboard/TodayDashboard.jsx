@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { daysFromToday, dueLabel, shortDate } from "./dateLabels.js";
 import { CalendarView } from "./CalendarView.jsx";
+import { cardsInScope, estimateExam, formatMinutes, loadScope } from "../study/examEstimate.js";
 
 const EMPTY = { upcoming: [], announcements: [], dueCards: [], recentGrades: [], stats: null };
 
@@ -117,6 +118,56 @@ function RecentGrades({ items }) {
   );
 }
 
+function ExamPrep({ exams, userCourses, pace, onOpenCourse }) {
+  const [scopes, setScopes] = useState({});
+  const examKey = exams.map((e) => e.uuid).join(",");
+
+  useEffect(() => {
+    let alive = true;
+    void Promise.all(exams.map((e) => loadScope(e.uuid).then((ids) => [e.uuid, ids]))).then((pairs) => {
+      if (alive) setScopes(Object.fromEntries(pairs));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [examKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const rows = exams
+    .map((e) => {
+      const course = userCourses.find((c) => (c.uuid || c.id) === e.course_uuid);
+      const est = estimateExam(cardsInScope(course?.flashcards, scopes[e.uuid]), {
+        avgSecondsPerCard: pace,
+        examDate: e.due_date,
+      });
+      return { e, est };
+    })
+    .filter((r) => r.est.total > 0);
+  if (!rows.length) return null;
+
+  return (
+    <div className="sh-today-card sh-today-exams">
+      <div className="sh-hub-section-label">EXAM PREP</div>
+      <ul className="sh-today-list">
+        {rows.map(({ e, est }) => (
+          <li key={e.uuid}>
+            <button type="button" className="sh-today-row sh-today-row--button" onClick={() => onOpenCourse(e.course_uuid)}>
+              <span className="sh-today-row-main">
+                <span className="sh-today-row-title">{e.title}</span>
+                <span className="sh-today-row-sub">
+                  {e.course_name} · {dueLabel(e.due_date)} · {est.readiness}% READY
+                </span>
+              </span>
+              <span className="sh-today-count sh-today-count--due">
+                {est.perDayMinutes ? `${formatMinutes(est.perDayMinutes)}/DAY` : "READY"}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function TodayDashboard({ refreshKey = 0, onOpenCourse, userCourses = [] }) {
   const [data, setData] = useState(EMPTY);
   const [view, setView] = useState("today");
@@ -198,6 +249,14 @@ export function TodayDashboard({ refreshKey = 0, onOpenCourse, userCourses = [] 
       </header>
 
       {view === "calendar" ? <CalendarView userCourses={userCourses} /> : null}
+      {view === "today" ? (
+        <ExamPrep
+          exams={data.upcoming.filter((a) => a.kind === "exam" && !a.completed && (daysFromToday(a.due_date) ?? -1) >= 0)}
+          userCourses={userCourses}
+          pace={data.stats?.avgSecondsPerCard || null}
+          onOpenCourse={onOpenCourse}
+        />
+      ) : null}
       {view === "today" ? (
         <div className="sh-today-grid">
           <div className="sh-today-card">

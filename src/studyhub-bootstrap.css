@@ -5026,6 +5026,152 @@ button.sh-today-row-main:hover {
   color: var(--sh-text-secondary);
 }
 
+.sh-pt-feedback-why {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--sh-text-secondary);
+}
+
+/* Today: exam prep strip */
+.sh-today-exams {
+  margin-bottom: 14px;
+  min-height: 0;
+  height: auto;
+}
+
+/* Study guide */
+.sh-guide-controls .sh-hub-section-label {
+  margin-top: 12px;
+}
+.sh-guide-controls {
+  margin-bottom: 18px;
+}
+.sh-guide-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--sh-text-dim);
+}
+.sh-guide-est-note {
+  margin: 4px 0 0;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--sh-text-dim);
+}
+.sh-guide-est .sh-prog-stats {
+  margin-bottom: 6px;
+}
+.sh-guide-doc {
+  border-top: 1px solid var(--sh-border);
+  padding-top: 18px;
+}
+.sh-guide-title {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--sh-text-primary);
+  margin: 0 0 4px;
+}
+.sh-guide-sub {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--sh-amber);
+  margin: 0 0 14px;
+}
+.sh-guide-module {
+  margin: 18px 0 26px;
+  break-inside: avoid-page;
+}
+.sh-guide-module-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--sh-green);
+  margin: 0 0 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--sh-border);
+}
+.sh-guide-terms {
+  margin: 0 0 14px;
+}
+.sh-guide-term {
+  padding: 5px 0 5px 10px;
+  border-left: 2px solid var(--sh-border);
+  margin-bottom: 4px;
+  break-inside: avoid;
+}
+.sh-guide-term--weak {
+  border-left-color: var(--sh-amber);
+}
+.sh-guide-term dt {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--sh-text-primary);
+}
+.sh-guide-term dd {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--sh-text-secondary);
+}
+.sh-guide-section {
+  margin-bottom: 14px;
+}
+.sh-guide-section ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--sh-text-secondary);
+}
+.sh-guide-section code {
+  color: var(--sh-cyan);
+  font-size: 12px;
+}
+.sh-guide-notes {
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--sh-text-secondary);
+  margin: 0;
+}
+
+@media print {
+  .sh-no-print,
+  .sh-sidebar,
+  .sh-ctx,
+  .sh-topbar,
+  .sh-statusbar,
+  .sh-titlebar,
+  .sh-toast {
+    display: none !important;
+  }
+  html,
+  [data-bs-theme] {
+    color-scheme: light !important;
+  }
+  html,
+  body,
+  #root,
+  .sh-app-root,
+  .sh-shell-body,
+  .sh-workspace,
+  .sh-main,
+  .sh-main-body {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: block !important;
+    background: Canvas !important;
+  }
+  .sh-guide-doc,
+  .sh-guide-doc * {
+    color: CanvasText !important;
+    background: transparent !important;
+  }
+  .sh-guide-doc {
+    border-top: none;
+  }
+}
+
 /* Progress */
 .sh-prog-stats {
   display: flex;

@@ -41,7 +41,7 @@ shared study materials, past grade distributions, and professor reviews.
 - **Calendar**: month/week of assignments across courses (BB + syllabus + manual).
 - Blackboard grades flow into the grade calculator.
 
-## Phase 2 — Unified study suite
+## Phase 2 — Unified study suite ✓ *(done; FR-001 formula generators carried)*
 
 - SM-2 filtered drill modes (due, weak, module), deck editor, session history + streak.
 - **Practice tests** generated locally from definitions/glossary (multiple choice + typed),

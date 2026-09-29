@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildQuestionPool, poolForModules } from "./questionPool.js";
-import { QUESTION_TYPES, buildTest, gradeTyped, retakeQuestions } from "./practiceTest.js";
+import { QUESTION_TYPES, buildTest, buildTestWithAi, gradeTyped, retakeQuestions } from "./practiceTest.js";
+import { hasApiKey } from "../../ai/apiKeyUtils.js";
 
 const COUNTS = [10, 20, 30];
 
@@ -12,11 +13,21 @@ function isTypingTarget(el) {
 
 const paletteOpen = () => !!document.querySelector('.sh-palette, .sh-cmd-palette, [data-palette="true"]');
 
-function TestSetup({ modules, pool, onStart }) {
+function TestSetup({ modules, pool, onStart, busy }) {
   const [moduleIds, setModuleIds] = useState([]);
   const [count, setCount] = useState(10);
   const [types, setTypes] = useState(QUESTION_TYPES.map((t) => t.id));
   const [focusWeak, setFocusWeak] = useState(true);
+  const [aiAvailable, setAiAvailable] = useState(false);
+  const [useAi, setUseAi] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    void hasApiKey().then((ok) => alive && setAiAvailable(ok));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const perModule = useMemo(() => {
     const m = new Map();
@@ -86,15 +97,21 @@ function TestSetup({ modules, pool, onStart }) {
         <input type="checkbox" checked={focusWeak} onChange={(e) => setFocusWeak(e.target.checked)} />
         Prioritize weak and due cards
       </label>
+      {aiAvailable ? (
+        <label className="sh-pt-check">
+          <input type="checkbox" checked={useAi} onChange={(e) => setUseAi(e.target.checked)} />✦ Mix in AI application
+          questions
+        </label>
+      ) : null}
 
       <div className="sh-pt-actions">
         <button
           type="button"
           className="sh-btn-ghost sh-btn-green sh-bb-sync-btn"
-          disabled={!types.length || !scopedCount}
-          onClick={() => onStart({ moduleIds, count, types, focusWeak })}
+          disabled={!types.length || !scopedCount || busy}
+          onClick={() => onStart({ moduleIds, count, types, focusWeak, useAi: aiAvailable && useAi })}
         >
-          START TEST · {Math.min(count, scopedCount)} Q
+          {busy ? "GENERATING…" : `START TEST · ${Math.min(count, scopedCount)} Q`}
         </button>
       </div>
     </div>
@@ -134,7 +151,8 @@ function QuestionCard({ q, index, total, onAnswer, result, onNext }) {
     return () => document.removeEventListener("keydown", handleKey);
   }, [handleKey]);
 
-  const promptLabel = q.type === "mc-def" ? "WHICH DEFINITION MATCHES" : "WHICH TERM MATCHES";
+  const promptLabel =
+    q.type === "ai" ? "✦ APPLY IT" : q.type === "mc-def" ? "WHICH DEFINITION MATCHES" : "WHICH TERM MATCHES";
 
   return (
     <div className="sh-pt-card">
@@ -199,6 +217,7 @@ function QuestionCard({ q, index, total, onAnswer, result, onNext }) {
         <div className={`sh-pt-feedback${result.correct ? " sh-pt-feedback--ok" : " sh-pt-feedback--miss"}`}>
           <span className="mono">{result.correct ? (result.close ? "✓ CORRECT (CHECK SPELLING)" : "✓ CORRECT") : "✕ MISSED"}</span>
           {!result.correct || result.close ? <span className="sh-pt-feedback-answer">{q.answer}</span> : null}
+          {q.explanation ? <p className="sh-pt-feedback-why">{q.explanation}</p> : null}
           <button ref={nextRef} type="button" className="sh-btn-ghost sh-bb-sync-btn" onClick={onNext}>
             {index + 1 >= total ? "SEE RESULTS" : "NEXT →"}
           </button>
@@ -299,8 +318,22 @@ export function PracticeTestView({ course }) {
     startedRef.current = new Date().toISOString();
   };
 
-  const start = (config) =>
-    begin(buildTest({ scoped: poolForModules(pool, config.moduleIds), coursePool: pool, ...config }));
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  const start = async ({ useAi, ...config }) => {
+    const full = { scoped: poolForModules(pool, config.moduleIds), coursePool: pool, ...config };
+    setNotice("");
+    if (!useAi) {
+      begin(buildTest(full));
+      return;
+    }
+    setBusy(true);
+    const { questions: qs, aiAdded } = await buildTestWithAi(full, course?.name);
+    setBusy(false);
+    if (!aiAdded) setNotice("AI questions were unavailable, so this test is local only.");
+    begin(qs);
+  };
 
   const answer = useCallback(
     ({ choice, text }) => {
@@ -347,8 +380,9 @@ export function PracticeTestView({ course }) {
           </button>
         ) : null}
       </div>
+      {notice && questions && !finished ? <p className="sh-guide-hint">{notice}</p> : null}
       {!questions ? (
-        <TestSetup modules={modules} pool={pool} onStart={start} />
+        <TestSetup modules={modules} pool={pool} onStart={(c) => void start(c)} busy={busy} />
       ) : !questions.length ? (
         <>
           <p className="sh-today-empty">Not enough terms in that scope for the chosen formats.</p>

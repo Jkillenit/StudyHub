@@ -20,11 +20,16 @@ const ProgressView = lazy(() =>
   import("../../features/progress/ProgressView.jsx").then((m) => ({ default: m.ProgressView }))
 );
 
+const StudyGuideView = lazy(() =>
+  import("../../features/study/StudyGuideView.jsx").then((m) => ({ default: m.StudyGuideView }))
+);
+
 const COURSE_VIEWS = {
   "course-assignments": AssignmentsView,
   "course-announcements": AnnouncementsView,
   "course-bb-content": BbContentView,
   "study-test": PracticeTestView,
+  "study-guide": StudyGuideView,
   "study-progress": ProgressView,
 };
 

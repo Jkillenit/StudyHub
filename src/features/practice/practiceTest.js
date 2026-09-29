@@ -147,7 +147,41 @@ export function buildTest({ scoped, coursePool, count = 10, types = ["mc-term", 
   ).filter(Boolean);
 }
 
-/** Rebuild the same items (fresh options) for a missed-only retake. */
+/** Rebuild the same items (fresh options) for a missed-only retake. AI questions are reused as-is. */
 export function retakeQuestions(questions, coursePool) {
-  return shuffle(questions.map((q) => makeQuestion(q.item, q.type, coursePool)));
+  return shuffle(questions.map((q) => (q.type === "ai" ? q : makeQuestion(q.item, q.type, coursePool))));
+}
+
+/** Normalize one AI practice question (already validated in the main process) into the test shape. */
+export function fromAiQuestion(raw, i) {
+  const answer = raw.choices[raw.answerIndex];
+  return {
+    id: `ai|${i}|${raw.question.slice(0, 40)}`,
+    type: "ai",
+    item: { key: `ai-${i}`, term: raw.question, definition: raw.explanation || answer, moduleId: null },
+    prompt: raw.question,
+    options: raw.choices,
+    answerIndex: raw.answerIndex,
+    answer,
+    explanation: raw.explanation || "",
+  };
+}
+
+/** Local test plus a few Haiku application questions; any AI failure leaves the local test intact. */
+export async function buildTestWithAi(config, courseName) {
+  const local = buildTest(config);
+  const aiCount = Math.min(5, Math.max(2, Math.ceil(config.count / 4)));
+  try {
+    const res = await window.studyHub?.ai?.practice?.({
+      courseName,
+      definitions: config.scoped.slice(0, 60).map((p) => ({ term: p.term, definition: p.definition })),
+      count: aiCount,
+    });
+    const extra = res?.ok && Array.isArray(res.questions) ? res.questions.map(fromAiQuestion) : [];
+    if (!extra.length) return { questions: local, aiAdded: 0 };
+    const kept = local.slice(0, Math.max(local.length - extra.length, Math.ceil(local.length / 2)));
+    return { questions: shuffle([...kept, ...extra]), aiAdded: extra.length };
+  } catch {
+    return { questions: local, aiAdded: 0 };
+  }
 }
