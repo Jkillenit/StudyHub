@@ -115,13 +115,6 @@ export function CommandPalette({
 
   useEffect(() => {
     if (!open) return;
-    const activeCourse = userCourses.find((c) => c.id === courseId);
-    const activeUserCourse = activeCourse ? ensureUserCourse(activeCourse) : null;
-    console.log("[PALETTE] glossary terms available:", activeUserCourse?.glossary?.length);
-  }, [open, userCourses, courseId]);
-
-  useEffect(() => {
-    if (!open) return;
     const fn = (e) => {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -292,7 +285,26 @@ export function CommandPalette({
         sub: "Restore from backup file",
         shortcut: null,
         visible: true,
-        run: () => {},
+        run: () => {
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = ".json,application/json";
+          input.onchange = (e) => {
+            const file = e.target.files?.[0];
+            if (file) onImportFile(file);
+          };
+          input.click();
+        },
+      },
+      {
+        key: "act-ai",
+        group: "actions",
+        icon: "✦",
+        primary: "AI Assistant",
+        sub: "Generate flashcards with Claude Haiku",
+        shortcut: null,
+        visible: true,
+        run: () => window.dispatchEvent(new CustomEvent("studyhub-open-ai")),
       },
       {
         key: "act-mark",
@@ -354,6 +366,7 @@ export function CommandPalette({
     onPickImportFiles,
     onOpenSettings,
     onExport,
+    onImportFile,
     onMarkChapterReviewed,
     onShuffleDeck,
     builtinActiveChapter,

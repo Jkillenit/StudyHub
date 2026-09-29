@@ -53,10 +53,6 @@ export function ExpressImportModal({ open, onClose, onExpressComplete }) {
   const handleFileSelected = useCallback(
     (filePath) => {
       if (!filePath) return;
-      const ext = String(filePath).split(".").pop().toLowerCase();
-      console.log("[IMPORT] File selected:", filePath);
-      console.log("[IMPORT] Extension:", ext);
-
       const base = String(filePath).split(/[/\\]/).pop() || String(filePath);
       setExpressError("");
       void runExpressFinish(base, String(filePath));
@@ -86,8 +82,7 @@ export function ExpressImportModal({ open, onClose, onExpressComplete }) {
     input.onchange = (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
-      console.warn("[IMPORT] Browser mode: file.path unavailable. Run in Electron for full import.");
-      handleFileSelected(file.path || file.name);
+      setExpressError("File import requires the Study Hub desktop app.");
     };
     input.click();
   }, [handleFileSelected]);
@@ -104,21 +99,15 @@ export function ExpressImportModal({ open, onClose, onExpressComplete }) {
     setDragExpress(false);
   };
 
-  const onRootDrop = (e) => {
+  const onRootDrop = async (e) => {
     e.preventDefault();
     e.stopPropagation();
     setDragExpress(false);
     const file = e.dataTransfer?.files?.[0];
     if (!file) return;
-    const filePath = file.path;
-    if (
-      !filePath ||
-      typeof filePath !== "string" ||
-      (!filePath.includes("/") && !filePath.includes("\\"))
-    ) {
-      setExpressError(
-        "Drag-and-drop requires running in the Electron app. Click BROWSE FILES above to select your file."
-      );
+    const filePath = await window.studyHub?.getDroppedFilePath?.(file);
+    if (!filePath) {
+      setExpressError("That file can't be imported by drag-and-drop. Click BROWSE FILES above to select it.");
       return;
     }
     handleFileSelected(filePath);

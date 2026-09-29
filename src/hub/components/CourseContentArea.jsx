@@ -7,12 +7,10 @@ const GradesTab = lazy(() => import("./GradesTab.jsx"));
 const COLLAPSE_THRESHOLD = 120;
 const VISIBLE_DEFAULT = 4;
 
+const itemText = (item) => (item && typeof item === "object" ? String(item.text ?? item.label ?? "") : String(item ?? ""));
+
 function confidenceColor(g) {
-  return g.confidence === "high"
-    ? "var(--sh-green)"
-    : g.confidence === "medium"
-      ? "var(--sh-amber)"
-      : "var(--sh-text-dim)";
+  return g.confidence === "high" ? "var(--sh-green)" : g.confidence === "medium" ? "var(--sh-amber)" : "var(--sh-text-dim)";
 }
 
 function DefinitionCard({ item, onEdit, onDelete }) {
@@ -23,20 +21,21 @@ function DefinitionCard({ item, onEdit, onDelete }) {
   const definition = String(item?.definition || "");
   const shouldCollapse = definition.length > COLLAPSE_THRESHOLD;
   const preview = shouldCollapse ? `${definition.slice(0, COLLAPSE_THRESHOLD).replace(/\s\S+$/, "")}...` : definition;
+  const tier = item.confidence === "low" || item.confidence === "medium" ? item.confidence : "high";
 
   useEffect(() => {
     setDraftTerm(item.term);
     setDraftDef(item.definition);
   }, [item.term, item.definition]);
 
+  const cancel = () => {
+    setDraftTerm(item.term);
+    setDraftDef(item.definition);
+    setIsEditing(false);
+  };
+
   function handleSave() {
-    if (draftTerm.trim() && draftDef.trim()) {
-      onEdit?.({
-        ...item,
-        term: draftTerm.trim(),
-        definition: draftDef.trim(),
-      });
-    }
+    if (draftTerm.trim() && draftDef.trim()) onEdit?.({ ...item, term: draftTerm.trim(), definition: draftDef.trim() });
     setIsEditing(false);
   }
 
@@ -49,13 +48,7 @@ function DefinitionCard({ item, onEdit, onDelete }) {
           value={draftTerm}
           onChange={(event) => setDraftTerm(event.target.value)}
           placeholder="Term"
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              setDraftTerm(item.term);
-              setDraftDef(item.definition);
-              setIsEditing(false);
-            }
-          }}
+          onKeyDown={(event) => event.key === "Escape" && cancel()}
         />
         <textarea
           className="sh-inline-edit-input sh-def-body-input"
@@ -63,26 +56,13 @@ function DefinitionCard({ item, onEdit, onDelete }) {
           onChange={(event) => setDraftDef(event.target.value)}
           placeholder="Definition"
           rows={3}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              setDraftTerm(item.term);
-              setDraftDef(item.definition);
-              setIsEditing(false);
-            }
-          }}
+          onKeyDown={(event) => event.key === "Escape" && cancel()}
         />
         <div className="sh-def-edit-actions">
           <button className="sh-btn-ghost sh-btn-green sh-btn-xs" onClick={handleSave}>
             SAVE
           </button>
-          <button
-            className="sh-btn-ghost sh-btn-xs"
-            onClick={() => {
-              setDraftTerm(item.term);
-              setDraftDef(item.definition);
-              setIsEditing(false);
-            }}
-          >
+          <button className="sh-btn-ghost sh-btn-xs" onClick={cancel}>
             CANCEL
           </button>
         </div>
@@ -91,21 +71,25 @@ function DefinitionCard({ item, onEdit, onDelete }) {
   }
 
   return (
-    <div className="def-card sh-pptx-card">
+    <div
+      className={`def-card sh-pptx-card sh-tier-${tier}`}
+      style={{
+        borderLeftWidth: 3,
+        borderLeftColor: tier === "low" ? "var(--sh-border)" : "var(--sh-green)",
+        opacity: tier === "low" ? 0.75 : 1,
+      }}
+    >
       <div className="def-card-header">
-        <div className="def-term">{item.term}</div>
+        <div className="def-term" style={{ opacity: tier === "high" ? 1 : tier === "medium" ? 0.85 : 0.6 }}>
+          {item.term}
+          {item.enhancedByAI ? <span className="sh-ai-badge">✦ AI</span> : null}
+        </div>
         <div className="sh-card-actions">
-          {item.confidence ? (
+          {tier !== "high" ? (
             <div
               className="sh-confidence-dot"
-              style={{
-                background:
-                  item.confidence === "high"
-                    ? "var(--sh-green)"
-                    : item.confidence === "medium"
-                      ? "var(--sh-amber)"
-                      : "var(--sh-text-dim)",
-              }}
+              title={`${tier} confidence — verify this term`}
+              style={{ background: tier === "medium" ? "var(--sh-amber)" : "var(--sh-text-dim)" }}
             />
           ) : null}
           <button className="sh-card-action-btn" onClick={() => setIsEditing(true)} title="Edit">
@@ -130,16 +114,42 @@ function DefinitionCard({ item, onEdit, onDelete }) {
 
 function detectSectionType(items) {
   if (!items?.length) return "empty";
-  const numbered = items.filter((i) => /^\d+[\.\)]\s/.test(i));
-  if (numbered.length >= items.length * 0.6) return "numbered";
-  const defLike = items.filter((i) => /^[A-Z][^:]{2,40}:\s+\S/.test(i));
-  if (defLike.length >= items.length * 0.5) return "deflist";
+  if (items.filter((i) => /^\d+[.)]\s/.test(i)).length >= items.length * 0.6) return "numbered";
+  if (items.filter((i) => /^[A-Z][^:]{2,40}:\s+\S/.test(i)).length >= items.length * 0.5) return "deflist";
   return "bullets";
+}
+
+function SectionItem({ text, type, index }) {
+  if (type === "numbered") {
+    return (
+      <div className="sh-section-item sh-section-item--numbered">
+        <span className="sh-item-number mono">{String(index + 1).padStart(2, "0")}</span>
+        <span className="sh-item-text">{text.replace(/^\d+[.)]\s*/, "")}</span>
+      </div>
+    );
+  }
+  if (type === "deflist") {
+    const match = text.match(/^([^:]+):\s+(.+)$/);
+    if (match) {
+      return (
+        <div className="sh-section-item sh-section-item--def">
+          <span className="sh-item-sublabel">{match[1].trim()}</span>
+          <span className="sh-item-text">{match[2].trim()}</span>
+        </div>
+      );
+    }
+  }
+  return (
+    <div className="sh-section-item sh-section-item--bullet">
+      <span className="sh-item-bullet">—</span>
+      <span className="sh-item-text">{text}</span>
+    </div>
+  );
 }
 
 function SectionBlock({ section }) {
   const [showAll, setShowAll] = useState(false);
-  const items = (section.items || []).filter((i) => String(i || "").length > 5);
+  const items = (section.items || []).map(itemText).filter((t) => t.length > 5);
   const type = detectSectionType(items);
   const hasMore = items.length > VISIBLE_DEFAULT;
   const visible = showAll ? items : items.slice(0, VISIBLE_DEFAULT);
@@ -148,11 +158,8 @@ function SectionBlock({ section }) {
     <div className="sh-content-section">
       <div className="sh-section-label">{String(section.title || "SECTION").toUpperCase()}</div>
       <div className={`sh-section-block sh-section-${type}`}>
-        {visible.map((item, i) => (
-          <div key={i} className="sh-section-item sh-section-item--bullet">
-            <span className="sh-item-bullet">—</span>
-            <span className="sh-item-text">{item}</span>
-          </div>
+        {visible.map((text, i) => (
+          <SectionItem key={i} text={text} type={type} index={i} />
         ))}
         {hasMore ? (
           <button className="sh-section-expand" onClick={() => setShowAll((v) => !v)}>
@@ -160,6 +167,22 @@ function SectionBlock({ section }) {
           </button>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function FormulaBlock({ section }) {
+  const items = section.items || [];
+  if (!items.length) return null;
+  return (
+    <div className="sh-content-section">
+      <div className="sh-section-label">{String(section.title || "FORMULAS").toUpperCase()}</div>
+      {items.map((item, j) => (
+        <div key={item.id || j} className="def-card sh-formula-block">
+          <div className="def-term mono">{item.formula}</div>
+          {item.context ? <div className="def-body">{item.context}</div> : null}
+        </div>
+      ))}
     </div>
   );
 }
@@ -172,9 +195,15 @@ function NeedsReviewSection({ items, onEdit, onDelete }) {
         <span className="sh-section-label" style={{ color: "var(--sh-amber)", marginBottom: 0 }}>
           NEEDS REVIEW — {items.length} TERM{items.length !== 1 ? "S" : ""}
         </span>
+        <span className="sh-expand-btn" style={{ color: "var(--sh-amber)" }}>
+          {open ? "↑ hide" : "↓ show"}
+        </span>
       </button>
       {open ? (
         <div className="sh-needs-review-body">
+          <div className="sh-needs-review-note">
+            These terms were detected with low confidence. Verify against your source material before studying.
+          </div>
           {items.map((item) => (
             <DefinitionCard key={item.id} item={item} onEdit={onEdit} onDelete={onDelete} />
           ))}
@@ -193,29 +222,30 @@ function GlossaryCard({ g, onRemove, muted = false }) {
       </div>
       <div className="def-body">{g.definition}</div>
       <div className="sh-glossary-meta">
-        <span className="sh-glossary-source">{g.source === "pptx" ? "↓ IMPORTED" : "✎ MANUAL"}</span>
+        <span className="sh-glossary-source">{g.source === "manual" ? "✎ MANUAL" : "↓ IMPORTED"}</span>
         {!muted ? (
           <button className="sh-glossary-remove" onClick={() => onRemove(g.id)}>
             ✕
           </button>
-        ) : <span />}
+        ) : (
+          <span />
+        )}
       </div>
     </div>
   );
 }
+
+const byTerm = (a, b) => String(a.term || "").localeCompare(String(b.term || ""));
 
 export default function CourseContentArea({
   course,
   currentModule,
   mainTab,
   onTabChange,
-  onChangeCourse,
   courseGlossaryTerms,
-  notesStatus,
   onImportFile,
   activeItem,
   sourceFilter,
-  onSourceFilterChange,
   onSaveCards,
   reviewMeta,
   enhancing,
@@ -223,7 +253,7 @@ export default function CourseContentArea({
   onMoveReviewToContent,
   onUpdateModuleBody,
   onRemoveGlossaryTerm,
-  onSaveGradeComponents,
+  onGradesChange,
   onUpdateContentData,
   flashcardEditTriggerRef,
 }) {
@@ -232,32 +262,17 @@ export default function CourseContentArea({
 
   useEffect(() => {
     if (!flashcardEditTriggerRef) return;
-    flashcardEditTriggerRef.current = () => {
-      localFlashcardEditRef.current?.();
-    };
+    flashcardEditTriggerRef.current = () => localFlashcardEditRef.current?.();
   }, [flashcardEditTriggerRef]);
 
-  function handleEditCard(updatedItem) {
-    const newData = currentModule?.contentData?.map((section) => {
-      if (section.type !== "definitions") return section;
-      return {
-        ...section,
-        items: section.items.map((item) => (item.id === updatedItem.id ? updatedItem : item)),
-      };
-    });
-    onUpdateContentData?.(newData || []);
-  }
-
-  function handleDeleteCard(item) {
-    const newData = currentModule?.contentData?.map((section) => {
-      if (section.type !== "definitions") return section;
-      return {
-        ...section,
-        items: section.items.filter((i) => i.id !== item.id),
-      };
-    });
-    onUpdateContentData?.(newData || []);
-  }
+  const mapDefinitions = (fn) =>
+    onUpdateContentData?.(
+      (currentModule?.contentData || []).map((section) =>
+        section.type === "definitions" ? { ...section, items: fn(section.items || []) } : section
+      )
+    );
+  const handleEditCard = (updated) => mapDefinitions((items) => items.map((i) => (i.id === updated.id ? updated : i)));
+  const handleDeleteCard = (item) => mapDefinitions((items) => items.filter((i) => i.id !== item.id));
 
   const renderContentData = (contentData) => {
     if (!contentData?.length) {
@@ -270,71 +285,100 @@ export default function CourseContentArea({
 │   OR WRITE NOTES    │
 └─────────────────────┘`}</pre>
           <div className="sh-empty-actions">
-            <button className="sh-btn-ghost sh-btn-ghost-amber" onClick={onImportFile}>+ IMPORT FILE</button>
-            <button className="sh-btn-ghost" onClick={() => onTabChange("notes")}>✎ WRITE NOTES</button>
+            <button className="sh-btn-ghost sh-btn-ghost-amber" onClick={onImportFile}>
+              + IMPORT FILE
+            </button>
+            <button className="sh-btn-ghost" onClick={() => onTabChange("notes")}>
+              ✎ WRITE NOTES
+            </button>
           </div>
         </div>
       );
     }
-
-    const highMedItems = [];
+    const blocks = [];
     const lowItems = [];
     contentData.forEach((section, i) => {
+      const key = section.id || `${section.type}-${i}`;
       if (section.type === "definitions") {
         const high = (section.items || []).filter((item) => item.confidence !== "low");
-        const low = (section.items || []).filter((item) => item.confidence === "low");
-        if (high.length > 0) {
-          highMedItems.push(
-            <div key={i} className="sh-content-section">
-              <div className="sh-section-label">DEFINITIONS</div>
+        lowItems.push(...(section.items || []).filter((item) => item.confidence === "low"));
+        if (high.length) {
+          blocks.push(
+            <div key={key} className="sh-content-section">
+              <div className="sh-section-label">{String(section.title || "DEFINITIONS").toUpperCase()}</div>
               {high.map((item) => (
                 <DefinitionCard key={item.id} item={item} onEdit={handleEditCard} onDelete={handleDeleteCard} />
               ))}
             </div>
           );
         }
-        if (low.length > 0) lowItems.push(...low);
       } else if (section.type === "section") {
-        highMedItems.push(<SectionBlock key={i} section={section} />);
+        blocks.push(<SectionBlock key={key} section={section} />);
+      } else if (section.type === "formulas") {
+        blocks.push(<FormulaBlock key={key} section={section} />);
       }
     });
     return (
       <>
-        {highMedItems}
-        {lowItems.length > 0 ? <NeedsReviewSection items={lowItems} onEdit={handleEditCard} onDelete={handleDeleteCard} /> : null}
+        {blocks}
+        {lowItems.length ? <NeedsReviewSection items={lowItems} onEdit={handleEditCard} onDelete={handleDeleteCard} /> : null}
       </>
     );
   };
 
-  const renderGlossary = useMemo(() => {
-    const moduleTerms = (course?.glossary || []).filter((g) => g.moduleId === currentModule?.id);
-    const otherTerms = (course?.glossary || []).filter((g) => g.moduleId !== currentModule?.id);
+  const glossaryView = useMemo(() => {
+    const all = course?.glossary || [];
+    const moduleTerms = all.filter((g) => g.moduleId === currentModule?.id).sort(byTerm);
+    const otherTerms = all.filter((g) => g.moduleId !== currentModule?.id).sort(byTerm);
+    if (!moduleTerms.length && !otherTerms.length) {
+      return (
+        <div className="sh-chapter-empty">
+          <pre className="sh-empty-ascii">{`┌─────────────────────┐
+│   NO TERMS YET      │
+│                     │
+│   IMPORT A FILE  →  │
+└─────────────────────┘`}</pre>
+        </div>
+      );
+    }
     return (
       <div className="sh-glossary-view">
-        {moduleTerms.length > 0 ? (
+        {moduleTerms.length ? (
           <div className="sh-content-section">
             <div className="sh-section-label">THIS CHAPTER</div>
-            {moduleTerms.map((g) => <GlossaryCard key={g.id} g={g} onRemove={onRemoveGlossaryTerm} />)}
+            {moduleTerms.map((g) => (
+              <GlossaryCard key={g.id} g={g} onRemove={onRemoveGlossaryTerm} />
+            ))}
           </div>
         ) : null}
-        {otherTerms.length > 0 ? (
+        {otherTerms.length ? (
           <div className="sh-content-section">
             <div className="sh-section-label">OTHER CHAPTERS</div>
-            {otherTerms.map((g) => <GlossaryCard key={g.id} g={g} onRemove={onRemoveGlossaryTerm} muted />)}
+            {otherTerms.map((g) => (
+              <GlossaryCard key={g.id} g={g} onRemove={onRemoveGlossaryTerm} muted />
+            ))}
           </div>
         ) : null}
       </div>
     );
   }, [course?.glossary, currentModule?.id, onRemoveGlossaryTerm]);
 
+  const tabs = ["content", "notes", "glossary", "grades"];
+
   return (
     <>
       <div className="sh-main-header">
         <div className="sh-tab-row">
-          <button type="button" className={`sh-tab sh-usercourse-tab ${mainTab === "content" ? "active" : ""}`} onClick={() => onTabChange("content")}>CONTENT</button>
-          <button type="button" className={`sh-tab sh-usercourse-tab ${mainTab === "notes" ? "active" : ""}`} onClick={() => onTabChange("notes")}>NOTES</button>
-          <button type="button" className={`sh-tab sh-usercourse-tab ${mainTab === "glossary" ? "active" : ""}`} onClick={() => onTabChange("glossary")}>GLOSSARY</button>
-          <button type="button" className={`sh-tab sh-usercourse-tab ${mainTab === "grades" ? "active" : ""}`} onClick={() => onTabChange("grades")}>GRADES</button>
+          {tabs.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              className={`sh-tab sh-usercourse-tab ${mainTab === tab ? "active" : ""}`}
+              onClick={() => onTabChange(tab)}
+            >
+              {tab.toUpperCase()}
+            </button>
+          ))}
         </div>
       </div>
       <div className="sh-main-body sh-scroll-hover position-relative">
@@ -344,10 +388,10 @@ export default function CourseContentArea({
               <FlashcardDeck
                 key={`${course?.id}-qz`}
                 cards={userFlashcards}
-                courseId={course?.id}
-                showMasteryButtons={true}
+                courseId={course?.uuid || course?.id}
+                moduleId={currentModule?.id}
+                showMasteryButtons
                 sourceFilter={sourceFilter}
-                onSourceFilterChange={onSourceFilterChange}
                 onSaveCards={onSaveCards}
                 editTriggerRef={localFlashcardEditRef}
               />
@@ -361,10 +405,18 @@ export default function CourseContentArea({
               <div className="sh-review-banner">
                 <span>{`REVIEW NEEDED — ${reviewMeta.slideCount} slides could not be auto-classified. Edit below, then click MOVE TO CONTENT.`}</span>
                 <div className="d-flex gap-2 align-items-center">
-                  <button type="button" className="sh-review-move-btn" style={{ opacity: 0.7 }} onClick={() => void onEnhanceReview()} disabled={enhancing}>
+                  <button
+                    type="button"
+                    className="sh-review-move-btn"
+                    style={{ opacity: 0.7 }}
+                    onClick={() => void onEnhanceReview()}
+                    disabled={enhancing}
+                  >
                     {enhancing ? "ENHANCING..." : "✦ ENHANCE WITH AI"}
                   </button>
-                  <button type="button" className="sh-review-move-btn" onClick={onMoveReviewToContent}>MOVE TO CONTENT</button>
+                  <button type="button" className="sh-review-move-btn" onClick={onMoveReviewToContent}>
+                    MOVE TO CONTENT
+                  </button>
                 </div>
               </div>
             ) : null}
@@ -372,18 +424,17 @@ export default function CourseContentArea({
               <UserCourseTipTapNotesEditor
                 key={currentModule?.id}
                 sectionId={currentModule?.id}
-                value={currentModule?.body || reviewMeta?.text || ""}
+                value={currentModule?.body || ""}
                 glossaryTerms={courseGlossaryTerms}
-                onAutosaveStatus={notesStatus}
                 onChangeValue={onUpdateModuleBody}
               />
             </Suspense>
           </>
         ) : mainTab === "glossary" ? (
-          <div className="main-content">{renderGlossary}</div>
+          <div className="main-content">{glossaryView}</div>
         ) : (
           <Suspense fallback={<div className="sh-skeleton-pulse" style={{ height: 300 }} />}>
-            <GradesTab course={course} onSaveComponents={onSaveGradeComponents} />
+            <GradesTab course={course} onComponentsChange={onGradesChange} />
           </Suspense>
         )}
       </div>

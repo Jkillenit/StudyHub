@@ -1,272 +1,121 @@
 # Product backlog — Study Hub
 
-Features are **rated by the implementer** (impact, difficulty, rough time) when added — not a user vote — so we can sort and plan consistently.
+Rated by the implementer: **Impact** 1–5 (study value / differentiation), **Difficulty**
+1–5 (engineering + risk), rough **est. time** for a solo pass. Grouped by roadmap phase
+(see [`ROADMAP.md`](./ROADMAP.md)); vision and guardrails in [`PROJECT_BRIEF.md`](./PROJECT_BRIEF.md).
+
+Tags: `local-first` (no API/cloud), `AI-optional`, `AI-required`, `cloud` (Commons),
+`Electron`, `infra`, `UI`.
 
 ---
 
-## Strategic constraints
+## Done
+
+| ID | Feature |
+|----|---------|
+| UI-001..004 | Bootstrap-aligned UI overhaul |
+| NT-001..003 | TipTap notes, glossary highlighting on save, export |
+| B3-A | PPTX local extraction + 4-type classifier |
+| B3-B | PPTX Haiku enhancement with graceful fallback |
+| B2 (v1) | PDF text extraction (pdf-parse) + read view |
+| QZ-002 | Session summary screen |
+| QZ-005 (v1) | SM-2 scheduling in the drill, persisted to `mastery` |
+| SYL-001..003 | Syllabus → grade weights, grade calculator (hypothetical, what-if, drop) |
+| C2-A/B | Blackboard embedded window, single-file import, create course from BB |
+| INF-001 | localStorage → SQLite for user courses |
+| INF-002 | Granular uuid upserts, numbered migrations, course metadata columns (Phase 0) |
+| BUG-001 | Audit fixes: notes crash, BB PPTX path, BB merge/duplication, OM 300 mastery, what-if loop, arrow keys (Phase 0) |
+| SEC-001 | safeStorage API key via IPC, BB bridge origin guard, file path allowlist incl. drag-and-drop (Phase 0) |
+| ARCH-001 | `src/features/` split, error boundary, debug logs removed (Phase 0) |
+| QZ-005 (v2) | Deck modes (all/due/weak/module), in-deck add/edit/delete (Phase 0) |
+
+## Phase 1 — Blackboard Mirror
+
+| ID | Feature | Impact | Diff | Est. | Tags |
+|----|---------|--------|------|------|------|
+| BB-MIRROR | Course sweep: content tree, announcements, assignments, own grades via BB REST | 5 | 4 | 1–2 wk | `Electron` |
+| DASH-001 | Today dashboard: due soon, announcements, cards due, grade changes | 5 | 2 | 2 d | `local-first` `UI` |
+| CAL-001 | Semester calendar (month view), all courses, manual entry, mark complete | 5 | 3 | 3 d | `local-first` |
+| CAL-002 | Upcoming-assignments widget in course context panel | 4 | 1 | 0.5 d | `local-first` |
+| CAL-003 | Syllabus date extraction into calendar | 4 | 2 | 2 d | `local-first` `AI-optional` |
+| CAL-004 | BB grades → grade calculator mapping | 5 | 3 | 2 d | `Electron` |
+
+## Phase 2 — Study suite
+
+| ID | Feature | Impact | Diff | Est. | Tags |
+|----|---------|--------|------|------|------|
+| QZ-003 | Filtered drill modes: due, weak, module | 4 | 2 | 1 d | `local-first` |
+| QZ-001 | Inline deck editor | 3 | 2 | 1 d | `UI` |
+| QZ-004 | Session history + streak | 3 | 2 | 1 d | `local-first` |
+| PT-001 | Practice tests from definitions/glossary (MC + typed), optional Haiku variants | 5 | 3 | 3 d | `local-first` `AI-optional` |
+| SG-001 | Study guide generator per exam scope | 4 | 2 | 2 d | `local-first` |
+| EST-002 | Exam study time estimate from mastery + exam date | 5 | 3 | 2 d | `local-first` |
+| FR-001 | Formula practice generators (EOQ, SPC, …) | 5 | 4 | 3–6 wk | `local-first` |
+
+## Phase 3 — Web study guides
+
+| ID | Feature | Impact | Diff | Est. | Tags |
+|----|---------|--------|------|------|------|
+| WEB-001 | Find study materials panel; Claude web search in main process; save link / import as cards | 4 | 3 | 1 wk | `AI-optional` |
+
+## Phase 4 — Commons
+
+| ID | Feature | Impact | Diff | Est. | Tags |
+|----|---------|--------|------|------|------|
+| COM-001 | Supabase project, `.edu` auth, RLS, canonical course catalog | 5 | 4 | 1 wk | `cloud` |
+| COM-002 | Publish / browse / clone decks and study guides with provenance | 5 | 3 | 1 wk | `cloud` |
+| COM-003 | Voting, reporting, moderation queue, content filters | 4 | 3 | 1 wk | `cloud` |
+
+## Phase 5–6 — Insights and reviews
+
+| ID | Feature | Impact | Diff | Est. | Tags |
+|----|---------|--------|------|------|------|
+| GRD-INS-001 | Anonymous grade distributions per course/instructor/term (≥5 reports) | 5 | 3 | 1 wk | `cloud` |
+| PROF-001 | Professor mini-reviews: structured ratings + ≤280 chars, 1 per student per course-term | 4 | 3 | 1 wk | `cloud` |
+
+## Phase 7 — Release
+
+| ID | Feature | Impact | Diff | Est. | Tags |
+|----|---------|--------|------|------|------|
+| REL-001 | Auto-update via GitHub Releases | 4 | 2 | 1 d | `Electron` |
+| REL-002 | DB backup / export / restore | 5 | 2 | 1 d | `local-first` |
+| REL-003 | First-run onboarding (connect BB → optional Commons) | 4 | 2 | 2 d | `UI` |
+| REL-004 | Windows code signing | 3 | 2 | TBD | `Electron` |
+
+## Parked
+
+| ID | Feature | Impact | Diff | Tags |
+|----|---------|--------|------|------|
+| D1 | OCR for scanned PDFs | 3 | 5 | `heavy` |
+| D2 | Blackboard institutional REST / LTI | 3 | 5 | `institutional` |
+| NT-004 | AI notes: summarize / expand selection | 4 | 3 | `AI-optional` |
+| NT-005 | Real-time glossary decorations in TipTap | 3 | 3 | `local-first` |
+| QZ-006 | Anki/CSV deck export | 3 | 4 | `local-first` |
+| SYL-008..013 | GPA tracker, extra credit, curve sim, grade export, sparkline | 3–4 | 1–3 | `local-first` |
 
 ---
 
-## API philosophy
+## Expanded: EST-002 — Exam study time estimate
 
-Study Hub is designed local-first. Every core feature works without an Anthropic API key. The API key is an optional upgrade, never a requirement.
+For each module in the exam scope:
+- `due` = cards with `next_review <= examDate`
+- `learning` = cards with `repetitions < 3`
+- `timePerReview` = avg session seconds / cards (default 2.5 min)
+- `timePerLearning` = `timePerReview × 3.2`
 
-### Feature tiers
+`total = due × timePerReview + learning × timePerLearning`, split evenly across days until
+the exam, capped at 2 h/day.
 
-**Tier 1 — Fully local (no API key required, ever)**
-- Rich text notes editor
-- Manual flashcard creation and drill
-- PPTX text extraction (raw slide text → notes, unformatted)
-- PDF text extraction
-- Blackboard ZIP course import
-- Glossary and key term search
-- SM-2 spaced repetition mastery system
-- Chapter completion tracking
-- Session history and drill streaks
-- GitHub release installer and auto-updater
+## Expanded: PT-001 — Practice tests
 
-**Tier 2 — Enhanced by API (works without, meaningfully better with)**
-- PPTX import: raw extraction (local) vs structured notes + auto flashcard generation (API)
-- Formula practice: hand-authored problem templates (local) vs unlimited AI-generated variants (API)
-- Notes: manual writing (local) vs AI summarize / expand / explain selection (API)
+Local generator: for each definition, a multiple-choice question with 3 distractors drawn
+from other definitions in the same course (prefer same module), plus typed-answer
+questions graded by normalized string match. Score and missed items feed back into the
+drill as "weak" cards. Haiku, when configured, can rewrite stems into scenario questions.
 
-**Tier 3 — API-unlocked features (require key to function)**
-- Full Blackboard live integration (authenticated scraper via embedded browser — complex enough that AI assistance is required for reliable parsing)
-- AI study assistant chat panel
-- Auto-generated practice exams from chapter content
+## Expanded: GRD-INS-001 — Grade insights
 
-### API key UX rules
-- First-run onboarding does not gate on API key — user skips it freely
-- Features that require API show a clear inline prompt: "Add API key in Settings to unlock this" — never a blocking modal
-- Features that are enhanced by API show their local version by default with an unobtrusive "✦ Enhance with AI" affordance
-- API key is stored locally in Electron safeStorage — never sent anywhere except api.anthropic.com
-
-### Tag reference (used in backlog table)
-  `local-first`   — works fully without API
-  `AI-optional`   — local version exists, API improves it  
-  `AI-required`   — only meaningful with API key
-
----
-
-## Backlog (sorted by difficulty, then time)
-
-**Sort rule:** Lower **Difficulty** first (1 = easiest). If tied, shorter **est. time** first.
-
-| ID | Feature | Impact | Difficulty | Est. time | Tags |
-|----|---------|--------|------------|-----------|------|
-| **UI-001** | Formulas page — Bootstrap layout (`Container`, `Alert`, cards) | 2 | **1** | ~0.5 d | `UI` |
-| **UI-002** | Materials offcanvas — align with hub patterns | 2 | **1** | ~0.5 d | `UI` |
-| **CAL-002** | Calendar quick view — context panel widget showing next 3-5 upcoming assignments across all courses, color coded, always visible while studying | 4 | **1** | ~1 d | `local-first` |
-| **EST-001** | Assignment completion estimate — category-based time defaults (homework, essay, lab, reading), editable per assignment, shown in assignment detail view | 3 | **1** | ~1 d | `local-first` |
-| **SYL-011** | [Hypothetical post-alpha] Curve simulator — single input field, "Professor adds X points to all grades." Recalculates current grade with offset applied. | 3 | **1** | ~2 hr | `local-first` |
-| **UI-003** | AI assistant — React Bootstrap `Modal` | 3 | **2** | ~1 d | `UI` |
-| **QZ-001** | Flashcard card editor — inline front/back edit without leaving drill | 3 | **2** | ~1 d | `content`, `UI` |
-| **CAL-003** | Syllabus date extraction — parse exam dates, quiz schedules, assignment deadlines from syllabus PDF/DOCX into calendar automatically. Local rules + AI-enhanced. Extends SYL-001. | 4 | **2** | ~2 d | `local-first` `AI-optional` |
-| **EST-003** | AI assignment scope estimate — Claude reads assignment description, estimates completion time based on scope and type. Requires API key. Supplements EST-001 defaults. | 3 | **2** | ~1 d | `AI-optional` |
-| **EST-004** | Session history tracking — log actual time spent per assignment on completion. Use to calibrate EST-001 defaults over time. "This took you 2.8 hours last time" feedback loop. | 3 | **2** | ~2 d | `local-first` |
-| **QZ-002** | End-of-session summary screen — known/again breakdown, weak card list, review again shortcut | 4 | **2** | ~1–2 d | `UI`, `content` |
-| **SYL-009** | [Hypothetical post-alpha] Score history trend — mini sparkline showing score trend across sub-entries per component. Shows if student is improving or declining over time. Requires 3+ sub-entries to be meaningful. | 3 | **2** | ~2 d | `local-first` |
-| **SYL-012** | [Hypothetical post-alpha] Grade export — export grade calculator state as PDF or CSV. Uses existing PDF pipeline. Useful for scholarship applications requiring grade documentation. | 3 | **2** | ~2 d | `local-first` |
-| **UI-004** | User courses shell — Navbar / Nav / Collapse / Forms (match OM300) | 3 | **3** | ~1–2 d | `UI` |
-| **B2** | PDF text extraction + in-app read view | 4 | **3** | ~1–2 wk | `local-first`, `Electron` |
-| **B3** | PPTX slide text extraction | 3 | **3** | ~1 wk | `local-first` |
-| **CAL-001** | Semester calendar — week and month views, all courses, importance-weighted color coding (component weight × urgency score), manual entry, mark complete | 5 | **3** | ~1 wk | `local-first` |
-| **EST-002** | Exam study time estimate — computed from SM-2 mastery data. Cards due + unmastered cards × average session time = total estimate. Splits into daily recommended sessions between now and exam date. Requires QZ-005 (SM-2) complete. | 5 | **3** | ~1 wk | `local-first` |
-| **SYL-008** | [Hypothetical post-alpha] Weighted GPA tracker — enter credit hours per course, calculate cumulative GPA across all courses using grade scale. Needs credit hour field on course creation. | 4 | **3** | ~1 wk | `local-first` |
-| **SYL-010** | [Hypothetical post-alpha] Extra credit handling — components marked as extra credit add contribution without affecting weight denominator. Requires grade calculation formula change. | 4 | **3** | ~1 wk | `local-first` |
-| **SYL-013** | [Hypothetical post-alpha] Assignment due dates linked to grade components — CAL-001 assignments show component weight context in calendar view. Depends on CAL-001 being complete. | 4 | **3** | ~1 wk | `local-first` |
-| **B3-B** | PPTX AI enhancement — Claude Haiku cleans definitions, finds missed terms in unclassified content, adds AI badge to enhanced cards, ENHANCE WITH AI button in review block, graceful fallback to local if no key | 4 | **3** | ~3 d | `AI-optional` | ✓ Done |
-| **QZ-003** | Filtered drill modes — by chapter, weak cards only, recent cards, exam cram cross-chapter | 4 | **3** | ~2–3 d | `content`, `local-first` |
-| **QZ-004** | Session history + drill streak — days drilled, cards per session, visible in context panel | 3 | **3** | ~2–3 d | `content`, `local-first` |
-| **INF-001** | Migrate localStorage → better-sqlite3 via Electron IPC bridge | 5 | **3** | ~3–5 d | `infra` `local-first` |
-| **QZ-006** | Deck export — CSV and Anki-compatible .apkg export | 3 | **4** | ~1 wk | `local-first`, `Electron` |
-| **CAL-004** | Blackboard assignment sync — live due dates from Blackboard via C3, auto-maps to grade components and calendar. | 5 | **4** | ~1 wk | `Electron` |
-| **B3-A** | PPTX local extraction + classification (officeparser AST, 4-type classifier, bold term detection, chapter + course import, review block) | 5 | **3** | ~1 wk | `local-first` `Electron` | ✓ Done |
-| **NT-003** | Export chapter notes as plain text / markdown — copy to clipboard, one button | 3 | **1** | ~0.5 d | `content` | ✓ Done |
-| **NT-002** | Notes autosave + floating bubble toolbar + inline glossary highlighting (Option A — on save) | 4 | **2** | ~2 d | `content` | ✓ Done |
-| **NT-004** | AI-assisted notes — summarize, expand, simplify selected text via Claude API | 4 | **3** | ~1 wk | `AI-optional` `content` |
-| **NT-005** | Glossary highlight upgrade — Option B, real-time decoration via TipTap transaction API. Requires INF-001 (SQLite) complete first so glossary terms are pre-loaded into React state on chapter open via IPC. One-day upgrade from Option A once data layer is stable. | 3 | **3** | ~1 d | `content` `local-first` |
-| **C2** | Glossary auto-highlight on imported text | 4 | **4** | ~2 wk | `content` |
-| **QZ-005** | SM-2 spaced repetition — per-card difficulty, resurface logic, retire mastered cards | 5 | **4** | ~1–2 wk | `content`, `local-first` |
-| **FR-001** | Formula practice — local generators + graders + UI | 5 | **4** | ~3–6 wk | `content`, `local-first`, `AI-optional` |
-| **C1** | Blackboard export ZIP heuristics | 4 | **4** | ~2–4 wk | `Electron` |
-| **D1** | OCR for scanned PDFs | 3 | **5** | ~3+ wk | `heavy` |
-| **D2** | Blackboard REST / LTI | 3 | **5** | TBD | `institutional` |
-
-_Time is rough engineering time for a solo/small pass, not a guarantee._
-
----
-
-## Delivery status (rolling)
-
-| Track | Status |
-|-------|--------|
-| **UI overhaul** (UI-001–004, shared chapter `Card` → React Bootstrap, Quizlet/flashcards, Final review chrome, glossary panel button, lazy-load spinner) | **Complete** |
-| **Phase 1a — Notes editor** (NT-001 TipTap editor, NT-002 glossary highlighting, NT-003 export) | **Complete** |
-| **Phase 1b-A — PPTX local pipeline** | ✓ Complete |
-| **Phase 1b classifier improvements** (term cleaning, deduplication, confidence scoring, collapsible cards, glossary auto-population, flashcard merge with source tagging, search index integration) | ✓ Complete |
-| **Phase 1b-B — AI enhancement layer** | ✓ Complete |
-| **NT-002 — inline glossary highlighting** | **Done** |
-| **B2 — PDF** | **In progress** — Phase 1 shipped: main-process text via `pdf-parse` (`studyhub:extract-pdf-text`), preload `extractPdfText`, Materials **Read text** modal. Remaining: in-document search, large-file tuning, optional embedded PDF.js viewer, OCR path (ties **D1**). |
-
----
-
-## How ratings are chosen
-
-| Dimension | Scale | Meaning |
-|-----------|-------|--------|
-| **Impact** | 1–5 | Study value / product differentiation |
-| **Difficulty** | 1–5 | Engineering + content risk (1 trivial … 5 research-heavy) |
-| **Est. time** | d / wk | Calendar effort order-of-magnitude |
-
-**Reason** for each scored item lives in expanded sections below (or in linked roadmap work).
-
----
-
-## NT-005 — Real-time glossary highlighting upgrade (expanded)
-
-| Field | Value |
-|-------|-------|
-| Impact | 3 |
-| Difficulty | 3 |
-| Est. time | ~1 day |
-| Prerequisite | INF-001 (SQLite migration) must be complete |
-| Tags | content, local-first |
-
-Upgrades NT-002 from save-triggered to real-time.
-Uses TipTap's addProseMirrorPlugins() to register a decoration plugin that runs on every editor transaction.
-The plugin reads glossaryTerms from a ref (not state, to avoid stale closures) and applies DecorationSet marks synchronously without moving the cursor.
-
-Cannot be built before INF-001 because the IPC-based SQLite data loading pattern must be established first — async glossary fetching on every transaction is not viable, terms must be pre-loaded into memory when the chapter opens. Once INF-001 establishes that pattern, this upgrade is a contained one-day implementation.
-
----
-
-## FR-001 — Formula practice (expanded)
-
-| Field | Value |
-|-------|--------|
-| **Impact** | **5** |
-| **Difficulty** | **4** (local-first default) |
-| **Est. time** | **3–6 weeks** for a solid first release (several formula families + UI + persistence) |
-| **Tags** | `content`, `local-first`, `AI-optional` |
-
-**Reason for difficulty**  
-Many independent quantitative families (EOQ, EPQ, smoothing, SPC, CPM, …), each needs valid random inputs, correct answers, grading tolerance, and optional hints — mostly **hand-authored templates**, not one generic solver.
-
-**Reason for impact**  
-Moves the app from **reference** to **active practice** for exam-heavy quantitative courses.
-
-**AI**  
-Optional “extra variant” only; core loop stays local. *(See roadmap for full strategy.)*
-
----
-
-## QZ-002 — End-of-session summary (expanded)
-
-| Field | Value |
-|-------|--------|
-| **Impact** | 4 |
-| **Difficulty** | 2 |
-| **Est. time** | ~1–2 days |
-| **Tags** | UI, content |
-
-Triggered when user reaches the last card in a deck pass and clicks KNOW IT or AGAIN on the final card. Full-screen overlay on `--sh-base`. Shows: total cards drilled, known count in green, again count in amber, list of flagged card fronts, session duration in monospace, and two CTAs — "REVIEW WEAK CARDS" (starts filtered deck of again-flagged cards) and "DONE" (returns to normal drill view with deck reset to front face). No persistence required — session state only.
-
----
-
-## EST-002 — Exam study time estimate (expanded)
-
-| Field | Value |
-|-------|-------|
-| Impact | 5 |
-| Difficulty | 3 |
-| Est. time | ~1 week |
-| Prerequisite | QZ-005 (SM-2) must be complete |
-| Tags | local-first |
-
-Computation:
-
-For each chapter covered by the exam:
-- cardsNeedingReview = cards where next_review <= examDate (from SM-2 mastery table)
-- cardsUnmastered = cards with repetitions < 3
-- cardsMastered = cards with repetitions >= 3 and ease_factor > 2.0
-
-timePerReviewCard = avgSessionTime / sessionCards (derived from session history, default 2.5 min)
-timePerLearningCard = timePerReviewCard x 3.2 (learning takes ~3x longer than review)
-
-totalEstimate =
-- (cardsNeedingReview x timePerReviewCard) +
-- (cardsUnmastered x timePerLearningCard)
-
-recommendedDailySchedule = split totalEstimate evenly across days between today and (examDate - 1), capped at 2 hours per day.
-
-Surface: assignment detail view for exam-type components. Shows estimate, daily breakdown, START REVIEW SESSION button that opens filtered drill covering exam chapters only.
-
-This closes the full loop:
-- Syllabus -> grade weights + exam scope
-- Mastery data -> what needs work
-- Estimate -> how long it will take
-- Scheduled sessions -> when to study
-- Filtered drill -> the actual studying
-
----
-
-## QZ-005 — SM-2 spaced repetition (expanded)
-
-| Field | Value |
-|-------|--------|
-| **Impact** | 5 |
-| **Difficulty** | 4 |
-| **Est. time** | ~1–2 weeks |
-| **Tags** | content, local-first |
-
-**Reason for difficulty:** requires per-card metadata persisted to SQLite (ease factor, interval, next review date, repetition count), a correct SM-2 interval calculation on every KNOW IT / AGAIN response, and a deck-loading change that filters and sorts cards by due date rather than serving the full deck. The algorithm itself is ~50 lines of JS but the persistence schema change and migration from the current JSON storage touches multiple layers. Depends on QZ-002 (session summary) being shipped first so the feedback loop is established before the algorithm changes what gets surfaced.
-
----
-
-## INF-001 — localStorage → better-sqlite3 migration (expanded)
-
-| Field | Value |
-|-------|-------|
-| Impact | 5 |
-| Difficulty | 3 |
-| Est. time | ~3–5 days |
-| Tags | infra, local-first |
-
-Must be completed before Phase 2 begins. localStorage has a 5–10MB size cap and is synchronous — both become real problems once PPTX import generates large notes content and SM-2 requires per-card date queries.
-
-**Migration path:**
-
-- Install better-sqlite3 in the main process.
-- Create a db.js module in main with get, set, query, and run methods.
-- Expose via preload contextBridge as window.studyHub.db.
-- Migrate existing localStorage keys to SQLite tables on first launch after update — lossless, with fallback read from localStorage if SQLite record not found.
-- Remove localStorage reads one key at a time after confirming each migration path works.
-- Components call window.studyHub.db instead of localStorage — minimal surface area change in React.
-
-**Schema (initial):**
-
-- courses table — id, name, subtitle, created_at
-- chapters table — id, course_id, title, order_index
-- content table — chapter_id, type, body, created_at
-- flashcards table — id, course_id, front, back
-- mastery table — card_id, ease, interval, reps, next_review, last_reviewed
-- settings table — key, value
-
-This migration is a prerequisite gate for INF-001. Nothing in Phase 2 (SM-2, Blackboard import) ships until INF-001 is complete and verified.
-
----
-
-## UI build queue (complete)
-
-| ID | Status |
-|----|--------|
-| UI-001 | **Done** |
-| UI-002 | **Done** |
-| UI-003 | **Done** |
-| UI-004 | **Done** |
-
----
-
-*New ideas you list get an ID row in the sorted table with implementer-assigned Impact, Difficulty, and time, then expanded detail if needed.*
+Buckets keyed by `canonical_course + instructor + term`. Reports store only the letter /
+percentage band and a random submission id; the account link is a one-way hash used solely
+to enforce one report per bucket. Aggregates are served from a view that returns nothing
+under 5 reports.

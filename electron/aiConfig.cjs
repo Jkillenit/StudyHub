@@ -1,5 +1,8 @@
 const fs = require("fs");
 const path = require("path");
+const { safeStorage } = require("electron");
+
+const ENHANCE_MODEL = "claude-haiku-4-5-20251001";
 
 function pathFor(app) {
   return path.join(app.getPath("userData"), "study-hub-ai.json");
@@ -18,34 +21,65 @@ function readFile(app) {
 function writeFile(app, obj) {
   const p = pathFor(app);
   fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify(obj, null, 2), "utf8");
+  fs.writeFileSync(p, JSON.stringify(obj, null, 2), { encoding: "utf8", mode: 0o600 });
 }
 
-/** Env wins so CI / power users can inject key without UI. */
+function canEncrypt() {
+  try {
+    return safeStorage.isEncryptionAvailable();
+  } catch {
+    return false;
+  }
+}
+
+function encrypt(value) {
+  return safeStorage.encryptString(value).toString("base64");
+}
+
+function decrypt(value) {
+  try {
+    return safeStorage.decryptString(Buffer.from(value, "base64"));
+  } catch {
+    return "";
+  }
+}
+
+/** Env wins so CI / power users can inject a key without the UI. */
 function getApiKey(app) {
   const fromEnv = process.env.ANTHROPIC_API_KEY?.trim();
   if (fromEnv) return fromEnv;
-  return readFile(app).anthropicApiKey?.trim() || "";
+  const config = readFile(app);
+  if (config.anthropicApiKeyEnc && canEncrypt()) return decrypt(config.anthropicApiKeyEnc).trim();
+  if (config.anthropicApiKey) {
+    const legacy = String(config.anthropicApiKey).trim();
+    if (legacy && canEncrypt()) setApiKey(app, legacy);
+    return legacy;
+  }
+  return "";
 }
 
 function setApiKey(app, key) {
-  const c = readFile(app);
-  c.anthropicApiKey = key.trim();
-  writeFile(app, c);
+  const trimmed = String(key || "").trim();
+  const config = readFile(app);
+  delete config.anthropicApiKey;
+  delete config.anthropicApiKeyEnc;
+  if (trimmed) {
+    if (canEncrypt()) config.anthropicApiKeyEnc = encrypt(trimmed);
+    else config.anthropicApiKey = trimmed;
+  }
+  writeFile(app, config);
 }
 
 function clearApiKey(app) {
-  const c = readFile(app);
-  delete c.anthropicApiKey;
-  writeFile(app, c);
+  setApiKey(app, "");
+}
+
+function isEncrypted(app) {
+  return !!readFile(app).anthropicApiKeyEnc;
 }
 
 function getModel(app) {
-  return (
-    process.env.CLAUDE_MODEL?.trim() ||
-    readFile(app).model?.trim() ||
-    "claude-sonnet-4-20250514"
-  );
+  return process.env.CLAUDE_MODEL?.trim() || readFile(app).model?.trim() || ENHANCE_MODEL;
 }
 
 function maskKey(key) {
@@ -54,10 +88,11 @@ function maskKey(key) {
 }
 
 module.exports = {
-  pathFor,
+  ENHANCE_MODEL,
   getApiKey,
   setApiKey,
   clearApiKey,
+  isEncrypted,
   getModel,
   maskKey,
 };

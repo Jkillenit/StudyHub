@@ -7,18 +7,9 @@ import TaskList from "@tiptap/extension-task-list";
 import Typography from "@tiptap/extension-typography";
 import { useEffect, useMemo, useRef } from "react";
 import { createGlossaryPlugin, glossaryPluginKey } from "../study/applyGlossaryHighlights.js";
+import { bodyToHtml } from "../lib/notesBody.js";
 
-function plainTextToHtml(text) {
-  const escaped = String(text || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-  if (!escaped.trim()) return "";
-  return escaped
-    .split(/\n{2,}/)
-    .map((chunk) => `<p>${chunk.replace(/\n/g, "<br>")}</p>`)
-    .join("");
-}
+const SAVE_DEBOUNCE_MS = 500;
 
 export function UserCourseTipTapNotesEditor({
   sectionId,
@@ -28,19 +19,16 @@ export function UserCourseTipTapNotesEditor({
   onAutosaveStatus,
 }) {
   const debounceRef = useRef(null);
-  const autosaveStatusTimerRef = useRef(null);
+  const statusTimerRef = useRef(null);
+  const pendingHtmlRef = useRef(null);
+  const lastHtmlRef = useRef(bodyToHtml(value));
   const glossaryTermsRef = useRef(glossaryTerms);
-  const editorRef = useRef(null);
-  const plugin = useMemo(() => createGlossaryPlugin(() => glossaryTermsRef.current), []);
-  const safeBody = useMemo(() => {
-    if (!value || typeof value !== "string") return "";
-    const cleaned = value.replace(/[^\x20-\x7E\n\r\t]/g, " ");
-    if (cleaned.length > 20000) {
-      return cleaned.substring(0, 20000) + "\n\n[Content truncated for display]";
-    }
-    return cleaned;
-  }, [value]);
+  const onChangeRef = useRef(onChangeValue);
+  const onStatusRef = useRef(onAutosaveStatus);
+  onChangeRef.current = onChangeValue;
+  onStatusRef.current = onAutosaveStatus;
 
+  const plugin = useMemo(() => createGlossaryPlugin(() => glossaryTermsRef.current), []);
   const GlossaryExtension = useMemo(
     () =>
       Extension.create({
@@ -52,72 +40,68 @@ export function UserCourseTipTapNotesEditor({
     [plugin]
   );
 
+  const flush = () => {
+    window.clearTimeout(debounceRef.current);
+    if (pendingHtmlRef.current == null) return;
+    const html = pendingHtmlRef.current;
+    pendingHtmlRef.current = null;
+    lastHtmlRef.current = html;
+    onChangeRef.current?.(html, sectionId);
+  };
+
   const editor = useEditor(
     {
       extensions: [
         StarterKit.configure({ heading: { levels: [2, 3] } }),
-        Placeholder.configure({
-          placeholder: "Type notes...",
-          emptyEditorClass: "sh-editor-empty",
-        }),
+        Placeholder.configure({ placeholder: "Type notes...", emptyEditorClass: "sh-editor-empty" }),
         Typography,
         TaskList,
         TaskItem.configure({ nested: true }),
         GlossaryExtension,
       ],
-      content: plainTextToHtml(safeBody),
+      content: lastHtmlRef.current,
       onUpdate: ({ editor: ed }) => {
-        onAutosaveStatus?.("saving");
+        onStatusRef.current?.("saving");
+        pendingHtmlRef.current = ed.isEmpty ? "" : ed.getHTML();
         window.clearTimeout(debounceRef.current);
         debounceRef.current = window.setTimeout(() => {
-          onChangeValue?.(ed.getText({ blockSeparator: "\n\n" }));
-          onAutosaveStatus?.("saved");
-          if (autosaveStatusTimerRef.current) {
-            window.clearTimeout(autosaveStatusTimerRef.current);
-          }
-          autosaveStatusTimerRef.current = window.setTimeout(() => {
-            if (!ed?.isDestroyed) {
-              onAutosaveStatus?.("local");
-            }
-          }, 1200);
-        }, 500);
+          flush();
+          onStatusRef.current?.("saved");
+          window.clearTimeout(statusTimerRef.current);
+          statusTimerRef.current = window.setTimeout(() => onStatusRef.current?.("local"), 1200);
+        }, SAVE_DEBOUNCE_MS);
       },
-      editorProps: {
-        attributes: {
-          class: "sh-editor-content",
-          spellcheck: "true",
-        },
-      },
+      editorProps: { attributes: { class: "sh-editor-content", spellcheck: "true" } },
     },
-    [sectionId, GlossaryExtension, safeBody]
+    [sectionId, GlossaryExtension]
   );
 
+  // Imports can append to the body while the tab is open; adopt those changes unless the user is typing.
   useEffect(() => {
-    editorRef.current = editor;
-  }, [editor]);
+    if (!editor || editor.isDestroyed) return;
+    const incoming = bodyToHtml(value);
+    if (incoming === lastHtmlRef.current || pendingHtmlRef.current != null || editor.isFocused) return;
+    lastHtmlRef.current = incoming;
+    editor.commands.setContent(incoming, { emitUpdate: false });
+  }, [value, editor]);
 
   useEffect(() => {
-    const prev = JSON.stringify(glossaryTermsRef.current || []);
-    const next = JSON.stringify(glossaryTerms || []);
-    if (prev === next) return;
-    glossaryTermsRef.current = glossaryTerms || [];
-    const ed = editorRef.current;
-    if (ed && !ed.isDestroyed && ed.view) {
-      ed.view.dispatch(ed.state.tr.setMeta(glossaryPluginKey, true));
+    const next = glossaryTerms || [];
+    if (JSON.stringify(glossaryTermsRef.current || []) === JSON.stringify(next)) return;
+    glossaryTermsRef.current = next;
+    if (editor && !editor.isDestroyed && editor.view) {
+      editor.view.dispatch(editor.state.tr.setMeta(glossaryPluginKey, true));
     }
   }, [glossaryTerms, editor]);
 
-  useEffect(() => {
-    return () => {
-      if (editor && !editor.isDestroyed) {
-        editor.destroy();
-      }
-      window.clearTimeout(debounceRef.current);
-      if (autosaveStatusTimerRef.current) {
-        window.clearTimeout(autosaveStatusTimerRef.current);
-      }
-    };
-  }, [editor]);
+  useEffect(
+    () => () => {
+      flush();
+      window.clearTimeout(statusTimerRef.current);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sectionId]
+  );
 
   return (
     <div className="sh-notes-wrapper-inner" style={{ touchAction: "auto" }}>
@@ -125,3 +109,5 @@ export function UserCourseTipTapNotesEditor({
     </div>
   );
 }
+
+export default UserCourseTipTapNotesEditor;

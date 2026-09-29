@@ -6,7 +6,6 @@ import { hasStudySectionContent, StudySectionBody } from "./contentRegistry.jsx"
 import { GlossarySplitProvider, useGlossarySplit } from "../glossary/index.js";
 import { GlossaryContextBlock } from "../glossary/GlossaryContextBlock.jsx";
 import { getStudyChapterNote, studyNoteHasVisibleBody } from "./chapterNotesStorage.js";
-import { loadStudyMaterials } from "./materialsStorage.js";
 import { MaterialsOffcanvas } from "./MaterialsOffcanvas.jsx";
 import { ChapterNotesEditorBody } from "./ChapterNotesEditorBody.jsx";
 import { useShell } from "../shell/ShellContext.jsx";
@@ -176,7 +175,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
 
   useEffect(() => {
     const onKey = (e) => {
-      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) return;
       if (active === "flashcards" && mainTab === "content") return;
       if (e.key === "ArrowLeft") goChapter(-1);
       if (e.key === "ArrowRight") goChapter(1);
@@ -187,7 +186,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
 
   useEffect(() => {
     const onKey = (e) => {
-      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "r") {
         e.preventDefault();
         markCurrentComplete();
@@ -245,13 +244,6 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
       right: [mainTab === "notes" ? "NOTES" : "CONTENT", "LOCAL"],
     });
   }, [completedCount, totalVisible, current, mainTab, setStatusBar]);
-
-  useEffect(() => {
-    const bridge = typeof window !== "undefined" ? window.studyHub : null;
-    if (!bridge?.registerMaterialPaths) return;
-    const mats = loadStudyMaterials();
-    if (mats.length) bridge.registerMaterialPaths(mats.map((m) => m.path)).catch(() => {});
-  }, []);
 
   const chapterHasNotes = useMemo(
     () => studyNoteHasVisibleBody(getStudyChapterNote(active)),

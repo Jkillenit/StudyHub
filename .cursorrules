@@ -1,208 +1,144 @@
 # Study Hub — Cursor Rules
-# Electron + React desktop study application
-# Read this file before every response.
+# Electron + React desktop app: the student-side replacement for Blackboard.
+# Read this file and docs/PROJECT_BRIEF.md before every response.
 
 ## IDENTITY
-Study Hub is a local-first Electron + React desktop
-application that helps students import course materials,
-build flashcard decks, track mastery, and calculate
-grades. It is NOT a web app. It runs as a native
-desktop window via Electron.
+Study Hub mirrors a student's Blackboard courses (files, announcements,
+assignments, their own grades) and wraps them in built-in study tools:
+notes, glossary, flashcards with SM-2, practice tests, grade calculator.
+An optional cloud "Commons" adds shared student-authored study materials,
+anonymous past grade distributions, and short professor reviews.
+It is a native desktop window via Electron, NOT a web app.
+
+## ARCHITECTURE: LOCAL-FIRST + OPTIONAL COMMONS
+- Personal data (courses, notes, cards, mastery, own grades, BB mirror)
+  lives ONLY in local SQLite. Works offline, no account.
+- Commons (Supabase) is opt-in, requires a verified .edu account, and only
+  receives items the student explicitly publishes.
+- Every feature must work without Commons and without an API key.
 
 ## TECH STACK
-- Runtime: Electron (main process) + React (renderer)
-- Bundler: Vite
-- Styling: Bootstrap reset ONLY + custom CSS tokens
-- Notes editor: TipTap (ProseMirror-based)
-- Database: better-sqlite3 via IPC (INF-001)
-- File parsing: officeparser v6 (PPTX/DOCX/XLSX)
-- AI layer: Anthropic Claude Haiku via fetch (optional)
-- No Firebase. No server. No cloud. Local only.
+- Runtime: Electron (main) + React 18 (renderer), Vite
+- Styling: Bootstrap reset ONLY + custom --sh-* CSS tokens
+- Notes editor: TipTap
+- Database: better-sqlite3 via IPC (db:* handlers)
+- File parsing: officeparser v6 (PPTX/DOCX/XLSX), pdf-parse (PDF), main only
+- AI: Claude Haiku via main-process IPC (optional)
+- Cloud: Supabase (Commons only, Phase 4+)
 
 ## FILE STRUCTURE
 electron/
-  main.cjs          ← Main process, IPC handlers
-  preload.cjs       ← Renderer bridge (window.studyHub)
-  database.cjs      ← SQLite init + schema
-  dbHandlers.cjs    ← All db:* IPC handlers
+ main.cjs              Main process, file/AI IPC
+ preload.cjs           Renderer bridge (window.studyHub)
+ database.cjs          SQLite init, schema, numbered migrations
+ dbHandlers.cjs        All db:* IPC handlers
+ blackboardWindow.cjs  Embedded Blackboard window + mirror sync
+ bbPreload.cjs         Blackboard window bridge
+ aiConfig.cjs          API key (safeStorage)
+ anthropicClient.cjs   Claude calls
 
 src/
-  app/
-    StudyHubApp.jsx     ← Root app, course state
-  hub/
-    UserCourseApp.jsx   ← User course view (tabs,
-                          modules, content, notes,
-                          glossary, QZ)
-  welcome/
-    WelcomeScreen.jsx
-    ExpressImportModal.jsx
-    ExpressProcessingView.jsx
-  om300/
-    Om300Flashcards.jsx   ← Flashcard drill component
-    Om300TipTapNotesEditor.jsx ← Notes editor
-  pptx/
-    pptxClassifier.js   ← 4-type local classifier
-    pptxOutputBuilder.js
-    usePptxImport.js
-  ai/
-    apiKeyUtils.js
-    pptxEnhancer.js     ← Claude Haiku enhancement
-    mergeEnhancedOutput.js
-  db/
-    courseStore.js      ← Data access layer
-    migrateFromLocalStorage.js
-  shell/
-    ShellContext.jsx
-  studyhub-bootstrap.css  ← ONLY CSS file
+ app/StudyHubApp.jsx   Root app, course state, routing
+ features/             Feature modules (import, dashboard, calendar,
+                       practice, web, commons UI)
+ hub/                  User course view (UserCourseApp + components/)
+ study/                OM 300 built-in course, FlashcardDeck, sm2.js
+ pptx/ ai/ syllabus/   Import pipelines
+ db/courseStore.js     Data access layer (renderer's only DB entry point)
+ commons/              Commons client
+ shell/                Command palette, ShellContext
+ studyhub-bootstrap.css  ONLY CSS file
 
-docs/
-  PRODUCT_BACKLOG.md
-  ROADMAP.md
+supabase/              Commons SQL schema, RLS, edge functions
+docs/                  PROJECT_BRIEF.md, ROADMAP.md, PRODUCT_BACKLOG.md
 
 ## CSS DESIGN SYSTEM
 NEVER use hardcoded colors. ALWAYS use tokens:
+ --sh-base --sh-surface --sh-raised --sh-border
+ --sh-green --sh-green-dim --sh-amber --sh-cyan --sh-red
+ --sh-text-primary --sh-text-secondary --sh-text-dim --sh-muted
 
-  --sh-base           background
-  --sh-surface        card surface
-  --sh-raised         elevated surface
-  --sh-border         border color
-  --sh-green          primary accent (cyan-green)
-  --sh-green-dim      muted green background
-  --sh-amber          warning / medium confidence
-  --sh-cyan           QZ/flashcard accent
-  --sh-red            danger / delete actions
-  --sh-text-primary   main text
-  --sh-text-secondary secondary text
-  --sh-text-dim       muted/label text
-  --sh-muted          very muted
+Typography:
+ - Section labels: monospace, 9-11px, letter-spacing 0.1em, uppercase
+ - Body: Inter, 13px, line-height 1.5
+ - Terms/cards: Inter, normal weight
+ - Code/numbers: monospace
 
-Typography rules:
-  - Section labels: monospace, 9-11px,
-    letter-spacing 0.1em, uppercase
-  - Body text: Inter, 13px, line-height 1.5
-  - Terms/cards: Inter, normal weight (not bold)
-  - Code/numbers: monospace
-
-Tab active state: border-bottom only, NEVER full border
-  .active-tab {
-    border-bottom: 2px solid var(--sh-green);
-    border-top: none;
-    border-left: none;
-    border-right: none;
-    background: transparent;
-  }
+Tab active state: border-bottom only (2px solid var(--sh-green)), never full border.
 
 ## IPC PATTERN
-Main process registers handlers in electron/main.cjs:
-  ipcMain.handle('namespace:action', async (_, args) => {})
-
-Preload exposes via window.studyHub:
-  window.studyHub.db.courses.getAll()
-  window.studyHub.extractPptx(filePath)
-  window.studyHub.openFileDialog(options)
-
-Renderer calls via bridge only. NEVER require()
-Node modules in renderer. NEVER use remote module.
+Main: ipcMain.handle('namespace:action', async (_, args) => {})
+Preload exposes via window.studyHub. Renderer calls the bridge only.
+NEVER require() Node modules in renderer. NEVER use remote module.
 
 ## DATABASE RULES
-- All course data in SQLite (better-sqlite3)
-- localStorage is ONLY for migration flag and
-  legacy compatibility during transition
-- All DB calls go through IPC: db:* handlers
-- Use courseStore.js in renderer, not direct IPC
-- Transactions for multi-table writes always
-- Foreign keys ON always
-- WAL mode always
+- All course data in SQLite. localStorage only for UI prefs, OM 300
+  built-in progress, and the migration flag.
+- Renderer uses courseStore.js, not raw IPC.
+- Writes are UPSERTS KEYED BY uuid. NEVER delete-and-reinsert a whole
+  course/deck/component list (it cascades and destroys mastery + grades).
+- Transactions for multi-table writes. Foreign keys ON. WAL ON.
+- Schema changes go in a new numbered migration in database.cjs.
 
-## DATA FLOW FOR PPTX IMPORT
-1. User selects file via native dialog (IPC)
-2. officeparser extracts AST in main process
-3. groupIntoSlides groups by type:'slide' nodes
-4. pptxClassifier.js classifies: definitions,
-   sections, formulas, unclassified
-5. pptxOutputBuilder.js builds output object
-6. Optional: Claude Haiku enhances if API key set
-7. mergeEnhancedOutput merges AI + local
-8. UserCourseApp writes to SQLite via courseStore
-9. Module title updated from first slide title
-10. Glossary terms auto-added to glossary_terms
-11. Flashcards added to flashcards table
-12. UI re-renders from fresh DB read
+## SECURITY RULES
+- API key only in main process, encrypted with safeStorage. Never in
+  renderer, never in localStorage.
+- File open/read IPC only for paths in the allowlist; the allowlist is
+  populated by native dialogs, imports, and the BB temp dir — never by
+  arbitrary renderer input.
+- Blackboard bridge only honored on *.blackboard.com origins.
+- Escape any user/slide text injected into Blackboard pages.
+
+## GUARDRAILS (COMMONS + BLACKBOARD)
+- Commons accepts only student-authored content. Block raw professor
+  files, exams, quizzes, answer keys by default. Everything reportable.
+- Web study guides stored as link + summary/cards, never re-hosted.
+- Grade distributions: anonymous, self-reported, shown only at >= 5 reports.
+- Professor reviews: structured ratings + <=280 chars, filtered, 1 per
+  student per course-term.
+- Blackboard: read-only, logged-in student's own data, human pace,
+  no stored credentials.
 
 ## COMPONENT RULES
-UserCourseApp.jsx — three tabs per module:
-  CONTENT | NOTES | GLOSSARY
-  Plus QZ-01 as separate DRILL sidebar item
-
-Active sidebar item state:
-  'module:{uuid}' | 'qz-deck' | null
-  NEVER use array index for active state
-
-Definition cards — three tiers:
-  high: full green accent, no dot
-  medium: muted green accent, amber dot
-  low: border only, goes to NEEDS REVIEW section
-
-Section blocks — three types:
-  numbered: 01 02 03 in monospace green
-  bullets: — dash prefix
-  deflist: term bold above, definition indented
-
-Show 4 items default, expand for more (cognitive
-load principle — working memory 4±1).
-
-Collapsible threshold: 120 characters.
+UserCourseApp module tabs: CONTENT | NOTES | GLOSSARY | GRADES
+ plus QZ-01 as a DRILL sidebar item.
+Active sidebar state: 'module:{uuid}' | 'qz-deck' | null. Never array index.
+Definition cards: high (full green), medium (muted green + amber dot),
+ low (border only, NEEDS REVIEW section).
+Section blocks: numbered (01 02 in mono green), bullets (— prefix),
+ deflist (term above, definition indented).
+Show 4 items by default, expand for more. Collapsible threshold: 120 chars.
 
 ## KEYBOARD HANDLERS
-Flashcard drill keyboard handler MUST:
-  1. Check palette is closed before firing
-  2. Use useCallback with proper deps
-  3. Clean up in useEffect return
-  4. Debounce flip with 200ms ref guard
-
-Chapter navigation arrow keys MUST:
-  Stop when activeItem === 'qz-deck'
+Flashcard drill: check palette closed, useCallback, cleanup in effect,
+ 200ms flip debounce via ref, ignore keys while a rating is in flight.
+Chapter arrow keys: stop when activeItem === 'qz-deck' and when focus is
+ in an input, textarea, or contentEditable.
 
 ## AI ENHANCEMENT
-Model: claude-haiku-4-5-20251001 ONLY
-  (never Sonnet or Opus for enhancement)
-Always graceful fallback if:
-  - No API key configured
-  - API call fails
-  - Response is not valid JSON
-Local pipeline always runs first.
-AI enhances, never replaces.
-Enhanced cards get enhancedByAI: true flag.
+Model: claude-haiku-4-5-20251001 for enhancement (never Sonnet/Opus).
+Graceful fallback: no key, API failure, invalid JSON.
+Local pipeline runs first; AI enhances, never replaces. Flag enhancedByAI.
 
 ## WHAT NEVER TO TOUCH
-- OM 300 built-in course data and rendering
-  (src/om300/ hardcoded content)
-- officeparser in renderer bundle
-  (must stay in Vite externals)
+- OM 300 built-in course content (src/study/sections, src/glossary/courseData.js)
+- officeparser/pdf-parse in the renderer bundle (keep in Vite externals)
 - Bootstrap classes for layout logic
-  (use custom --sh-* tokens)
-- Any direct localStorage for course data
-  (use SQLite via courseStore)
 
 ## BUILD REQUIREMENTS
-Every response that changes code must:
-1. Ensure npm run build passes
-2. Ensure officeparser NOT in renderer bundle
-3. Not introduce console.error in production
-4. Not break existing OM 300 course functionality
+Every code change must:
+1. Pass npm run build
+2. Keep officeparser out of the renderer bundle
+3. Add no console.log / console.error in production paths
+4. Not break the OM 300 course
 
 ## COMMIT MESSAGE FORMAT
 "Phase X.Y — Short description
 
 - Bullet 1
-- Bullet 2
-- Bullet 3"
+- Bullet 2"
 
 ## CURRENT STATUS
-Phase 0  ✓ UI foundation
-Phase 1a ✓ Notes editor + TipTap
-Phase 1b-A ✓ PPTX local pipeline + integrations
-Phase 1b-B ✓ Claude AI enhancement layer
-INF-001  ▶ SQLite migration (IN PROGRESS)
-Phase 2  ○ SM-2, grade calculator, Blackboard ZIP
-Phase 3  ○ Packaging + alpha release
+See docs/ROADMAP.md. Phase 0 ✓ (stabilize + data layer) → 1 Blackboard
+mirror → 2 study suite → 3 web guides → 4 Commons → 5 grade insights
+→ 6 professor reviews → 7 alpha release.

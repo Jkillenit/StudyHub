@@ -1,45 +1,53 @@
 import React, { useMemo, useState } from "react";
 import InlineEdit from "./InlineEdit";
 
-function CourseSidebar({ course, activeItem, onActiveChange, onRenameCourse, onRenameModule }) {
+// Phase 1+ views (announcements, assignments, Blackboard sync, practice tests, study guide,
+// web materials, Commons) get entries here as each view lands.
+export const COURSE_ITEMS = [];
+
+export const STUDY_ITEMS = [{ id: "qz-deck", prefix: "QZ·01", label: "Flashcard Deck" }];
+
+function ItemButton({ item, activeItem, onActiveChange, badge }) {
+  return (
+    <button
+      type="button"
+      className={`ch-item ${activeItem === item.id ? "active" : ""}`}
+      onClick={() => onActiveChange(item.id)}
+    >
+      <span className="ch-num mono qz-prefix">{item.prefix}</span>
+      <span className="ch-title">
+        {item.label}
+        {badge ? <span className="sh-due-badge mono"> · {badge}</span> : null}
+      </span>
+    </button>
+  );
+}
+
+function CourseSidebar({ course, activeItem, onActiveChange, onRenameCourse, onRenameModule, badges = {} }) {
   const [search, setSearch] = useState("");
   const modules = Array.isArray(course?.modules) ? course.modules : [];
   const completedIds = new Set(course?.completedModuleIds || []);
+  const disabledIds = new Set(course?.disabledModuleIds || []);
 
   const filteredModules = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return modules;
-    return modules.filter((m) => {
-      const label = String(m?.label || "").toLowerCase();
-      const title = String(m?.title || "").toLowerCase();
-      return label.includes(q) || title.includes(q);
-    });
-  }, [modules, search]);
+    const visible = modules.filter((m) => !disabledIds.has(m.id));
+    if (!q) return visible;
+    return visible.filter((m) => `${m?.label || ""} ${m?.title || ""}`.toLowerCase().includes(q));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modules, search, course?.disabledModuleIds]);
 
-  const chapterTag = (id) => {
-    const idx = modules.findIndex((m) => m.id === id);
-    return `CH·${String(idx + 1).padStart(2, "0")}`;
-  };
+  const chapterTag = (id) => `CH·${String(modules.findIndex((m) => m.id === id) + 1).padStart(2, "0")}`;
 
   return (
     <>
       <div className="sh-sidebar-head">
         <div className="sh-sidebar-label">ACTIVE COURSE</div>
         <div className="sh-sidebar-course">
-          <InlineEdit
-            value={course?.name || ""}
-            className="sh-course-name-edit"
-            onSave={async (newName) => {
-              await window.studyHub?.db?.courses?.update({
-                uuid: course?.uuid || course?.id,
-                name: newName,
-              });
-              onRenameCourse?.(newName);
-            }}
-          />
+          <InlineEdit value={course?.name || ""} className="sh-course-name-edit" onSave={(name) => onRenameCourse?.(name)} />
         </div>
         <div className="sh-sidebar-meta mono">
-          {(course?.subtitle || "NOTES").toUpperCase()} · {modules.length} MODULES
+          {(course?.courseCode || course?.subtitle || "NOTES").toUpperCase()} · {modules.length} MODULES
         </div>
       </div>
       <div className="sh-sidebar-search">
@@ -63,43 +71,30 @@ function CourseSidebar({ course, activeItem, onActiveChange, onRenameCourse, onR
 └─────────────────┘`}</pre>
         ) : (
           filteredModules.map((m) => {
-            const moduleId = m?.uuid || m?.id;
-            const isActive = activeItem === `module:${moduleId}`;
-            const done = completedIds.has(moduleId);
+            const isActive = activeItem === `module:${m.id}`;
             return (
               <button
-                key={moduleId}
+                key={m.id}
                 type="button"
-                className={`ch-item ${isActive ? "active" : ""} ${done ? "ch-item--complete" : ""}`}
-                onClick={() => onActiveChange(`module:${moduleId}`)}
+                className={`ch-item ${isActive ? "active" : ""} ${completedIds.has(m.id) ? "ch-item--complete" : ""}`}
+                onClick={() => onActiveChange(`module:${m.id}`)}
               >
-                <span className="ch-num">{chapterTag(moduleId)}</span>
+                <span className="ch-num">{chapterTag(m.id)}</span>
                 <span className="ch-title">
-                  <InlineEdit
-                    value={m?.title || ""}
-                    className="ch-title-edit"
-                    onSave={async (newTitle) => {
-                      await window.studyHub?.db?.modules?.update({
-                        uuid: moduleId,
-                        title: newTitle,
-                      });
-                      onRenameModule?.(moduleId, newTitle);
-                    }}
-                  />
+                  <InlineEdit value={m?.title || ""} className="ch-title-edit" onSave={(title) => onRenameModule?.(m.id, title)} />
                 </span>
               </button>
             );
           })
         )}
+        {COURSE_ITEMS.length ? <div className="ch-divider mono">COURSE</div> : null}
+        {COURSE_ITEMS.map((item) => (
+          <ItemButton key={item.id} item={item} activeItem={activeItem} onActiveChange={onActiveChange} badge={badges[item.id]} />
+        ))}
         <div className="ch-divider mono">DRILL</div>
-        <button
-          type="button"
-          className={`ch-item ${activeItem === "qz-deck" ? "active" : ""}`}
-          onClick={() => onActiveChange("qz-deck")}
-        >
-          <span className="ch-num mono qz-prefix">QZ·01</span>
-          <span className="ch-title">Flashcard Deck</span>
-        </button>
+        {STUDY_ITEMS.map((item) => (
+          <ItemButton key={item.id} item={item} activeItem={activeItem} onActiveChange={onActiveChange} badge={badges[item.id]} />
+        ))}
       </div>
     </>
   );

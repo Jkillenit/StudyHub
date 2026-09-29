@@ -45,11 +45,6 @@ export function MaterialsOffcanvas({ show, onHide }) {
     setItems(loadStudyMaterials());
   }, [show]);
 
-  useEffect(() => {
-    if (!show || !bridge?.registerMaterialPaths || !items.length) return;
-    bridge.registerMaterialPaths(items.map((m) => m.path)).catch(() => {});
-  }, [show, bridge, items]);
-
   const addFiles = async () => {
     if (!bridge?.pickFiles) return;
     const paths = await bridge.pickFiles(FILE_FILTERS);

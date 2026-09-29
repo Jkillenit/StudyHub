@@ -4383,3 +4383,40 @@ button.sh-titlebar-wordmark--btn:hover {
 .sh-grades-delete-btn:hover {
   color: var(--sh-red);
 }
+
+/* Toasts + error boundary */
+.sh-toast {
+  position: fixed;
+  right: 16px;
+  bottom: 30px;
+  z-index: 999999;
+  max-width: 420px;
+  padding: 8px 12px;
+  background: var(--sh-surface);
+  border: 1px solid var(--sh-border);
+  border-left: 3px solid var(--sh-green);
+  color: var(--sh-text-primary);
+  font-family: monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+.sh-error-boundary {
+  padding: 48px 32px;
+  color: var(--sh-text-secondary);
+}
+.sh-error-boundary-text {
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 8px 0 16px;
+}
+.sh-bb-gradebook {
+  margin-top: 24px;
+}
+.sh-bb-apply-select {
+  background: var(--sh-raised);
+  color: var(--sh-text-secondary);
+  border: 1px solid var(--sh-border);
+  font-family: monospace;
+  font-size: 10px;
+  padding: 2px 4px;
+}

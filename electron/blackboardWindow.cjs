@@ -1,8 +1,13 @@
-const { app, BrowserWindow, session, ipcMain, net } = require("electron");
+const { app, BrowserWindow, session, ipcMain, net, shell } = require("electron");
 const fs = require("fs");
 const path = require("path");
+const { getDb } = require("./database.cjs");
+const { applyBbSync } = require("./dbMirrorHandlers.cjs");
+const { listEnrolledCourses, syncCourse, resetUserCache } = require("./bbSync.cjs");
 
 let bbWindow = null;
+let getMainWindow = () => null;
+let allowPaths = () => {};
 let activeCourseId = "";
 let linkedCourseName = "";
 let linkedBbCourseId = "";
@@ -15,6 +20,55 @@ let bbWillDownloadListenerAttached = false;
 const BB_PARTITION = "persist:blackboard";
 const BB_URL = "https://ualearn.blackboard.com";
 const BB_TEMP_DIR = path.join(app.getPath("temp"), "studyhub-bb");
+const BB_TEMP_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+function isBlackboardUrl(url) {
+  try {
+    const u = new URL(String(url || ""));
+    return u.protocol === "https:" && (u.hostname === "blackboard.com" || u.hostname.endsWith(".blackboard.com"));
+  } catch {
+    return false;
+  }
+}
+
+/** Only the Blackboard window, while showing a *.blackboard.com page, may drive imports. */
+function isTrustedBbSender(event) {
+  if (!bbWindow || bbWindow.isDestroyed()) return false;
+  if (event?.sender !== bbWindow.webContents) return false;
+  return isBlackboardUrl(event.senderFrame?.url || bbWindow.webContents.getURL());
+}
+
+function isMainWindowSender(event) {
+  const win = getMainWindow();
+  return !!win && !win.isDestroyed() && event?.sender === win.webContents;
+}
+
+function isAllowedImportUrl(fileUrl) {
+  const value = String(fileUrl || "");
+  return value.startsWith("bb-content-id:") || isBlackboardUrl(value);
+}
+
+function cleanupTempDir() {
+  try {
+    if (!fs.existsSync(BB_TEMP_DIR)) return;
+    const cutoff = Date.now() - BB_TEMP_MAX_AGE_MS;
+    fs.readdirSync(BB_TEMP_DIR).forEach((name) => {
+      const full = path.join(BB_TEMP_DIR, name);
+      try {
+        if (fs.statSync(full).mtimeMs < cutoff) fs.unlinkSync(full);
+      } catch {
+        /* in use */
+      }
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+function sendToMain(channel, payload) {
+  const win = getMainWindow();
+  if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+}
 
 function buildToolbarScript(_courseId, bbCourseId, linkedNameForPage) {
   const safeBbCourseId = JSON.stringify(String(bbCourseId || ""));
@@ -102,6 +156,12 @@ function buildToolbarScript(_courseId, bbCourseId, linkedNameForPage) {
       var title = window.__shGetCourseTitle ? window.__shGetCourseTitle() : null;
       createBtn.textContent = "CREATING...";
       createBtn.disabled = true;
+      setTimeout(function() {
+        if (document.body.contains(createBtn) && createBtn.disabled) {
+          createBtn.disabled = false;
+          createBtn.textContent = "+ CREATE STUDY HUB COURSE";
+        }
+      }, 10000);
       if (window.__shBridge && window.__shBridge.createCourse) {
         window.__shBridge.createCourse({
           courseTitle: title || ${safeBbCourseId},
@@ -136,13 +196,6 @@ function buildToolbarScript(_courseId, bbCourseId, linkedNameForPage) {
 
   document.body.prepend(toolbar);
   document.body.style.paddingTop = "40px";
-
-  window.__shUpdateToolbar = function(data) {
-    if (data && data.linked) {
-      var t = document.getElementById("sh-bb-toolbar");
-      if (t) t.remove();
-    }
-  };
 })();
 `;
 }
@@ -155,12 +208,10 @@ const OBSERVER_SCRIPT = `
     let injectTimer = null
 
     const observer = new MutationObserver(() => {
-      if (!document.getElementById("sh-bb-toolbar")) {
-        // Toolbar re-injection is handled by navigation handlers
-      }
       clearTimeout(injectTimer)
       injectTimer = setTimeout(() => {
         window.__shInjectImportButtons?.()
+        window.__shInjectFolderButtons?.()
       }, 300)
     })
 
@@ -197,7 +248,7 @@ function ensureTempDir() {
   }
 }
 
-function setupDownloadInterceptor(_mainWindow) {
+function setupDownloadInterceptor() {
   const bbSession = session.fromPartition(BB_PARTITION);
 
   if (!bbWillDownloadListenerAttached) {
@@ -249,6 +300,7 @@ function setupDownloadInterceptor(_mainWindow) {
 
       item.once("done", (_e, state) => {
         if (state === "completed") {
+          allowPaths([localPath]);
           entry.resolve(localPath);
         } else {
           entry.reject(new Error(`Download ${state}: ${suggestedName}`));
@@ -272,7 +324,7 @@ function setupDownloadInterceptor(_mainWindow) {
   };
 }
 
-async function downloadBBFile(fileUrl, fileName, _folderName) {
+async function downloadBBFile(fileUrl, fileName) {
   if (!bbWindow || bbWindow.isDestroyed()) {
     throw new Error("Blackboard window is not open");
   }
@@ -516,7 +568,7 @@ function getRoleAction(role, fileExt) {
   }
 }
 
-async function importFileFromUrl(context, mainWindow) {
+async function importFileFromUrl(context) {
   let { fileUrl, fileName, folderName, courseId, bbCourseId, contentId, courseTitle, skipIfRole = [] } = context || {};
   const ext = String(fileName || "").split(".").pop().toLowerCase();
   const role = detectFileRole(fileName, folderName);
@@ -524,47 +576,41 @@ async function importFileFromUrl(context, mainWindow) {
   if (skipIfRole.includes(role)) {
     return { success: false, reason: "skipped", role };
   }
+  if (fileUrl && !isAllowedImportUrl(fileUrl)) {
+    return { success: false, reason: "URL is not a Blackboard file", role };
+  }
 
   const action = getRoleAction(role, ext);
   try {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("bb:import-started", { fileName, folderName, role });
-    }
+    sendToMain("bb:import-started", { fileName, folderName, role });
 
     if ((!fileUrl || String(fileUrl).startsWith("bb-content-id:")) && contentId && bbCourseId) {
       fileUrl = await resolveDownloadUrlFromContent(bbCourseId, contentId);
       if (!fileUrl) throw new Error("Could not resolve Blackboard download URL from content item");
     }
+    if (!isBlackboardUrl(fileUrl)) throw new Error("Resolved URL is not a Blackboard file");
 
-    const localPath = await downloadBBFile(fileUrl, fileName, folderName);
+    const localPath = await downloadBBFile(fileUrl, fileName);
 
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("bb:import-ready", {
-        localPath,
-        fileName,
-        folderName,
-        courseId,
-        bbCourseId,
-        courseTitle: String(courseTitle || ""),
-        role,
-        action,
-      });
-    }
+    sendToMain("bb:import-ready", {
+      localPath,
+      fileName,
+      folderName,
+      courseId,
+      bbCourseId,
+      courseTitle: String(courseTitle || ""),
+      role,
+      action,
+    });
 
     return { success: true, role, action, localPath };
   } catch (err) {
-    console.error("[BB Import] Failed:", fileName, err);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("bb:import-error", {
-        fileName,
-        error: err?.message || String(err),
-      });
-    }
+    sendToMain("bb:import-error", { fileName, error: err?.message || String(err) });
     return { success: false, reason: err?.message || String(err), role };
   }
 }
 
-function buildInjectionScript(courseId, bbCourseId, _linkedCourseName) {
+function buildInjectionScript(courseId, bbCourseId) {
   const safeCourseId = JSON.stringify(String(courseId || ""));
   const safeBbCourseId = JSON.stringify(String(bbCourseId || ""));
   return `
@@ -819,6 +865,16 @@ function buildInjectionScript(courseId, bbCourseId, _linkedCourseName) {
       }
 
       window.__shGetCourseTitle = getCourseTitle;
+      window.__shInjectFolderButtons = injectFolderButtons;
+
+      function escapeHtml(value) {
+        return String(value == null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
 
       window.__shToggleStatus = async function() {
         var existingPanel = document.getElementById('sh-status-panel');
@@ -864,7 +920,7 @@ function buildInjectionScript(courseId, bbCourseId, _linkedCourseName) {
 
           var syllabusLine = status.hasSyllabus
             ? '<div style="color:#00ff88;margin-bottom:4px">\\u2713 Syllabus \\u2014 ' +
-              status.gradeComponentCount +
+              Number(status.gradeComponentCount || 0) +
               ' components</div>'
             : '<div style="color:#8ea88e;margin-bottom:4px">\\u25cb Syllabus \\u2014 not imported</div>';
 
@@ -876,9 +932,9 @@ function buildInjectionScript(courseId, bbCourseId, _linkedCourseName) {
                   ? '<span style="color:#00ff88">\\u2713</span>'
                   : '<span style="color:#8ea88e">\\u25cb</span>') +
                 ' ' +
-                String(m.title || '') +
+                escapeHtml(m.title || '') +
                 ' <span style="color:#4a6a4a">(' +
-                m.itemCount +
+                Number(m.itemCount || 0) +
                 ' items)</span></div>'
               );
             })
@@ -932,13 +988,14 @@ function buildInjectionScript(courseId, bbCourseId, _linkedCourseName) {
         const files = [];
         const items = context.folderElement.querySelectorAll('[' + INJECTED_ATTR + ']');
         items.forEach((item) => {
-          const fileUrl = getFileUrl(item);
+          const contentId = getContentId(item);
+          const fileUrl = getFileUrl(item) || (contentId ? 'bb-content-id:' + contentId : null);
           const fileName = getFileName(item);
           if (fileUrl && fileName) {
             files.push({
               fileUrl,
               fileName,
-              contentId: getContentId(item),
+              contentId,
               folderName: context.folderName,
               courseId: context.courseId,
               bbCourseId: context.bbCourseId,
@@ -961,23 +1018,25 @@ function buildInjectionScript(courseId, bbCourseId, _linkedCourseName) {
   `;
 }
 
-async function injectToolbarAndObserver(pageUrl) {
-  if (!bbWindow || bbWindow.isDestroyed()) return;
-  const url = pageUrl || bbWindow.webContents.getURL();
+async function injectPage(url) {
+  if (!bbWindow || bbWindow.isDestroyed() || !isBlackboardUrl(url)) return;
   const courseId = activeCourseId || "";
   const bbCourse = parseCourseFromUrl(url);
-  const pageBbId = bbCourse?.bbCourseId || "";
-  const displayLinked = displayLinkedCourseName(pageBbId);
-  await bbWindow.webContents.executeJavaScript(buildToolbarScript(courseId, pageBbId, displayLinked)).catch(() => {});
+  const bbCourseId = bbCourse?.bbCourseId || "";
+  const displayLinked = displayLinkedCourseName(bbCourseId);
+  await bbWindow.webContents.executeJavaScript(buildToolbarScript(courseId, bbCourseId, displayLinked)).catch(() => {});
   await bbWindow.webContents.executeJavaScript(OBSERVER_SCRIPT).catch(() => {});
+  await bbWindow.webContents.executeJavaScript(buildInjectionScript(courseId, bbCourseId, displayLinked)).catch(() => {});
+  if (bbCourse) sendToMain("bb:course-detected", bbCourse);
 }
 
-async function openBlackboardWindow(mainWindow) {
+async function openBlackboardWindow() {
   if (bbWindow && !bbWindow.isDestroyed()) {
     bbWindow.focus();
     return;
   }
 
+  cleanupTempDir();
   const loggedIn = await isLoggedIn();
   bbWindow = new BrowserWindow({
     width: 1200,
@@ -987,70 +1046,32 @@ async function openBlackboardWindow(mainWindow) {
       partition: BB_PARTITION,
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
       preload: path.join(__dirname, "bbPreload.cjs"),
     },
-    });
+  });
 
   if (!awaitBBDownload) {
-    awaitBBDownload = setupDownloadInterceptor(mainWindow);
+    awaitBBDownload = setupDownloadInterceptor();
   }
 
-  bbWindow.webContents.on("did-navigate", async (_event, url) => {
-    const courseId = activeCourseId || "";
-    const bbCourse = parseCourseFromUrl(url);
-    const bbCourseId = bbCourse?.bbCourseId || "";
-    const displayLinked = displayLinkedCourseName(bbCourseId);
-    await bbWindow.webContents
-      .executeJavaScript(buildToolbarScript(courseId, bbCourseId, displayLinked))
-      .catch(() => {});
-    await bbWindow.webContents.executeJavaScript(OBSERVER_SCRIPT).catch(() => {});
-    await bbWindow.webContents
-      .executeJavaScript(buildInjectionScript(courseId, bbCourseId, displayLinked))
-      .catch(() => {});
-    if (bbCourse && mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("bb:course-detected", bbCourse);
+  bbWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isBlackboardUrl(url)) {
+      bbWindow?.loadURL(url);
+    } else if (/^https:\/\//i.test(url)) {
+      void shell.openExternal(url);
     }
+    return { action: "deny" };
   });
 
-  bbWindow.webContents.on("did-navigate-in-page", async (_event, url) => {
-    const courseId = activeCourseId || "";
-    const bbCourse = parseCourseFromUrl(url);
-    const bbCourseId = bbCourse?.bbCourseId || "";
-    const displayLinked = displayLinkedCourseName(bbCourseId);
-    await bbWindow.webContents
-      .executeJavaScript(buildToolbarScript(courseId, bbCourseId, displayLinked))
-      .catch(() => {});
-    await bbWindow.webContents.executeJavaScript(OBSERVER_SCRIPT).catch(() => {});
-    await bbWindow.webContents
-      .executeJavaScript(buildInjectionScript(courseId, bbCourseId, displayLinked))
-      .catch(() => {});
-    if (bbCourse && mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("bb:course-detected", bbCourse);
-    }
-  });
-
-  bbWindow.webContents.on("did-finish-load", async () => {
-    const url = bbWindow.webContents.getURL();
-    await injectToolbarAndObserver(url);
-    const cid = activeCourseId || "";
-    const bbCourse = parseCourseFromUrl(url);
-    const bbCourseIdNav = bbCourse?.bbCourseId || "";
-    const displayLinked = displayLinkedCourseName(bbCourseIdNav);
-    const reinjectToolbar = buildToolbarScript(cid, bbCourseIdNav, displayLinked);
-    await bbWindow.webContents
-      .executeJavaScript(
-        `
-        (function() {
-          if (window.__shToolbarReinjectBound) return;
-          window.__shToolbarReinjectBound = true;
-          window.addEventListener("sh-bb-reinject-toolbar", function() {
-            ${reinjectToolbar}
-          });
-        })();
-      `
-      )
-      .catch(() => {});
-  });
+  let injectTimer = null;
+  const scheduleInject = (url) => {
+    clearTimeout(injectTimer);
+    injectTimer = setTimeout(() => void injectPage(url), 150);
+  };
+  bbWindow.webContents.on("did-navigate", (_event, url) => scheduleInject(url));
+  bbWindow.webContents.on("did-navigate-in-page", (_event, url) => scheduleInject(url));
+  bbWindow.webContents.on("did-finish-load", () => scheduleInject(bbWindow.webContents.getURL()));
 
   bbWindow.on("closed", () => {
     bbWindow = null;
@@ -1069,49 +1090,52 @@ function closeBlackboardWindow() {
 
 async function disconnectBlackboard() {
   closeBlackboardWindow();
+  resetUserCache();
   const bbSession = session.fromPartition(BB_PARTITION);
   await bbSession.clearStorageData();
   await bbSession.clearCache();
 }
 
-function registerBlackboardHandlers(mainWindow) {
-  ipcMain.handle("bb:open", async () => {
-    await openBlackboardWindow(mainWindow);
+function registerBlackboardHandlers(mainWindowGetter, options = {}) {
+  getMainWindow = typeof mainWindowGetter === "function" ? mainWindowGetter : () => mainWindowGetter;
+  if (typeof options.allowPaths === "function") allowPaths = options.allowPaths;
+
+  ipcMain.handle("bb:open", async (event) => {
+    if (!isMainWindowSender(event)) return { success: false };
+    await openBlackboardWindow();
     return { success: true };
   });
 
-  ipcMain.handle("bb:close", async () => {
+  ipcMain.handle("bb:close", async (event) => {
+    if (!isMainWindowSender(event) && !isTrustedBbSender(event)) return { success: false };
     closeBlackboardWindow();
     return { success: true };
   });
 
-  ipcMain.handle("bb:disconnect", async () => {
+  ipcMain.handle("bb:disconnect", async (event) => {
+    if (!isMainWindowSender(event)) return { success: false };
     await disconnectBlackboard();
     return { success: true };
   });
 
-  ipcMain.handle("bb:isLoggedIn", async () => {
-    return isLoggedIn();
+  ipcMain.handle("bb:isLoggedIn", async () => isLoggedIn());
+
+  ipcMain.handle("bb:getStatus", async () => ({
+    loggedIn: await isLoggedIn(),
+    windowOpen: bbWindow !== null && !bbWindow.isDestroyed(),
+  }));
+
+  ipcMain.handle("bb:import-file", async (event, context) => {
+    if (!isTrustedBbSender(event)) return { success: false, reason: "untrusted" };
+    return importFileFromUrl(context);
   });
 
-  ipcMain.handle("bb:getStatus", async () => {
-    const loggedIn = await isLoggedIn();
-    return {
-      loggedIn,
-      windowOpen: bbWindow !== null && !bbWindow.isDestroyed(),
-    };
-  });
-
-  ipcMain.handle("bb:import-file", async (_event, context) => {
-    return importFileFromUrl(context, mainWindow);
-  });
-
-  ipcMain.handle("bb:import-folder", async (_event, context) => {
+  ipcMain.handle("bb:import-folder", async (event, context) => {
+    if (!isTrustedBbSender(event)) return { success: false, reason: "untrusted" };
     const { files = [], skipIfRole = [] } = context || {};
     const results = [];
-    for (const file of files) {
-      const result = await importFileFromUrl({ ...file, skipIfRole }, mainWindow);
-      results.push(result);
+    for (const file of files.slice(0, 100)) {
+      results.push(await importFileFromUrl({ ...file, skipIfRole }));
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
     return {
@@ -1122,135 +1146,114 @@ function registerBlackboardHandlers(mainWindow) {
     };
   });
 
-  ipcMain.handle("bb:set-active-course", async (_event, courseId) => {
+  ipcMain.handle("bb:set-active-course", async (event, courseId) => {
+    if (!isMainWindowSender(event)) return { success: false };
     activeCourseId = String(courseId || "");
     return { success: true };
   });
 
-  ipcMain.handle("bb:show-toast", async (_event, { message, type }) => {
+  ipcMain.handle("bb:show-toast", async (event, { message, type } = {}) => {
+    if (!isMainWindowSender(event) && !isTrustedBbSender(event)) return { success: false };
     if (bbWindow && !bbWindow.isDestroyed()) {
       await bbWindow.webContents
         .executeJavaScript(
-          `window.__shToast?.(${JSON.stringify(message)}, ${JSON.stringify(type || "success")})`
+          `window.__shToast?.(${JSON.stringify(String(message || ""))}, ${JSON.stringify(type || "success")})`
         )
         .catch(() => {});
     }
     return { success: true };
   });
 
-  ipcMain.handle("bb:create-course", async (_event, data) => {
+  ipcMain.handle("bb:create-course", async (event, data) => {
+    if (!isTrustedBbSender(event)) return { success: false };
     activeCourseId = "";
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("bb:create-course-request", {
-        courseTitle: data?.courseTitle,
-        bbCourseId: data?.bbCourseId,
-      });
-    }
+    sendToMain("bb:create-course-request", {
+      courseTitle: String(data?.courseTitle || "").slice(0, 200),
+      bbCourseId: String(data?.bbCourseId || ""),
+    });
     return { success: true };
   });
 
-  ipcMain.handle("bb:course-created", async (_event, payload) => {
+  ipcMain.handle("bb:course-created", async (event, payload) => {
+    if (!isMainWindowSender(event)) return { success: false };
     const { courseId, courseTitle, bbCourseId } = payload || {};
     activeCourseId = String(courseId || "");
     linkedCourseName = courseTitle || "";
     linkedBbCourseId = String(bbCourseId || "");
-    console.log("[BB] Course created and active:", courseTitle, courseId);
-
     if (bbWindow && !bbWindow.isDestroyed()) {
-      bbWindow.webContents.send("bb:toolbar-update", {
-        courseId,
-        courseTitle,
-        bbCourseId,
-        linked: true,
-      });
-      const url = bbWindow.webContents.getURL();
-      const bbCourse = parseCourseFromUrl(url);
-      const pageBbId = bbCourse?.bbCourseId || linkedBbCourseId || "";
-      const displayLinked = displayLinkedCourseName(pageBbId);
-      await bbWindow.webContents
-        .executeJavaScript(buildToolbarScript(activeCourseId, pageBbId, displayLinked))
-        .catch(() => {});
-      await bbWindow.webContents
-        .executeJavaScript(buildInjectionScript(activeCourseId, pageBbId, displayLinked))
-        .catch(() => {});
+      await injectPage(bbWindow.webContents.getURL());
     }
     return { success: true };
   });
 
-  ipcMain.handle("bb:get-course-status", async (_event, { courseId }) => {
-    if (!courseId) return null;
+  ipcMain.handle("bb:get-course-status", async (event, { courseId } = {}) => {
+    if (!isTrustedBbSender(event) || !courseId) return null;
     try {
-      const { getDb } = require("./database.cjs");
       const db = getDb();
       const gradeRows = db
         .prepare(
-          `
-        SELECT COUNT(*) as count
-        FROM grade_components gc
-        JOIN courses c ON c.id = gc.course_id
-        WHERE c.uuid = ?
-      `
+          "SELECT COUNT(*) as count FROM grade_components gc JOIN courses c ON c.id = gc.course_id WHERE c.uuid = ?"
         )
         .get(courseId);
-
       const modules = db
-        .prepare(
-          `
-        SELECT m.title,
-          COUNT(ci.id) as item_count
-        FROM modules m
-        LEFT JOIN content_items ci ON ci.module_id = m.id
-        JOIN courses c ON c.id = m.course_id
-        WHERE c.uuid = ?
-        GROUP BY m.id
-      `
-        )
+        .prepare(`
+          SELECT m.title, COUNT(ci.id) as item_count
+          FROM modules m
+          LEFT JOIN content_items ci ON ci.module_id = m.id
+          JOIN courses c ON c.id = m.course_id
+          WHERE c.uuid = ?
+          GROUP BY m.id
+        `)
         .all(courseId);
-
       return {
         hasSyllabus: (gradeRows?.count || 0) > 0,
         gradeComponentCount: gradeRows?.count || 0,
         moduleCount: modules.length,
-        modules: modules.map((m) => ({
-          title: m.title,
-          itemCount: m.item_count,
-        })),
+        modules: modules.map((m) => ({ title: m.title, itemCount: m.item_count })),
       };
     } catch {
       return null;
     }
   });
 
-  // SESSION C: Course Sweep
-  // async function sweepCourse(bbCourseId) {
-  //   Reads all file items from current DOM via executeJavaScript
-  //   Calls importFileFromUrl in loop
-  //   skipIfRole: ['assignment', 'assessment']
-  //   Reports progress via bb:sweep-progress
-  // }
+  /* ---------------- Phase 1: Blackboard mirror sync ---------------- */
 
-  // SESSION C: Semester Sweep
-  // async function sweepSemester() {
-  //   Navigates to BB courses page
-  //   Reads all enrolled course links
-  //   Calls sweepCourse on each
-  //   2-3 sec delay between courses
-  //   Reports overall progress
-  // }
+  ipcMain.handle("bb:list-courses", async (event) => {
+    if (!isMainWindowSender(event)) return { ok: false, error: "untrusted" };
+    if (!(await isLoggedIn())) return { ok: false, error: "not-logged-in" };
+    try {
+      return { ok: true, courses: await listEnrolledCourses() };
+    } catch (err) {
+      return { ok: false, error: err?.message || String(err) };
+    }
+  });
 
-  // SESSION C: Course selector in toolbar
-  // Updates activeCourseId when user selects
-  // a Study Hub course from toolbar dropdown
+  let syncing = false;
+  ipcMain.handle("bb:sync-course", async (event, { courseUuid, bbCourseId } = {}) => {
+    if (!isMainWindowSender(event)) return { ok: false, error: "untrusted" };
+    if (syncing) return { ok: false, error: "A sync is already running." };
+    if (!(await isLoggedIn())) return { ok: false, error: "not-logged-in" };
+    syncing = true;
+    try {
+      const payload = await syncCourse(bbCourseId, (progress) =>
+        sendToMain("bb:sync-progress", { courseUuid, ...progress })
+      );
+      const result = applyBbSync(getDb(), courseUuid, payload);
+      sendToMain("bb:sync-complete", { courseUuid, ...result });
+      return { ok: result.success, counts: result.counts, error: result.error };
+    } catch (err) {
+      const error = err?.status === 401 || err?.status === 403 ? "not-logged-in" : err?.message || String(err);
+      sendToMain("bb:sync-complete", { courseUuid, success: false, error });
+      return { ok: false, error };
+    } finally {
+      syncing = false;
+    }
+  });
 }
 
 module.exports = {
-  openBlackboardWindow,
-  closeBlackboardWindow,
-  disconnectBlackboard,
   registerBlackboardHandlers,
   parseCourseFromUrl,
-  isLoggedIn,
-  importFileFromUrl,
   detectFileRole,
-  downloadBBFile,
 };
+

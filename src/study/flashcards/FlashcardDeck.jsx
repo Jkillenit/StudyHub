@@ -2,26 +2,27 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { studySidebarPrefix } from "../chapterUiMeta.js";
 import { useDelayedSkeletonVisible } from "../../hooks/useDelayedSkeletonVisible.js";
 import { useFlashcardDeckContext } from "./FlashcardDeckContext.jsx";
-import { daysUntilReview, getDueCards, sm2 } from "../sm2.js";
-import {
-  loadFlashcardDeck,
-  persistFlashcardDeck,
-  resetFlashcardDeckToSeed,
-} from "./flashcardPersistence.js";
+import { daysUntilReview, getDueCards, localDateString, sm2 } from "../sm2.js";
+import { loadFlashcardDeck, persistFlashcardDeck, resetFlashcardDeckToSeed } from "./flashcardPersistence.js";
 import { SEED_FLASHCARDS } from "./seedCards.js";
+import { filterDeck } from "./deckModes.js";
+
+const FLIP_GUARD_MS = 200;
 
 function uid() {
   return "fc_" + Math.random().toString(36).slice(2, 12);
 }
 
-function shuffleOrder(n) {
-  const a = Array.from({ length: n }, (_, i) => i);
+function shuffled(list) {
+  const a = [...list];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
 }
+
+const cardKey = (c) => c?.uuid || c?.id;
 
 function cardTypeLabel(kind) {
   if (kind === "formula") return "FORMULA";
@@ -30,18 +31,18 @@ function cardTypeLabel(kind) {
   return null;
 }
 
+function isTypingTarget(el) {
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
+}
+
 function NextReviewSummary({ cards }) {
   const due = getDueCards(cards || []);
-  const tomorrow = (cards || []).filter((c) => daysUntilReview(c) === 1);
-
+  const tomorrow = (cards || []).filter((c) => c.next_review && daysUntilReview(c) === 1);
   if (due.length > 0) {
-    return (
-      <div className="sh-next-review-text">
-        {due.length} card{due.length !== 1 ? "s" : ""} still due
-      </div>
-    );
+    return <div className="sh-next-review-text">{due.length} card{due.length !== 1 ? "s" : ""} still due</div>;
   }
-
   if (tomorrow.length > 0) {
     return (
       <div className="sh-next-review-text">
@@ -49,11 +50,7 @@ function NextReviewSummary({ cards }) {
       </div>
     );
   }
-
-  const next = (cards || [])
-    .filter((c) => c.next_review)
-    .sort((a, b) => a.next_review.localeCompare(b.next_review))[0];
-
+  const next = (cards || []).filter((c) => c.next_review).sort((a, b) => a.next_review.localeCompare(b.next_review))[0];
   if (next) {
     const days = daysUntilReview(next);
     return (
@@ -62,7 +59,6 @@ function NextReviewSummary({ cards }) {
       </div>
     );
   }
-
   return (
     <div className="sh-next-review-text" style={{ color: "var(--sh-green)" }}>
       All caught up
@@ -77,7 +73,6 @@ function SessionSummary({ know, again, cards, onContinue, onClose }) {
       <div className="sh-session-header">
         <div className="sh-section-label">SESSION COMPLETE</div>
       </div>
-
       <div className="sh-session-stats">
         <div className="sh-stat-row">
           <span className="sh-stat-label">REVIEWED</span>
@@ -96,20 +91,16 @@ function SessionSummary({ know, again, cards, onContinue, onClose }) {
           <span className="sh-stat-label">SCORE</span>
           <span
             className="sh-stat-value"
-            style={{
-              color: score >= 80 ? "var(--sh-green)" : score >= 60 ? "var(--sh-amber)" : "var(--sh-red)",
-            }}
+            style={{ color: score >= 80 ? "var(--sh-green)" : score >= 60 ? "var(--sh-amber)" : "var(--sh-red)" }}
           >
             {score}%
           </span>
         </div>
       </div>
-
       <div className="sh-session-next">
         <div className="sh-section-label">NEXT REVIEW</div>
         <NextReviewSummary cards={cards} />
       </div>
-
       <div className="sh-session-actions">
         <button className="sh-btn-ghost" onClick={onContinue}>
           STUDY AGAIN
@@ -122,20 +113,71 @@ function SessionSummary({ know, again, cards, onContinue, onClose }) {
   );
 }
 
+function CardEditor({ initialFront = "", initialBack = "", title, onSave, onCancel }) {
+  const [front, setFront] = useState(initialFront);
+  const [back, setBack] = useState(initialBack);
+  const save = () => {
+    if (front.trim() && back.trim()) onSave(front.trim(), back.trim());
+  };
+  return (
+    <div
+      className="sh-card-edit-overlay"
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === "Escape") onCancel();
+      }}
+    >
+      <div className="sh-section-label" style={{ marginBottom: 12 }}>
+        {title}
+      </div>
+      <input
+        autoFocus
+        className="sh-inline-edit-input"
+        value={front}
+        onChange={(e) => setFront(e.target.value)}
+        placeholder="Front"
+        style={{ marginBottom: 8 }}
+      />
+      <textarea
+        className="sh-inline-edit-input"
+        value={back}
+        onChange={(e) => setBack(e.target.value)}
+        placeholder="Back"
+        rows={3}
+        style={{ marginBottom: 12 }}
+      />
+      <div className="sh-def-edit-actions">
+        <button className="sh-btn-ghost sh-btn-green sh-btn-xs" onClick={save} disabled={!front.trim() || !back.trim()}>
+          SAVE
+        </button>
+        <button className="sh-btn-ghost sh-btn-xs" onClick={onCancel}>
+          CANCEL
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Two storage modes:
+ *  - user course (onSaveCards given): cards come from props, SM-2 goes to SQLite via db.mastery,
+ *    list edits go back through onSaveCards.
+ *  - built-in OM 300 deck: cards and SM-2 progress live in localStorage.
+ */
 export default function FlashcardDeck({
   cards: externalCards = null,
   onSaveCards = null,
   courseId = null,
+  moduleId = null,
   showMasteryButtons = true,
   sourceFilter = "all",
-  onSourceFilterChange = null,
   editTriggerRef = null,
 }) {
-  void courseId;
-  void onSourceFilterChange;
+  const isUserDeck = typeof onSaveCards === "function";
   const { setPanelApi } = useFlashcardDeckContext();
   const [cards, setCards] = useState(null);
-  const [order, setOrder] = useState([]);
+  const [sessionIds, setSessionIds] = useState([]);
   const [pos, setPos] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [flipPhase, setFlipPhase] = useState(null);
@@ -150,30 +192,20 @@ export default function FlashcardDeck({
   const [flipReveal, setFlipReveal] = useState(true);
   const [editingCard, setEditingCard] = useState(null);
 
-  const nRef = useRef(0);
-  const syncingFromExternalRef = useRef(false);
   const lastFlipRef = useRef(0);
-  const sessionIdRef = useRef(`session_${Date.now()}`);
-  const pendingUpdatesRef = useRef([]);
-  const cardCountRef = useRef(0);
+  const ratingRef = useRef(false);
+  const cardsRef = useRef(null);
+  const sessionRef = useRef({ id: `session_${Date.now()}`, startedAt: new Date().toISOString(), know: 0, again: 0, logged: false });
+  cardsRef.current = cards;
 
   useEffect(() => {
     if (Array.isArray(externalCards)) {
-      syncingFromExternalRef.current = true;
-      const validCards = externalCards
-        .filter((c) => String(c?.front || "").trim() && String(c?.back || "").trim())
-        .map((c) => ({ ...c }));
-      const next = validCards;
-      setCards(next);
-      return;
+      setCards(externalCards.filter((c) => String(c?.front || "").trim() && String(c?.back || "").trim()));
+      return undefined;
     }
     let alive = true;
     const r = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (!alive) return;
-        const next = loadFlashcardDeck();
-        setCards(next);
-      });
+      if (alive) setCards(loadFlashcardDeck());
     });
     return () => {
       alive = false;
@@ -181,118 +213,110 @@ export default function FlashcardDeck({
     };
   }, [externalCards]);
 
-  const deckHydrating = cards === null;
-  const showDeckSkel = useDelayedSkeletonVisible(deckHydrating, deckHydrating ? "deck" : "");
+  const logSession = useCallback(() => {
+    const s = sessionRef.current;
+    const reviewed = s.know + s.again;
+    if (s.logged || !reviewed) return;
+    s.logged = true;
+    void window.studyHub?.db?.sessions?.log?.({
+      courseUuid: isUserDeck ? courseId : null,
+      kind: "drill",
+      startedAt: s.startedAt,
+      endedAt: new Date().toISOString(),
+      reviewed,
+      correct: s.know,
+      incorrect: s.again,
+    });
+  }, [courseId, isUserDeck]);
+
+  const resetSession = useCallback(() => {
+    logSession();
+    sessionRef.current = { id: `session_${Date.now()}`, startedAt: new Date().toISOString(), know: 0, again: 0, logged: false };
+    setSessionKnow(0);
+    setSessionAgain(0);
+    setReviewAgainIds([]);
+  }, [logSession]);
+
+  useEffect(() => () => logSession(), [logSession]);
 
   useEffect(() => {
-    if (cards == null) return;
-    if (syncingFromExternalRef.current) {
-      syncingFromExternalRef.current = false;
-      return;
-    }
-    if (typeof onSaveCards !== "function") persistFlashcardDeck(cards);
-  }, [cards, onSaveCards]);
-
-  useEffect(
-    () => () => {
-      if (pendingUpdatesRef.current.length > 0) onSaveCards?.(pendingUpdatesRef.current);
-    },
-    [onSaveCards]
-  );
-
-  useEffect(() => {
-    const reload = () => {
-      const next = loadFlashcardDeck();
-      setCards(next);
-      setOrder(shuffleOrder(next.length));
-      setPos(0);
-      setFlipped(false);
-      setFlipPhase(null);
-      setSlide(null);
-      setSessionKnow(0);
-      setSessionAgain(0);
-      setReviewAgainIds([]);
-      setShowSummary(false);
-    };
+    if (isUserDeck) return undefined;
+    const reload = () => setCards(loadFlashcardDeck());
     window.addEventListener("studyhub-flashcards-updated", reload);
     return () => window.removeEventListener("studyhub-flashcards-updated", reload);
-  }, []);
+  }, [isUserDeck]);
 
-  const filteredCards = useMemo(() => {
-    let base = cards || [];
-    if (sourceFilter === "manual") {
-      base = base.filter((c) => (c.source || "manual") === "manual");
-    } else if (sourceFilter === "pptx") {
-      base = base.filter((c) => c.source === "pptx");
-    } else if (sourceFilter === "due") {
-      base = getDueCards(base);
-    }
-    return base;
-  }, [cards, sourceFilter]);
+  const cardsById = useMemo(() => new Map((cards || []).map((c) => [cardKey(c), c])), [cards]);
+  const filteredCards = useMemo(() => filterDeck(cards || [], sourceFilter, moduleId), [cards, sourceFilter, moduleId]);
 
-  const n = filteredCards.length;
-  const idx = order.length ? order[Math.min(pos, order.length - 1)] ?? order[0] : 0;
-  const current = filteredCards[idx] ?? null;
-
-  nRef.current = n;
-
-  useEffect(() => {
-    if (!n) {
-      setPos(0);
-      return;
-    }
-    setPos((p) => (p >= n ? 0 : p));
-  }, [n]);
-
-  useEffect(() => {
-    setOrder(shuffleOrder(filteredCards.length));
+  // The session order is a snapshot: ratings change SM-2 fields (and may drop a card out of DUE)
+  // without reshuffling. Only a mode change or adding/removing cards rebuilds it.
+  const membershipKey = useMemo(
+    () => `${sourceFilter}|${moduleId || ""}|${(cards || []).map(cardKey).sort().join(",")}`,
+    [cards, sourceFilter, moduleId]
+  );
+  const filteredRef = useRef(filteredCards);
+  filteredRef.current = filteredCards;
+  const rebuildSession = useCallback(() => {
+    setSessionIds(shuffled(filteredRef.current.map(cardKey)));
     setPos(0);
     setFlipped(false);
     setFlipPhase(null);
     setSlide(null);
     setShowSummary(false);
-  }, [filteredCards.length, sourceFilter]);
+  }, []);
+  useEffect(() => {
+    if (cards === null) return;
+    rebuildSession();
+  }, [membershipKey, rebuildSession, cards === null]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const sessionCards = useMemo(() => sessionIds.map((id) => cardsById.get(id)).filter(Boolean), [sessionIds, cardsById]);
+  const n = sessionCards.length;
+  const current = sessionCards[Math.min(pos, Math.max(n - 1, 0))] ?? null;
+
+  const deckHydrating = cards === null;
+  const showDeckSkel = useDelayedSkeletonVisible(deckHydrating, deckHydrating ? "deck" : "");
 
   useEffect(() => {
     if (editTriggerRef) {
       editTriggerRef.current = () => {
-        const card = filteredCards[idx];
-        if (!card) return;
-        setEditingCard({ ...card });
+        if (current) setEditingCard({ ...current });
       };
     }
-  }, [idx, filteredCards, editTriggerRef]);
+  }, [current, editTriggerRef]);
 
   useEffect(() => {
     setFlipped(false);
-  }, [pos, idx]);
+  }, [pos]);
 
-  const reorderForLength = useCallback((len) => {
-    if (len === 0) {
-      setOrder([]);
-      setPos(0);
-      return;
-    }
-    setOrder(shuffleOrder(len));
-    setPos(0);
-  }, []);
+  // User decks hand every change to the parent so course state keeps the latest SM-2 fields;
+  // the course save queue skips the write when only mastery (stored separately) changed.
+  const commitCards = useCallback(
+    (next) => {
+      setCards(next);
+      if (isUserDeck) onSaveCards(next);
+      else persistFlashcardDeck(next);
+    },
+    [isUserDeck, onSaveCards]
+  );
 
-  const startSlide = useCallback((delta) => {
-    if (flipPhase || slide) return;
-    const len = nRef.current;
-    if (!len) return;
-    if (delta > 0 && pos + 1 >= len) {
-      if (pendingUpdatesRef.current.length > 0) onSaveCards?.(pendingUpdatesRef.current);
-      setShowSummary(true);
-      return;
-    }
-    const newPos = Math.min(Math.max(pos + delta, 0), len - 1);
-    if (newPos === pos) return;
-    setSlide({ fromPos: pos, toPos: newPos, dir: delta > 0 ? 1 : -1 });
-  }, [flipPhase, slide, pos, onSaveCards]);
+  const startSlide = useCallback(
+    (delta) => {
+      if (flipPhase || slide || !n) return;
+      if (delta > 0 && pos + 1 >= n) {
+        setShowSummary(true);
+        logSession();
+        return;
+      }
+      const newPos = Math.min(Math.max(pos + delta, 0), n - 1);
+      if (newPos === pos) return;
+      setSlide({ fromPos: pos, toPos: newPos, dir: delta > 0 ? 1 : -1 });
+    },
+    [flipPhase, slide, pos, n, logSession]
+  );
 
   useEffect(() => {
-    if (!slide) return;
+    if (!slide) return undefined;
     const t = window.setTimeout(() => {
       setPos(slide.toPos);
       setSlide(null);
@@ -303,7 +327,7 @@ export default function FlashcardDeck({
   }, [slide]);
 
   useEffect(() => {
-    if (flipPhase !== "out") return;
+    if (flipPhase !== "out") return undefined;
     const t = window.setTimeout(() => {
       setFlipped((f) => !f);
       setFlipPhase("in");
@@ -314,12 +338,11 @@ export default function FlashcardDeck({
   useEffect(() => {
     if (flipPhase !== "in") {
       setFlipReveal(true);
-      return;
+      return undefined;
     }
     setFlipReveal(false);
-    let raf1 = 0;
     let raf2 = 0;
-    raf1 = requestAnimationFrame(() => {
+    const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => setFlipReveal(true));
     });
     const t = window.setTimeout(() => setFlipPhase(null), 80);
@@ -331,14 +354,13 @@ export default function FlashcardDeck({
   }, [flipPhase]);
 
   const shuffleDeck = useCallback(() => {
-    const len = nRef.current;
-    if (!len) return;
-    setOrder(shuffleOrder(len));
+    if (!n) return;
+    setSessionIds((ids) => shuffled(ids));
     setPos(0);
     setFlipped(false);
     setFlipPhase(null);
     setSlide(null);
-  }, []);
+  }, [n]);
 
   useEffect(() => {
     const fn = () => shuffleDeck();
@@ -346,206 +368,155 @@ export default function FlashcardDeck({
     return () => window.removeEventListener("studyhub-shuffle-flashcards", fn);
   }, [shuffleDeck]);
 
+  const addCardWith = useCallback(
+    (front, back) => {
+      const card = { id: uid(), front, back, source: "manual", ...(moduleId ? { moduleId } : {}) };
+      commitCards([...(cardsRef.current || []), card]);
+    },
+    [commitCards, moduleId]
+  );
+
   const addCard = useCallback(() => {
     const f = newFront.trim();
     const b = newBack.trim();
     if (!f || !b) return;
-    const next = [...cards, { id: uid(), front: f, back: b }];
-    setCards(next);
-    reorderForLength(next.length);
+    addCardWith(f, b);
     setNewFront("");
     setNewBack("");
     setShowAdd(false);
-    setFlipped(false);
-    setFlipPhase(null);
-  }, [cards, newFront, newBack, reorderForLength]);
+  }, [newFront, newBack, addCardWith]);
 
   const deleteCurrent = useCallback(() => {
     if (!current || !window.confirm("Remove this card from your deck?")) return;
-    const next = cards.filter((c) => c.id !== current.id);
-    setCards(next);
-    reorderForLength(next.length);
-  }, [cards, current, reorderForLength]);
+    commitCards((cardsRef.current || []).filter((c) => cardKey(c) !== cardKey(current)));
+  }, [current, commitCards]);
+
+  const saveEdit = useCallback(
+    (front, back) => {
+      const key = cardKey(editingCard);
+      commitCards((cardsRef.current || []).map((c) => (cardKey(c) === key ? { ...c, front, back } : c)));
+      setEditingCard(null);
+    },
+    [editingCard, commitCards]
+  );
 
   const restoreSeed = useCallback(() => {
+    if (isUserDeck) return;
     if (!window.confirm("Replace your entire flashcard deck with the starter set? Custom cards will be removed.")) return;
-    const next = resetFlashcardDeckToSeed();
-    setCards(next);
-    reorderForLength(next.length);
-  }, [reorderForLength]);
+    setCards(resetFlashcardDeckToSeed());
+  }, [isUserDeck]);
 
   const beginFlip = useCallback(() => {
-    if (!nRef.current || slide || flipPhase) return;
+    if (!n || slide || flipPhase || editingCard) return;
     const now = Date.now();
-    if (now - lastFlipRef.current < 200) return;
+    if (now - lastFlipRef.current < FLIP_GUARD_MS) return;
     lastFlipRef.current = now;
     setFlipPhase("out");
-  }, [slide, flipPhase]);
+  }, [n, slide, flipPhase, editingCard]);
 
-  const onKnowIt = useCallback(async () => {
-    if (!flipped || flipPhase) return;
-    const card = current;
-    if (!card) return;
-
-    const result = sm2(card, 5);
-    if (window.studyHub?.db?.mastery?.update) {
-      await window.studyHub.db.mastery.update({
-        flashcardUuid: card.uuid || card.id,
-        grade: 5,
-        easeFactor: result.easeFactor,
-        intervalDays: result.intervalDays,
-        repetitions: result.repetitions,
-        nextReview: result.nextReview,
-        sessionId: sessionIdRef.current,
-      });
-    }
-    const updatedCards = (cards || []).map((c) => {
-      if ((c.uuid || c.id) === (card.uuid || card.id)) {
-        return {
-          ...c,
-          easeFactor: result.easeFactor,
-          intervalDays: result.intervalDays,
-          repetitions: result.repetitions,
-          next_review: result.nextReview,
-        };
+  const rate = useCallback(
+    async (grade) => {
+      if (!flipped || flipPhase || slide || ratingRef.current) return;
+      const card = current;
+      if (!card) return;
+      ratingRef.current = true;
+      try {
+        const result = sm2(card, grade);
+        if (isUserDeck) {
+          await window.studyHub?.db?.mastery?.update?.({
+            flashcardUuid: cardKey(card),
+            grade,
+            easeFactor: result.easeFactor,
+            intervalDays: result.intervalDays,
+            repetitions: result.repetitions,
+            nextReview: result.nextReview,
+            sessionId: sessionRef.current.id,
+          });
+        }
+        const key = cardKey(card);
+        const next = (cardsRef.current || []).map((c) =>
+          cardKey(c) === key
+            ? {
+                ...c,
+                easeFactor: result.easeFactor,
+                intervalDays: result.intervalDays,
+                repetitions: result.repetitions,
+                next_review: result.nextReview,
+                lastReview: localDateString(),
+              }
+            : c
+        );
+        commitCards(next);
+        if (grade >= 3) {
+          sessionRef.current.know += 1;
+          setSessionKnow((c) => c + 1);
+        } else {
+          sessionRef.current.again += 1;
+          setSessionAgain((c) => c + 1);
+          setReviewAgainIds((ids) => (ids.includes(key) ? ids : [...ids, key]));
+        }
+        startSlide(1);
+      } finally {
+        ratingRef.current = false;
       }
-      return c;
-    });
-    setCards(updatedCards);
-    pendingUpdatesRef.current = updatedCards;
-    cardCountRef.current += 1;
-    if (cardCountRef.current % 5 === 0) onSaveCards?.(pendingUpdatesRef.current);
-    setSessionKnow((c) => c + 1);
-    startSlide(1);
-  }, [flipped, flipPhase, current, cards, onSaveCards, startSlide]);
+    },
+    [flipped, flipPhase, slide, current, isUserDeck, commitCards, startSlide]
+  );
 
-  const onAgain = useCallback(async () => {
-    if (!flipped || flipPhase) return;
-    const card = current;
-    if (!card) return;
-
-    const result = sm2(card, 0);
-    if (window.studyHub?.db?.mastery?.update) {
-      await window.studyHub.db.mastery.update({
-        flashcardUuid: card.uuid || card.id,
-        grade: 0,
-        easeFactor: result.easeFactor,
-        intervalDays: result.intervalDays,
-        repetitions: result.repetitions,
-        nextReview: result.nextReview,
-        sessionId: sessionIdRef.current,
-      });
-    }
-    const updatedCards = (cards || []).map((c) => {
-      if ((c.uuid || c.id) === (card.uuid || card.id)) {
-        return {
-          ...c,
-          easeFactor: result.easeFactor,
-          intervalDays: result.intervalDays,
-          repetitions: result.repetitions,
-          next_review: result.nextReview,
-        };
-      }
-      return c;
-    });
-    setCards(updatedCards);
-    pendingUpdatesRef.current = updatedCards;
-    cardCountRef.current += 1;
-    if (cardCountRef.current % 5 === 0) onSaveCards?.(pendingUpdatesRef.current);
-    setSessionAgain((c) => c + 1);
-    if (card?.id) {
-      setReviewAgainIds((ids) => (ids.includes(card.id) ? ids : [...ids, card.id]));
-    }
-    startSlide(1);
-  }, [flipped, flipPhase, current, cards, onSaveCards, startSlide]);
+  const onKnowIt = useCallback(() => void rate(5), [rate]);
+  const onAgain = useCallback(() => void rate(0), [rate]);
 
   const handleKeyDown = useCallback(
     (e) => {
-      // Do not handle keys when command palette is open
-      if (
-        document.querySelector(
-          '.sh-palette, .sh-cmd-palette, ' +
-            '[data-palette="true"]'
-        )
-      )
-        return;
-
-      // Do not handle keys when focus is in an input
-      const tag = document.activeElement?.tagName;
-      const isEditable =
-        document.activeElement?.contentEditable === "true";
-      if (tag === "INPUT" || tag === "TEXTAREA" || isEditable) return;
-
-      if (slide || flipPhase) {
+      if (document.querySelector('.sh-palette, .sh-cmd-palette, [data-palette="true"]')) return;
+      if (isTypingTarget(document.activeElement) || editingCard || showSummary) return;
+      if (slide || flipPhase || ratingRef.current) {
         if (e.key === " " || e.key === "Enter") e.preventDefault();
         return;
       }
       if (e.key === " " || e.key === "Enter") {
         e.preventDefault();
         beginFlip();
-      }
-      if (e.key === "ArrowRight") {
+      } else if (e.key === "ArrowRight") {
         e.preventDefault();
         e.stopPropagation();
         startSlide(1);
-      }
-      if (e.key === "ArrowLeft") {
+      } else if (e.key === "ArrowLeft") {
         e.preventDefault();
         e.stopPropagation();
         startSlide(-1);
-      }
-      if (!e.metaKey && !e.ctrlKey && flipped && (e.key === "k" || e.key === "K")) {
+      } else if (!e.metaKey && !e.ctrlKey && flipped && (e.key === "k" || e.key === "K")) {
         e.preventDefault();
         onKnowIt();
-      }
-      if (!e.metaKey && !e.ctrlKey && flipped && (e.key === "a" || e.key === "A")) {
+      } else if (!e.metaKey && !e.ctrlKey && flipped && (e.key === "a" || e.key === "A")) {
         e.preventDefault();
         onAgain();
       }
     },
-    [slide, flipPhase, beginFlip, startSlide, flipped, onKnowIt, onAgain]
+    [slide, flipPhase, beginFlip, startSlide, flipped, onKnowIt, onAgain, editingCard, showSummary]
   );
 
-  const handleKeyDownStable = useCallback(handleKeyDown, [handleKeyDown]);
-
   useEffect(() => {
-    document.addEventListener("keydown", handleKeyDownStable);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDownStable);
-    };
-  }, [handleKeyDownStable]);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
 
   const progressDisplayPos = slide ? slide.toPos : pos;
-  const progressText = useMemo(() => {
-    if (!n) return "00 / 00";
-    const a = String(progressDisplayPos + 1).padStart(2, "0");
-    const b = String(n).padStart(2, "0");
-    return `${a} / ${b}`;
-  }, [n, progressDisplayPos]);
-
+  const progressText = n
+    ? `${String(progressDisplayPos + 1).padStart(2, "0")} / ${String(n).padStart(2, "0")}`
+    : "00 / 00";
   const fillPct = n ? ((progressDisplayPos + 1) / n) * 100 : 0;
-
   const chapterTag = studySidebarPrefix("flashcards");
   const typeTag = current?.kind ? cardTypeLabel(current.kind) : null;
-
-  useEffect(() => {
-    if (!current?.front) return;
-    console.log("[QZ] Front render class:", "check DOM inspector");
-  }, [current?.front]);
-
-  const cardAtOrderPos = (p) => {
-    if (!order.length || !filteredCards.length) return null;
-    const i = order[Math.min(p, order.length - 1)] ?? order[0];
-    return filteredCards[i] ?? null;
-  };
 
   const bodyOpacity = flipPhase === "out" || (flipPhase === "in" && !flipReveal) ? 0 : 1;
   const bodyTransition = flipPhase === "out" ? "opacity 60ms linear" : "opacity 80ms linear";
   const masteryVisible = showMasteryButtons && flipped && flipPhase === null && !slide;
 
   useEffect(() => {
+    if (isUserDeck) return;
     setPanelApi({
-      n,
+      n: (cards || []).length,
       showAdd,
       setShowAdd,
       newFront,
@@ -557,9 +528,18 @@ export default function FlashcardDeck({
       deleteCurrent,
       seedLen: SEED_FLASHCARDS.length,
     });
-  }, [setPanelApi, n, showAdd, newFront, newBack, addCard, restoreSeed, deleteCurrent]);
+  }, [isUserDeck, setPanelApi, cards, showAdd, newFront, newBack, addCard, restoreSeed, deleteCurrent]);
 
   useEffect(() => () => setPanelApi(null), [setPanelApi]);
+
+  const emptyMessage =
+    (cards || []).length === 0
+      ? "DECK IS EMPTY"
+      : sourceFilter === "due"
+        ? "NOTHING DUE"
+        : sourceFilter === "weak"
+          ? "NO WEAK CARDS"
+          : "NO CARDS HERE";
 
   return (
     <div className="drill-root font-sans">
@@ -572,7 +552,18 @@ export default function FlashcardDeck({
         <div className="drill-header-progress mono">{progressText}</div>
       </header>
 
-      {deckHydrating && showDeckSkel ? (
+      {showAdd && isUserDeck ? (
+        <div className="drill-card">
+          <CardEditor
+            title="NEW CARD"
+            onSave={(front, back) => {
+              addCardWith(front, back);
+              setShowAdd(false);
+            }}
+            onCancel={() => setShowAdd(false)}
+          />
+        </div>
+      ) : deckHydrating && showDeckSkel ? (
         <div className="drill-card-skel">
           <div className="drill-card-skel-body">
             <div className="sh-skeleton sh-skeleton--raised drill-card-skel-term" />
@@ -586,179 +577,118 @@ export default function FlashcardDeck({
       ) : deckHydrating ? null : !n ? (
         <div className="drill-empty">
           <pre className="sh-empty-ascii-box">{`┌─────────────────────┐
-│   DECK IS EMPTY     │
-│                      │
+│   ${emptyMessage.padEnd(18)}│
+│                     │
 │   ADD A CARD  →     │
 └─────────────────────┘`}</pre>
           <div className="sh-empty-actions">
-            <button
-              type="button"
-              className="sh-btn-ghost ctx-btn"
-              onClick={() => {
-                setShowAdd(true);
-              }}
-            >
+            <button type="button" className="sh-btn-ghost ctx-btn" onClick={() => setShowAdd(true)}>
               + ADD CARD
             </button>
-            <button type="button" className="sh-btn-ghost drill-deck-restore ctx-btn" onClick={restoreSeed}>
-              LOAD SEED DECK
-            </button>
+            {!isUserDeck ? (
+              <button type="button" className="sh-btn-ghost drill-deck-restore ctx-btn" onClick={restoreSeed}>
+                LOAD SEED DECK
+              </button>
+            ) : null}
           </div>
         </div>
+      ) : showSummary ? (
+        <SessionSummary
+          know={sessionKnow}
+          again={sessionAgain}
+          cards={cards || []}
+          onContinue={() => {
+            resetSession();
+            rebuildSession();
+          }}
+          onClose={() => {
+            resetSession();
+            setShowSummary(false);
+            setPos(0);
+          }}
+        />
       ) : (
         <>
-          {showSummary ? (
-            <SessionSummary
-              know={sessionKnow}
-              again={sessionAgain}
-              cards={cards || []}
-              onContinue={() => {
-                setShowSummary(false);
-                setOrder(shuffleOrder(n));
-                setPos(0);
-                setSessionKnow(0);
-                setSessionAgain(0);
-                setReviewAgainIds([]);
-                setFlipped(false);
-              }}
-              onClose={() => {
-                setShowSummary(false);
-                setSessionKnow(0);
-                setSessionAgain(0);
-                setReviewAgainIds([]);
-              }}
-            />
-          ) : (
-            <>
-              <div
-                role="button"
-                tabIndex={0}
-                className={`drill-card ${flipped ? "drill-card--flipped" : ""}`}
-                onClick={beginFlip}
-                aria-label={flipped ? "Show question" : "Show answer"}
-              >
-                <div className="drill-card-body-wrap">
-                  {editingCard ? (
-                    <div className="sh-card-edit-overlay">
-                      <div className="sh-section-label" style={{ marginBottom: 12 }}>
-                        EDIT CARD
-                      </div>
-                      <input
-                        autoFocus
-                        id="edit-card-front"
-                        className="sh-inline-edit-input"
-                        defaultValue={editingCard.front}
-                        placeholder="Front"
-                        style={{ marginBottom: 8 }}
-                      />
-                      <textarea
-                        id="edit-card-back"
-                        className="sh-inline-edit-input"
-                        defaultValue={editingCard.back}
-                        placeholder="Back"
-                        rows={3}
-                        style={{ marginBottom: 12 }}
-                      />
-                      <div className="sh-def-edit-actions">
-                        <button
-                          className="sh-btn-ghost sh-btn-green sh-btn-xs"
-                          onClick={() => {
-                            const front = document.getElementById("edit-card-front")?.value.trim();
-                            const back = document.getElementById("edit-card-back")?.value.trim();
-                            if (front && back) {
-                              const updated = cards.map((c) =>
-                                (c.uuid || c.id) === (editingCard.uuid || editingCard.id) ? { ...c, front, back } : c
-                              );
-                              onSaveCards?.(updated);
-                              setCards(updated);
-                            }
-                            setEditingCard(null);
-                          }}
-                        >
-                          SAVE
-                        </button>
-                        <button className="sh-btn-ghost sh-btn-xs" onClick={() => setEditingCard(null)}>
-                          CANCEL
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                  {slide ? (
-                    <div className="drill-slide-stack">
-                      <div
-                        className={`drill-slide-layer drill-slide-exit drill-slide-exit--${slide.dir > 0 ? "next" : "prev"}`}
-                        aria-hidden
-                      >
-                        <div className="drill-face drill-face--front">
-                          <div className="drill-term">{cardAtOrderPos(slide.fromPos)?.front}</div>
-                        </div>
-                      </div>
-                      <div
-                        className={`drill-slide-layer drill-slide-enter drill-slide-enter--${slide.dir > 0 ? "next" : "prev"}`}
-                      >
-                        <div className="drill-face drill-face--front">
-                          <div className="drill-term">{cardAtOrderPos(slide.toPos)?.front}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      className={`drill-card-body ${flipped ? "drill-card-body--backface" : ""}`}
-                      style={{
-                        opacity: bodyOpacity,
-                        transition: bodyTransition,
-                      }}
-                    >
-                      {!flipped ? (
-                        <div className="drill-face drill-face--front">
-                          <div className="drill-term">{current?.front}</div>
-                        </div>
-                      ) : (
-                        <div className="drill-face drill-face--back">
-                          <div className="drill-term">{current?.back}</div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <footer className="drill-card-footer">
-                  <div className="drill-card-track">
-                    <div className="drill-card-fill" style={{ width: `${fillPct}%` }} />
-                  </div>
-                  <span className={`drill-card-face-label ${flipped ? "drill-card-face-label--back" : ""}`}>
-                    {flipped ? "BACK" : "FRONT"}
-                  </span>
-                </footer>
-              </div>
-
-              {showMasteryButtons ? (
-                <div
-                  className="drill-mastery"
-                  style={{
-                    opacity: masteryVisible ? 1 : 0,
-                    pointerEvents: masteryVisible ? "auto" : "none",
-                    transition: "opacity 80ms linear",
-                  }}
-                >
-                  <div className="drill-mastery-inner">
-                    <button type="button" className="drill-btn-know" onClick={onKnowIt}>
-                      KNOW IT
-                    </button>
-                    <button type="button" className="drill-btn-again" onClick={onAgain}>
-                      AGAIN
-                    </button>
-                  </div>
-                  <p className="drill-mastery-stats mono">
-                    <span>✓ {sessionKnow}</span>
-                    <span className="drill-mastery-stats-gap">↻ {sessionAgain}</span>
-                    {reviewAgainIds.length > 0 ? (
-                      <span className="drill-mastery-stats-gap">· {reviewAgainIds.length} weak</span>
-                    ) : null}
-                  </p>
-                </div>
+          <div
+            role="button"
+            tabIndex={0}
+            className={`drill-card ${flipped ? "drill-card--flipped" : ""}`}
+            onClick={beginFlip}
+            aria-label={flipped ? "Show question" : "Show answer"}
+          >
+            <div className="drill-card-body-wrap">
+              {editingCard ? (
+                <CardEditor
+                  title="EDIT CARD"
+                  initialFront={editingCard.front}
+                  initialBack={editingCard.back}
+                  onSave={saveEdit}
+                  onCancel={() => setEditingCard(null)}
+                />
               ) : null}
-            </>
-          )}
+              {slide ? (
+                <div className="drill-slide-stack">
+                  <div
+                    className={`drill-slide-layer drill-slide-exit drill-slide-exit--${slide.dir > 0 ? "next" : "prev"}`}
+                    aria-hidden
+                  >
+                    <div className="drill-face drill-face--front">
+                      <div className="drill-term">{sessionCards[slide.fromPos]?.front}</div>
+                    </div>
+                  </div>
+                  <div className={`drill-slide-layer drill-slide-enter drill-slide-enter--${slide.dir > 0 ? "next" : "prev"}`}>
+                    <div className="drill-face drill-face--front">
+                      <div className="drill-term">{sessionCards[slide.toPos]?.front}</div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className={`drill-card-body ${flipped ? "drill-card-body--backface" : ""}`}
+                  style={{ opacity: bodyOpacity, transition: bodyTransition }}
+                >
+                  <div className={`drill-face ${flipped ? "drill-face--back" : "drill-face--front"}`}>
+                    <div className="drill-term">{flipped ? current?.back : current?.front}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <footer className="drill-card-footer">
+              <div className="drill-card-track">
+                <div className="drill-card-fill" style={{ width: `${fillPct}%` }} />
+              </div>
+              <span className={`drill-card-face-label ${flipped ? "drill-card-face-label--back" : ""}`}>
+                {flipped ? "BACK" : "FRONT"}
+              </span>
+            </footer>
+          </div>
+
+          {showMasteryButtons ? (
+            <div
+              className="drill-mastery"
+              style={{
+                opacity: masteryVisible ? 1 : 0,
+                pointerEvents: masteryVisible ? "auto" : "none",
+                transition: "opacity 80ms linear",
+              }}
+            >
+              <div className="drill-mastery-inner">
+                <button type="button" className="drill-btn-know" onClick={onKnowIt}>
+                  KNOW IT
+                </button>
+                <button type="button" className="drill-btn-again" onClick={onAgain}>
+                  AGAIN
+                </button>
+              </div>
+              <p className="drill-mastery-stats mono">
+                <span>✓ {sessionKnow}</span>
+                <span className="drill-mastery-stats-gap">↻ {sessionAgain}</span>
+                {reviewAgainIds.length > 0 ? (
+                  <span className="drill-mastery-stats-gap">· {reviewAgainIds.length} weak</span>
+                ) : null}
+              </p>
+            </div>
+          ) : null}
         </>
       )}
 
@@ -773,6 +703,19 @@ export default function FlashcardDeck({
           NEXT →
         </button>
       </nav>
+      {isUserDeck ? (
+        <nav className="drill-nav" aria-label="Deck editing">
+          <button type="button" className="drill-nav-btn" onClick={() => setShowAdd(true)}>
+            + ADD
+          </button>
+          <button type="button" className="drill-nav-btn" onClick={() => current && setEditingCard({ ...current })} disabled={!current}>
+            EDIT
+          </button>
+          <button type="button" className="drill-nav-btn" onClick={deleteCurrent} disabled={!current}>
+            DELETE
+          </button>
+        </nav>
+      ) : null}
       <p className="drill-nav-hint mono">SPACE · FLIP &nbsp;&nbsp; ← → · NAV &nbsp;&nbsp; K · KNOW &nbsp;&nbsp; A · AGAIN</p>
     </div>
   );

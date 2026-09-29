@@ -12,12 +12,64 @@ try {
 }
 
 const aiConfig = require("./aiConfig.cjs");
-const { generateFlashcards } = require("./anthropicClient.cjs");
+const {
+  generateFlashcards,
+  enhanceContent,
+  generatePracticeQuestions,
+  searchStudyMaterials,
+} = require("./anthropicClient.cjs");
 const { registerDbHandlers } = require("./dbHandlers.cjs");
+const { registerMirrorHandlers } = require("./dbMirrorHandlers.cjs");
 const { registerBlackboardHandlers } = require("./blackboardWindow.cjs");
+const { registerMaintenanceHandlers } = require("./maintenance.cjs");
 
-/** Tracks files the user explicitly chose (open dialog); readText allowed only for these paths. */
+/**
+ * Files the user explicitly chose via a native dialog or import. Persisted in userData so
+ * materials re-open across launches; the renderer can never add paths to this set itself.
+ */
 const allowedReadPaths = new Set();
+const MAX_ALLOWED_PATHS = 5000;
+
+function allowlistFile() {
+  return path.join(app.getPath("userData"), "allowed-paths.json");
+}
+
+function loadAllowlist() {
+  try {
+    const list = JSON.parse(fs.readFileSync(allowlistFile(), "utf8"));
+    if (Array.isArray(list)) list.forEach((p) => typeof p === "string" && allowedReadPaths.add(p));
+  } catch {
+    /* first launch */
+  }
+}
+
+let allowlistSaveTimer = null;
+function allowPaths(paths) {
+  let changed = false;
+  for (const p of paths) {
+    if (typeof p !== "string" || !p.trim()) continue;
+    const normalized = path.normalize(p.trim());
+    if (!allowedReadPaths.has(normalized)) {
+      allowedReadPaths.add(normalized);
+      changed = true;
+    }
+  }
+  if (!changed) return;
+  clearTimeout(allowlistSaveTimer);
+  allowlistSaveTimer = setTimeout(() => {
+    try {
+      const list = [...allowedReadPaths].slice(-MAX_ALLOWED_PATHS);
+      fs.writeFileSync(allowlistFile(), JSON.stringify(list), "utf8");
+    } catch {
+      /* non-fatal: paths still work this session */
+    }
+  }, 250);
+}
+
+const OPENABLE_EXT = new Set([
+  ".pdf", ".pptx", ".ppt", ".docx", ".doc", ".xlsx", ".xls", ".txt", ".md",
+  ".html", ".htm", ".csv", ".rtf", ".png", ".jpg", ".jpeg", ".gif", ".mp4", ".mp3", ".zip",
+]);
 
 /** Files under OS temp/studyhub-bb/ (Blackboard downloads) may be read without picker registration. */
 function isBbTempPath(normalized) {
@@ -33,7 +85,7 @@ ipcMain.handle("studyhub:pick-files", async (_evt, filters) => {
   if (filters?.length) opts.filters = filters;
   const { canceled, filePaths } = await dialog.showOpenDialog(win ?? undefined, opts);
   if (canceled || !filePaths?.length) return [];
-  filePaths.forEach((p) => allowedReadPaths.add(path.normalize(p)));
+  allowPaths(filePaths);
   return filePaths;
 });
 
@@ -54,7 +106,7 @@ ipcMain.handle("studyhub:open-file-dialog", async (_evt, options) => {
   }
 
   const filePath = result.filePaths[0];
-  allowedReadPaths.add(path.normalize(filePath));
+  allowPaths([filePath]);
   return { canceled: false, filePath };
 });
 
@@ -102,22 +154,33 @@ ipcMain.handle("studyhub:pick-folder-materials", async () => {
   });
   if (canceled || !filePaths?.length) return [];
   const files = collectMaterialFiles(filePaths[0]);
-  files.forEach((p) => allowedReadPaths.add(path.normalize(p)));
+  allowPaths(files);
   return files;
 });
 
-ipcMain.handle("studyhub:register-material-paths", async (_evt, paths) => {
-  if (!Array.isArray(paths)) return { ok: true };
-  for (const p of paths) {
-    if (typeof p === "string" && p.trim()) allowedReadPaths.add(path.normalize(p.trim()));
+const DROPPABLE_EXT = new Set([".pptx", ".pdf", ".docx", ".zip", ".txt", ".md"]);
+
+/** Only reachable through preload's getDroppedFilePath, which resolves the path from a real dropped File. */
+ipcMain.handle("studyhub:allow-dropped-path", async (evt, filePath) => {
+  if (!mainWindow || evt.sender !== mainWindow.webContents) return { ok: false };
+  const normalized = path.normalize(String(filePath || ""));
+  if (!path.isAbsolute(normalized) || !DROPPABLE_EXT.has(path.extname(normalized).toLowerCase())) return { ok: false };
+  try {
+    if (!fs.statSync(normalized).isFile()) return { ok: false };
+  } catch {
+    return { ok: false };
   }
+  allowPaths([normalized]);
   return { ok: true };
 });
 
 ipcMain.handle("studyhub:open-path", async (_evt, filePath) => {
   const normalized = path.normalize(String(filePath || ""));
-  if (!allowedReadPaths.has(normalized)) {
-    throw new Error("Path is not registered for this session. Re-add the file from Materials.");
+  if (!allowedReadPaths.has(normalized) && !isBbTempPath(normalized)) {
+    throw new Error("Path is not registered. Re-add the file from Materials.");
+  }
+  if (!OPENABLE_EXT.has(path.extname(normalized).toLowerCase())) {
+    throw new Error("This file type cannot be opened from Study Hub.");
   }
   const err = await shell.openPath(normalized);
   if (err) throw new Error(err);
@@ -176,43 +239,15 @@ ipcMain.handle("studyhub:extract-pdf-text", async (_evt, filePath) => {
 ipcMain.handle("studyhub:extract-pptx", async (_evt, filePath) => {
   try {
     const normalized = path.normalize(String(filePath || ""));
-    if (!allowedReadPaths.has(normalized)) {
+    if (!isBbTempPath(normalized) && !allowedReadPaths.has(normalized)) {
       return {
         success: false,
-        error: "Path is not registered for this session. Re-add the file from Materials.",
+        error: "Path is not registered. Re-add the file from Materials.",
       };
     }
     const fileBuffer = await fs.promises.readFile(normalized);
     const ast = await officeParser.parseOffice(fileBuffer, { ignoreNotes: true });
     const slides = groupIntoSlides(Array.isArray(ast?.content) ? ast.content : []);
-    console.log("[PPTX] Total AST nodes:", ast?.content?.length || 0);
-    (ast?.content || []).slice(0, 10).forEach((node, i) => {
-      console.log(
-        `[PPTX] Node ${i}:`,
-        JSON.stringify({
-          type: node?.type,
-          text: node?.text?.slice(0, 80),
-          childCount: node?.children?.length,
-          formatting: node?.formatting,
-        })
-      );
-    });
-    console.log("[PPTX] groupIntoSlides result:", slides.length, "slides");
-    slides.slice(0, 3).forEach((slide, i) => {
-      console.log(
-        `[PPTX] Slide ${i}:`,
-        JSON.stringify({
-          title: slide?.title,
-          nodeCount: slide?.nodes?.length,
-          firstNodeText: slide?.nodes?.[0]?.text?.slice(0, 60),
-        })
-      );
-    });
-    console.log("[PPTX] AST type:", ast?.type);
-    console.log("[PPTX] AST content length:", ast?.content?.length);
-    console.log("[PPTX] First 3 content nodes:", JSON.stringify(ast?.content?.slice(0, 3), null, 2));
-    console.log("[PPTX] groupIntoSlides result length:", slides.length);
-    console.log("[PPTX] First slide:", JSON.stringify(slides[0], null, 2));
     return { success: true, slides };
   } catch (err) {
     return { success: false, error: err?.message || String(err) };
@@ -288,10 +323,9 @@ ipcMain.handle("studyhub:extract-text", async (_evt, filePath) => {
       };
     }
 
-    const officeParserModule = require("officeparser");
     const fileBuffer = await fs.promises.readFile(normalized);
     const data = await new Promise((resolve, reject) => {
-      officeParserModule.parseOffice(
+      officeParser.parseOffice(
         fileBuffer,
         (result, err) => {
           if (err) reject(err);
@@ -398,8 +432,61 @@ ipcMain.handle("studyhub:ai-status", async () => {
     configured: !!key,
     maskedKey: aiConfig.maskKey(key),
     model: aiConfig.getModel(app),
+    encrypted: aiConfig.isEncrypted(app),
     source: process.env.ANTHROPIC_API_KEY ? "environment" : key ? "saved" : "none",
   };
+});
+
+function requireKey() {
+  const key = aiConfig.getApiKey(app);
+  return key || null;
+}
+
+ipcMain.handle("studyhub:ai-enhance", async (_evt, payload) => {
+  const key = requireKey();
+  if (!key) return { ok: false, error: "no-key" };
+  try {
+    const result = await enhanceContent(key, {
+      definitions: Array.isArray(payload?.definitions) ? payload.definitions.slice(0, 200) : [],
+      unclassified: typeof payload?.unclassified === "string" ? payload.unclassified : null,
+    });
+    return { ok: true, result };
+  } catch (e) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+});
+
+ipcMain.handle("studyhub:ai-practice", async (_evt, payload) => {
+  const key = requireKey();
+  if (!key) return { ok: false, error: "no-key" };
+  try {
+    const questions = await generatePracticeQuestions(key, {
+      courseName: String(payload?.courseName || ""),
+      definitions: Array.isArray(payload?.definitions) ? payload.definitions : [],
+      count: Math.min(Math.max(Number(payload?.count) || 8, 1), 20),
+    });
+    return { ok: true, questions };
+  } catch (e) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+});
+
+ipcMain.handle("studyhub:ai-web-search", async (_evt, payload) => {
+  const key = requireKey();
+  if (!key) return { ok: false, error: "no-key" };
+  try {
+    const results = await searchStudyMaterials(key, { query: String(payload?.query || "") });
+    return { ok: true, results };
+  } catch (e) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+});
+
+ipcMain.handle("studyhub:open-external", async (_evt, url) => {
+  const value = String(url || "");
+  if (!/^https:\/\//i.test(value)) return { ok: false, error: "Only https links can be opened." };
+  await shell.openExternal(value);
+  return { ok: true };
 });
 
 ipcMain.handle("studyhub:ai-set-key", async (_evt, apiKey) => {
@@ -505,6 +592,17 @@ function createWindow() {
   registerWindowChromeHandlersOnce();
   attachWindowStateEvents(win);
 
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https:\/\//i.test(url)) void shell.openExternal(url);
+    return { action: "deny" };
+  });
+  win.webContents.on("will-navigate", (event, url) => {
+    if (!url.startsWith("file://")) {
+      event.preventDefault();
+      if (/^https:\/\//i.test(url)) void shell.openExternal(url);
+    }
+  });
+
   win.once("ready-to-show", () => win.show());
 
   const indexHtml = path.join(__dirname, "..", "dist", "index.html");
@@ -512,9 +610,12 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  loadAllowlist();
   registerDbHandlers();
+  registerMirrorHandlers();
+  registerMaintenanceHandlers(() => mainWindow);
   createWindow();
-  registerBlackboardHandlers(mainWindow);
+  registerBlackboardHandlers(() => mainWindow, { allowPaths });
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

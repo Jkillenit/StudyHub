@@ -1,172 +1,80 @@
-import { useCallback, useEffect, useRef } from "react";
-import { ensureUserCourse } from "./userCourseModel.js";
+import { useEffect, useRef } from "react";
 
-export default function BlackboardImportHandler({ courses, activeCourse, onCreateCourse, onUpsertImport }) {
-  const coursesRef = useRef(courses);
+const bbToast = (message, type = "success") => void window.studyHub?.blackboard?.showBbToast?.(message, type);
+
+function isSyllabusName(fileName) {
+  const lower = String(fileName || "").toLowerCase();
+  return lower.includes("syllabus") || lower.includes("course outline") || lower.includes("course_outline");
+}
+
+/**
+ * Bridges Blackboard-window events to the app. It never builds course objects itself:
+ * course resolution and merging happen in the root app against live state.
+ */
+export default function BlackboardImportHandler({ onCreateCourse, onImport }) {
+  const createRef = useRef(onCreateCourse);
+  const importRef = useRef(onImport);
+  createRef.current = onCreateCourse;
+  importRef.current = onImport;
+
   useEffect(() => {
-    coursesRef.current = courses;
-  }, [courses]);
+    const bb = window.studyHub?.blackboard;
+    if (!bb) return undefined;
 
-  const activeCourseRef = useRef(activeCourse);
-  useEffect(() => {
-    activeCourseRef.current = activeCourse;
-  }, [activeCourse]);
-
-  const bbToast = useCallback((message, type = "success") => {
-    void window.studyHub?.blackboard?.showBbToast?.(message, type);
-  }, []);
-
-  useEffect(() => {
     const handleCreateRequest = async (data) => {
       const { courseTitle, bbCourseId } = data || {};
-
-      const existing = (coursesRef.current || []).find(
-        (c) => c.bbCourseId === bbCourseId || c.name === courseTitle
-      );
-
-      let course = existing;
-
-      if (!course && onCreateCourse) {
-        course = await onCreateCourse({
-          name: courseTitle || bbCourseId || "Blackboard Course",
-          bbCourseId,
-        });
-      }
-
+      const course = await createRef.current?.({ name: courseTitle || bbCourseId || "Blackboard Course", bbCourseId });
       if (!course) return;
-
       const courseId = course.uuid || course.id;
-
-      await window.studyHub?.blackboard?.setActiveCourse?.(courseId);
-
-      await window.studyHub?.blackboard?.reportCourseCreated?.({
-        courseId,
-        courseTitle: course.name,
-        bbCourseId,
-      });
-
-      bbToast(`✓ Course created: ${course.name}`);
+      await bb.setActiveCourse?.(courseId);
+      await bb.reportCourseCreated?.({ courseId, courseTitle: course.name, bbCourseId });
+      bbToast(`✓ Course linked: ${course.name}`);
     };
 
-    window.studyHub?.blackboard?.onCreateCourseRequest?.(handleCreateRequest);
+    const handleImportReady = async (data) => {
+      const { localPath, fileName, folderName, courseId, bbCourseId, role, action } = data || {};
+      const effectiveRole = isSyllabusName(fileName) ? "syllabus" : role;
+      let resolvedAction = effectiveRole === "syllabus" ? "parse-syllabus" : action;
+      let extracted = null;
 
-    return () => {
-      window.studyHub?.blackboard?.offCreateCourseRequest?.();
-    };
-  }, [onCreateCourse, bbToast]);
-
-  const handleImportReady = useCallback(
-    async (data) => {
-      const {
-        localPath,
-        fileName,
-        folderName,
-        courseId,
-        bbCourseId,
-        role,
-        action,
-      } = data || {};
-      const lowerFileName = String(fileName || "").toLowerCase();
-      const effectiveRole =
-        lowerFileName.includes("syllabus") ||
-        lowerFileName.includes("course outline") ||
-        lowerFileName.includes("course_outline")
-          ? "syllabus"
-          : role;
-
-      let course = null;
-
-      if (courseId) {
-        const row = await window.studyHub?.db?.courses?.get?.(courseId);
-        if (row) {
-          course = ensureUserCourse({
-            id: row.uuid,
-            uuid: row.uuid,
-            name: row.name,
-            color: row.color,
-            bbCourseId: bbCourseId || "",
-          });
-        }
-      }
-
-      if (!course) {
-        course = activeCourseRef.current || null;
-      }
-
-      if (!course && bbCourseId) {
-        course = (coursesRef.current || []).find((c) => c.bbCourseId === bbCourseId) || null;
-      }
-
-      if (!course) {
-        bbToast("○ Click CREATE STUDY HUB COURSE in the toolbar first", "warning");
-        return;
-      }
-
-      if (action === "import-pptx" && window.studyHub?.extractPptx) {
-        const extracted = await window.studyHub.extractPptx(localPath);
-        await onUpsertImport?.({
-          course,
-          fileName,
-          folderName,
-          role: effectiveRole,
-          action,
-          extracted,
-          localPath,
-        });
-        bbToast(
-          effectiveRole === "syllabus" ? "✓ Syllabus detected — checking grades" : `✓ Importing ${fileName}...`
-        );
-        return;
-      }
-
-      const resolvedAction = effectiveRole === "syllabus" ? "parse-syllabus" : action;
-      if (
-        (resolvedAction === "extract-text" || resolvedAction === "parse-syllabus") &&
-        (window.studyHub?.extractText || window.studyHub?.extractPdfText)
-      ) {
+      if (resolvedAction === "import-pptx" && bb && window.studyHub?.extractPptx) {
+        extracted = await window.studyHub.extractPptx(localPath);
+      } else if (resolvedAction === "extract-text" || resolvedAction === "parse-syllabus") {
         const isPdf = String(fileName || "").toLowerCase().endsWith(".pdf");
-        const extracted = isPdf
-          ? await window.studyHub.extractPdfText(localPath)
-          : await window.studyHub.extractText(localPath);
-        if (!extracted?.success && !extracted?.ok) {
-          bbToast(`✕ ${fileName}: ${extracted?.error || "text extraction failed"}`, "error");
+        const raw = isPdf ? await window.studyHub?.extractPdfText?.(localPath) : await window.studyHub?.extractText?.(localPath);
+        if (!raw?.success && !raw?.ok) {
+          bbToast(`✕ ${fileName}: ${raw?.error || "text extraction failed"}`, "error");
           return;
         }
-        const normalizedExtracted = extracted?.ok ? { success: true, text: extracted.text || "" } : extracted;
-        await onUpsertImport?.({
-          course,
-          fileName,
-          folderName,
-          role: effectiveRole,
-          action: resolvedAction,
-          extracted: normalizedExtracted,
-          localPath,
-        });
-        if (effectiveRole === "syllabus") {
-          bbToast("✓ Syllabus — setting up GRADES tab");
-        } else {
-          bbToast(`✓ ${fileName} → notes`);
-        }
+        extracted = { success: true, text: raw.text || "" };
+      } else {
+        resolvedAction = null;
       }
-    },
-    [bbToast, onUpsertImport]
-  );
+      if (!resolvedAction) return;
 
-  useEffect(() => {
-    window.studyHub?.blackboard?.onImportReady?.(handleImportReady);
-    window.studyHub?.blackboard?.onImportError?.((data) => {
-      const fileName = data?.fileName || "File";
-      const error = data?.error || "Import failed";
-      bbToast(`✕ ${fileName}: ${error}`, "error");
-    });
-    window.studyHub?.blackboard?.onImportStarted?.((data) => {
-      const fileName = data?.fileName || "file";
-      bbToast(`... importing ${fileName}`);
-    });
-    return () => {
-      window.studyHub?.blackboard?.offImportEvents?.();
+      const message = await importRef.current?.({
+        courseId,
+        bbCourseId,
+        fileName,
+        folderName,
+        action: resolvedAction,
+        extracted,
+      });
+      if (message) bbToast(message, message.startsWith("✕") || message.startsWith("○") ? "warning" : "success");
     };
-  }, [handleImportReady, bbToast]);
+
+    const handleImportError = (data) => bbToast(`✕ ${data?.fileName || "File"}: ${data?.error || "Import failed"}`, "error");
+    const handleImportStarted = (data) => bbToast(`... importing ${data?.fileName || "file"}`);
+
+    bb.onCreateCourseRequest?.(handleCreateRequest);
+    bb.onImportReady?.(handleImportReady);
+    bb.onImportError?.(handleImportError);
+    bb.onImportStarted?.(handleImportStarted);
+    return () => {
+      bb.offCreateCourseRequest?.(handleCreateRequest);
+      bb.offImportEvents?.();
+    };
+  }, []);
 
   return null;
 }

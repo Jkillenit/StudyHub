@@ -1,25 +1,46 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { parseSyllabus } from "../../syllabus/syllabusParser";
+import { courseStore } from "../../db/courseStore.js";
 import InlineEdit from "./InlineEdit";
 
-function getCurrentLetter(grade, scale) {
-  if (grade === null || !scale) return null;
+const SCORE_SAVE_DEBOUNCE_MS = 600;
+const hasScore = (c) => c.score !== null && c.score !== undefined && !Number.isNaN(c.score);
+const keyOf = (c, i) => c.uuid || (c.id != null ? `id${c.id}` : `new${i}`);
+
+function gradeColor(pct) {
+  if (pct === null || pct === undefined) return "var(--sh-text-dim)";
+  if (pct >= 90) return "var(--sh-green)";
+  if (pct >= 80) return "var(--sh-cyan)";
+  if (pct >= 70) return "var(--sh-amber)";
+  return "var(--sh-red)";
+}
+
+export function getCurrentLetter(grade, scale) {
+  if (grade === null || grade === undefined || !scale) return null;
   const grades = Object.entries(scale).sort((a, b) => b[1] - a[1]);
   for (const [letter, threshold] of grades) {
     if (grade >= threshold) return letter;
   }
-  return grades.length ? grades[grades.length - 1][0] : null;
+  return "F";
+}
+
+function neededColor(needed) {
+  if (needed <= 70) return "var(--sh-green)";
+  if (needed <= 85) return "var(--sh-cyan)";
+  if (needed <= 95) return "var(--sh-amber)";
+  return "var(--sh-red)";
 }
 
 function GradeScaleDisplay({ scale, currentGrade }) {
   if (!scale) return null;
   const grades = Object.entries(scale).sort((a, b) => b[1] - a[1]);
   const currentLetter = getCurrentLetter(currentGrade, scale);
+  const rows = grades.some(([letter]) => letter === "F") ? grades : [...grades, ["F", 0]];
   return (
     <div className="sh-grade-scale">
       <div className="sh-section-label">GRADING SCALE</div>
       <div className="sh-grade-scale-grid">
-        {grades.map(([letter, threshold]) => {
+        {rows.map(([letter, threshold]) => {
           const isCurrent = letter === currentLetter;
           return (
             <div key={letter} className={`sh-grade-scale-row ${isCurrent ? "sh-grade-scale-row--current" : ""}`}>
@@ -30,7 +51,7 @@ function GradeScaleDisplay({ scale, currentGrade }) {
                 className="sh-grade-scale-threshold mono"
                 style={{ color: isCurrent ? "var(--sh-text-primary)" : "var(--sh-text-dim)" }}
               >
-                {threshold}%+
+                {letter === "F" && !threshold ? "below" : `${threshold}%+`}
               </span>
               {isCurrent ? <span className="sh-grade-scale-indicator">{"<- YOU ARE HERE"}</span> : null}
             </div>
@@ -43,24 +64,22 @@ function GradeScaleDisplay({ scale, currentGrade }) {
 
 function HypotheticalEngine({ components, gradingScale }) {
   const [target, setTarget] = useState(90);
-  const scored = components.filter((c) => c.score !== null && c.score !== undefined);
-  const unscored = components.filter((c) => c.score === null || c.score === undefined);
+  const scored = components.filter(hasScore);
+  const unscored = components.filter((c) => !hasScore(c));
   if (scored.length === 0 || unscored.length === 0) return null;
 
-  const scoredContrib = scored.reduce((sum, c) => sum + Number(c.score || 0) * Number(c.weight || 0), 0);
+  const scoredContrib = scored.reduce((sum, c) => sum + Number(c.score) * Number(c.weight || 0), 0);
   const remainingWeight = unscored.reduce((sum, c) => sum + Number(c.weight || 0), 0);
   const needed = remainingWeight > 0 ? (target - scoredContrib) / remainingWeight : null;
   const isPossible = needed !== null && needed <= 100;
   const isAlreadyAchieved = needed !== null && needed <= 0;
-
-  function getLetter(pct) {
-    return getCurrentLetter(pct, gradingScale);
-  }
+  const letter = getCurrentLetter(target, gradingScale) || `${target}%`;
 
   const targetOptions = gradingScale
     ? Object.entries(gradingScale)
+        .filter(([l]) => l !== "F")
         .sort((a, b) => b[1] - a[1])
-        .map(([letter, threshold]) => ({ letter, threshold }))
+        .map(([l, threshold]) => ({ letter: l, threshold }))
     : [
         { letter: "A", threshold: 90 },
         { letter: "B", threshold: 80 },
@@ -99,7 +118,7 @@ function HypotheticalEngine({ components, gradingScale }) {
         {isAlreadyAchieved ? (
           <div className="sh-hyp-achieved">
             <span className="sh-hyp-check">✓</span>
-            <span>Already achieved - you have a {getLetter(target)} regardless of remaining work</span>
+            <span>Already achieved - you have a {letter} regardless of remaining work</span>
           </div>
         ) : !isPossible ? (
           <div className="sh-hyp-impossible">
@@ -110,40 +129,16 @@ function HypotheticalEngine({ components, gradingScale }) {
           <div className="sh-hyp-breakdown">
             <div className="sh-hyp-summary">
               You need an average of{" "}
-              <span
-                className="sh-hyp-score"
-                style={{
-                  color:
-                    needed <= 70
-                      ? "var(--sh-green)"
-                      : needed <= 85
-                        ? "var(--sh-cyan)"
-                        : needed <= 95
-                          ? "var(--sh-amber)"
-                          : "var(--sh-red)",
-                }}
-              >
+              <span className="sh-hyp-score" style={{ color: neededColor(needed) }}>
                 {needed.toFixed(1)}%
               </span>{" "}
-              across remaining components to get a {getLetter(target)}.
+              across remaining components to get a {letter}.
             </div>
             <div className="sh-hyp-components">
               {unscored.map((component, i) => (
-                <div key={`${component.name}-${i}`} className="sh-hyp-row">
+                <div key={keyOf(component, i)} className="sh-hyp-row">
                   <span className="sh-hyp-name">{component.name}</span>
-                  <span
-                    className="sh-hyp-needed mono"
-                    style={{
-                      color:
-                        needed <= 100
-                          ? needed <= 70
-                            ? "var(--sh-green)"
-                            : needed <= 85
-                              ? "var(--sh-cyan)"
-                              : "var(--sh-amber)"
-                          : "var(--sh-red)",
-                    }}
-                  >
+                  <span className="sh-hyp-needed mono" style={{ color: neededColor(needed) }}>
                     {needed.toFixed(1)}%
                   </span>
                 </div>
@@ -157,79 +152,43 @@ function HypotheticalEngine({ components, gradingScale }) {
 }
 
 function WhatIfSimulator({ components }) {
-  const unscored = components.filter((c) => c.score === null || c.score === undefined);
-  const [simScores, setSimScores] = useState(() => {
-    const initial = {};
-    unscored.forEach((c) => {
-      initial[c.name] = 80;
-    });
-    return initial;
-  });
-
-  useEffect(() => {
-    setSimScores((prev) => {
-      const next = { ...prev };
-      unscored.forEach((c) => {
-        if (next[c.name] === undefined) next[c.name] = 80;
-      });
-      Object.keys(next).forEach((name) => {
-        if (!unscored.some((component) => component.name === name)) {
-          delete next[name];
-        }
-      });
-      return next;
-    });
-  }, [unscored]);
-
+  const unscored = useMemo(
+    () => components.map((c, i) => ({ c, key: keyOf(c, i) })).filter(({ c }) => !hasScore(c)),
+    [components]
+  );
+  const [simScores, setSimScores] = useState({});
   if (unscored.length === 0) return null;
 
-  const allWithSim = components.map((c) => {
-    if (c.score !== null && c.score !== undefined) return c;
-    return { ...c, score: simScores[c.name] ?? 80 };
-  });
-  const projectedGrade = allWithSim.reduce((sum, c) => sum + Number(c.score || 0) * Number(c.weight || 0), 0);
+  const simFor = (key) => simScores[key] ?? 80;
+  const projectedGrade = components.reduce((sum, c, i) => {
+    const score = hasScore(c) ? Number(c.score) : simFor(keyOf(c, i));
+    return sum + score * Number(c.weight || 0);
+  }, 0);
 
   return (
     <div className="sh-whatif">
       <div className="sh-section-label">WHAT-IF SIMULATOR</div>
       <div className="sh-whatif-note">Adjust sliders to simulate future scores. Does not affect saved grades.</div>
       <div className="sh-whatif-sliders">
-        {unscored.map((component, i) => (
-          <div key={`${component.name}-${i}`} className="sh-whatif-row">
-            <span className="sh-whatif-name">{component.name}</span>
+        {unscored.map(({ c, key }) => (
+          <div key={key} className="sh-whatif-row">
+            <span className="sh-whatif-name">{c.name}</span>
             <input
               type="range"
               min="0"
               max="100"
               step="1"
-              value={simScores[component.name] ?? 80}
-              onChange={(event) =>
-                setSimScores((prev) => ({
-                  ...prev,
-                  [component.name]: parseInt(event.target.value, 10),
-                }))
-              }
+              value={simFor(key)}
+              onChange={(event) => setSimScores((prev) => ({ ...prev, [key]: parseInt(event.target.value, 10) }))}
               className="sh-whatif-slider"
             />
-            <span className="sh-whatif-val mono">{simScores[component.name] ?? 80}%</span>
+            <span className="sh-whatif-val mono">{simFor(key)}%</span>
           </div>
         ))}
       </div>
       <div className="sh-whatif-projected">
         <span className="sh-grade-label">PROJECTED GRADE</span>
-        <span
-          className="sh-whatif-grade"
-          style={{
-            color:
-              projectedGrade >= 90
-                ? "var(--sh-green)"
-                : projectedGrade >= 80
-                  ? "var(--sh-cyan)"
-                  : projectedGrade >= 70
-                    ? "var(--sh-amber)"
-                    : "var(--sh-red)",
-          }}
-        >
+        <span className="sh-whatif-grade" style={{ color: gradeColor(projectedGrade) }}>
           {projectedGrade.toFixed(1)}%
         </span>
       </div>
@@ -238,44 +197,27 @@ function WhatIfSimulator({ components }) {
 }
 
 function GradeDropCalculator({ components }) {
-  const scored = components.filter((c) => c.score !== null && c.score !== undefined);
-  if (scored.length === 0) return null;
-  const totalGrade = components.reduce((sum, c) => sum + Number(c.score ?? 0) * Number(c.weight || 0), 0);
+  if (!components.some(hasScore)) return null;
+  const contribution = (c) => (hasScore(c) ? Number(c.score) : 0) * Number(c.weight || 0);
+  const totalGrade = components.reduce((sum, c) => sum + contribution(c), 0);
   const impacts = components
-    .map((c) => {
-      const withoutThis = components.reduce((sum, other) => {
-        if (other.name === c.name) return sum;
-        return sum + Number(other.score ?? 0) * Number(other.weight || 0);
-      }, 0);
-      return {
-        name: c.name,
-        currentScore: c.score,
-        gradeWithZero: withoutThis,
-        impact: totalGrade - withoutThis,
-      };
-    })
-    .filter((c) => c.currentScore !== null && c.currentScore !== undefined)
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => hasScore(c))
+    .map(({ c, i }) => ({
+      key: keyOf(c, i),
+      name: c.name,
+      gradeWithZero: totalGrade - contribution(c),
+      impact: contribution(c),
+    }))
     .sort((a, b) => b.impact - a.impact);
   return (
     <div className="sh-drop-calc">
       <div className="sh-section-label">IF I SCORE ZERO ON...</div>
       <div className="sh-drop-table">
-        {impacts.map((item, i) => (
-          <div key={`${item.name}-${i}`} className="sh-drop-row">
+        {impacts.map((item) => (
+          <div key={item.key} className="sh-drop-row">
             <span className="sh-drop-name">{item.name}</span>
-            <span
-              className="sh-drop-result mono"
-              style={{
-                color:
-                  item.gradeWithZero >= 90
-                    ? "var(--sh-green)"
-                    : item.gradeWithZero >= 80
-                      ? "var(--sh-cyan)"
-                      : item.gradeWithZero >= 70
-                        ? "var(--sh-amber)"
-                        : "var(--sh-red)",
-              }}
-            >
+            <span className="sh-drop-result mono" style={{ color: gradeColor(item.gradeWithZero) }}>
               {item.gradeWithZero.toFixed(1)}%
             </span>
             <span className="sh-drop-delta mono" style={{ color: "var(--sh-red)", opacity: 0.7 }}>
@@ -288,7 +230,7 @@ function GradeDropCalculator({ components }) {
   );
 }
 
-function ComponentRow({ component, index, onScoreChange, components, setComponents, onSaveComponents }) {
+function ComponentRow({ component, index, onScoreChange, onUpdate, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const [subEntries, setSubEntries] = useState([]);
   const [newLabel, setNewLabel] = useState("");
@@ -296,22 +238,21 @@ function ComponentRow({ component, index, onScoreChange, components, setComponen
 
   useEffect(() => {
     if (!expanded || !component.id) return;
-    async function loadSubs() {
-      const rows = await window.studyHub?.db?.grades?.getSubEntries(component.id);
-      setSubEntries(rows || []);
-    }
-    void loadSubs();
+    let cancelled = false;
+    window.studyHub?.db?.grades?.getSubEntries(component.id).then((rows) => {
+      if (!cancelled) setSubEntries(rows || []);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [expanded, component.id]);
 
-  useEffect(() => {
-    if (subEntries.length === 0) return;
-    const avg = subEntries.reduce((sum, entry) => sum + Number(entry.score || 0), 0) / subEntries.length;
-    const rounded = Math.round(avg * 10) / 10;
-    const current = component.score === null || component.score === undefined ? null : Number(component.score);
-    if (current !== rounded) {
-      onScoreChange(index, rounded.toString());
-    }
-  }, [subEntries, component.score, index, onScoreChange]);
+  const applySubAverage = (rows) => {
+    setSubEntries(rows);
+    if (!rows.length) return;
+    const avg = rows.reduce((sum, entry) => sum + Number(entry.score || 0), 0) / rows.length;
+    onScoreChange(index, String(Math.round(avg * 10) / 10));
+  };
 
   async function addSubEntry() {
     const score = parseFloat(newScore);
@@ -321,42 +262,37 @@ function ComponentRow({ component, index, onScoreChange, components, setComponen
       score,
       label: newLabel || `Entry ${subEntries.length + 1}`,
     });
-    const rows = await window.studyHub?.db?.grades?.getSubEntries(component.id);
-    setSubEntries(rows || []);
+    applySubAverage((await window.studyHub?.db?.grades?.getSubEntries(component.id)) || []);
     setNewLabel("");
     setNewScore("");
   }
 
   async function deleteSubEntry(id) {
     await window.studyHub?.db?.grades?.deleteSubEntry(id);
-    setSubEntries((prev) => prev.filter((entry) => entry.id !== id));
+    applySubAverage(subEntries.filter((entry) => entry.id !== id));
   }
 
-  const contrib = component.score !== null && component.score !== undefined ? Number(component.score) * Number(component.weight || 0) : null;
-  const currentContrib = component.score !== null && component.score !== undefined ? Number(component.score) * Number(component.weight || 0) : null;
-  const dropImpact = currentContrib !== null ? currentContrib : Number(component.weight || 0) * 80;
+  const contrib = hasScore(component) ? Number(component.score) * Number(component.weight || 0) : null;
+  const dropImpact = contrib !== null ? contrib : Number(component.weight || 0) * 80;
 
   return (
     <>
       <div className="sh-grades-row-wrap">
         <div className="sh-grades-row">
           <span className="sh-grades-col sh-grades-col--name">
-          <button className="sh-expand-toggle" onClick={() => setExpanded((open) => !open)} title="Add individual grades">
-            {expanded ? "▾" : "▸"}
-          </button>
-          <span className={`sh-category-dot sh-category-dot--${component.category || "other"}`} />
-            <InlineEdit
-              value={component.name}
-              className="sh-grade-name-edit"
-              onSave={(newName) => {
-                const updated = components.map((c, j) => (j === index ? { ...c, name: newName } : c));
-                setComponents(updated);
-                void onSaveComponents(updated);
-              }}
-            />
-          <span className="sh-drop-impact" title={`Scoring 0 costs ~${dropImpact.toFixed(1)} grade points`}>
-            ↓{dropImpact.toFixed(1)}
-          </span>
+            <button
+              className="sh-expand-toggle"
+              onClick={() => setExpanded((open) => !open)}
+              title={component.id ? "Add individual grades" : "Saving…"}
+              disabled={!component.id}
+            >
+              {expanded ? "▾" : "▸"}
+            </button>
+            <span className={`sh-category-dot sh-category-dot--${component.category || "other"}`} />
+            <InlineEdit value={component.name} className="sh-grade-name-edit" onSave={(name) => onUpdate(index, { name })} />
+            <span className="sh-drop-impact" title={`Scoring 0 costs ~${dropImpact.toFixed(1)} grade points`}>
+              ↓{dropImpact.toFixed(1)}
+            </span>
           </span>
           <span className="sh-grades-col sh-grades-col--weight mono">
             <InlineEdit
@@ -366,9 +302,7 @@ function ComponentRow({ component, index, onScoreChange, components, setComponen
               onSave={(newVal) => {
                 const pct = parseFloat(newVal);
                 if (Number.isNaN(pct) || pct <= 0 || pct > 100) return;
-                const updated = components.map((c, j) => (j === index ? { ...c, weight: pct / 100 } : c));
-                setComponents(updated);
-                void onSaveComponents(updated);
+                onUpdate(index, { weight: pct / 100 });
               }}
             />
           </span>
@@ -391,33 +325,15 @@ function ComponentRow({ component, index, onScoreChange, components, setComponen
           >
             {contrib !== null ? contrib.toFixed(2) : "—"}
           </span>
-          <button
-            className="sh-grades-delete-btn"
-            onClick={() => {
-              const updated = components.filter((_, j) => j !== index);
-              setComponents(updated);
-              void onSaveComponents(updated);
-            }}
-            title="Delete component"
-          >
+          <button className="sh-grades-delete-btn" onClick={() => onDelete(index)} title="Delete component">
             ✕
           </button>
         </div>
-        {component.score !== null && component.score !== undefined ? (
+        {hasScore(component) ? (
           <div className="sh-score-bar-wrap">
             <div
               className="sh-score-bar"
-              style={{
-                width: `${Math.min(100, Number(component.score || 0))}%`,
-                background:
-                  Number(component.score || 0) >= 90
-                    ? "var(--sh-green)"
-                    : Number(component.score || 0) >= 80
-                      ? "var(--sh-cyan)"
-                      : Number(component.score || 0) >= 70
-                        ? "var(--sh-amber)"
-                        : "var(--sh-red)",
-              }}
+              style={{ width: `${Math.min(100, Number(component.score))}%`, background: gradeColor(Number(component.score)) }}
             />
           </div>
         ) : null}
@@ -474,97 +390,173 @@ function ComponentRow({ component, index, onScoreChange, components, setComponen
   );
 }
 
-export default function GradesTab({ course, onSaveComponents }) {
+function BlackboardGradebook({ items, components, onApply }) {
+  if (!items.length) return null;
+  return (
+    <div className="sh-bb-gradebook">
+      <div className="sh-section-label">BLACKBOARD GRADEBOOK</div>
+      <div className="sh-whatif-note">Synced from Blackboard. Apply a score to one of your weighted components.</div>
+      {items.map((item) => {
+        const pct =
+          item.score != null && item.points_possible ? Math.round((item.score / item.points_possible) * 1000) / 10 : null;
+        return (
+          <div key={item.id} className="sh-drop-row">
+            <span className="sh-drop-name">{item.name}</span>
+            <span className="sh-drop-result mono" style={{ color: gradeColor(pct) }}>
+              {item.score != null ? `${item.score}${item.points_possible ? ` / ${item.points_possible}` : ""}` : "—"}
+              {pct != null ? ` · ${pct}%` : ""}
+            </span>
+            {pct != null && components.length ? (
+              <select
+                className="sh-bb-apply-select"
+                value=""
+                onChange={(event) => {
+                  const idx = Number(event.target.value);
+                  if (!Number.isNaN(idx)) onApply(idx, pct);
+                }}
+              >
+                <option value="">APPLY TO…</option>
+                {components.map((c, i) => (
+                  <option key={keyOf(c, i)} value={i}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function GradesTab({ course, onComponentsChange }) {
+  const courseUuid = course?.uuid || course?.id;
   const [components, setComponents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState(null);
   const [gradingScale, setGradingScale] = useState(null);
+  const [bbItems, setBbItems] = useState([]);
+  const componentsRef = useRef(components);
+  const scoreTimersRef = useRef(new Map());
+  componentsRef.current = components;
 
   useEffect(() => {
-    async function load() {
-      try {
-        const uuid = course?.uuid || course?.id;
-        if (!uuid) return;
-        const [rows, entries, scale] = await Promise.all([
-          window.studyHub?.db?.grades?.getComponents(uuid),
-          window.studyHub?.db?.grades?.getEntries(uuid),
-          window.studyHub?.db?.grades?.getGradingScale(uuid),
-        ]);
-        const safeEntries = Array.isArray(entries) ? entries : [];
-        const scoreByComponent = new Map(safeEntries.map((entry) => [entry.component_id, entry.score]));
-        const hydrated = rows.map((row) => ({
-          ...row,
-          score: scoreByComponent.has(row.id) ? scoreByComponent.get(row.id) : null,
-        }));
-        if (hydrated.length > 0) setComponents(hydrated);
-        if (scale) setGradingScale(scale);
-      } catch (err) {
-        console.error("[GradesTab] load error:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    void load();
-  }, [course?.uuid, course?.id]);
+    if (!courseUuid) return undefined;
+    let cancelled = false;
+    setLoading(true);
+    Promise.all([
+      window.studyHub?.db?.grades?.getComponents(courseUuid),
+      window.studyHub?.db?.grades?.getGradingScale(courseUuid),
+      window.studyHub?.db?.bb?.getGradeItems?.(courseUuid),
+    ])
+      .then(([rows, scale, items]) => {
+        if (cancelled) return;
+        setComponents(Array.isArray(rows) ? rows : []);
+        setGradingScale(scale || null);
+        setBbItems(Array.isArray(items) ? items : []);
+      })
+      .catch(() => setStatus("Could not load grades"))
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [courseUuid]);
 
-  const { currentGrade } = useMemo(() => {
-    const scored = components.filter((component) => component.score !== null && component.score !== undefined);
-    if (scored.length === 0) {
-      return { currentGrade: null };
-    }
-    const scoredWeight = scored.reduce((sum, component) => sum + Number(component.weight || 0), 0);
-    const weightedSum = scored.reduce(
-      (sum, component) => sum + Number(component.score || 0) * Number(component.weight || 0),
-      0
-    );
-    const current = scoredWeight > 0 ? weightedSum / scoredWeight : null;
-    return { currentGrade: current };
+  useEffect(
+    () => () => {
+      for (const timer of scoreTimersRef.current.values()) window.clearTimeout(timer);
+    },
+    []
+  );
+
+  /** Persist structure (names, weights, order). Scores are kept from local state. */
+  const saveStructure = useCallback(
+    async (next) => {
+      setComponents(next);
+      const rows = await courseStore.saveGradeComponents(courseUuid, next);
+      if (!Array.isArray(rows)) return;
+      const merged = rows.map((row, i) => ({ ...row, score: hasScore(next[i] || {}) ? next[i].score : row.score }));
+      setComponents(merged);
+      onComponentsChange?.(merged.length);
+      // Components that were new when their score was typed have ids only now.
+      merged.forEach((row, i) => {
+        if (!next[i]?.id && hasScore(row)) {
+          void window.studyHub?.db?.grades?.upsertEntry({ courseUuid, componentId: row.id, score: row.score });
+        }
+      });
+    },
+    [courseUuid, onComponentsChange]
+  );
+
+  const handleScoreChange = useCallback(
+    (index, value) => {
+      const parsed = value === "" ? null : parseFloat(value);
+      const score = parsed === null || Number.isNaN(parsed) ? null : parsed;
+      setComponents((prev) => prev.map((c, i) => (i === index ? { ...c, score } : c)));
+      const component = componentsRef.current[index];
+      if (!component?.id) return;
+      const timers = scoreTimersRef.current;
+      window.clearTimeout(timers.get(component.id));
+      timers.set(
+        component.id,
+        window.setTimeout(() => {
+          timers.delete(component.id);
+          void window.studyHub?.db?.grades?.upsertEntry({ courseUuid, componentId: component.id, score });
+        }, SCORE_SAVE_DEBOUNCE_MS)
+      );
+    },
+    [courseUuid]
+  );
+
+  const updateComponent = (index, patch) =>
+    void saveStructure(componentsRef.current.map((c, i) => (i === index ? { ...c, ...patch } : c)));
+  const deleteComponent = (index) => void saveStructure(componentsRef.current.filter((_, i) => i !== index));
+  const addComponent = (preset) =>
+    void saveStructure([
+      ...componentsRef.current,
+      preset || { name: "New Component", weight: 0.05, category: "other", score: null },
+    ]);
+
+  const currentGrade = useMemo(() => {
+    const scored = components.filter(hasScore);
+    const scoredWeight = scored.reduce((sum, c) => sum + Number(c.weight || 0), 0);
+    if (!scored.length || scoredWeight <= 0) return null;
+    return scored.reduce((sum, c) => sum + Number(c.score) * Number(c.weight || 0), 0) / scoredWeight;
   }, [components]);
 
   async function handleImport() {
     const result = await window.studyHub?.openFileDialog?.({
-      filters: [{ name: "Syllabus", extensions: ["pdf", "docx", "doc", "pptx"] }],
+      filters: [{ name: "Syllabus", extensions: ["pdf", "docx", "doc", "pptx", "txt"] }],
     });
     if (result?.canceled || !result?.filePath) return;
     setStatus("READING SYLLABUS...");
-    const extracted = await window.studyHub?.extractText?.(result.filePath);
-    if (!extracted?.success || !extracted?.text) {
+    const isPdf = result.filePath.toLowerCase().endsWith(".pdf");
+    const extracted = isPdf
+      ? await window.studyHub?.extractPdfText?.(result.filePath)
+      : await window.studyHub?.extractText?.(result.filePath);
+    const text = extracted?.text || "";
+    if (!(extracted?.success || extracted?.ok) || !text) {
       setStatus("Could not read file - try a different format");
       return;
     }
-    setStatus("EXTRACTING GRADE SCHEMA...");
-    const parsed = parseSyllabus(extracted.text);
+    const parsed = parseSyllabus(text);
     if (parsed.grading.length === 0) {
       setStatus("No grade components found - try adding manually");
       return;
     }
-    const newComponents = parsed.grading.map((component) => ({ ...component, score: null }));
-    setComponents(newComponents);
-    await onSaveComponents(newComponents);
+    if (components.length && !window.confirm(`Replace ${components.length} existing components with ${parsed.grading.length} from the syllabus?`)) {
+      setStatus(null);
+      return;
+    }
+    await saveStructure(parsed.grading.map((component) => ({ ...component, score: null })));
     if (parsed.gradingScale) {
-      const uuid = course?.uuid || course?.id;
-      void window.studyHub?.db?.grades?.saveGradingScale({ courseUuid: uuid, scale: parsed.gradingScale });
+      void window.studyHub?.db?.grades?.saveGradingScale({ courseUuid, scale: parsed.gradingScale });
       setGradingScale(parsed.gradingScale);
     }
-    setStatus(`Found ${newComponents.length} components - enter your scores below`);
-  }
-
-  async function handleScoreChange(index, value) {
-    const score = value === "" ? null : parseFloat(value);
-    const updated = components.map((component, i) => (i === index ? { ...component, score } : component));
-    setComponents(updated);
-    const component = components[index];
-    if (component?.id) {
-      window.studyHub?.db?.grades
-        ?.upsertEntry({
-          courseUuid: course?.uuid || course?.id,
-          componentId: component.id,
-          score,
-          label: component.name,
-        })
-        .catch((err) => console.warn("[GRADES] Save:", err));
-    }
-    void onSaveComponents(updated);
+    setStatus(`Found ${parsed.grading.length} components - enter your scores below`);
   }
 
   if (loading) return <div className="sh-skeleton-pulse" style={{ height: 240 }} />;
@@ -580,17 +572,18 @@ export default function GradesTab({ course, onSaveComponents }) {
           </button>
           <button
             className="sh-btn-ghost"
-            onClick={() =>
-              setComponents([{ name: "Homework", weight: 0.2, category: "homework", score: null }])
-            }
+            onClick={() => addComponent({ name: "Homework", weight: 0.2, category: "homework", score: null })}
           >
             + ADD MANUALLY
           </button>
         </div>
         {status ? <div className="sh-grades-status">{status}</div> : null}
+        <BlackboardGradebook items={bbItems} components={components} onApply={handleScoreChange} />
       </div>
     );
   }
+
+  const totalWeight = components.reduce((sum, c) => sum + Number(c.weight || 0), 0);
 
   return (
     <div className="sh-grades-view">
@@ -602,37 +595,19 @@ export default function GradesTab({ course, onSaveComponents }) {
       </div>
 
       {status ? (
-        <div
-          className="sh-grades-status"
-          style={{ color: status.startsWith("Found") ? "var(--sh-green)" : "var(--sh-amber)" }}
-        >
+        <div className="sh-grades-status" style={{ color: status.startsWith("Found") ? "var(--sh-green)" : "var(--sh-amber)" }}>
           {status}
         </div>
       ) : null}
 
       <div className="sh-current-grade">
-        {(() => {
-          const gradeColor =
-            currentGrade === null
-              ? "var(--sh-text-dim)"
-              : currentGrade >= 90
-                ? "var(--sh-green)"
-                : currentGrade >= 80
-                  ? "var(--sh-cyan)"
-                  : currentGrade >= 70
-                    ? "var(--sh-amber)"
-                    : "var(--sh-red)";
-          const currentLetter = getCurrentLetter(currentGrade, gradingScale);
-          return (
-            <>
-              <span className="sh-grade-value" style={{ color: gradeColor }}>
-                {currentGrade !== null ? `${currentGrade.toFixed(1)}%` : "—"}
-              </span>
-              {currentGrade !== null && gradingScale ? <span className="sh-grade-letter">{currentLetter}</span> : null}
-              <span className="sh-grade-label">{currentGrade !== null ? "CURRENT GRADE" : "NO SCORES YET"}</span>
-            </>
-          );
-        })()}
+        <span className="sh-grade-value" style={{ color: gradeColor(currentGrade) }}>
+          {currentGrade !== null ? `${currentGrade.toFixed(1)}%` : "—"}
+        </span>
+        {currentGrade !== null && gradingScale ? (
+          <span className="sh-grade-letter">{getCurrentLetter(currentGrade, gradingScale)}</span>
+        ) : null}
+        <span className="sh-grade-label">{currentGrade !== null ? "CURRENT GRADE" : "NO SCORES YET"}</span>
       </div>
 
       <div className="sh-grades-table">
@@ -646,26 +621,26 @@ export default function GradesTab({ course, onSaveComponents }) {
 
         {components.map((component, i) => (
           <ComponentRow
-            key={`${component.id || component.name}-${i}`}
+            key={keyOf(component, i)}
             component={component}
             index={i}
             onScoreChange={handleScoreChange}
-            components={components}
-            setComponents={setComponents}
-            onSaveComponents={onSaveComponents}
+            onUpdate={updateComponent}
+            onDelete={deleteComponent}
           />
         ))}
 
         <div className="sh-grades-row sh-grades-row--total">
           <span className="sh-grades-col sh-grades-col--name mono">TOTAL</span>
-          <span className="sh-grades-col sh-grades-col--weight mono">
-            {(components.reduce((sum, component) => sum + Number(component.weight || 0), 0) * 100).toFixed(0)}%
+          <span
+            className="sh-grades-col sh-grades-col--weight mono"
+            style={{ color: Math.abs(totalWeight - 1) > 0.01 ? "var(--sh-amber)" : undefined }}
+            title={Math.abs(totalWeight - 1) > 0.01 ? "Weights do not add up to 100%" : undefined}
+          >
+            {(totalWeight * 100).toFixed(0)}%
           </span>
           <span className="sh-grades-col sh-grades-col--score" />
-          <span
-            className="sh-grades-col sh-grades-col--contribution mono"
-            style={{ color: currentGrade !== null ? "var(--sh-green)" : "var(--sh-text-dim)" }}
-          >
+          <span className="sh-grades-col sh-grades-col--contribution mono" style={{ color: gradeColor(currentGrade) }}>
             {currentGrade !== null ? `${currentGrade.toFixed(1)}%` : "—"}
           </span>
           <span className="sh-grades-col sh-grades-col--actions" />
@@ -673,17 +648,7 @@ export default function GradesTab({ course, onSaveComponents }) {
       </div>
 
       <div className="sh-grades-actions">
-        <button
-          className="sh-btn-ghost sh-btn-xs"
-          onClick={() => {
-            const updated = [
-              ...components,
-              { name: "New Component", weight: 0.05, category: "other", score: null },
-            ];
-            setComponents(updated);
-            void onSaveComponents(updated);
-          }}
-        >
+        <button className="sh-btn-ghost sh-btn-xs" onClick={() => addComponent()}>
           + ADD COMPONENT
         </button>
       </div>
@@ -691,6 +656,7 @@ export default function GradesTab({ course, onSaveComponents }) {
       <HypotheticalEngine components={components} gradingScale={gradingScale} />
       <WhatIfSimulator components={components} />
       <GradeDropCalculator components={components} />
+      <BlackboardGradebook items={bbItems} components={components} onApply={handleScoreChange} />
     </div>
   );
 }

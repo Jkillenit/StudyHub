@@ -74,8 +74,6 @@ function deduplicateDefs(defs) {
 }
 
 export function classifySlides(slides) {
-  console.log("[PPTX] Classifying", (slides || []).length, "slides");
-  console.log("[PPTX] First slide sample:", JSON.stringify((slides || [])[0], null, 2));
   const result = {
     definitions: [],
     sections: [],
@@ -101,13 +99,6 @@ export function classifySlides(slides) {
     }
   }
   result.definitions = deduplicateDefs(result.definitions);
-
-  console.log("[PPTX] Classification result:", {
-    definitions: result.definitions.length,
-    sections: result.sections.length,
-    formulas: result.formulas.length,
-    unclassified: result.unclassified.length,
-  });
   return result;
 }
 

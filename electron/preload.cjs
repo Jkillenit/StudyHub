@@ -1,8 +1,16 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webUtils } = require("electron");
 const bbCourseListenerMap = new Map();
 const bbImportStartedListenerMap = new Map();
 const bbImportReadyListenerMap = new Map();
 const bbImportErrorListenerMap = new Map();
+const bbCreateCourseListenerMap = new Map();
+
+function subscribe(channel, callback) {
+  if (typeof callback !== "function") return () => {};
+  const wrapped = (_event, data) => callback(data);
+  ipcRenderer.on(channel, wrapped);
+  return () => ipcRenderer.removeListener(channel, wrapped);
+}
 
 contextBridge.exposeInMainWorld("electronAPI", {
   minimizeWindow: () => ipcRenderer.send("window-minimize"),
@@ -33,7 +41,22 @@ contextBridge.exposeInMainWorld("studyHub", {
 
   pickFolderMaterials: () => ipcRenderer.invoke("studyhub:pick-folder-materials"),
 
-  registerMaterialPaths: (paths) => ipcRenderer.invoke("studyhub:register-material-paths", paths),
+  /**
+   * Resolve a File from a drag-and-drop event to its disk path and grant read access to it.
+   * Only real OS files resolve to a path, so page code cannot use this to grant arbitrary paths.
+   * @returns {Promise<string|null>}
+   */
+  getDroppedFilePath: async (file) => {
+    let filePath = "";
+    try {
+      filePath = webUtils.getPathForFile(file);
+    } catch {
+      return null;
+    }
+    if (!filePath) return null;
+    const res = await ipcRenderer.invoke("studyhub:allow-dropped-path", filePath);
+    return res?.ok ? filePath : null;
+  },
 
   openPath: (filePath) => ipcRenderer.invoke("studyhub:open-path", filePath),
 
@@ -56,6 +79,27 @@ contextBridge.exposeInMainWorld("studyHub", {
     /** @returns {Promise<{ ok: boolean, cards?: Array<{front:string,back:string}>, error?: string }>} */
     generateFlashcards: (payload) =>
       ipcRenderer.invoke("studyhub:ai-generate-flashcards", payload),
+    /** @returns {Promise<{ ok: boolean, result?: { definitions: Array, newDefinitions: Array }, error?: string }>} */
+    enhance: (payload) => ipcRenderer.invoke("studyhub:ai-enhance", payload),
+    /** @returns {Promise<{ ok: boolean, questions?: Array, error?: string }>} */
+    practice: (payload) => ipcRenderer.invoke("studyhub:ai-practice", payload),
+    /** @returns {Promise<{ ok: boolean, results?: Array<{title,url,summary,kind}>, error?: string }>} */
+    webSearch: (payload) => ipcRenderer.invoke("studyhub:ai-web-search", payload),
+  },
+
+  openExternal: (url) => ipcRenderer.invoke("studyhub:open-external", url),
+
+  app: {
+    info: () => ipcRenderer.invoke("app:info"),
+    backup: {
+      create: () => ipcRenderer.invoke("app:backup:create"),
+      restore: () => ipcRenderer.invoke("app:backup:restore"),
+    },
+    update: {
+      check: () => ipcRenderer.invoke("app:update:check"),
+      install: () => ipcRenderer.invoke("app:update:install"),
+    },
+    onUpdateStatus: (callback) => subscribe("app:update-status", callback),
   },
   blackboard: {
     open: () => ipcRenderer.invoke("bb:open"),
@@ -97,28 +141,47 @@ contextBridge.exposeInMainWorld("studyHub", {
       ipcRenderer.on("bb:import-error", wrapped);
     },
     offImportEvents: () => {
-      ipcRenderer.removeAllListeners("bb:import-started");
-      ipcRenderer.removeAllListeners("bb:import-ready");
-      ipcRenderer.removeAllListeners("bb:import-error");
-      bbImportStartedListenerMap.clear();
-      bbImportReadyListenerMap.clear();
-      bbImportErrorListenerMap.clear();
+      for (const [channel, map] of [
+        ["bb:import-started", bbImportStartedListenerMap],
+        ["bb:import-ready", bbImportReadyListenerMap],
+        ["bb:import-error", bbImportErrorListenerMap],
+      ]) {
+        for (const wrapped of map.values()) ipcRenderer.removeListener(channel, wrapped);
+        map.clear();
+      }
     },
     createCourseFromBB: (data) => ipcRenderer.invoke("bb:create-course", data),
     reportCourseCreated: (data) => ipcRenderer.invoke("bb:course-created", data),
     onCreateCourseRequest: (callback) => {
       if (typeof callback !== "function") return;
-      ipcRenderer.on("bb:create-course-request", (_event, data) => callback(data));
+      const wrapped = (_event, data) => callback(data);
+      bbCreateCourseListenerMap.set(callback, wrapped);
+      ipcRenderer.on("bb:create-course-request", wrapped);
     },
-    offCreateCourseRequest: () => {
-      ipcRenderer.removeAllListeners("bb:create-course-request");
+    offCreateCourseRequest: (callback) => {
+      const entries = callback ? [[callback, bbCreateCourseListenerMap.get(callback)]] : [...bbCreateCourseListenerMap];
+      for (const [cb, wrapped] of entries) {
+        if (wrapped) ipcRenderer.removeListener("bb:create-course-request", wrapped);
+        bbCreateCourseListenerMap.delete(cb);
+      }
     },
+    /** @returns {Promise<{ ok: boolean, courses?: Array, error?: string }>} */
+    listCourses: () => ipcRenderer.invoke("bb:list-courses"),
+    /** @returns {Promise<{ ok: boolean, counts?: object, error?: string }>} */
+    syncCourse: (data) => ipcRenderer.invoke("bb:sync-course", data),
+    /** @returns {() => void} unsubscribe */
+    onSyncProgress: (callback) => subscribe("bb:sync-progress", callback),
+    /** @returns {() => void} unsubscribe */
+    onSyncComplete: (callback) => subscribe("bb:sync-complete", callback),
   },
 
   db: {
     courses: {
       getAll: () => ipcRenderer.invoke("db:courses:getAll"),
       get: (uuid) => ipcRenderer.invoke("db:courses:get", uuid),
+      getFull: (uuid) => ipcRenderer.invoke("db:courses:getFull", uuid),
+      saveFull: (payload) => ipcRenderer.invoke("db:courses:saveFull", payload),
+      findByBbId: (bbCourseId) => ipcRenderer.invoke("db:courses:findByBbId", bbCourseId),
       create: (course) => ipcRenderer.invoke("db:courses:create", course),
       update: (data) => ipcRenderer.invoke("db:courses:update", data),
       delete: (courseUuid) => ipcRenderer.invoke("db:courses:delete", courseUuid),
@@ -167,6 +230,33 @@ contextBridge.exposeInMainWorld("studyHub", {
       deleteSubEntry: (id) => ipcRenderer.invoke("db:grades:deleteSubEntry", id),
       saveGradingScale: (data) => ipcRenderer.invoke("db:grades:saveGradingScale", data),
       getGradingScale: (courseUuid) => ipcRenderer.invoke("db:grades:getGradingScale", courseUuid),
+    },
+    assignments: {
+      getByCourse: (courseUuid) => ipcRenderer.invoke("db:assignments:getByCourse", courseUuid),
+      getRange: (range) => ipcRenderer.invoke("db:assignments:getRange", range),
+      save: (data) => ipcRenderer.invoke("db:assignments:save", data),
+      setCompleted: (data) => ipcRenderer.invoke("db:assignments:setCompleted", data),
+      delete: (uuid) => ipcRenderer.invoke("db:assignments:delete", uuid),
+    },
+    announcements: {
+      getByCourse: (courseUuid) => ipcRenderer.invoke("db:announcements:getByCourse", courseUuid),
+      markRead: (uuid) => ipcRenderer.invoke("db:announcements:markRead", uuid),
+    },
+    bb: {
+      getItems: (courseUuid) => ipcRenderer.invoke("db:bb:getItems", courseUuid),
+      getGradeItems: (courseUuid) => ipcRenderer.invoke("db:bb:getGradeItems", courseUuid),
+    },
+    dashboard: {
+      get: () => ipcRenderer.invoke("db:dashboard:get"),
+    },
+    sessions: {
+      log: (data) => ipcRenderer.invoke("db:sessions:log", data),
+      stats: (courseUuid) => ipcRenderer.invoke("db:sessions:stats", courseUuid),
+    },
+    web: {
+      getByCourse: (courseUuid) => ipcRenderer.invoke("db:web:getByCourse", courseUuid),
+      save: (data) => ipcRenderer.invoke("db:web:save", data),
+      delete: (uuid) => ipcRenderer.invoke("db:web:delete", uuid),
     },
   },
 });

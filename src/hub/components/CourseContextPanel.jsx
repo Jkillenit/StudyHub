@@ -1,4 +1,5 @@
 import React from "react";
+import { DECK_MODES, filterDeck } from "../../study/flashcards/deckModes.js";
 
 function CourseContextPanel({
   course,
@@ -18,14 +19,7 @@ function CourseContextPanel({
   onEditCard,
 }) {
   const userFlashcards = Array.isArray(course?.flashcards) ? course.flashcards : [];
-  const filteredFlashcards =
-    sourceFilter === "all"
-      ? userFlashcards
-      : sourceFilter === "due"
-        ? userFlashcards.filter((c) => c?.dueAt)
-        : userFlashcards.filter((card) =>
-            sourceFilter === "manual" ? (card.source || "manual") === "manual" : card.source === "pptx"
-          );
+  const filteredFlashcards = filterDeck(userFlashcards, sourceFilter, currentModule?.id);
 
   return (
     <div className="ctx-section">
@@ -55,14 +49,9 @@ function CourseContextPanel({
         <div className="ctx-label">QUICK</div>
         {activeItem === "qz-deck" && userFlashcards.length > 0 ? (
           <>
-            <div className="ctx-label">QZ SOURCES</div>
-            <div className="d-flex gap-2 mb-2">
-              {[
-                { id: "all", label: "ALL" },
-                { id: "manual", label: "MANUAL" },
-                { id: "pptx", label: "IMPORTED" },
-                { id: "due", label: "DUE" },
-              ].map((opt) => (
+            <div className="ctx-label">DRILL MODE</div>
+            <div className="d-flex gap-2 mb-2 flex-wrap">
+              {DECK_MODES.map((opt) => (
                 <button
                   key={opt.id}
                   type="button"

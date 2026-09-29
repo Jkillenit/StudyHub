@@ -9,13 +9,20 @@ function safeJsonParse(str, fallback) {
   }
 }
 
-function flattenContent(contentData) {
+function sectionItemToText(item) {
+  if (item && typeof item === "object") return String(item.text ?? item.label ?? "");
+  return String(item ?? "");
+}
+
+/** Content item uuids are derived from their position when the item has no id, so re-saves are idempotent. */
+function flattenContent(moduleId, contentData) {
   const items = [];
   (contentData || []).forEach((section, sectionIdx) => {
+    const base = sectionIdx * 1000;
     if (section.type === "definitions") {
       (section.items || []).forEach((item, index) => {
         items.push({
-          uuid: item.id || `ci_${Date.now()}_${sectionIdx}_${index}`,
+          uuid: item.id || `${moduleId}_d${sectionIdx}_${index}`,
           section_type: "definitions",
           section_title: section.title,
           term: item.term,
@@ -23,27 +30,29 @@ function flattenContent(contentData) {
           confidence: item.confidence,
           source: item.source || "pptx",
           enhanced_by_ai: item.enhancedByAI ? 1 : 0,
-          position: sectionIdx * 100 + index,
+          position: base + index,
         });
       });
     } else if (section.type === "section") {
       items.push({
-        uuid: section.id || `ci_${Date.now()}_${sectionIdx}`,
+        uuid: section.id || `${moduleId}_s${sectionIdx}`,
         section_type: "section",
         section_title: section.title,
-        items_json: JSON.stringify(section.items || []),
+        items_json: JSON.stringify((section.items || []).map(sectionItemToText)),
         is_numbered: section.isNumbered ? 1 : 0,
-        position: sectionIdx * 100,
+        source: section.source || "pptx",
+        position: base,
       });
     } else if (section.type === "formulas") {
       (section.items || []).forEach((item, index) => {
         items.push({
-          uuid: item.id || `ci_${Date.now()}_${sectionIdx}_${index}`,
+          uuid: item.id || `${moduleId}_f${sectionIdx}_${index}`,
           section_type: "formulas",
           section_title: section.title,
           term: item.formula,
           definition: item.context,
-          position: sectionIdx * 100 + index,
+          source: item.source || "pptx",
+          position: base + index,
         });
       });
     }
@@ -52,20 +61,28 @@ function flattenContent(contentData) {
 }
 
 function inflateContent(rows) {
-  const sectionsMap = new Map();
+  const sections = [];
+  let current = null;
   (rows || []).forEach((row) => {
-    const key = `${row.section_type}:${row.section_title || ""}`;
-    if (!sectionsMap.has(key)) {
-      sectionsMap.set(key, {
-        type: row.section_type,
+    if (row.section_type === "section") {
+      current = null;
+      sections.push({
+        id: row.uuid,
+        type: "section",
         title: row.section_title,
-        items: [],
+        items: safeJsonParse(row.items_json, []).map(sectionItemToText),
         isNumbered: !!row.is_numbered,
+        source: row.source,
       });
+      return;
     }
-    const section = sectionsMap.get(key);
+    const key = `${row.section_type}:${row.section_title || ""}`;
+    if (!current || current.key !== key) {
+      current = { key, type: row.section_type, title: row.section_title, items: [] };
+      sections.push(current);
+    }
     if (row.section_type === "definitions") {
-      section.items.push({
+      current.items.push({
         id: row.uuid,
         term: row.term,
         definition: row.definition,
@@ -73,161 +90,203 @@ function inflateContent(rows) {
         source: row.source,
         enhancedByAI: !!row.enhanced_by_ai,
       });
-    } else if (row.section_type === "section") {
-      section.items = row.items_json ? safeJsonParse(row.items_json, []) : [];
     } else if (row.section_type === "formulas") {
-      section.items.push({ formula: row.term, context: row.definition });
+      current.items.push({ id: row.uuid, formula: row.term, context: row.definition });
     }
   });
-  return Array.from(sectionsMap.values());
+  return sections.map(({ key: _key, ...section }) => section);
 }
 
-export const courseStore = {
-  async getAllCourses() {
-    const rows = await db.courses.getAll();
-    return rows.map((course) => ({
-      id: course.uuid,
-      uuid: course.uuid,
-      name: course.name,
-      color: course.color || null,
-      modules: [],
-      flashcards: [],
-      glossary: [],
-      materialPaths: [],
-      disabledModuleIds: [],
-      completedModuleIds: [],
-    }));
-  },
+function inflateCourse(full) {
+  if (!full?.course) return null;
+  const { course, modules: moduleRows, flashcards: cardRows, glossary: glossaryRows } = full;
+  const meta = course.meta || safeJsonParse(course.meta_json, {}) || {};
+  const modules = moduleRows.map((row, index) => ({
+    id: row.uuid,
+    label: `Notes ${index + 1}`,
+    title: row.title || "General",
+    body: row.note_html || "",
+    contentData: inflateContent(row.content),
+    position: row.position ?? index,
+    reviewed: !!row.reviewed,
+  }));
+  const flashcards = cardRows.map((card) => ({
+    id: card.uuid,
+    uuid: card.uuid,
+    front: card.front,
+    back: card.back,
+    source: card.source || "manual",
+    moduleId: card.module_uuid || null,
+    addedAt: card.created_at,
+    ...(card.ease_factor != null
+      ? {
+          easeFactor: card.ease_factor,
+          intervalDays: card.interval_days,
+          repetitions: card.repetitions,
+          next_review: card.next_review,
+          lastReview: card.last_review,
+        }
+      : {}),
+  }));
+  const glossary = glossaryRows.map((term) => ({
+    id: term.uuid,
+    uuid: term.uuid,
+    term: term.term,
+    definition: term.definition,
+    confidence: term.confidence || "high",
+    source: term.source || "manual",
+    moduleId: term.module_uuid || null,
+    addedAt: term.added_at,
+  }));
+  const moduleIds = new Set(modules.map((m) => m.id));
+  return {
+    id: course.uuid,
+    uuid: course.uuid,
+    name: course.name,
+    color: course.color || null,
+    subtitle: course.subtitle || "",
+    bbCourseId: course.bb_course_id || "",
+    term: course.term || "",
+    courseCode: course.course_code || "",
+    instructor: course.instructor || "",
+    modules,
+    activeModuleId: moduleIds.has(meta.activeModuleId) ? meta.activeModuleId : modules[0]?.id || null,
+    flashcards,
+    glossary,
+    materialPaths: Array.isArray(meta.materialPaths) ? meta.materialPaths : [],
+    pptxReviewBlocks: meta.pptxReviewBlocks && typeof meta.pptxReviewBlocks === "object" ? meta.pptxReviewBlocks : {},
+    disabledModuleIds: moduleRows.filter((m) => m.disabled).map((m) => m.uuid),
+    completedModuleIds: modules.filter((m) => m.reviewed).map((m) => m.id),
+  };
+}
 
-  async getCourseWithModules(courseUuid) {
-    const course = await db.courses.get(courseUuid);
-    if (!course) return null;
-    const moduleRows = await db.modules.getByCourse(courseUuid);
-    const modules = await Promise.all(
-      moduleRows.map(async (moduleRow, index) => {
-        const note = await db.notes.get(moduleRow.uuid);
-        const contentRows = await db.content.getByModule(moduleRow.uuid);
-        return {
-          id: moduleRow.uuid,
-          label: `Notes ${index + 1}`,
-          title: moduleRow.title || "General",
-          body: note?.html || "",
-          contentData: inflateContent(contentRows),
-          position: moduleRow.position || index,
-          reviewed: !!moduleRow.reviewed,
-        };
-      })
-    );
-    const flashcards = (await db.flashcards.getByCourse(courseUuid)).map((card) => ({
-      id: card.uuid,
-      uuid: card.uuid,
+function toPayload(course) {
+  const completed = new Set(course.completedModuleIds || []);
+  const disabled = new Set(course.disabledModuleIds || []);
+  return {
+    uuid: course.uuid || course.id,
+    name: course.name,
+    color: course.color || null,
+    subtitle: course.subtitle || null,
+    bbCourseId: course.bbCourseId || null,
+    term: course.term || null,
+    courseCode: course.courseCode || null,
+    instructor: course.instructor || null,
+    meta: {
+      activeModuleId: course.activeModuleId || null,
+      materialPaths: course.materialPaths || [],
+      pptxReviewBlocks: course.pptxReviewBlocks || {},
+    },
+    modules: (course.modules || []).map((mod) => ({
+      uuid: mod.id,
+      title: mod.title || "General",
+      reviewed: completed.has(mod.id),
+      disabled: disabled.has(mod.id),
+      html: mod.body || "",
+      content: flattenContent(mod.id, mod.contentData || []),
+    })),
+    flashcards: (course.flashcards || []).map((card) => ({
+      uuid: card.uuid || card.id,
       front: card.front,
       back: card.back,
       source: card.source || "manual",
-      moduleId: card.module_uuid || null,
-      addedAt: card.created_at,
-    }));
-    const glossary = (await db.glossary.getByCourse(courseUuid)).map((term) => ({
-      id: term.uuid,
-      uuid: term.uuid,
+      moduleUuid: card.moduleId || null,
+    })),
+    glossary: (course.glossary || []).map((term) => ({
+      uuid: term.uuid || term.id,
       term: term.term,
       definition: term.definition,
       confidence: term.confidence || "high",
       source: term.source || "manual",
-      moduleId: term.module_uuid || null,
-      addedAt: term.added_at,
-    }));
-    return {
-      id: course.uuid,
-      uuid: course.uuid,
-      name: course.name,
-      color: course.color || null,
-      modules,
-      activeModuleId: modules[0]?.id || null,
-      flashcards,
-      glossary,
-      materialPaths: [],
-      disabledModuleIds: [],
-      completedModuleIds: modules.filter((m) => m.reviewed).map((m) => m.id),
-    };
-  },
+      moduleUuid: term.moduleId || null,
+    })),
+  };
+}
 
-  async createCourse(data) {
-    return db.courses.create({
-      uuid: data.uuid || `course_${Date.now()}`,
-      name: data.name,
-      type: "user",
-      color: data.color || null,
-    });
-  },
+/**
+ * Per-course save queue: at most one write in flight, only the latest pending state is written next,
+ * and identical payloads are skipped. Writes are ordered, so a stale save can never overwrite a newer one.
+ */
+const saveQueues = new Map();
+const deletedCourses = new Set();
 
-  async syncCourse(course) {
-    const existing = await db.courses.get(course.id);
-    if (!existing) {
-      await this.createCourse({ uuid: course.id, name: course.name, color: course.color || null });
-    } else {
-      await db.courses.update({ uuid: course.id, name: course.name, color: course.color || null });
-    }
-
-    const existingModules = await db.modules.getByCourse(course.id);
-    const existingIds = new Set(existingModules.map((m) => m.uuid));
-    const nextIds = new Set((course.modules || []).map((m) => m.id));
-
-    await Promise.all(existingModules.filter((m) => !nextIds.has(m.uuid)).map((m) => db.modules.delete(m.uuid)));
-
-    for (let i = 0; i < (course.modules || []).length; i += 1) {
-      const mod = course.modules[i];
-      if (!existingIds.has(mod.id)) {
-        await db.modules.create({
-          uuid: mod.id,
-          courseUuid: course.id,
-          title: mod.title || "General",
-          position: i,
-          reviewed: (course.completedModuleIds || []).includes(mod.id) ? 1 : 0,
-        });
-      } else {
-        await db.modules.update({
-          uuid: mod.id,
-          title: mod.title || "General",
-          position: i,
-          reviewed: (course.completedModuleIds || []).includes(mod.id) ? 1 : 0,
-        });
+function enqueueSave(payload) {
+  const key = payload.uuid;
+  if (deletedCourses.has(key)) return Promise.resolve({ success: false, deleted: true });
+  const serialized = JSON.stringify(payload);
+  let queue = saveQueues.get(key);
+  if (!queue) {
+    queue = { lastWritten: null, pending: null, running: null };
+    saveQueues.set(key, queue);
+  }
+  if (queue.running === null && queue.lastWritten === serialized) return Promise.resolve({ success: true });
+  queue.pending = { payload, serialized };
+  if (!queue.running) {
+    queue.running = (async () => {
+      let result = { success: true };
+      while (queue.pending) {
+        const next = queue.pending;
+        queue.pending = null;
+        if (deletedCourses.has(key)) break;
+        if (next.serialized === queue.lastWritten) continue;
+        try {
+          result = await db.courses.saveFull(next.payload);
+          queue.lastWritten = next.serialized;
+        } catch (err) {
+          result = { success: false, error: err?.message || String(err) };
+        }
       }
-      await db.notes.save({ moduleUuid: mod.id, html: mod.body || "" });
-      await db.content.saveMany({ moduleUuid: mod.id, items: flattenContent(mod.contentData || []) });
-    }
+      queue.running = null;
+      return result;
+    })();
+  }
+  return queue.running;
+}
 
-    await db.flashcards.replaceForCourse({
-      courseUuid: course.id,
-      cards: (course.flashcards || []).map((card) => ({
-        uuid: card.id || card.uuid,
-        front: card.front,
-        back: card.back,
-        source: card.source || "manual",
-        moduleUuid: card.moduleId || null,
-      })),
-    });
+export const courseStore = {
+  async loadAllCourses() {
+    const rows = await db.courses.getAll();
+    const full = await Promise.all(rows.map((row) => db.courses.getFull(row.uuid)));
+    return full.map(inflateCourse).filter(Boolean);
+  },
 
-    await db.glossary.replaceForCourse({
-      courseUuid: course.id,
-      terms: (course.glossary || []).map((term) => ({
-        uuid: term.id || term.uuid,
-        term: term.term,
-        definition: term.definition,
-        confidence: term.confidence || "high",
-        source: term.source || "manual",
-        moduleUuid: term.moduleId || null,
-      })),
-    });
+  async getCourseWithModules(courseUuid) {
+    return inflateCourse(await db.courses.getFull(courseUuid));
+  },
+
+  async findByBbCourseId(bbCourseId) {
+    if (!bbCourseId) return null;
+    const row = await db.courses.findByBbId(bbCourseId);
+    return row ? this.getCourseWithModules(row.uuid) : null;
+  },
+
+  syncCourse(course) {
+    if (!course || !(course.uuid || course.id)) return Promise.resolve({ success: false });
+    return enqueueSave(toPayload(course));
   },
 
   async deleteCourse(courseUuid) {
+    deletedCourses.add(courseUuid);
+    const queue = saveQueues.get(courseUuid);
+    if (queue?.running) await queue.running;
+    saveQueues.delete(courseUuid);
     try {
-      await window.studyHub?.db?.courses?.delete(courseUuid);
-      return { success: true };
+      return await db.courses.delete(courseUuid);
     } catch (err) {
-      console.error("[courseStore] deleteCourse error:", err);
       return { success: false, error: err.message };
     }
+  },
+
+  async saveGradeComponents(courseUuid, components) {
+    return db.grades.saveComponents({
+      courseUuid,
+      components: (components || []).map((c) => ({
+        id: c.id,
+        uuid: c.uuid,
+        name: c.name,
+        weight: c.weight,
+        category: c.category || "other",
+      })),
+    });
   },
 };

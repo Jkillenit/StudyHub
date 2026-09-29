@@ -294,7 +294,7 @@ function inferCategory(name) {
 
 function extractGradingScale(text) {
   const scale = {};
-  const patterns = [/([ABCDF][+-]?)\s*[=:]\s*(\d{2,3})/g, /([ABCDF][+-]?)\s+(\d{2,3})\s*[-–]/g];
+  const patterns = [/\b([ABCDF][+-]?)\s*[=:]\s*(\d{2,3})/g, /\b([ABCDF][+-]?)\s+(\d{2,3})\s*[-–]/g];
   patterns.forEach((pattern) => {
     let match;
     while ((match = pattern.exec(text)) !== null) {
