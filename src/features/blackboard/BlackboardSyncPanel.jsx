@@ -5,7 +5,9 @@ const LAST_SYNC_KEY = "bb.lastSync";
 const STEP_LABEL = { contents: "CONTENT", announcements: "ANNOUNCEMENTS", grades: "GRADES" };
 
 function errorText(error) {
-  if (error === "not-logged-in") return "Blackboard session expired. Open Blackboard and sign in again.";
+  if (error === "not-logged-in") {
+    return "Blackboard didn't accept the session. Open Blackboard, sign in, leave that window open, and try again.";
+  }
   return error || "Sync failed.";
 }
 

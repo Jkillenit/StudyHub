@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const { getDb } = require("./database.cjs");
 const { applyBbSync } = require("./dbMirrorHandlers.cjs");
-const { listEnrolledCourses, syncCourse, resetUserCache } = require("./bbSync.cjs");
+const { listEnrolledCourses, syncCourse, resetUserCache, setPageFetcher } = require("./bbSync.cjs");
 
 let bbWindow = null;
 let getMainWindow = () => null;
@@ -1100,6 +1100,20 @@ function registerBlackboardHandlers(mainWindowGetter, options = {}) {
   getMainWindow = typeof mainWindowGetter === "function" ? mainWindowGetter : () => mainWindowGetter;
   if (typeof options.allowPaths === "function") allowPaths = options.allowPaths;
 
+  setPageFetcher(async (pathname) => {
+    if (!bbWindow || bbWindow.isDestroyed()) return null;
+    const wc = bbWindow.webContents;
+    if (!isBlackboardUrl(wc.getURL()) || !/^\/learn\/api\//.test(String(pathname))) return null;
+    try {
+      return await wc.executeJavaScript(
+        `fetch(${JSON.stringify(pathname)}, { credentials: "include", headers: { Accept: "application/json" } })
+          .then(async (r) => ({ status: r.status, body: await r.text() }))`
+      );
+    } catch {
+      return null;
+    }
+  });
+
   ipcMain.handle("bb:open", async (event) => {
     if (!isMainWindowSender(event)) return { success: false };
     await openBlackboardWindow();
@@ -1224,7 +1238,8 @@ function registerBlackboardHandlers(mainWindowGetter, options = {}) {
     try {
       return { ok: true, courses: await listEnrolledCourses() };
     } catch (err) {
-      return { ok: false, error: err?.message || String(err) };
+      const error = err?.status === 401 || err?.status === 403 ? "not-logged-in" : err?.message || String(err);
+      return { ok: false, error };
     }
   });
 

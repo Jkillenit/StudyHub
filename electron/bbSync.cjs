@@ -8,25 +8,57 @@ const MAX_FOLDER_DEPTH = 3;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+let pageFetcher = null;
+
+/**
+ * Optional fallback that performs the GET from inside the open Blackboard page, for schools whose
+ * session cookies are not accepted outside the page. `fn(pathname)` resolves `{ status, body }` or null.
+ */
+function setPageFetcher(fn) {
+  pageFetcher = typeof fn === "function" ? fn : null;
+}
+
+function parseResponse(status, body) {
+  if (status < 200 || status >= 300) throw Object.assign(new Error(`HTTP ${status}`), { status });
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw new Error("Blackboard returned a non-JSON response (session may have expired).");
+  }
+}
+
+async function getJson(pathname) {
+  try {
+    return await getJsonViaSession(pathname);
+  } catch (err) {
+    if ((err?.status === 401 || err?.status === 403) && pageFetcher) {
+      const res = await pageFetcher(pathname);
+      if (res) return parseResponse(res.status, res.body);
+    }
+    throw err;
+  }
+}
+
 /** Read-only GET as the logged-in student using the persisted Blackboard session. */
-function getJson(pathname) {
+function getJsonViaSession(pathname) {
   const bbSession = session.fromPartition(BB_PARTITION);
   return new Promise((resolve, reject) => {
-    const request = net.request({ url: `${BB_ORIGIN}${pathname}`, session: bbSession, method: "GET" });
+    const request = net.request({
+      url: `${BB_ORIGIN}${pathname}`,
+      session: bbSession,
+      useSessionCookies: true,
+      method: "GET",
+    });
     request.setHeader("Accept", "application/json");
+    request.setHeader("X-Requested-With", "XMLHttpRequest");
     const chunks = [];
     request.on("response", (response) => {
       response.on("data", (chunk) => chunks.push(chunk));
       response.on("end", () => {
-        const body = Buffer.concat(chunks).toString("utf8");
-        if (response.statusCode < 200 || response.statusCode >= 300) {
-          reject(Object.assign(new Error(`HTTP ${response.statusCode}`), { status: response.statusCode }));
-          return;
-        }
         try {
-          resolve(JSON.parse(body));
-        } catch {
-          reject(new Error("Blackboard returned a non-JSON response (session may have expired)."));
+          resolve(parseResponse(response.statusCode, Buffer.concat(chunks).toString("utf8")));
+        } catch (err) {
+          reject(err);
         }
       });
       response.on("error", reject);
@@ -239,4 +271,4 @@ function resetUserCache() {
   cachedUserId = null;
 }
 
-module.exports = { listEnrolledCourses, syncCourse, resetUserCache };
+module.exports = { listEnrolledCourses, syncCourse, resetUserCache, setPageFetcher };
