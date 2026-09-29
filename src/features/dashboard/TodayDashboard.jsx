@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { daysFromToday, dueLabel, shortDate } from "./dateLabels.js";
 import { CalendarView } from "./CalendarView.jsx";
 import { cardsInScope, estimateExam, formatMinutes, loadScope } from "../study/examEstimate.js";
+import { pctTone, shortCourse } from "./courseLabel.js";
 
 const EMPTY = { upcoming: [], announcements: [], dueCards: [], recentGrades: [], stats: null };
 
@@ -25,14 +26,22 @@ function DueSoon({ items, onToggle, onOpenCourse }) {
               checked={!!a.completed}
               onChange={() => onToggle(a)}
             />
-            <button type="button" className="sh-today-row-main" onClick={() => onOpenCourse(a.course_uuid)}>
-              <span className="sh-today-row-title">
+            <button
+              type="button"
+              className="sh-today-row-main"
+              title={a.title}
+              onClick={() => onOpenCourse(a.course_uuid)}
+            >
+              <span className="sh-today-row-title sh-today-row-title--wrap">
                 {a.kind === "exam" ? <span className="sh-today-tag sh-today-tag--exam">EXAM</span> : null}
                 {a.title}
               </span>
-              <span className="sh-today-row-sub">{a.course_name}</span>
+              <span className="sh-today-row-sub">
+                <span className={`sh-today-when${overdue ? " sh-today-when--overdue" : ""}`}>{dueLabel(a.due_date)}</span>
+                {" · "}
+                {shortCourse(a.course_name)}
+              </span>
             </button>
-            <span className={`sh-today-when${overdue ? " sh-today-when--overdue" : ""}`}>{dueLabel(a.due_date)}</span>
           </li>
         );
       })}
@@ -48,7 +57,7 @@ function CardsDue({ rows, onOpenCourse }) {
         <li key={r.course_uuid}>
           <button type="button" className="sh-today-row sh-today-row--button" onClick={() => onOpenCourse(r.course_uuid)}>
             <span className="sh-today-row-main">
-              <span className="sh-today-row-title">{r.course_name}</span>
+              <span className="sh-today-row-title">{shortCourse(r.course_name)}</span>
               <span className="sh-today-row-sub">{r.total} CARDS</span>
             </span>
             <span className={`sh-today-count${r.due ? " sh-today-count--due" : ""}`}>{r.due || 0} DUE</span>
@@ -79,9 +88,9 @@ function Announcements({ items, onRead }) {
             >
               <span className={`sh-today-dot${a.read ? "" : " sh-today-dot--unread"}`} />
               <span className="sh-today-row-main">
-                <span className="sh-today-row-title">{a.title}</span>
+                <span className="sh-today-row-title sh-today-row-title--wrap">{a.title}</span>
                 <span className="sh-today-row-sub">
-                  {a.course_name}
+                  {shortCourse(a.course_name)}
                   {a.posted_at ? ` · ${shortDate(a.posted_at)}` : ""}
                 </span>
               </span>
@@ -101,16 +110,19 @@ function RecentGrades({ items }) {
       {items.map((g, i) => {
         const p = pct(g.score, g.points_possible);
         return (
-          <li key={`${g.course_uuid}-${g.name}-${i}`} className="sh-today-row">
+          <li key={`${g.course_uuid}-${g.name}-${i}`} className="sh-today-row" title={g.name}>
             <span className="sh-today-row-main">
               <span className="sh-today-row-title">{g.name}</span>
-              <span className="sh-today-row-sub">{g.course_name}</span>
+              <span className="sh-today-row-sub">
+                {shortCourse(g.course_name)}
+                {g.points_possible ? ` · ${g.score}/${g.points_possible}` : ""}
+              </span>
             </span>
-            <span className="sh-today-score">
-              {g.score}
-              {g.points_possible ? `/${g.points_possible}` : ""}
-              {p != null ? <span className="sh-today-score-pct"> {p}%</span> : null}
-            </span>
+            {p != null ? (
+              <span className={`sh-today-pct sh-today-pct--${pctTone(p)}`}>{p}%</span>
+            ) : (
+              <span className="sh-today-score">{g.score}</span>
+            )}
           </li>
         );
       })}
@@ -154,7 +166,7 @@ function ExamPrep({ exams, userCourses, pace, onOpenCourse }) {
               <span className="sh-today-row-main">
                 <span className="sh-today-row-title">{e.title}</span>
                 <span className="sh-today-row-sub">
-                  {e.course_name} · {dueLabel(e.due_date)} · {est.readiness}% READY
+                  {shortCourse(e.course_name)} · {dueLabel(e.due_date)} · {est.readiness}% READY
                 </span>
               </span>
               <span className="sh-today-count sh-today-count--due">
@@ -259,21 +271,25 @@ export function TodayDashboard({ refreshKey = 0, onOpenCourse, userCourses = [] 
       ) : null}
       {view === "today" ? (
         <div className="sh-today-grid">
-          <div className="sh-today-card">
-            <div className="sh-hub-section-label">DUE SOON</div>
-            <DueSoon items={data.upcoming} onToggle={toggleComplete} onOpenCourse={onOpenCourse} />
+          <div className="sh-today-col">
+            <div className="sh-today-card">
+              <div className="sh-hub-section-label">DUE SOON</div>
+              <DueSoon items={data.upcoming} onToggle={toggleComplete} onOpenCourse={onOpenCourse} />
+            </div>
+            <div className="sh-today-card">
+              <div className="sh-hub-section-label">ANNOUNCEMENTS</div>
+              <Announcements items={data.announcements} onRead={markRead} />
+            </div>
           </div>
-          <div className="sh-today-card">
-            <div className="sh-hub-section-label">FLASHCARDS</div>
-            <CardsDue rows={data.dueCards} onOpenCourse={onOpenCourse} />
-          </div>
-          <div className="sh-today-card">
-            <div className="sh-hub-section-label">ANNOUNCEMENTS</div>
-            <Announcements items={data.announcements} onRead={markRead} />
-          </div>
-          <div className="sh-today-card">
-            <div className="sh-hub-section-label">RECENT GRADES</div>
-            <RecentGrades items={data.recentGrades} />
+          <div className="sh-today-col">
+            <div className="sh-today-card">
+              <div className="sh-hub-section-label">RECENT GRADES</div>
+              <RecentGrades items={data.recentGrades} />
+            </div>
+            <div className="sh-today-card">
+              <div className="sh-hub-section-label">FLASHCARDS</div>
+              <CardsDue rows={data.dueCards} onOpenCourse={onOpenCourse} />
+            </div>
           </div>
         </div>
       ) : null}

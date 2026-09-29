@@ -18,6 +18,7 @@ import { buildCourseFromSlides, newModule } from "../features/import/courseBuild
 import { applyBlackboardImport } from "../features/import/blackboardImport.js";
 import { applySyllabusText } from "../features/import/syllabusImport.js";
 import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
+import { SplashScreen, useSplashPhase } from "../components/SplashScreen.jsx";
 
 function setPendingToast(message) {
   try {
@@ -55,6 +56,7 @@ function StudyHubAppInner() {
     reloadCourse,
     replaceAll,
   } = useUserCourses();
+  const splashPhase = useSplashPhase(loaded);
   const [courseId, setCourseId] = useState(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -375,6 +377,9 @@ function StudyHubAppInner() {
         builtinActiveChapter={paletteChapterMeta.courseId === "builtin" ? paletteChapterMeta.chapterId : null}
       />
       <AiAssistantPanel open={aiOpen} onClose={() => setAiOpen(false)} />
+      {splashPhase !== "done" ? (
+        <SplashScreen ready={loaded} leaving={splashPhase === "leaving"} courseCount={userCourses.length + 1} />
+      ) : null}
     </div>
   );
 }

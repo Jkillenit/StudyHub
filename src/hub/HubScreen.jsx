@@ -5,6 +5,7 @@ import { ManualCourseEntry } from "../welcome/ManualCourseEntry.jsx";
 import { ExpressImportModal } from "../welcome/ExpressImportModal.jsx";
 import { TodayDashboard } from "../features/dashboard/TodayDashboard.jsx";
 import { BlackboardSyncPanel } from "../features/blackboard/BlackboardSyncPanel.jsx";
+import { shortCourse } from "../features/dashboard/courseLabel.js";
 
 export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpressComplete }) {
   const [manualOpen, setManualOpen] = useState(false);
@@ -74,8 +75,11 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
                   onClick={() => onOpenCourse(ec.id)}
                 >
                   <div className="sh-hub-course-row-text">
-                    <div className="sh-hub-course-name">{ec.name}</div>
+                    <div className="sh-hub-course-name" title={ec.name}>
+                      {ec.name}
+                    </div>
                     <div className="sh-hub-course-sub mono">
+                      {ec.courseCode && shortCourse(ec.courseCode) !== ec.name ? `${shortCourse(ec.courseCode)} · ` : ""}
                       {nMod} MODULES{isRecent ? " · LAST OPENED" : ""}
                     </div>
                   </div>
