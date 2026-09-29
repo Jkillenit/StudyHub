@@ -271,7 +271,8 @@ function registerMirrorHandlers() {
       .all(new Date(now.getTime() - 86400000).toISOString(), horizon.toISOString());
     const announcements = db
       .prepare(`
-        SELECT a.uuid, a.title, a.posted_at, a.read, c.uuid AS course_uuid, c.name AS course_name
+        SELECT a.uuid, a.title, substr(a.body, 1, 600) AS body, a.posted_at, a.read,
+               c.uuid AS course_uuid, c.name AS course_name
         FROM announcements a JOIN courses c ON c.id = a.course_id
         ORDER BY COALESCE(a.posted_at, a.created_at) DESC LIMIT 8
       `)

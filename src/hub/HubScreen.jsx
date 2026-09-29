@@ -3,11 +3,14 @@ import { loadJson } from "../lib/storage.js";
 import { HUB_KEYS, ensureUserCourse } from "./userCourseModel.js";
 import { ManualCourseEntry } from "../welcome/ManualCourseEntry.jsx";
 import { ExpressImportModal } from "../welcome/ExpressImportModal.jsx";
+import { TodayDashboard } from "../features/dashboard/TodayDashboard.jsx";
+import { BlackboardSyncPanel } from "../features/blackboard/BlackboardSyncPanel.jsx";
 
-export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpressComplete }) {
+export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpressComplete, onEnsureBbCourse }) {
   const [manualOpen, setManualOpen] = useState(false);
   const [expressOpen, setExpressOpen] = useState(false);
   const [bbStatus, setBbStatus] = useState({ loggedIn: false, windowOpen: false });
+  const [dashboardKey, setDashboardKey] = useState(0);
   const highlightId = loadJson(HUB_KEYS.lastCourse, null);
 
   useEffect(() => {
@@ -22,13 +25,8 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
       if (status) setBbStatus(status);
     }
     checkStatus();
-
-    const handleCourseDetected = () => {};
-
-    window.studyHub?.blackboard?.onCourseDetected?.(handleCourseDetected);
-    return () => {
-      window.studyHub?.blackboard?.offCourseDetected?.(handleCourseDetected);
-    };
+    window.addEventListener("focus", checkStatus);
+    return () => window.removeEventListener("focus", checkStatus);
   }, []);
 
   async function handleOpenBlackboard() {
@@ -44,6 +42,7 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
 
   return (
     <div className="sh-hub-root">
+      <TodayDashboard refreshKey={dashboardKey} onOpenCourse={onOpenCourse} />
       <div className="sh-hub-inner">
         <div className="sh-hub-block">
           <div className="sh-hub-section-label">YOUR COURSES</div>
@@ -135,6 +134,13 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
               >
                 DISCONNECT
               </button>
+            ) : null}
+            {bbStatus.loggedIn && onEnsureBbCourse ? (
+              <BlackboardSyncPanel
+                userCourses={userCourses}
+                onEnsureCourse={onEnsureBbCourse}
+                onSynced={() => setDashboardKey((k) => k + 1)}
+              />
             ) : null}
           </div>
         </div>

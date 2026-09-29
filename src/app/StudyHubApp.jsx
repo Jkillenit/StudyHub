@@ -132,6 +132,7 @@ function StudyHubAppInner() {
         modules: [newModule("General", 0)],
         materialPaths: Array.isArray(opts.materialPaths) ? opts.materialPaths : [],
         ...(opts.bbCourseId ? { bbCourseId: opts.bbCourseId } : {}),
+        ...(opts.courseCode ? { courseCode: opts.courseCode } : {}),
       });
       if (opts.open !== false) setCourseId(course.id);
       return course;
@@ -143,12 +144,12 @@ function StudyHubAppInner() {
 
   /** One Study Hub course per Blackboard course: reuse by bbCourseId (in memory, then DB) before creating. */
   const createBlackboardCourse = useCallback(
-    async ({ name, bbCourseId }) => {
+    async ({ name, bbCourseId, courseCode }) => {
       const inMemory = bbCourseId ? userCourses.find((c) => c.bbCourseId === bbCourseId) : null;
       if (inMemory) return inMemory;
       const stored = await courseStore.findByBbCourseId(bbCourseId);
       if (stored) return getCourse(stored.id) || stored;
-      return createCourse(name || "Blackboard Course", "BLACKBOARD", { bbCourseId, open: false });
+      return createCourse(name || "Blackboard Course", "BLACKBOARD", { bbCourseId, courseCode, open: false });
     },
     [userCourses, getCourse, createCourse]
   );
@@ -306,6 +307,7 @@ function StudyHubAppInner() {
             onOpenCourse={openCourseFromShell}
             onManualCreate={onHubManualCreate}
             onExpressComplete={onHubExpressComplete}
+            onEnsureBbCourse={createBlackboardCourse}
           />
         ) : (
           <>
