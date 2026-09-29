@@ -49,6 +49,14 @@ shared study materials, past grade distributions, and professor reviews.
 - **Study guide generator** per exam scope (modules + weak cards).
 - **Exam time estimate** from mastery data and calendar exam dates.
 
+## Companion — Scout *(spec: `docs/companion-spec.md`)*
+
+- ✓ C.1 Sprite, settings, movement/state machine, radial menu, spotlight tours, local FAQ help.
+- ✓ C.2 "Light Run" flashcard quiz (4 modes, SM-2 grading, XP/levels/accessories), due-card nudges.
+- ○ C.3 Claude brain once an API key is set: Haiku help with `point_to`, fuzzy typed grading,
+  generated distractors, rate limit + canned fallback.
+- ○ C.4 Assessment-mode auto-hide, more tours (blackboard-sync, calendar), polish.
+
 ## Phase 3 — Web study-guide finder
 
 - "Find study materials" panel per course/module; queries from course code + key terms.

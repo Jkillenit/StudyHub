@@ -388,6 +388,7 @@ function StudyHubAppInner() {
               onHub={onHub}
               onGoHub={() => setCourseId(null)}
               onOpenCourse={openCourseFromShell}
+              onUpdateCourse={updateCourse}
             />
           </Suspense>
         </ErrorBoundary>

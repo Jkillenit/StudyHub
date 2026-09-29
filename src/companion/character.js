@@ -14,16 +14,25 @@ export const character = {
       "I'm all ears. Well, antennae.",
     ],
     correct: [
-      "Nailed it. Streak's at {streak}, I'm practically a lighthouse.",
       "Correct. Glowing with pride over here.",
       "Yep. You're making this look easy.",
       "That's the one. Keep it rolling.",
+      "Nice. Brighter already.",
+    ],
+    correctStreak: [
+      "Nailed it. Streak's at {streak}, I'm practically a lighthouse.",
       "Right again. {streak} in a row.",
+      "{streak} straight. Somebody's been studying.",
     ],
     wrong: [
       "Close. The answer's {answer}. We'll see that one again soon.",
       "Not quite. It's {answer}. Filed under \"tomorrow\".",
       "Nope, {answer}. Happens to the best of us.",
+    ],
+    wrongLong: [
+      "Not this time. Give the right answer a quick read.",
+      "Missed that one. It'll come back around soon.",
+      "Nope. That card's going back in the rotation.",
     ],
     finished: [
       "{correct} of {total}. The ones you missed are queued up for review.",

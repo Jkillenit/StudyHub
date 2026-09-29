@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { character, line } from "./character.js";
-import { loadCompanionState, saveCompanionState, resolveAccessory, levelForXp } from "./companionStore.js";
+import { loadCompanionState, saveCompanionState, resolveAccessory, levelForXp, unlockedAccessories } from "./companionStore.js";
+import { getDueCards } from "../study/sm2.js";
+import { shortCourse } from "../features/dashboard/courseLabel.js";
+import { cardKey, xpForRun } from "./lightRun.js";
+import { QuizPanel } from "./QuizPanel.jsx";
 import { transition, AUTONOMOUS } from "./machine.js";
 import { clampPoint, defaultHome, pickWaypoint, pointBeside, waitForTarget } from "./safeZones.js";
 import { useCompanionMotion } from "./useCompanionMotion.js";
@@ -25,6 +29,11 @@ const ENGAGED_SPEED = 420;
 const SLEEP_AFTER_MS = 3 * 60 * 1000;
 const TYPING_PAUSE_MS = 5000;
 const BUBBLE_W = 290;
+const QUIZ_W = 380;
+const NUDGE_FIRST_MS = 90 * 1000;
+const NUDGE_COOLDOWN_MS = 10 * 60 * 1000;
+const NUDGE_MAX_PER_SESSION = 4;
+const NUDGE_SHOW_MS = 8000;
 
 const rand = ([a, b]) => a + Math.random() * (b - a);
 const rectOf = (r) => ({ left: r.left, top: r.top, width: r.width, height: r.height });
@@ -38,7 +47,7 @@ function prefersReducedMotion() {
  * Scout's overlay. Lives above the app in a portal; only Scout, her bubbles and menus take
  * pointer events. Mounted by StudyHubApp once the launch splash is gone.
  */
-export default function CompanionLayer({ courses = [], activeCourseId = null, onHub = true, onGoHub, onOpenCourse }) {
+export default function CompanionLayer({ courses = [], activeCourseId = null, onHub = true, onGoHub, onOpenCourse, onUpdateCourse }) {
   const [cstate, setCstate] = useState(null);
   const stateRef = useRef(null);
   const [mode, setMode] = useState("hidden");
@@ -51,6 +60,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const [ring, setRing] = useState(null);
   const [help, setHelp] = useState(null);
   const [dragging, setDragging] = useState(false);
+  const [glow, setGlow] = useState(1);
+  const [react, setReact] = useState(null);
+  const [quizDeck, setQuizDeck] = useState("all");
 
   const nodeRef = useRef(null);
   const reduced = useMemo(prefersReducedMotion, []);
@@ -72,6 +84,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const startedRef = useRef(false);
   /** Latest-closure handlers for timers and global listeners. */
   const api = useRef({});
+  const quizRef = useRef({ sessionId: null, pending: new Map() });
+  const nudgeRef = useRef({ mountedAt: Date.now(), last: 0, cooldown: NUDGE_COOLDOWN_MS, count: 0 });
+  const reactTimerRef = useRef(0);
 
   /* ---------- state plumbing ---------- */
 
@@ -355,13 +370,134 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     send("HIDE");
   }, [cancel, send]);
 
-  const startQuiz = useCallback(() => {
+  const dockPoint = useCallback(() => {
+    const s = sizeRef.current;
+    const panelLeft = window.innerWidth - 16 - QUIZ_W;
+    return clampPoint({ x: panelLeft - s - 18, y: 110 }, s);
+  }, []);
+
+  const startQuiz = useCallback(
+    async (deckId) => {
+      const nav = navRef.current;
+      const hasCards = (id) => nav.courses.some((c) => c.id === id && (c.flashcards || []).length);
+      const deck = deckId && hasCards(deckId) ? deckId : hasCards(nav.activeCourseId) ? nav.activeCourseId : "all";
+      setBubble(null);
+      setHelp(null);
+      setRing(null);
+      cancel();
+      if (send("QUIZ") !== "quiz") return;
+      quizRef.current = { sessionId: `quiz_${Date.now()}`, pending: new Map() };
+      setQuizDeck(deck);
+      setGlow(1);
+      setMood("excited");
+      const ok = await flyTo(dockPoint(), { speed: ENGAGED_SPEED });
+      if (!ok || modeRef.current !== "quiz") return;
+      setFacing(1);
+      setAnchor({ h: "left", v: "below" });
+      say("Let's light this up. Pick a deck and a mode.");
+    },
+    [cancel, send, flyTo, dockPoint, setFacing, say]
+  );
+
+  const flashReaction = useCallback((kind) => {
+    window.clearTimeout(reactTimerRef.current);
+    setReact(kind);
+    reactTimerRef.current = window.setTimeout(() => setReact(null), 650);
+  }, []);
+
+  useEffect(() => () => window.clearTimeout(reactTimerRef.current), []);
+
+  const onQuizAnswer = useCallback(
+    ({ card, grade, fields, correct, partial, streak, answer }) => {
+      void window.studyHub?.db?.mastery?.update?.({
+        flashcardUuid: cardKey(card),
+        grade,
+        easeFactor: fields.easeFactor,
+        intervalDays: fields.intervalDays,
+        repetitions: fields.repetitions,
+        nextReview: fields.next_review,
+        sessionId: quizRef.current.sessionId,
+      });
+      const pending = quizRef.current.pending;
+      if (!pending.has(card.courseId)) pending.set(card.courseId, new Map());
+      pending.get(card.courseId).set(cardKey(card), fields);
+
+      setGlow((g) => Math.max(0, Math.min(character.glowLevels, g + (correct ? 1 : -1))));
+      setAnchor({ h: "left", v: "below" });
+      if (correct) {
+        setMood(streak >= 3 ? "excited" : "happy");
+        flashReaction("bounce");
+        if (partial) say("Close enough. Watch the spelling next time.");
+        else say(line(streak >= 3 ? "correctStreak" : "correct", { streak }));
+      } else {
+        setMood("sad");
+        flashReaction("droop");
+        const text = String(answer);
+        say(text.length > 32 ? line("wrongLong") : line("wrong", { answer: text }));
+      }
+    },
+    [flashReaction, say]
+  );
+
+  /** Called once per run: XP, high score, session log, and fresh SM-2 fields back into course state. */
+  const onQuizFinish = useCallback(
+    (summary) => {
+      const cur = stateRef.current;
+      const xpGained = xpForRun(summary);
+      const before = levelForXp(cur.xp || 0);
+      const xp = (cur.xp || 0) + xpGained;
+      const level = levelForXp(xp);
+      const prevUnlocks = new Set(unlockedAccessories(cur.xp || 0).map((a) => a.id));
+      const unlocked = unlockedAccessories(xp).find((a) => !prevUnlocks.has(a.id))?.label || null;
+      const prevBest = cur.highScores?.[summary.deckId] || 0;
+      const newHighScore = summary.mode === "streak" && summary.score > prevBest;
+      update((s) => ({
+        xp,
+        runs: (s.runs || 0) + 1,
+        highScores: newHighScore ? { ...s.highScores, [summary.deckId]: summary.score } : s.highScores,
+      }));
+
+      const endedAt = new Date().toISOString();
+      for (const courseUuid of summary.courseUuids.length ? summary.courseUuids : [null]) {
+        if (!summary.answered) break;
+        void window.studyHub?.db?.sessions?.log?.({
+          courseUuid,
+          kind: "quiz",
+          startedAt: summary.startedAt,
+          endedAt,
+          reviewed: summary.answered,
+          correct: summary.correct,
+          incorrect: summary.answered - summary.correct,
+        });
+      }
+
+      const pending = quizRef.current.pending;
+      quizRef.current = { sessionId: `quiz_${Date.now()}`, pending: new Map() };
+      for (const [courseId, updates] of pending) {
+        void onUpdateCourse?.(courseId, (course) => ({
+          ...course,
+          flashcards: (course.flashcards || []).map((c) => (updates.has(cardKey(c)) ? { ...c, ...updates.get(cardKey(c)) } : c)),
+        }));
+      }
+
+      setMood(summary.answered && summary.correct / summary.answered >= 0.7 ? "excited" : "happy");
+      if (level > before) {
+        say(unlocked ? `Level ${level}! I unlocked the ${unlocked.toLowerCase()}. Very distinguished.` : `Level ${level}! Keep this up and I'll need sunglasses.`);
+      } else {
+        say(line("finished", { correct: summary.correct, total: summary.answered }));
+      }
+      return { xpGained, level, leveledUp: level > before, unlocked, newHighScore };
+    },
+    [update, onUpdateCourse, say]
+  );
+
+  const closeQuiz = useCallback(() => {
     setBubble(null);
-    setHelp(null);
-    send("CLOSE");
-    setMood("happy");
-    say("Quiz mode is warming up. Give me one more update and I'll run your flashcards as a game.");
-  }, [send, say]);
+    send("END");
+    setGlow(1);
+    setMood("neutral");
+    void flyTo(home(), { speed: 220 });
+  }, [send, flyTo, home]);
 
   const contextualTour = useCallback(() => {
     const nav = navRef.current;
@@ -521,6 +657,67 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     return () => window.clearInterval(id);
   }, [cancel, send]);
 
+  /* Due-card nudges: rare, polite, and they back off when dismissed. */
+  api.current.maybeNudge = async () => {
+    const cur = stateRef.current;
+    const n = nudgeRef.current;
+    const now = Date.now();
+    if (!cur?.enabled || !cur.nudges || !cur.onboarded || document.hidden) return;
+    if (modeRef.current !== "idle" && modeRef.current !== "perch") return;
+    if (n.count >= NUDGE_MAX_PER_SESSION || now - n.mountedAt < NUDGE_FIRST_MS) return;
+    if (n.last && now - n.last < n.cooldown) return;
+    if (now - lastInputRef.current < TYPING_PAUSE_MS) return;
+    const best = navRef.current.courses
+      .map((c) => ({ c, due: getDueCards(c.flashcards || []).length }))
+      .sort((a, b) => b.due - a.due)[0];
+    if (!best || best.due < 3) return;
+    n.count += 1;
+    n.last = now;
+    cancel();
+    if (send("NUDGE") !== "nudge") return;
+    const spot = document.querySelector('[data-tour-id="today-cards"]');
+    if (spot) {
+      const r = spot.getBoundingClientRect();
+      if (r.width && r.bottom > 0 && r.top < window.innerHeight) {
+        await flyTo(pointBeside(r, sizeRef.current, "right"), { speed: 200 });
+        if (modeRef.current !== "nudge") return;
+      }
+    }
+    setMood("happy");
+    refreshAnchor();
+    say(line("due", { count: best.due, course: shortCourse(best.c.courseCode || best.c.name) || best.c.name }), {
+      sticky: true,
+      actions: [
+        { label: "QUIZ ME", primary: true, onClick: () => startQuiz(best.c.id) },
+        {
+          label: "NOT NOW",
+          onClick: () => {
+            n.cooldown *= 2;
+            setBubble(null);
+            send("CLOSE");
+            setMood("neutral");
+          },
+        },
+      ],
+    });
+  };
+
+  useEffect(() => {
+    const id = window.setInterval(() => void api.current.maybeNudge(), 30000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (mode !== "nudge") return undefined;
+    const t = window.setTimeout(() => {
+      if (modeRef.current !== "nudge") return;
+      setBubble(null);
+      send("CLOSE");
+      setMood("neutral");
+    }, NUDGE_SHOW_MS);
+    return () => window.clearTimeout(t);
+  }, [mode, send]);
+
   /* Activity, typing pauses, cursor shyness, the summon hotkey. */
   useEffect(() => {
     let lastMove = 0;
@@ -619,6 +816,10 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       if (e.key === "Escape" && modeRef.current === "help") closeHelp();
     };
     const onResize = () => {
+      if (modeRef.current === "quiz") {
+        jumpTo(dockPoint());
+        return;
+      }
       const s = sizeRef.current;
       const c = clampPoint(posRef.current, s);
       if (c.x !== posRef.current.x || c.y !== posRef.current.y) jumpTo(c);
@@ -629,7 +830,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("resize", onResize);
     };
-  }, [endTour, closeHelp, jumpTo, posRef]);
+  }, [endTour, closeHelp, jumpTo, posRef, dockPoint]);
 
   const prevSizeRef = useRef(size);
   useEffect(() => {
@@ -750,7 +951,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   }
 
   const menuItems = [
-    { id: "quiz", label: "QUIZ ME", icon: "✦", onClick: startQuiz },
+    { id: "quiz", label: "QUIZ ME", icon: "✦", onClick: () => startQuiz() },
     { id: "tour", label: "SHOW ME AROUND", icon: "◎", onClick: contextualTour },
     { id: "help", label: "HOW DO I…?", icon: "?", onClick: startHelp },
     { id: "hide", label: "HIDE FOR NOW", icon: "–", onClick: hideForNow },
@@ -769,6 +970,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           mode === "sleep" ? "sc-scout--asleep" : "",
           reduced ? "sc-scout--still" : "",
           mode === "perch" ? "sc-scout--perched" : "",
+          react ? `sc-scout--${react}` : "",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -787,7 +989,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           onPointerCancel={onPointerUp}
         >
           <span className="sc-bob">
-            <ScoutSprite mood={shownMood} glow={1} facing={facing} flying={flying || dragging} accessory={accessory} size={size} />
+            <ScoutSprite mood={shownMood} glow={glow} facing={facing} flying={flying || dragging} accessory={accessory} size={size} />
           </span>
         </button>
         {visible && mode === "sleep" ? (
@@ -823,6 +1025,16 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         ) : null}
         {bubbleNode}
       </div>
+      {visible && mode === "quiz" ? (
+        <QuizPanel
+          courses={courses}
+          initialDeck={quizDeck}
+          highScores={cstate.highScores}
+          onAnswer={onQuizAnswer}
+          onFinish={onQuizFinish}
+          onClose={closeQuiz}
+        />
+      ) : null}
       {settingsOpen ? (
         <CompanionSettings
           state={{ ...cstate, enabled: visible }}
