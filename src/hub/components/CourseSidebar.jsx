@@ -70,6 +70,7 @@ function CourseSidebar({ course, activeItem, onActiveChange, onRenameCourse, onR
         />
       </div>
       <div className="sh-sidebar-scroll sh-scroll-hover">
+        <div data-tour-id="course-modules">
         <div className="sh-sidebar-section-label">MODULES</div>
         {filteredModules.length === 0 ? (
           <pre className="sh-empty-ascii mono px-2">{`┌─────────────────┐
@@ -94,14 +95,19 @@ function CourseSidebar({ course, activeItem, onActiveChange, onRenameCourse, onR
             );
           })
         )}
-        {COURSE_ITEMS.length ? <div className="ch-divider mono">COURSE</div> : null}
-        {COURSE_ITEMS.map((item) => (
-          <ItemButton key={item.id} item={item} activeItem={activeItem} onActiveChange={onActiveChange} badge={badges[item.id]} />
-        ))}
-        <div className="ch-divider mono">DRILL</div>
-        {STUDY_ITEMS.map((item) => (
-          <ItemButton key={item.id} item={item} activeItem={activeItem} onActiveChange={onActiveChange} badge={badges[item.id]} />
-        ))}
+        </div>
+        <div data-tour-id="course-mirror">
+          {COURSE_ITEMS.length ? <div className="ch-divider mono">COURSE</div> : null}
+          {COURSE_ITEMS.map((item) => (
+            <ItemButton key={item.id} item={item} activeItem={activeItem} onActiveChange={onActiveChange} badge={badges[item.id]} />
+          ))}
+        </div>
+        <div data-tour-id="course-drill">
+          <div className="ch-divider mono">DRILL</div>
+          {STUDY_ITEMS.map((item) => (
+            <ItemButton key={item.id} item={item} activeItem={activeItem} onActiveChange={onActiveChange} badge={badges[item.id]} />
+          ))}
+        </div>
       </div>
     </>
   );

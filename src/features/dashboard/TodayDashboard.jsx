@@ -222,10 +222,10 @@ export function TodayDashboard({ refreshKey = 0, onOpenCourse, userCourses = [] 
   const today = new Date().toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" }).toUpperCase();
 
   return (
-    <section className="sh-today" aria-label="Today">
+    <section className="sh-today" aria-label="Today" data-tour-id="today-dashboard">
       <header className="sh-today-header">
         <div>
-          <div className="sh-today-views" role="tablist">
+          <div className="sh-today-views" role="tablist" data-tour-id="today-views">
             {[
               ["today", "TODAY"],
               ["calendar", "CALENDAR"],
@@ -244,7 +244,7 @@ export function TodayDashboard({ refreshKey = 0, onOpenCourse, userCourses = [] 
           </div>
           <div className="sh-today-date">{today}</div>
         </div>
-        <div className="sh-today-stats">
+        <div className="sh-today-stats" data-tour-id="today-stats">
           <div className="sh-today-stat">
             <span className="sh-today-stat-value">{weekCount}</span>
             <span className="sh-today-stat-label">DUE THIS WEEK</span>
@@ -272,21 +272,21 @@ export function TodayDashboard({ refreshKey = 0, onOpenCourse, userCourses = [] 
       {view === "today" ? (
         <div className="sh-today-grid">
           <div className="sh-today-col">
-            <div className="sh-today-card">
+            <div className="sh-today-card" data-perch data-tour-id="today-due">
               <div className="sh-hub-section-label">DUE SOON</div>
               <DueSoon items={data.upcoming} onToggle={toggleComplete} onOpenCourse={onOpenCourse} />
             </div>
-            <div className="sh-today-card">
+            <div className="sh-today-card" data-perch>
               <div className="sh-hub-section-label">ANNOUNCEMENTS</div>
               <Announcements items={data.announcements} onRead={markRead} />
             </div>
           </div>
           <div className="sh-today-col">
-            <div className="sh-today-card">
+            <div className="sh-today-card" data-perch>
               <div className="sh-hub-section-label">RECENT GRADES</div>
               <RecentGrades items={data.recentGrades} />
             </div>
-            <div className="sh-today-card">
+            <div className="sh-today-card" data-perch data-tour-id="today-cards">
               <div className="sh-hub-section-label">FLASHCARDS</div>
               <CardsDue rows={data.dueCards} onOpenCourse={onOpenCourse} />
             </div>

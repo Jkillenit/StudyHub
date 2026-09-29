@@ -19,6 +19,7 @@ export class ErrorBoundary extends Component {
 
   render() {
     if (!this.state.error) return this.props.children;
+    if (this.props.fallback !== undefined) return this.props.fallback;
     return (
       <div className="sh-error-boundary">
         <div className="sh-section-label">SOMETHING WENT WRONG</div>

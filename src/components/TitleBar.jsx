@@ -64,7 +64,24 @@ export function TitleBar({ onCommandPalette, onGoToHub }) {
           aria-hidden
         />
         <span className="sh-titlebar-sep" aria-hidden />
-        <button type="button" className="sh-kbd-hint mono" onClick={onCommandPalette} title="Command palette">
+        <button
+          type="button"
+          className="sh-titlebar-scout mono"
+          data-tour-id="titlebar-scout"
+          onClick={() => window.dispatchEvent(new CustomEvent("studyhub-scout-settings"))}
+          title="Scout settings"
+          aria-label="Scout settings"
+        >
+          <span className="sh-titlebar-scout-dot" aria-hidden />
+          SCOUT
+        </button>
+        <button
+          type="button"
+          className="sh-kbd-hint mono"
+          data-tour-id="titlebar-palette"
+          onClick={onCommandPalette}
+          title="Command palette"
+        >
           {kbdLabel}
         </button>
         {api ? (

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { ShellProvider, useShell } from "../shell/ShellContext.jsx";
 import { TitleBar } from "../components/TitleBar.jsx";
 import { StatusBar } from "../shell/TilingChrome.jsx";
@@ -19,6 +19,8 @@ import { applyBlackboardImport } from "../features/import/blackboardImport.js";
 import { applySyllabusText } from "../features/import/syllabusImport.js";
 import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import { SplashScreen, useSplashPhase } from "../components/SplashScreen.jsx";
+
+const CompanionLayer = lazy(() => import("../companion/CompanionLayer.jsx"));
 
 function setPendingToast(message) {
   try {
@@ -377,6 +379,19 @@ function StudyHubAppInner() {
         builtinActiveChapter={paletteChapterMeta.courseId === "builtin" ? paletteChapterMeta.chapterId : null}
       />
       <AiAssistantPanel open={aiOpen} onClose={() => setAiOpen(false)} />
+      {splashPhase === "done" ? (
+        <ErrorBoundary resetKey="companion" fallback={null}>
+          <Suspense fallback={null}>
+            <CompanionLayer
+              courses={userCoursesList}
+              activeCourseId={courseId}
+              onHub={onHub}
+              onGoHub={() => setCourseId(null)}
+              onOpenCourse={openCourseFromShell}
+            />
+          </Suspense>
+        </ErrorBoundary>
+      ) : null}
       {splashPhase !== "done" ? (
         <SplashScreen ready={loaded} leaving={splashPhase === "leaving"} courseCount={userCourses.length + 1} />
       ) : null}

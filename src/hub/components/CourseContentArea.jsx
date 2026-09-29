@@ -407,8 +407,8 @@ export default function CourseContentArea({
 
   return (
     <>
-      <div className="sh-main-header">
-        <div className="sh-tab-row">
+      <div className="sh-main-header" data-perch>
+        <div className="sh-tab-row" data-tour-id="course-tabs">
           {tabs.map((tab) => (
             <button
               key={tab}

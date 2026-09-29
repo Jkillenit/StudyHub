@@ -1,0 +1,41 @@
+{
+  "id": "course-tools",
+  "title": "Inside a course",
+  "steps": [
+    {
+      "targetId": "course-modules",
+      "title": "Modules",
+      "text": "Each module is a lecture or chapter: slides, notes and glossary. Arrow keys flip between them.",
+      "placement": "right",
+      "route": "course"
+    },
+    {
+      "targetId": "course-tabs",
+      "title": "Tabs",
+      "text": "Content, Notes and Glossary for the module you're on, plus Grades for the whole course.",
+      "placement": "bottom",
+      "route": "course"
+    },
+    {
+      "targetId": "course-mirror",
+      "title": "From Blackboard",
+      "text": "Assignments, announcements and course files synced from Blackboard live here.",
+      "placement": "right",
+      "route": "course"
+    },
+    {
+      "targetId": "course-drill",
+      "title": "Drill",
+      "text": "Flashcards, practice tests, study guides and your progress. This is where the studying happens.",
+      "placement": "right",
+      "route": "course"
+    },
+    {
+      "targetId": "course-context",
+      "title": "Mastery",
+      "text": "How much of this deck you've actually retained, and how many cards are due right now.",
+      "placement": "left",
+      "route": "course"
+    }
+  ]
+}

@@ -45,9 +45,9 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
     <div className="sh-hub-root">
       <TodayDashboard refreshKey={dashboardKey} onOpenCourse={onOpenCourse} userCourses={userCourses} />
       <div className="sh-hub-inner">
-        <div className="sh-hub-block">
+        <div className="sh-hub-block" data-tour-id="hub-courses">
           <div className="sh-hub-section-label">YOUR COURSES</div>
-          <div className="sh-hub-list">
+          <div className="sh-hub-list" data-perch>
             <button
               type="button"
               className={`sh-hub-course-row sh-hub-course-row--cyan ${highlightId === "builtin" ? "sh-hub-course-row--recent" : ""}`}
@@ -97,7 +97,7 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
 
         <div className="sh-hub-block">
           <div className="sh-hub-section-label">ADD COURSE</div>
-          <div className="sh-hub-add-actions">
+          <div className="sh-hub-add-actions" data-tour-id="hub-add-course">
             <button type="button" className="sh-btn-ghost sh-btn-ghost-amber sh-hub-add-btn" onClick={() => setExpressOpen(true)}>
               + EXPRESS IMPORT
             </button>
@@ -117,7 +117,7 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
             </div>
           ) : null}
 
-          <div className="sh-hub-bb-section">
+          <div className="sh-hub-bb-section" data-tour-id="hub-blackboard">
             <div className="sh-section-label" style={{ marginBottom: 10 }}>
               BLACKBOARD
             </div>

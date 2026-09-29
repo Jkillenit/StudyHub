@@ -1,0 +1,60 @@
+{
+  "id": "first-run",
+  "title": "Welcome tour",
+  "steps": [
+    {
+      "targetId": "today-dashboard",
+      "title": "This is Today",
+      "text": "Everything due, new announcements and cards to review, across every class. Start here each day.",
+      "placement": "bottom",
+      "route": "hub"
+    },
+    {
+      "targetId": "today-stats",
+      "title": "Your week at a glance",
+      "text": "Due this week, flashcards waiting, and your study streak. Keep that streak alive.",
+      "placement": "left",
+      "route": "hub"
+    },
+    {
+      "targetId": "today-views",
+      "title": "Calendar",
+      "text": "Flip to Calendar for a month view. You can add your own due dates there too.",
+      "placement": "right",
+      "route": "hub"
+    },
+    {
+      "targetId": "hub-courses",
+      "title": "Your courses",
+      "text": "Every class lives here. Click one to open its modules, notes and study tools.",
+      "placement": "right",
+      "route": "hub"
+    },
+    {
+      "targetId": "hub-add-course",
+      "title": "Add a course",
+      "text": "Drop in a PowerPoint and I'll build flashcards from it, or set a course up by hand.",
+      "placement": "right",
+      "route": "hub"
+    },
+    {
+      "targetId": "hub-blackboard",
+      "title": "Blackboard",
+      "text": "Connect once, then Sync. Assignments, grades, announcements and files come straight over.",
+      "placement": "right",
+      "route": "hub"
+    },
+    {
+      "targetId": "titlebar-palette",
+      "title": "Jump anywhere",
+      "text": "Ctrl+K opens the command palette. Type a course or chapter to go straight there.",
+      "placement": "bottom"
+    },
+    {
+      "targetId": "titlebar-scout",
+      "title": "That's me",
+      "text": "Click here to change my settings. Click me any time for quizzes, help, or the course tour.",
+      "placement": "bottom"
+    }
+  ]
+}

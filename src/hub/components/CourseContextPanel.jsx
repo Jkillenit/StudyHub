@@ -22,7 +22,7 @@ function CourseContextPanel({
   const filteredFlashcards = filterDeck(userFlashcards, sourceFilter, currentModule?.id);
 
   return (
-    <div className="ctx-section">
+    <div className="ctx-section" data-tour-id="course-context">
       <div className="ctx-label">MASTERY</div>
       <div className="d-flex align-items-center gap-2 mb-1">
         <div className="sh-meter-track flex-grow-1">
