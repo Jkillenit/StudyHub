@@ -142,7 +142,7 @@ function buildToolbarScript(_courseId, bbCourseId, linkedNameForPage) {
         if (!window.__shToast) return;
         if (res && res.ok) {
           var c = res.counts || {};
-          var msg = "\\u2713 Synced " + (c.assignments || 0) + " due dates, " + (c.grades || 0) + " grades";
+          var msg = "\\u2713 Synced " + (c.assignments || 0) + " due dates, " + (c.scored || 0) + " of " + (c.grades || 0) + " grades scored";
           msg += res.syllabus ? " \\u00b7 syllabus found" : " \\u00b7 no syllabus found";
           window.__shToast(msg, "success");
         } else {
@@ -260,7 +260,95 @@ function displayLinkedCourseName(pageBbCourseId) {
 /* ---------------- syllabus capture (Simple Syllabus and other LTI tools) ---------------- */
 
 const SYLLABUS_HOST_RE = /(^|\.)simplesyllabus\.com$/i;
-const LTI_TIMEOUT_MS = 25000;
+const LTI_LAUNCH_RE = /\/webapps\/blackboard\/execute\/blti\//i;
+const LTI_TIMEOUT_MS = 15000;
+const TAB_FIND_TIMEOUT_MS = 15000;
+const TAB_LOAD_TIMEOUT_MS = 25000;
+const SYLLABUS_LAUNCH_KEY = "bb.syllabusLaunch";
+const HIDDEN_PREFS = {
+  partition: BB_PARTITION,
+  nodeIntegration: false,
+  contextIsolation: true,
+  sandbox: true,
+  backgroundThrottling: false,
+};
+
+function withTimeout(promise, ms, fallback) {
+  return Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve(fallback), ms))]);
+}
+
+function readSyllabusLaunches() {
+  try {
+    const row = getDb().prepare("SELECT value FROM settings WHERE key = ?").get(SYLLABUS_LAUNCH_KEY);
+    return JSON.parse(row?.value || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+
+/** Remembers the Blackboard LTI launch that opened a syllabus page: per course, plus a course-agnostic template. */
+function rememberSyllabusLaunch(launchUrl) {
+  let u;
+  try {
+    u = new URL(launchUrl);
+  } catch {
+    return;
+  }
+  const courseId = u.searchParams.get("course_id");
+  if (!/^_\d+_\d+$/.test(String(courseId || ""))) return;
+  const relative = u.pathname + u.search;
+  const data = readSyllabusLaunches();
+  data.byCourse = { ...(data.byCourse || {}), [courseId]: relative };
+  if (!u.searchParams.has("content_id")) data.template = relative.replace(/course_id=[^&]+/, "course_id={COURSE}");
+  try {
+    getDb()
+      .prepare(
+        "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')"
+      )
+      .run(SYLLABUS_LAUNCH_KEY, JSON.stringify(data));
+  } catch {
+    /* best effort */
+  }
+}
+
+function syllabusLaunchFor(bbCourseId) {
+  const data = readSyllabusLaunches();
+  if (data.byCourse?.[bbCourseId]) return data.byCourse[bbCourseId];
+  return data.template ? data.template.replace("{COURSE}", bbCourseId) : null;
+}
+
+/** When a syllabus tool page loads in any frame, the Blackboard LTI launch just before it is remembered. */
+function watchLtiLaunches(wc) {
+  let lastLaunch = null;
+  wc.on("did-frame-navigate", (_event, url) => {
+    if (isBlackboardUrl(url) && LTI_LAUNCH_RE.test(url)) lastLaunch = url;
+    else if (isSyllabusToolUrl(url) && lastLaunch) rememberSyllabusLaunch(lastLaunch);
+  });
+}
+
+function createHiddenBbWindow() {
+  const win = new BrowserWindow({ show: false, width: 1200, height: 900, webPreferences: HIDDEN_PREFS });
+  const popups = [];
+  win.webContents.setAudioMuted(true);
+  win.webContents.setWindowOpenHandler(({ url }) =>
+    isSyllabusToolUrl(url) || isBlackboardUrl(url)
+      ? { action: "allow", overrideBrowserWindowOptions: { show: false, webPreferences: HIDDEN_PREFS } }
+      : { action: "deny" }
+  );
+  win.webContents.on("did-create-window", (child) => {
+    popups.push(child);
+    watchLtiLaunches(child.webContents);
+  });
+  watchLtiLaunches(win.webContents);
+  return {
+    win,
+    contents: () => [win.webContents, ...popups.filter((p) => !p.isDestroyed()).map((p) => p.webContents)],
+    destroy: () => {
+      popups.forEach((p) => !p.isDestroyed() && p.destroy());
+      if (!win.isDestroyed()) win.destroy();
+    },
+  };
+}
 
 function isSyllabusToolUrl(url) {
   try {
@@ -292,7 +380,11 @@ async function waitForSyllabusText(getWebContents, timeoutMs) {
     let best = "";
     for (const frame of syllabusFrames(getWebContents())) {
       try {
-        const text = await frame.executeJavaScript("document.body ? document.body.innerText : ''");
+        const text = await withTimeout(
+          frame.executeJavaScript("document.body ? document.body.innerText : ''"),
+          3000,
+          ""
+        );
         if (typeof text === "string" && text.length > best.length) best = text;
       } catch {
         /* frame navigated away */
@@ -305,48 +397,76 @@ async function waitForSyllabusText(getWebContents, timeoutMs) {
   return last.length >= 500 ? last : "";
 }
 
-/** Launches a course LTI link in a hidden window with the Blackboard session and reads the tool page. */
-async function readLtiText(bbCourseId, contentId) {
-  if (!/^_\d+_\d+$/.test(String(bbCourseId)) || !/^_\d+_\d+$/.test(String(contentId))) return "";
-  const win = new BrowserWindow({
-    show: false,
-    width: 1100,
-    height: 900,
-    webPreferences: { partition: BB_PARTITION, nodeIntegration: false, contextIsolation: true, sandbox: true },
-  });
-  const popups = [];
-  win.webContents.setWindowOpenHandler(({ url }) =>
-    isSyllabusToolUrl(url) || isBlackboardUrl(url)
-      ? {
-          action: "allow",
-          overrideBrowserWindowOptions: {
-            show: false,
-            webPreferences: { partition: BB_PARTITION, nodeIntegration: false, contextIsolation: true, sandbox: true },
-          },
-        }
-      : { action: "deny" }
-  );
-  win.webContents.on("did-create-window", (child) => popups.push(child));
+const COURSE_ID_RE = /^_\d+_\d+$/;
+
+/** Loads `relativeUrl` in a hidden Blackboard-session window and reads the syllabus tool page it leads to. */
+async function readSyllabusAt(relativeUrl, timeoutMs) {
+  const hidden = createHiddenBbWindow();
   try {
-    const launch = `${BB_URL}/webapps/blackboard/execute/blti/launchLink?course_id=${bbCourseId}&content_id=${contentId}&from_ultra=true`;
-    await win.loadURL(launch).catch(() => {});
-    return await waitForSyllabusText(
-      () => [win.webContents, ...popups.filter((p) => !p.isDestroyed()).map((p) => p.webContents)],
-      LTI_TIMEOUT_MS
-    );
+    hidden.win.loadURL(`${BB_URL}${relativeUrl}`).catch(() => {});
+    return await waitForSyllabusText(hidden.contents, timeoutMs);
   } finally {
-    popups.forEach((p) => !p.isDestroyed() && p.destroy());
-    if (!win.isDestroyed()) win.destroy();
+    hidden.destroy();
   }
 }
 
-/** A syllabus the student already has open in the Blackboard window (inline frame or popup). */
-async function readOpenSyllabus() {
-  const list = [];
-  if (bbWindow && !bbWindow.isDestroyed()) list.push(bbWindow.webContents);
+/** Launches a course content LTI link (a syllabus item in the content list). */
+async function readLtiText(bbCourseId, contentId) {
+  if (!COURSE_ID_RE.test(String(bbCourseId)) || !COURSE_ID_RE.test(String(contentId))) return "";
+  return readSyllabusAt(
+    `/webapps/blackboard/execute/blti/launchLink?course_id=${bbCourseId}&content_id=${contentId}&from_ultra=true`,
+    LTI_TIMEOUT_MS
+  );
+}
+
+const CLICK_SYLLABUS_TAB = `(() => {
+  const re = /^\\s*(simple\\s+)?syllabus\\s*$/i;
+  const nodes = [...document.querySelectorAll('a, button, [role="tab"], [role="link"], [role="menuitem"]')];
+  const matches = nodes.filter((n) => re.test(n.textContent || "") || re.test(n.getAttribute("aria-label") || ""));
+  const target = matches.find((n) => n.offsetParent !== null) || matches[0];
+  if (!target) return false;
+  target.click();
+  return true;
+})()`;
+
+/** Opens the course in a hidden window and clicks its Syllabus tab, like the student would. */
+async function readSyllabusViaTab(bbCourseId) {
+  const hidden = createHiddenBbWindow();
+  try {
+    hidden.win.loadURL(`${BB_URL}/ultra/courses/${bbCourseId}/outline`).catch(() => {});
+    const deadline = Date.now() + TAB_FIND_TIMEOUT_MS;
+    let clicked = false;
+    while (!clicked && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (hidden.win.isDestroyed()) return "";
+      clicked = !!(await withTimeout(hidden.win.webContents.executeJavaScript(CLICK_SYLLABUS_TAB).catch(() => false), 3000, false));
+    }
+    if (!clicked) return "";
+    return await waitForSyllabusText(hidden.contents, TAB_LOAD_TIMEOUT_MS);
+  } finally {
+    hidden.destroy();
+  }
+}
+
+/** Course-level syllabus tool (e.g. a Simple Syllabus tab): remembered launch first, then clicking the tab. */
+async function readCourseSyllabus(bbCourseId) {
+  if (!COURSE_ID_RE.test(String(bbCourseId))) return "";
+  const launch = syllabusLaunchFor(bbCourseId);
+  if (launch) {
+    const text = await readSyllabusAt(launch, LTI_TIMEOUT_MS);
+    if (text) return text;
+  }
+  return readSyllabusViaTab(bbCourseId);
+}
+
+/** A syllabus the student already has open in the Blackboard window, only while that window is on this course. */
+async function readOpenSyllabus(bbCourseId) {
+  if (!bbWindow || bbWindow.isDestroyed()) return "";
+  if (parseCourseFromUrl(bbWindow.webContents.getURL())?.bbCourseId !== bbCourseId) return "";
+  const list = [bbWindow.webContents];
   for (const popup of syllabusPopups) if (!popup.isDestroyed()) list.push(popup.webContents);
-  if (!list.length) return "";
-  return waitForSyllabusText(() => list, 3000);
+  if (!syllabusFrames(list).length) return "";
+  return waitForSyllabusText(() => list, 5000);
 }
 
 function ensureTempDir() {
@@ -1181,8 +1301,10 @@ async function openBlackboardWindow() {
     }
     return { action: "deny" };
   });
+  watchLtiLaunches(bbWindow.webContents);
   bbWindow.webContents.on("did-create-window", (child) => {
     syllabusPopups.add(child);
+    watchLtiLaunches(child.webContents);
     child.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
     child.on("closed", () => syllabusPopups.delete(child));
   });
@@ -1387,6 +1509,7 @@ function registerBlackboardHandlers(mainWindowGetter, options = {}) {
         extractBufferText,
         readLtiText,
         readOpenSyllabus,
+        readCourseSyllabus,
       });
       const result = applyBbSync(getDb(), courseUuid, payload);
       const syllabus = payload.syllabus
@@ -1397,7 +1520,8 @@ function registerBlackboardHandlers(mainWindowGetter, options = {}) {
         bbCourseId: id,
         courseUuid,
         created: ensured.created,
-        counts: result.counts,
+        counts: result.counts ? { ...result.counts, scored: payload.scoredCount || 0 } : result.counts,
+        gradeSource: payload.gradeSource,
         error: result.error,
         syllabus,
       };

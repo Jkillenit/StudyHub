@@ -149,8 +149,9 @@ export function BlackboardSyncPanel({ userCourses, onSynced }) {
             let status = linked ? `SYNCED ${relativeTime(lastSync[c.bbCourseId]).toUpperCase()}` : "NEW · SYNC TO ADD";
             if (active) status = `SYNCING ${STEP_LABEL[progress.step] || ""}…`;
             else if (res?.ok && res.counts) {
-              const { contents, announcements, assignments, grades } = res.counts;
-              status = `✓ ${contents} ITEMS · ${announcements} ANN · ${assignments} DUE · ${grades} GRADES`;
+              const { contents, announcements, assignments, grades, scored = 0 } = res.counts;
+              status = `✓ ${contents} ITEMS · ${announcements} ANN · ${assignments} DUE · ${scored}/${grades} GRADES SCORED`;
+              if (grades && !scored) status += res.gradeSource === "none" ? " (SCORES NOT READABLE)" : "";
             } else if (res && !res.ok) status = `✕ ${errorText(res.error)}`;
             const syl = !active && res?.ok ? syllabusStatus[c.bbCourseId] : null;
             return (

@@ -233,6 +233,53 @@ async function collectAnnouncements(bbCourseId) {
   }
 }
 
+/** Numeric score from any of Blackboard's grade shapes (public v1/v2, Ultra internal); null if ungraded/exempt. */
+function gradeScore(g) {
+  if (!g || g.exempt) return null;
+  for (const v of [g.score, g.displayGrade?.score, g.manualScore]) {
+    if (v !== null && v !== undefined && v !== "" && Number.isFinite(Number(v))) return Number(v);
+  }
+  const text = g.displayGrade?.text ?? g.text;
+  if (text != null && /^\s*-?\d+(\.\d+)?\s*$/.test(String(text))) return Number(text);
+  return null;
+}
+
+function gradeColumnId(g) {
+  return g?.columnId || g?.gradebookColumnId || g?.column?.id || null;
+}
+
+/** The signed-in student's own grades, trying each endpoint Blackboard may allow for students. */
+async function collectUserGrades(course, userId, columns) {
+  const user = encodeURIComponent(userId);
+  const attempts = [
+    ["public-v2", `/learn/api/public/v2/courses/${course}/gradebook/users/${user}?limit=200`],
+    ["public-v1", `/learn/api/public/v1/courses/${course}/gradebook/users/${user}?limit=200`],
+    ["ultra", `/learn/api/v1/courses/${course}/gradebook/grades?userId=${user}&limit=200`],
+  ];
+  for (const [source, pathname] of attempts) {
+    try {
+      await sleep(REQUEST_GAP_MS);
+      const rows = await getPaged(pathname, 300);
+      if (rows.some((r) => gradeScore(r) != null && gradeColumnId(r))) return { source, rows };
+    } catch {
+      /* try the next endpoint */
+    }
+  }
+  const rows = [];
+  for (const column of columns.slice(0, 80)) {
+    try {
+      const g = await getJson(
+        `/learn/api/public/v2/courses/${course}/gradebook/columns/${encodeURIComponent(column.id)}/users/${user}`
+      );
+      if (g) rows.push({ ...g, columnId: gradeColumnId(g) || column.id });
+    } catch {
+      /* ungraded columns 404 */
+    }
+    await sleep(120);
+  }
+  return { source: rows.some((r) => gradeScore(r) != null) ? "per-column" : "none", rows };
+}
+
 async function collectGradebook(bbCourseId) {
   const course = encodeURIComponent(bbCourseId);
   let columns = [];
@@ -254,18 +301,13 @@ async function collectGradebook(bbCourseId) {
     /* categories are optional */
   }
 
-  let userGrades = [];
+  let userGrades = { source: "none", rows: [] };
   try {
-    const userId = await currentUserId();
-    await sleep(REQUEST_GAP_MS);
-    userGrades = await getPaged(
-      `/learn/api/public/v2/courses/${course}/gradebook/users/${encodeURIComponent(userId)}?limit=200`,
-      300
-    );
+    userGrades = await collectUserGrades(course, await currentUserId(), visible);
   } catch {
-    userGrades = [];
+    /* no grades readable */
   }
-  const gradeByColumn = new Map(userGrades.map((g) => [g.columnId, g]));
+  const gradeByColumn = new Map(userGrades.rows.map((g) => [gradeColumnId(g), g]));
 
   const assignments = visible
     .filter((c) => c?.grading?.due)
@@ -278,7 +320,7 @@ async function collectGradebook(bbCourseId) {
         dueDate: c.grading.due,
         kind: /exam|midterm|final|test|quiz/i.test(name) ? "exam" : "assignment",
         pointsPossible: Number(c.score?.possible) || null,
-        score: grade?.score != null ? Number(grade.score) : null,
+        score: gradeScore(grade),
         url: `${BB_ORIGIN}/ultra/courses/${bbCourseId}/grades`,
       };
     });
@@ -289,7 +331,7 @@ async function collectGradebook(bbCourseId) {
       return {
         id: c.id,
         name: c.name,
-        score: grade?.score != null && !grade?.exempt ? Number(grade.score) : null,
+        score: gradeScore(grade),
         pointsPossible: Number(c.score?.possible) || null,
         gradedAt: grade?.exempt ? null : grade?.lastModified || grade?.modified || null,
         category: categoryById.get(c.gradebookCategoryId) || null,
@@ -297,7 +339,12 @@ async function collectGradebook(bbCourseId) {
     })
     .filter((g) => g.score != null || g.pointsPossible);
 
-  return { assignments, gradeItems };
+  return {
+    assignments,
+    gradeItems,
+    gradeSource: userGrades.source,
+    scoredCount: gradeItems.filter((g) => g.score != null).length,
+  };
 }
 
 const SYLLABUS_RE = /syllab/i;
@@ -336,13 +383,16 @@ async function readAttachmentText(bbCourseId, contentId, extractBufferText) {
 }
 
 /**
- * Finds the course syllabus: an uploaded file or document titled "syllabus", then an LTI tool
- * (e.g. Simple Syllabus) via `readLtiText`, then any syllabus page already open in the Blackboard window.
+ * Finds the course syllabus, cheapest source first: an uploaded file or document titled "syllabus",
+ * a syllabus already open in the Blackboard window, the course's syllabus tool tab (Simple Syllabus),
+ * then a syllabus LTI link in the content list.
  */
-async function findSyllabus(bbCourseId, contents, { extractBufferText, readLtiText, readOpenSyllabus } = {}) {
+async function findSyllabus(bbCourseId, contents, helpers = {}) {
+  const { extractBufferText, readLtiText, readOpenSyllabus, readCourseSyllabus } = helpers;
   const candidates = contents.filter((c) => SYLLABUS_RE.test(c.title));
   const lti = candidates.filter((c) => isLtiHandler(c.handler));
   const files = candidates.filter((c) => !isLtiHandler(c.handler) && c.kind !== "folder");
+  const ok = (text) => text && text.length >= MIN_SYLLABUS_CHARS;
 
   for (const item of files) {
     const bodyText = stripHtml(item.body);
@@ -354,15 +404,17 @@ async function findSyllabus(bbCourseId, contents, { extractBufferText, readLtiTe
       if (text) return { source: "file", title: item.title, text };
     }
   }
-  if (readLtiText) {
-    for (const item of lti) {
-      const text = await readLtiText(bbCourseId, item.id);
-      if (text && text.length >= MIN_SYLLABUS_CHARS) return { source: "simple-syllabus", title: item.title, text };
-    }
-  }
   if (readOpenSyllabus) {
-    const text = await readOpenSyllabus();
-    if (text && text.length >= MIN_SYLLABUS_CHARS) return { source: "open-page", title: "Syllabus", text };
+    const text = await readOpenSyllabus(bbCourseId);
+    if (ok(text)) return { source: "open-page", title: "Syllabus", text };
+  }
+  if (readCourseSyllabus) {
+    const text = await readCourseSyllabus(bbCourseId);
+    if (ok(text)) return { source: "syllabus-tab", title: "Syllabus", text };
+  }
+  if (readLtiText && lti.length) {
+    const text = await readLtiText(bbCourseId, lti[0].id);
+    if (ok(text)) return { source: "simple-syllabus", title: lti[0].title, text };
   }
   return null;
 }
@@ -377,7 +429,7 @@ async function syncCourse(bbCourseId, onProgress = () => {}, helpers = {}) {
   const announcements = await collectAnnouncements(bbCourseId);
   await sleep(REQUEST_GAP_MS);
   onProgress({ step: "grades" });
-  const { assignments, gradeItems } = await collectGradebook(bbCourseId);
+  const { assignments, gradeItems, gradeSource, scoredCount } = await collectGradebook(bbCourseId);
   onProgress({ step: "syllabus" });
   let syllabus = null;
   try {
@@ -390,6 +442,8 @@ async function syncCourse(bbCourseId, onProgress = () => {}, helpers = {}) {
     announcements,
     assignments,
     gradeItems,
+    gradeSource,
+    scoredCount,
     syllabus,
   };
 }
