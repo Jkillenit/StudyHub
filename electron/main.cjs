@@ -303,6 +303,32 @@ function extractTextFromAst(node) {
   return parts.join("\n");
 }
 
+/** Plain text from an in-memory PDF / Office / text file. Returns "" when the format is unsupported. */
+async function extractBufferText(buf, ext) {
+  const kind = String(ext || "").toLowerCase().replace(/^\./, "");
+  if (kind === "pdf") {
+    const { PDFParse } = require("pdf-parse");
+    const parser = new PDFParse({ data: buf });
+    try {
+      const result = await parser.getText();
+      return String(result?.text ?? "").trim();
+    } finally {
+      await parser.destroy().catch(() => {});
+    }
+  }
+  if (["docx", "pptx", "xlsx", "odt", "odp"].includes(kind)) {
+    const data = await new Promise((resolve, reject) => {
+      officeParser.parseOffice(buf, (result, err) => (err ? reject(err) : resolve(result)), {
+        ignoreNotes: false,
+        outputErrorToConsole: false,
+      });
+    });
+    return typeof data === "string" ? data : extractTextFromAst(data);
+  }
+  if (["txt", "md", "html", "htm"].includes(kind)) return buf.toString("utf8");
+  return "";
+}
+
 ipcMain.handle("studyhub:extract-text", async (_evt, filePath) => {
   try {
     const normalized = path.normalize(String(filePath || ""));
@@ -615,7 +641,7 @@ app.whenReady().then(() => {
   registerMirrorHandlers();
   registerMaintenanceHandlers(() => mainWindow);
   createWindow();
-  registerBlackboardHandlers(() => mainWindow, { allowPaths });
+  registerBlackboardHandlers(() => mainWindow, { allowPaths, extractBufferText });
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

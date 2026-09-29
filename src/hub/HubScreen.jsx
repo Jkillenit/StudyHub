@@ -6,7 +6,7 @@ import { ExpressImportModal } from "../welcome/ExpressImportModal.jsx";
 import { TodayDashboard } from "../features/dashboard/TodayDashboard.jsx";
 import { BlackboardSyncPanel } from "../features/blackboard/BlackboardSyncPanel.jsx";
 
-export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpressComplete, onEnsureBbCourse }) {
+export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpressComplete }) {
   const [manualOpen, setManualOpen] = useState(false);
   const [expressOpen, setExpressOpen] = useState(false);
   const [bbStatus, setBbStatus] = useState({ loggedIn: false, windowOpen: false });
@@ -135,12 +135,8 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
                 DISCONNECT
               </button>
             ) : null}
-            {bbStatus.loggedIn && onEnsureBbCourse ? (
-              <BlackboardSyncPanel
-                userCourses={userCourses}
-                onEnsureCourse={onEnsureBbCourse}
-                onSynced={() => setDashboardKey((k) => k + 1)}
-              />
+            {bbStatus.loggedIn ? (
+              <BlackboardSyncPanel userCourses={userCourses} onSynced={() => setDashboardKey((k) => k + 1)} />
             ) : null}
           </div>
         </div>

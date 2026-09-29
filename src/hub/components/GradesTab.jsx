@@ -390,39 +390,84 @@ function ComponentRow({ component, index, onScoreChange, onUpdate, onDelete }) {
   );
 }
 
-function BlackboardGradebook({ items, components, onApply }) {
+function itemPct(item) {
+  return item.score != null && item.points_possible ? Math.round((item.score / item.points_possible) * 1000) / 10 : null;
+}
+
+function groupPct(items) {
+  let earned = 0;
+  let possible = 0;
+  for (const item of items) {
+    if (item.score == null || !item.points_possible) continue;
+    earned += Number(item.score);
+    possible += Number(item.points_possible);
+  }
+  return possible > 0 ? Math.round((earned / possible) * 1000) / 10 : null;
+}
+
+function BbGradeRow({ item, components, onAssign }) {
+  const pct = itemPct(item);
+  const value = item.excluded ? "none" : item.auto ? "" : item.componentUuid || "";
+  return (
+    <div className="sh-drop-row">
+      <span className="sh-drop-name">{item.name}</span>
+      <span className="sh-drop-result mono" style={{ color: gradeColor(pct) }}>
+        {item.score != null ? `${item.score}${item.points_possible ? ` / ${item.points_possible}` : ""}` : "—"}
+        {pct != null ? ` · ${pct}%` : ""}
+      </span>
+      {components.length ? (
+        <select
+          className="sh-bb-apply-select"
+          value={value}
+          title="Which syllabus component this grade counts toward"
+          onChange={(event) => onAssign(item.bb_id, event.target.value || null)}
+        >
+          <option value="">AUTO</option>
+          {components.map((c, i) => (
+            <option key={keyOf(c, i)} value={c.uuid}>
+              {c.name}
+            </option>
+          ))}
+          <option value="none">DON'T COUNT</option>
+        </select>
+      ) : null}
+    </div>
+  );
+}
+
+/** Synced Blackboard grades grouped under the syllabus component each one counts toward. */
+function BlackboardGradebook({ items, components, onAssign }) {
   if (!items.length) return null;
+  const groups = components
+    .filter((c) => c.uuid)
+    .map((c) => ({ key: c.uuid, label: c.name, items: items.filter((i) => i.componentUuid === c.uuid) }))
+    .filter((g) => g.items.length);
+  const unsorted = items.filter((i) => !i.componentUuid && !i.excluded);
+  const excluded = items.filter((i) => i.excluded);
+  if (unsorted.length) groups.push({ key: "unsorted", label: components.length ? "UNSORTED" : "ALL GRADES", items: unsorted });
+  if (excluded.length) groups.push({ key: "excluded", label: "NOT COUNTED", items: excluded });
+
   return (
     <div className="sh-bb-gradebook">
-      <div className="sh-section-label">BLACKBOARD GRADEBOOK</div>
-      <div className="sh-whatif-note">Synced from Blackboard. Apply a score to one of your weighted components.</div>
-      {items.map((item) => {
-        const pct =
-          item.score != null && item.points_possible ? Math.round((item.score / item.points_possible) * 1000) / 10 : null;
+      <div className="sh-section-label">BLACKBOARD GRADES</div>
+      <div className="sh-whatif-note">
+        {components.length
+          ? "Sorted into your syllabus weights automatically. Each component's score is points earned ÷ points possible; change a match with the menu."
+          : "Import your syllabus (or sync a course that has one) to sort these into weighted components."}
+      </div>
+      {groups.map((group) => {
+        const pct = group.key === "excluded" ? null : groupPct(group.items);
         return (
-          <div key={item.id} className="sh-drop-row">
-            <span className="sh-drop-name">{item.name}</span>
-            <span className="sh-drop-result mono" style={{ color: gradeColor(pct) }}>
-              {item.score != null ? `${item.score}${item.points_possible ? ` / ${item.points_possible}` : ""}` : "—"}
-              {pct != null ? ` · ${pct}%` : ""}
-            </span>
-            {pct != null && components.length ? (
-              <select
-                className="sh-bb-apply-select"
-                value=""
-                onChange={(event) => {
-                  const idx = Number(event.target.value);
-                  if (!Number.isNaN(idx)) onApply(idx, pct);
-                }}
-              >
-                <option value="">APPLY TO…</option>
-                {components.map((c, i) => (
-                  <option key={keyOf(c, i)} value={i}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            ) : null}
+          <div key={group.key} className="sh-bb-group">
+            <div className="sh-bb-group-head">
+              <span className="sh-bb-group-name">{group.label}</span>
+              <span className="mono" style={{ color: gradeColor(pct) }}>
+                {pct != null ? `${pct}%` : ""}
+              </span>
+            </div>
+            {group.items.map((item) => (
+              <BbGradeRow key={item.bb_id || item.id} item={item} components={components} onAssign={onAssign} />
+            ))}
           </div>
         );
       })}
@@ -438,13 +483,17 @@ export default function GradesTab({ course, onComponentsChange }) {
   const [gradingScale, setGradingScale] = useState(null);
   const [bbItems, setBbItems] = useState([]);
   const componentsRef = useRef(components);
+  const bbItemsRef = useRef(bbItems);
   const scoreTimersRef = useRef(new Map());
   componentsRef.current = components;
+  bbItemsRef.current = bbItems;
+
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!courseUuid) return undefined;
     let cancelled = false;
-    setLoading(true);
+    if (reloadKey === 0) setLoading(true);
     Promise.all([
       window.studyHub?.db?.grades?.getComponents(courseUuid),
       window.studyHub?.db?.grades?.getGradingScale(courseUuid),
@@ -463,7 +512,25 @@ export default function GradesTab({ course, onComponentsChange }) {
     return () => {
       cancelled = true;
     };
+  }, [courseUuid, reloadKey]);
+
+  useEffect(() => {
+    const onSynced = (e) => {
+      if (e.detail?.courseUuid === courseUuid) setReloadKey((k) => k + 1);
+    };
+    window.addEventListener("studyhub-bb-synced", onSynced);
+    return () => window.removeEventListener("studyhub-bb-synced", onSynced);
   }, [courseUuid]);
+
+  const assignBbItem = useCallback(
+    async (bbId, componentUuid) => {
+      const res = await window.studyHub?.db?.bb?.setItemComponent?.({ courseUuid, bbId, componentUuid });
+      if (Array.isArray(res?.items)) setBbItems(res.items);
+      const rows = await window.studyHub?.db?.grades?.getComponents(courseUuid);
+      if (Array.isArray(rows)) setComponents(rows);
+    },
+    [courseUuid]
+  );
 
   useEffect(
     () => () => {
@@ -487,6 +554,10 @@ export default function GradesTab({ course, onComponentsChange }) {
           void window.studyHub?.db?.grades?.upsertEntry({ courseUuid, componentId: row.id, score: row.score });
         }
       });
+      if (bbItemsRef.current.length) {
+        await window.studyHub?.db?.bb?.applyGrades?.(courseUuid);
+        setReloadKey((k) => k + 1);
+      }
     },
     [courseUuid, onComponentsChange]
   );
@@ -578,7 +649,7 @@ export default function GradesTab({ course, onComponentsChange }) {
           </button>
         </div>
         {status ? <div className="sh-grades-status">{status}</div> : null}
-        <BlackboardGradebook items={bbItems} components={components} onApply={handleScoreChange} />
+        <BlackboardGradebook items={bbItems} components={components} onAssign={assignBbItem} />
       </div>
     );
   }
@@ -656,7 +727,7 @@ export default function GradesTab({ course, onComponentsChange }) {
       <HypotheticalEngine components={components} gradingScale={gradingScale} />
       <WhatIfSimulator components={components} />
       <GradeDropCalculator components={components} />
-      <BlackboardGradebook items={bbItems} components={components} onApply={handleScoreChange} />
+      <BlackboardGradebook items={bbItems} components={components} onAssign={assignBbItem} />
     </div>
   );
 }

@@ -2,10 +2,12 @@ const { app, BrowserWindow, session, ipcMain, net, shell } = require("electron")
 const fs = require("fs");
 const path = require("path");
 const { getDb } = require("./database.cjs");
-const { applyBbSync } = require("./dbMirrorHandlers.cjs");
-const { listEnrolledCourses, syncCourse, resetUserCache, setPageFetcher } = require("./bbSync.cjs");
+const { applyBbSync, ensureCourseForBb } = require("./dbMirrorHandlers.cjs");
+const { listEnrolledCourses, syncCourse, resetUserCache, setPageFetcher, getCourseInfo } = require("./bbSync.cjs");
 
 let bbWindow = null;
+const syllabusPopups = new Set();
+let extractBufferText = null;
 let getMainWindow = () => null;
 let allowPaths = () => {};
 let activeCourseId = "";
@@ -114,6 +116,43 @@ function buildToolbarScript(_courseId, bbCourseId, linkedNameForPage) {
   const courseArea = document.createElement("div");
   courseArea.style.cssText = "display:flex;align-items:center;gap:8px;flex:1;";
 
+  function makeSyncBtn(label) {
+    const btn = document.createElement("button");
+    btn.id = "sh-sync-course-btn";
+    btn.textContent = label;
+    btn.style.cssText = [
+      "background: transparent",
+      "border: 1px solid #00ff88",
+      "color: #00ff88",
+      "font-family: inherit",
+      "font-size: 10px",
+      "letter-spacing: 0.1em",
+      "padding: 4px 12px",
+      "cursor: pointer"
+    ].join(";");
+    btn.addEventListener("click", function() {
+      if (!window.__shBridge || !window.__shBridge.syncCourse) return;
+      var title = window.__shGetCourseTitle ? window.__shGetCourseTitle() : null;
+      btn.disabled = true;
+      btn.textContent = "SYNCING... (UP TO A MINUTE)";
+      window.__shBridge.syncCourse({ courseTitle: title || "" }).then(function(res) {
+        if (!document.body.contains(btn)) return;
+        btn.disabled = false;
+        btn.textContent = label;
+        if (!window.__shToast) return;
+        if (res && res.ok) {
+          var c = res.counts || {};
+          var msg = "\\u2713 Synced " + (c.assignments || 0) + " due dates, " + (c.grades || 0) + " grades";
+          msg += res.syllabus ? " \\u00b7 syllabus found" : " \\u00b7 no syllabus found";
+          window.__shToast(msg, "success");
+        } else {
+          window.__shToast("\\u2715 " + ((res && res.error) || "Sync failed"), "error");
+        }
+      });
+    });
+    return btn;
+  }
+
   if (${isLinked}) {
     const courseLabel = document.createElement("span");
     courseLabel.style.cssText = "color:#00ff88;font-size:11px;letter-spacing:0.06em;";
@@ -137,39 +176,9 @@ function buildToolbarScript(_courseId, bbCourseId, linkedNameForPage) {
       if (window.__shToggleStatus) window.__shToggleStatus();
     });
     courseArea.appendChild(statusBtn);
-  } else {
-    const createBtn = document.createElement("button");
-    createBtn.id = "sh-create-course-btn";
-    createBtn.textContent = "+ CREATE STUDY HUB COURSE";
-    createBtn.style.cssText = [
-      "background: transparent",
-      "border: 1px solid #00ff88",
-      "color: #00ff88",
-      "font-family: inherit",
-      "font-size: 10px",
-      "letter-spacing: 0.1em",
-      "padding: 4px 12px",
-      "cursor: pointer",
-      "transition: background 100ms"
-    ].join(";");
-    createBtn.addEventListener("click", function() {
-      var title = window.__shGetCourseTitle ? window.__shGetCourseTitle() : null;
-      createBtn.textContent = "CREATING...";
-      createBtn.disabled = true;
-      setTimeout(function() {
-        if (document.body.contains(createBtn) && createBtn.disabled) {
-          createBtn.disabled = false;
-          createBtn.textContent = "+ CREATE STUDY HUB COURSE";
-        }
-      }, 10000);
-      if (window.__shBridge && window.__shBridge.createCourse) {
-        window.__shBridge.createCourse({
-          courseTitle: title || ${safeBbCourseId},
-          bbCourseId: ${safeBbCourseId}
-        });
-      }
-    });
-    courseArea.appendChild(createBtn);
+    courseArea.appendChild(makeSyncBtn("\\u27f3 SYNC"));
+  } else if (${safeBbCourseId}) {
+    courseArea.appendChild(makeSyncBtn("\\u27f3 SYNC TO STUDY HUB"));
   }
 
   const closeBtn = document.createElement("button");
@@ -239,7 +248,105 @@ function parseCourseFromUrl(url) {
 }
 
 function displayLinkedCourseName(pageBbCourseId) {
-  return linkedBbCourseId && pageBbCourseId && pageBbCourseId === linkedBbCourseId ? linkedCourseName : "";
+  if (!pageBbCourseId) return "";
+  if (linkedBbCourseId && pageBbCourseId === linkedBbCourseId && linkedCourseName) return linkedCourseName;
+  try {
+    return getDb().prepare("SELECT name FROM courses WHERE bb_course_id = ? LIMIT 1").get(pageBbCourseId)?.name || "";
+  } catch {
+    return "";
+  }
+}
+
+/* ---------------- syllabus capture (Simple Syllabus and other LTI tools) ---------------- */
+
+const SYLLABUS_HOST_RE = /(^|\.)simplesyllabus\.com$/i;
+const LTI_TIMEOUT_MS = 25000;
+
+function isSyllabusToolUrl(url) {
+  try {
+    const u = new URL(String(url || ""));
+    return u.protocol === "https:" && SYLLABUS_HOST_RE.test(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function syllabusFrames(webContentsList) {
+  const frames = [];
+  for (const wc of webContentsList) {
+    if (!wc || wc.isDestroyed()) continue;
+    try {
+      for (const frame of wc.mainFrame.framesInSubtree) if (isSyllabusToolUrl(frame.url)) frames.push(frame);
+    } catch {
+      /* frame tree unavailable */
+    }
+  }
+  return frames;
+}
+
+/** Longest syllabus-tool text across frames once it stops growing (SPA pages render late). */
+async function waitForSyllabusText(getWebContents, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let last = "";
+  while (Date.now() < deadline) {
+    let best = "";
+    for (const frame of syllabusFrames(getWebContents())) {
+      try {
+        const text = await frame.executeJavaScript("document.body ? document.body.innerText : ''");
+        if (typeof text === "string" && text.length > best.length) best = text;
+      } catch {
+        /* frame navigated away */
+      }
+    }
+    if (best.length >= 500 && best.length === last.length) return best;
+    last = best;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  return last.length >= 500 ? last : "";
+}
+
+/** Launches a course LTI link in a hidden window with the Blackboard session and reads the tool page. */
+async function readLtiText(bbCourseId, contentId) {
+  if (!/^_\d+_\d+$/.test(String(bbCourseId)) || !/^_\d+_\d+$/.test(String(contentId))) return "";
+  const win = new BrowserWindow({
+    show: false,
+    width: 1100,
+    height: 900,
+    webPreferences: { partition: BB_PARTITION, nodeIntegration: false, contextIsolation: true, sandbox: true },
+  });
+  const popups = [];
+  win.webContents.setWindowOpenHandler(({ url }) =>
+    isSyllabusToolUrl(url) || isBlackboardUrl(url)
+      ? {
+          action: "allow",
+          overrideBrowserWindowOptions: {
+            show: false,
+            webPreferences: { partition: BB_PARTITION, nodeIntegration: false, contextIsolation: true, sandbox: true },
+          },
+        }
+      : { action: "deny" }
+  );
+  win.webContents.on("did-create-window", (child) => popups.push(child));
+  try {
+    const launch = `${BB_URL}/webapps/blackboard/execute/blti/launchLink?course_id=${bbCourseId}&content_id=${contentId}&from_ultra=true`;
+    await win.loadURL(launch).catch(() => {});
+    return await waitForSyllabusText(
+      () => [win.webContents, ...popups.filter((p) => !p.isDestroyed()).map((p) => p.webContents)],
+      LTI_TIMEOUT_MS
+    );
+  } finally {
+    popups.forEach((p) => !p.isDestroyed() && p.destroy());
+    if (!win.isDestroyed()) win.destroy();
+  }
+}
+
+/** A syllabus the student already has open in the Blackboard window (inline frame or popup). */
+async function readOpenSyllabus() {
+  const list = [];
+  if (bbWindow && !bbWindow.isDestroyed()) list.push(bbWindow.webContents);
+  for (const popup of syllabusPopups) if (!popup.isDestroyed()) list.push(popup.webContents);
+  if (!list.length) return "";
+  return waitForSyllabusText(() => list, 3000);
 }
 
 function ensureTempDir() {
@@ -1056,12 +1163,28 @@ async function openBlackboardWindow() {
   }
 
   bbWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isSyllabusToolUrl(url)) {
+      return {
+        action: "allow",
+        overrideBrowserWindowOptions: {
+          width: 1000,
+          height: 850,
+          title: "Study Hub — Syllabus",
+          webPreferences: { partition: BB_PARTITION, nodeIntegration: false, contextIsolation: true, sandbox: true },
+        },
+      };
+    }
     if (isBlackboardUrl(url)) {
       bbWindow?.loadURL(url);
     } else if (/^https:\/\//i.test(url)) {
       void shell.openExternal(url);
     }
     return { action: "deny" };
+  });
+  bbWindow.webContents.on("did-create-window", (child) => {
+    syllabusPopups.add(child);
+    child.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+    child.on("closed", () => syllabusPopups.delete(child));
   });
 
   let injectTimer = null;
@@ -1099,6 +1222,7 @@ async function disconnectBlackboard() {
 function registerBlackboardHandlers(mainWindowGetter, options = {}) {
   getMainWindow = typeof mainWindowGetter === "function" ? mainWindowGetter : () => mainWindowGetter;
   if (typeof options.allowPaths === "function") allowPaths = options.allowPaths;
+  if (typeof options.extractBufferText === "function") extractBufferText = options.extractBufferText;
 
   setPageFetcher(async (pathname) => {
     if (!bbWindow || bbWindow.isDestroyed()) return null;
@@ -1244,25 +1368,63 @@ function registerBlackboardHandlers(mainWindowGetter, options = {}) {
   });
 
   let syncing = false;
-  ipcMain.handle("bb:sync-course", async (event, { courseUuid, bbCourseId } = {}) => {
-    if (!isMainWindowSender(event)) return { ok: false, error: "untrusted" };
+
+  /** Finds or creates the linked Study Hub course, sweeps Blackboard into it, and reports to the main window. */
+  async function runSync({ bbCourseId, name, courseCode, term, fallbackName } = {}) {
+    const id = String(bbCourseId || "");
+    if (!/^_\d+_\d+$/.test(id)) return { ok: false, error: "Invalid Blackboard course id" };
     if (syncing) return { ok: false, error: "A sync is already running." };
     if (!(await isLoggedIn())) return { ok: false, error: "not-logged-in" };
     syncing = true;
+    let courseUuid = null;
     try {
-      const payload = await syncCourse(bbCourseId, (progress) =>
-        sendToMain("bb:sync-progress", { courseUuid, ...progress })
-      );
+      let info = { name, courseCode, term };
+      if (!info.name) info = { ...info, ...(await getCourseInfo(id).catch(() => ({}))) };
+      if (!info.name) info.name = fallbackName;
+      const ensured = ensureCourseForBb(getDb(), { bbCourseId: id, ...info });
+      courseUuid = ensured.courseUuid;
+      const payload = await syncCourse(id, (progress) => sendToMain("bb:sync-progress", { bbCourseId: id, courseUuid, ...progress }), {
+        extractBufferText,
+        readLtiText,
+        readOpenSyllabus,
+      });
       const result = applyBbSync(getDb(), courseUuid, payload);
-      sendToMain("bb:sync-complete", { courseUuid, ...result });
-      return { ok: result.success, counts: result.counts, error: result.error };
+      const syllabus = payload.syllabus
+        ? { source: payload.syllabus.source, title: payload.syllabus.title, text: payload.syllabus.text.slice(0, 200000) }
+        : null;
+      const summary = {
+        ok: result.success,
+        bbCourseId: id,
+        courseUuid,
+        created: ensured.created,
+        counts: result.counts,
+        error: result.error,
+        syllabus,
+      };
+      sendToMain("bb:sync-complete", summary);
+      return summary;
     } catch (err) {
       const error = err?.status === 401 || err?.status === 403 ? "not-logged-in" : err?.message || String(err);
-      sendToMain("bb:sync-complete", { courseUuid, success: false, error });
-      return { ok: false, error };
+      sendToMain("bb:sync-complete", { ok: false, bbCourseId: id, courseUuid, error });
+      return { ok: false, bbCourseId: id, courseUuid, error };
     } finally {
       syncing = false;
     }
+  }
+
+  ipcMain.handle("bb:sync-course", async (event, data = {}) => {
+    if (!isMainWindowSender(event)) return { ok: false, error: "untrusted" };
+    return runSync(data);
+  });
+
+  ipcMain.handle("bb:sync-from-page", async (event, data = {}) => {
+    if (!isTrustedBbSender(event)) return { ok: false, error: "untrusted" };
+    const pageCourse = parseCourseFromUrl(event.sender.getURL());
+    const bbCourseId = pageCourse?.bbCourseId || "";
+    if (!bbCourseId) return { ok: false, error: "Open a course first." };
+    const result = await runSync({ bbCourseId, fallbackName: String(data?.courseTitle || "").slice(0, 200) || undefined });
+    if (result.ok && bbWindow && !bbWindow.isDestroyed()) await injectPage(bbWindow.webContents.getURL());
+    return result;
   });
 }
 

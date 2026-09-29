@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld("__shBridge", {
   importFile: (context) => ipcRenderer.invoke("bb:import-file", context),
   importFolder: (context) => ipcRenderer.invoke("bb:import-folder", context),
   createCourse: (data) => ipcRenderer.invoke("bb:create-course", data),
+  syncCourse: (data) => ipcRenderer.invoke("bb:sync-from-page", data),
   getCourseStatus: (data) => ipcRenderer.invoke("bb:get-course-status", data),
   closeWindow: () => ipcRenderer.invoke("bb:close"),
   showToast: (message, type) => ipcRenderer.invoke("bb:show-toast", { message, type }),

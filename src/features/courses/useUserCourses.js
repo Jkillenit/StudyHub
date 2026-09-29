@@ -85,12 +85,18 @@ export function useUserCourses() {
     [commit]
   );
 
+  /** Re-read one course from the database, adding it if it was created outside the renderer. */
   const reloadCourse = useCallback(
     async (id) => {
       const fresh = await courseStore.getCourseWithModules(id);
       if (!fresh) return null;
       const normalized = ensureUserCourse(fresh);
-      commit(coursesRef.current.map((c) => (c.id === normalized.id ? normalized : c)));
+      const exists = coursesRef.current.some((c) => c.id === normalized.id);
+      commit(
+        exists
+          ? coursesRef.current.map((c) => (c.id === normalized.id ? normalized : c))
+          : [...coursesRef.current, normalized]
+      );
       return normalized;
     },
     [commit]

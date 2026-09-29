@@ -163,6 +163,16 @@ const MIGRATIONS = [
       dbRef.exec("DELETE FROM settings WHERE key = 'apiKey'");
     },
   },
+  {
+    version: 5,
+    up(dbRef) {
+      // component_uuid: manual override of the auto match ('none' = excluded from the calculator).
+      dbRef.exec(`
+        ALTER TABLE bb_grade_items ADD COLUMN category TEXT;
+        ALTER TABLE bb_grade_items ADD COLUMN component_uuid TEXT;
+      `);
+    },
+  },
 ];
 
 function runMigrations(dbRef) {

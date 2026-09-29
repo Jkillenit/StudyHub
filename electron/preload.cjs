@@ -245,6 +245,8 @@ contextBridge.exposeInMainWorld("studyHub", {
     bb: {
       getItems: (courseUuid) => ipcRenderer.invoke("db:bb:getItems", courseUuid),
       getGradeItems: (courseUuid) => ipcRenderer.invoke("db:bb:getGradeItems", courseUuid),
+      setItemComponent: (data) => ipcRenderer.invoke("db:bb:setItemComponent", data),
+      applyGrades: (courseUuid) => ipcRenderer.invoke("db:bb:applyGrades", courseUuid),
     },
     dashboard: {
       get: () => ipcRenderer.invoke("db:dashboard:get"),

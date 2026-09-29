@@ -1,8 +1,29 @@
 const { ipcMain } = require("electron");
 const { getDb } = require("./database.cjs");
-const { courseIdFor, newUuid } = require("./dbHandlers.cjs");
+const { courseIdFor, newUuid, saveFullCourse } = require("./dbHandlers.cjs");
+const { applyBbGrades, resolveMappings, loadForCourse } = require("./gradeMapping.cjs");
 
 let registered = false;
+
+/** The Study Hub course linked to a Blackboard course, created (with one empty module) if missing. */
+function ensureCourseForBb(db, { bbCourseId, name, courseCode, term }) {
+  const existing = db.prepare("SELECT uuid FROM courses WHERE bb_course_id = ? ORDER BY id ASC LIMIT 1").get(bbCourseId);
+  if (existing) return { courseUuid: existing.uuid, created: false };
+  const courseUuid = newUuid("uc");
+  saveFullCourse(db, {
+    uuid: courseUuid,
+    name: String(name || courseCode || "Blackboard Course").slice(0, 200),
+    subtitle: "BLACKBOARD",
+    bbCourseId,
+    courseCode: courseCode || null,
+    term: term || null,
+    meta: { activeModuleId: null, materialPaths: [], pptxReviewBlocks: {} },
+    modules: [{ uuid: newUuid("m"), title: "General", html: "", content: [] }],
+    flashcards: [],
+    glossary: [],
+  });
+  return { courseUuid, created: true };
+}
 
 function isoOrNull(value) {
   if (!value) return null;
@@ -86,11 +107,11 @@ function applyBbSync(db, courseUuid, payload) {
     });
 
     const gradeStmt = db.prepare(`
-      INSERT INTO bb_grade_items (course_id, bb_id, name, score, points_possible, graded_at, synced_at)
-      VALUES (@courseId, @bbId, @name, @score, @points, @gradedAt, datetime('now'))
+      INSERT INTO bb_grade_items (course_id, bb_id, name, score, points_possible, graded_at, category, synced_at)
+      VALUES (@courseId, @bbId, @name, @score, @points, @gradedAt, @category, datetime('now'))
       ON CONFLICT(course_id, bb_id) DO UPDATE SET
         name = excluded.name, score = excluded.score, points_possible = excluded.points_possible,
-        graded_at = excluded.graded_at, synced_at = excluded.synced_at
+        graded_at = excluded.graded_at, category = excluded.category, synced_at = excluded.synced_at
     `);
     (payload?.gradeItems || []).forEach((g) => {
       if (!g?.id || !g?.name) return;
@@ -101,6 +122,7 @@ function applyBbSync(db, courseUuid, payload) {
         score: Number.isFinite(g.score) ? g.score : null,
         points: Number.isFinite(g.pointsPossible) ? g.pointsPossible : null,
         gradedAt: isoOrNull(g.gradedAt),
+        category: g.category ? String(g.category).slice(0, 100) : null,
       });
       counts.grades += 1;
     });
@@ -108,7 +130,15 @@ function applyBbSync(db, courseUuid, payload) {
     db.prepare("UPDATE courses SET updated_at = datetime('now') WHERE id = ?").run(courseId);
   })();
 
-  return { success: true, counts };
+  const graded = applyBbGrades(db, courseId);
+  return { success: true, counts: { ...counts, componentsFilled: graded.filled } };
+}
+
+function gradeItemsWithMapping(db, courseUuid) {
+  const courseId = courseIdFor(db, courseUuid);
+  if (!courseId) return [];
+  const { components, items } = loadForCourse(db, courseId);
+  return resolveMappings(items, components);
 }
 
 function localDate(offsetDays = 0) {
@@ -245,13 +275,25 @@ function registerMirrorHandlers() {
       .all(courseUuid);
   });
 
-  ipcMain.handle("db:bb:getGradeItems", (_, courseUuid) => {
-    return db
-      .prepare(`
-        SELECT g.* FROM bb_grade_items g JOIN courses c ON c.id = g.course_id
-        WHERE c.uuid = ? ORDER BY COALESCE(g.graded_at, g.synced_at) DESC
-      `)
-      .all(courseUuid);
+  ipcMain.handle("db:bb:getGradeItems", (_, courseUuid) => gradeItemsWithMapping(db, courseUuid));
+
+  /** componentUuid: a component uuid, "none" to exclude, or null to go back to the automatic match. */
+  ipcMain.handle("db:bb:setItemComponent", (_, { courseUuid, bbId, componentUuid }) => {
+    const courseId = courseIdFor(db, courseUuid);
+    if (!courseId) return { success: false };
+    db.prepare("UPDATE bb_grade_items SET component_uuid = ? WHERE course_id = ? AND bb_id = ?").run(
+      componentUuid || null,
+      courseId,
+      String(bbId)
+    );
+    const result = applyBbGrades(db, courseId);
+    return { success: true, ...result, items: gradeItemsWithMapping(db, courseUuid) };
+  });
+
+  ipcMain.handle("db:bb:applyGrades", (_, courseUuid) => {
+    const courseId = courseIdFor(db, courseUuid);
+    if (!courseId) return { success: false };
+    return { success: true, ...applyBbGrades(db, courseId) };
   });
 
   ipcMain.handle("db:bb:applySync", (_, { courseUuid, payload }) => applyBbSync(db, courseUuid, payload));
@@ -366,4 +408,4 @@ function registerMirrorHandlers() {
   });
 }
 
-module.exports = { registerMirrorHandlers, applyBbSync };
+module.exports = { registerMirrorHandlers, applyBbSync, ensureCourseForBb };

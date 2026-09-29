@@ -68,6 +68,38 @@ function getJsonViaSession(pathname) {
   });
 }
 
+const MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;
+
+/** Binary GET (follows redirects) using the Blackboard session. */
+function getBuffer(pathname) {
+  const bbSession = session.fromPartition(BB_PARTITION);
+  return new Promise((resolve, reject) => {
+    const request = net.request({ url: `${BB_ORIGIN}${pathname}`, session: bbSession, useSessionCookies: true, method: "GET" });
+    const chunks = [];
+    let size = 0;
+    request.on("response", (response) => {
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        reject(Object.assign(new Error(`HTTP ${response.statusCode}`), { status: response.statusCode }));
+        response.resume?.();
+        return;
+      }
+      response.on("data", (chunk) => {
+        size += chunk.length;
+        if (size > MAX_DOWNLOAD_BYTES) {
+          request.abort();
+          reject(new Error("File too large"));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      response.on("end", () => resolve(Buffer.concat(chunks)));
+      response.on("error", reject);
+    });
+    request.on("error", reject);
+    request.end();
+  });
+}
+
 async function getPaged(pathname, maxItems = 500) {
   const out = [];
   let next = pathname;
@@ -159,12 +191,15 @@ async function collectContents(bbCourseId) {
     }
     for (const item of items) {
       if (out.length >= MAX_CONTENT_ITEMS) break;
-      const kind = contentKind(item?.contentHandler?.id);
+      const handler = String(item?.contentHandler?.id || "");
+      const kind = contentKind(handler);
       out.push({
         id: item.id,
         parentId: parentId || null,
         title: item.title || "Untitled",
         kind,
+        handler,
+        body: typeof item.body === "string" ? item.body : "",
         url: `${BB_ORIGIN}/ultra/courses/${bbCourseId}/outline`,
       });
       if (kind === "folder" || item?.hasChildren) {
@@ -206,7 +241,18 @@ async function collectGradebook(bbCourseId) {
   } catch {
     return { assignments: [], gradeItems: [] };
   }
-  const visible = columns.filter((c) => c?.availability?.available !== "No" && !c?.externalGrade);
+  const visible = columns.filter(
+    (c) => c?.availability?.available !== "No" && !c?.externalGrade && c?.grading?.type !== "Calculated"
+  );
+
+  let categoryById = new Map();
+  try {
+    await sleep(REQUEST_GAP_MS);
+    const categories = await getPaged(`/learn/api/public/v1/courses/${course}/gradebook/categories?limit=100`, 100);
+    categoryById = new Map(categories.map((cat) => [cat.id, cat.title || cat.displayTitle || ""]));
+  } catch {
+    /* categories are optional */
+  }
 
   let userGrades = [];
   try {
@@ -243,9 +289,10 @@ async function collectGradebook(bbCourseId) {
       return {
         id: c.id,
         name: c.name,
-        score: grade?.score != null ? Number(grade.score) : null,
+        score: grade?.score != null && !grade?.exempt ? Number(grade.score) : null,
         pointsPossible: Number(c.score?.possible) || null,
         gradedAt: grade?.exempt ? null : grade?.lastModified || grade?.modified || null,
+        category: categoryById.get(c.gradebookCategoryId) || null,
       };
     })
     .filter((g) => g.score != null || g.pointsPossible);
@@ -253,8 +300,75 @@ async function collectGradebook(bbCourseId) {
   return { assignments, gradeItems };
 }
 
+const SYLLABUS_RE = /syllab/i;
+const SYLLABUS_FILE_EXT = /\.(pdf|docx|pptx|txt|html?)$/i;
+const MIN_SYLLABUS_CHARS = 200;
+
+function isLtiHandler(handler) {
+  return /lti/i.test(String(handler || ""));
+}
+
+/** Text of the first attached syllabus file on a content item, or "". */
+async function readAttachmentText(bbCourseId, contentId, extractBufferText) {
+  const course = encodeURIComponent(bbCourseId);
+  const content = encodeURIComponent(contentId);
+  let attachments = [];
+  try {
+    attachments = (await getJson(`/learn/api/public/v1/courses/${course}/contents/${content}/attachments`))?.results || [];
+  } catch {
+    return "";
+  }
+  for (const att of attachments) {
+    const match = String(att.fileName || "").match(SYLLABUS_FILE_EXT);
+    if (!match) continue;
+    try {
+      await sleep(REQUEST_GAP_MS);
+      const buf = await getBuffer(
+        `/learn/api/public/v1/courses/${course}/contents/${content}/attachments/${encodeURIComponent(att.id)}/download`
+      );
+      const text = await extractBufferText(buf, match[1]);
+      if (text && text.length >= MIN_SYLLABUS_CHARS) return text;
+    } catch {
+      /* try the next attachment */
+    }
+  }
+  return "";
+}
+
+/**
+ * Finds the course syllabus: an uploaded file or document titled "syllabus", then an LTI tool
+ * (e.g. Simple Syllabus) via `readLtiText`, then any syllabus page already open in the Blackboard window.
+ */
+async function findSyllabus(bbCourseId, contents, { extractBufferText, readLtiText, readOpenSyllabus } = {}) {
+  const candidates = contents.filter((c) => SYLLABUS_RE.test(c.title));
+  const lti = candidates.filter((c) => isLtiHandler(c.handler));
+  const files = candidates.filter((c) => !isLtiHandler(c.handler) && c.kind !== "folder");
+
+  for (const item of files) {
+    const bodyText = stripHtml(item.body);
+    if (bodyText.length >= MIN_SYLLABUS_CHARS && /%/.test(bodyText)) {
+      return { source: "document", title: item.title, text: bodyText };
+    }
+    if (extractBufferText) {
+      const text = await readAttachmentText(bbCourseId, item.id, extractBufferText);
+      if (text) return { source: "file", title: item.title, text };
+    }
+  }
+  if (readLtiText) {
+    for (const item of lti) {
+      const text = await readLtiText(bbCourseId, item.id);
+      if (text && text.length >= MIN_SYLLABUS_CHARS) return { source: "simple-syllabus", title: item.title, text };
+    }
+  }
+  if (readOpenSyllabus) {
+    const text = await readOpenSyllabus();
+    if (text && text.length >= MIN_SYLLABUS_CHARS) return { source: "open-page", title: "Syllabus", text };
+  }
+  return null;
+}
+
 /** One full, read-only sweep of a single course. Each section fails independently. */
-async function syncCourse(bbCourseId, onProgress = () => {}) {
+async function syncCourse(bbCourseId, onProgress = () => {}, helpers = {}) {
   if (!/^_\d+_\d+$/.test(String(bbCourseId || ""))) throw new Error("Invalid Blackboard course id");
   onProgress({ step: "contents" });
   const contents = await collectContents(bbCourseId);
@@ -264,11 +378,32 @@ async function syncCourse(bbCourseId, onProgress = () => {}) {
   await sleep(REQUEST_GAP_MS);
   onProgress({ step: "grades" });
   const { assignments, gradeItems } = await collectGradebook(bbCourseId);
-  return { contents, announcements, assignments, gradeItems };
+  onProgress({ step: "syllabus" });
+  let syllabus = null;
+  try {
+    syllabus = await findSyllabus(bbCourseId, contents, helpers);
+  } catch {
+    syllabus = null;
+  }
+  return {
+    contents: contents.map(({ body: _body, handler: _handler, ...rest }) => rest),
+    announcements,
+    assignments,
+    gradeItems,
+    syllabus,
+  };
+}
+
+async function getCourseInfo(bbCourseId) {
+  const c = await firstOk([
+    `/learn/api/public/v3/courses/${encodeURIComponent(bbCourseId)}`,
+    `/learn/api/public/v2/courses/${encodeURIComponent(bbCourseId)}`,
+  ]);
+  return { name: c?.name || c?.courseId || "", courseCode: c?.courseId || "", term: c?.termId || "" };
 }
 
 function resetUserCache() {
   cachedUserId = null;
 }
 
-module.exports = { listEnrolledCourses, syncCourse, resetUserCache, setPageFetcher };
+module.exports = { listEnrolledCourses, syncCourse, resetUserCache, setPageFetcher, getCourseInfo };

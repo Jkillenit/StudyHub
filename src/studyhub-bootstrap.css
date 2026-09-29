@@ -4413,6 +4413,25 @@ button.sh-titlebar-wordmark--btn:hover {
 .sh-bb-gradebook {
   margin-top: 24px;
 }
+.sh-bb-group {
+  margin-top: 12px;
+}
+.sh-bb-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid var(--sh-border);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+.sh-bb-group-name {
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sh-text-secondary);
+}
 .sh-bb-apply-select {
   background: var(--sh-raised);
   color: var(--sh-text-secondary);
@@ -4661,4 +4680,20 @@ button.sh-today-row-main:hover {
 }
 .sh-bb-sync-status--error {
   color: var(--sh-red);
+}
+.sh-bb-sync-status--ok {
+  color: var(--sh-green);
+}
+.sh-bb-sync-toggle {
+  background: transparent;
+  border: none;
+  padding: 6px 0 0;
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--sh-text-dim);
+  cursor: pointer;
+}
+.sh-bb-sync-toggle:hover {
+  color: var(--sh-text-secondary);
 }

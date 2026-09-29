@@ -16,6 +16,7 @@ import { courseStore } from "../db/courseStore.js";
 import { useUserCourses } from "../features/courses/useUserCourses.js";
 import { buildCourseFromSlides, newModule } from "../features/import/courseBuilders.js";
 import { applyBlackboardImport } from "../features/import/blackboardImport.js";
+import { applySyllabusText } from "../features/import/syllabusImport.js";
 import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
 
 function setPendingToast(message) {
@@ -43,8 +44,17 @@ function ApiStatusSync() {
 
 function StudyHubAppInner() {
   const { setBreadcrumb } = useShell();
-  const { courses: userCourses, loaded, getCourse, saveCourse, addCourse: addUserCourse, updateCourse, deleteCourse, replaceAll } =
-    useUserCourses();
+  const {
+    courses: userCourses,
+    loaded,
+    getCourse,
+    saveCourse,
+    addCourse: addUserCourse,
+    updateCourse,
+    deleteCourse,
+    reloadCourse,
+    replaceAll,
+  } = useUserCourses();
   const [courseId, setCourseId] = useState(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -85,6 +95,25 @@ function StudyHubAppInner() {
       window.removeEventListener("keydown", onKey);
     };
   }, []);
+
+  /** Every Blackboard sync (hub panel or Blackboard toolbar) lands here: load the course, apply the syllabus. */
+  useEffect(() => {
+    const bb = window.studyHub?.blackboard;
+    if (!bb?.onSyncComplete) return undefined;
+    return bb.onSyncComplete(async (res) => {
+      if (!res?.courseUuid) return;
+      await reloadCourse(res.courseUuid);
+      let syllabusStatus = res.syllabus ? "none" : "missing";
+      if (res.ok && res.syllabus?.text) {
+        syllabusStatus = (await applySyllabusText(res.courseUuid, res.syllabus.text).catch(() => ({ status: "none" }))).status;
+      }
+      window.dispatchEvent(
+        new CustomEvent("studyhub-bb-synced", {
+          detail: { bbCourseId: res.bbCourseId, courseUuid: res.courseUuid, ok: res.ok, syllabusStatus },
+        })
+      );
+    });
+  }, [reloadCourse]);
 
   useEffect(() => {
     if (!courseShellLoad) return undefined;
@@ -160,7 +189,7 @@ function StudyHubAppInner() {
         (targetId && getCourse(targetId)) ||
         (bbCourseId && userCourses.find((c) => c.bbCourseId === bbCourseId)) ||
         (courseId && courseId !== "builtin" ? getCourse(courseId) : null);
-      if (!target) return "○ Click CREATE STUDY HUB COURSE in the toolbar first";
+      if (!target) return "○ Click SYNC TO STUDY HUB in the toolbar first";
 
       let message = null;
       let syllabus = null;
@@ -307,7 +336,6 @@ function StudyHubAppInner() {
             onOpenCourse={openCourseFromShell}
             onManualCreate={onHubManualCreate}
             onExpressComplete={onHubExpressComplete}
-            onEnsureBbCourse={createBlackboardCourse}
           />
         ) : (
           <>

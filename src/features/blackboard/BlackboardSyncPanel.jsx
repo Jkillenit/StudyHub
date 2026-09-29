@@ -1,14 +1,29 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { relativeTime } from "../dashboard/dateLabels.js";
 
 const LAST_SYNC_KEY = "bb.lastSync";
-const STEP_LABEL = { contents: "CONTENT", announcements: "ANNOUNCEMENTS", grades: "GRADES" };
+const STEP_LABEL = { contents: "CONTENT", announcements: "ANNOUNCEMENTS", grades: "GRADES", syllabus: "SYLLABUS" };
+const SYLLABUS_LABEL = {
+  applied: "SYLLABUS WEIGHTS ADDED",
+  kept: "GRADES SORTED INTO YOUR WEIGHTS",
+  none: "SYLLABUS FOUND, NO WEIGHTS READ",
+  missing: "NO SYLLABUS FOUND",
+};
 
 function errorText(error) {
   if (error === "not-logged-in") {
     return "Blackboard didn't accept the session. Open Blackboard, sign in, leave that window open, and try again.";
   }
   return error || "Sync failed.";
+}
+
+/** Leading year of a course code/name such as "202640-ST-260-004" or "2026 Fall ...". */
+function courseYear(course) {
+  for (const field of [course.courseCode, course.name]) {
+    const match = String(field || "").trim().match(/^(20\d{2})/);
+    if (match) return Number(match[1]);
+  }
+  return null;
 }
 
 async function loadLastSync() {
@@ -19,30 +34,42 @@ async function loadLastSync() {
   }
 }
 
-/**
- * Lists the student's Blackboard enrollments and mirrors each one into a linked Study Hub course.
- * `onEnsureCourse` returns the linked course (creating it if needed); `onSynced` fires after each sync.
- */
-export function BlackboardSyncPanel({ userCourses, onEnsureCourse, onSynced }) {
+/** Lists the student's current Blackboard enrollments; syncing one creates its Study Hub course if needed. */
+export function BlackboardSyncPanel({ userCourses, onSynced }) {
   const [bbCourses, setBbCourses] = useState(null);
+  const [showAll, setShowAll] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [progress, setProgress] = useState(null);
   const [results, setResults] = useState({});
+  const [syllabusStatus, setSyllabusStatus] = useState({});
   const [lastSync, setLastSync] = useState({});
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     void loadLastSync().then(setLastSync);
-    const bb = window.studyHub?.blackboard;
-    return bb?.onSyncProgress?.((p) => setProgress(p));
+    const onSynced = (e) => {
+      const { bbCourseId, syllabusStatus: status } = e.detail || {};
+      if (bbCourseId && status) setSyllabusStatus((s) => ({ ...s, [bbCourseId]: status }));
+    };
+    window.addEventListener("studyhub-bb-synced", onSynced);
+    const off = window.studyHub?.blackboard?.onSyncProgress?.((p) => setProgress(p));
+    return () => {
+      window.removeEventListener("studyhub-bb-synced", onSynced);
+      off?.();
+    };
   }, []);
 
-  const linkedCourse = useCallback(
-    (bbCourseId) => userCourses.find((c) => c.bbCourseId === bbCourseId) || null,
-    [userCourses]
-  );
+  const isLinked = useCallback((bbCourseId) => userCourses.some((c) => c.bbCourseId === bbCourseId), [userCourses]);
+
+  const thisYear = new Date().getFullYear();
+  const visible = useMemo(() => {
+    if (!bbCourses) return [];
+    if (showAll) return bbCourses;
+    return bbCourses.filter((c) => (courseYear(c) ?? 0) >= thisYear);
+  }, [bbCourses, showAll, thisYear]);
+  const hiddenCount = (bbCourses?.length || 0) - visible.length;
 
   const loadCourses = async () => {
     setLoading(true);
@@ -58,11 +85,13 @@ export function BlackboardSyncPanel({ userCourses, onEnsureCourse, onSynced }) {
   };
 
   const syncOne = async (bbCourse) => {
-    const course = await onEnsureCourse(bbCourse);
-    if (!course) return { ok: false, error: "Could not create the Study Hub course." };
-    const courseUuid = course.uuid || course.id;
-    setProgress({ courseUuid, step: "contents" });
-    const res = await window.studyHub?.blackboard?.syncCourse?.({ courseUuid, bbCourseId: bbCourse.bbCourseId });
+    setProgress({ bbCourseId: bbCourse.bbCourseId, step: "contents" });
+    const res = await window.studyHub?.blackboard?.syncCourse?.({
+      bbCourseId: bbCourse.bbCourseId,
+      name: bbCourse.name,
+      courseCode: bbCourse.courseCode,
+      term: bbCourse.termId,
+    });
     setResults((r) => ({ ...r, [bbCourse.bbCourseId]: res }));
     if (res?.ok) {
       const next = { ...(await loadLastSync()), [bbCourse.bbCourseId]: new Date().toISOString() };
@@ -93,16 +122,14 @@ export function BlackboardSyncPanel({ userCourses, onEnsureCourse, onSynced }) {
     }
   };
 
-  const linkedList = (bbCourses || []).filter((c) => linkedCourse(c.bbCourseId));
-
   return (
     <div className="sh-bb-sync">
       <div className="sh-bb-sync-head">
         <span className="sh-hub-section-label">SYNC COURSES</span>
         <div className="sh-bb-sync-actions">
-          {bbCourses && linkedList.length > 1 ? (
-            <button type="button" className="sh-btn-ghost sh-bb-sync-btn" disabled={busy} onClick={() => run(linkedList)}>
-              SYNC ALL LINKED
+          {visible.length > 1 ? (
+            <button type="button" className="sh-btn-ghost sh-bb-sync-btn" disabled={busy} onClick={() => run(visible)}>
+              SYNC ALL
             </button>
           ) : null}
           <button type="button" className="sh-btn-ghost sh-bb-sync-btn" disabled={loading || busy} onClick={loadCourses}>
@@ -113,18 +140,19 @@ export function BlackboardSyncPanel({ userCourses, onEnsureCourse, onSynced }) {
 
       {error ? <p className="sh-bb-sync-error">{error}</p> : null}
 
-      {bbCourses?.length ? (
+      {visible.length ? (
         <ul className="sh-bb-sync-list">
-          {bbCourses.map((c) => {
-            const linked = linkedCourse(c.bbCourseId);
+          {visible.map((c) => {
+            const linked = isLinked(c.bbCourseId);
             const res = results[c.bbCourseId];
-            const active = busy && progress && linked && progress.courseUuid === (linked.uuid || linked.id);
-            let status = linked ? `LINKED · SYNCED ${relativeTime(lastSync[c.bbCourseId]).toUpperCase()}` : "NOT IN STUDY HUB";
+            const active = busy && progress?.bbCourseId === c.bbCourseId;
+            let status = linked ? `SYNCED ${relativeTime(lastSync[c.bbCourseId]).toUpperCase()}` : "NEW · SYNC TO ADD";
             if (active) status = `SYNCING ${STEP_LABEL[progress.step] || ""}…`;
             else if (res?.ok && res.counts) {
               const { contents, announcements, assignments, grades } = res.counts;
               status = `✓ ${contents} ITEMS · ${announcements} ANN · ${assignments} DUE · ${grades} GRADES`;
             } else if (res && !res.ok) status = `✕ ${errorText(res.error)}`;
+            const syl = !active && res?.ok ? syllabusStatus[c.bbCourseId] : null;
             return (
               <li key={c.bbCourseId} className="sh-bb-sync-row">
                 <div className="sh-bb-sync-row-text">
@@ -133,6 +161,14 @@ export function BlackboardSyncPanel({ userCourses, onEnsureCourse, onSynced }) {
                     {c.courseCode ? `${c.courseCode} · ` : ""}
                     {status}
                   </div>
+                  {syl ? (
+                    <div className={`sh-bb-sync-status${syl === "applied" || syl === "kept" ? " sh-bb-sync-status--ok" : ""}`}>
+                      {SYLLABUS_LABEL[syl]}
+                      {syl === "missing" || syl === "none"
+                        ? " · OPEN THE SYLLABUS IN THE BLACKBOARD WINDOW AND SYNC AGAIN"
+                        : ""}
+                    </div>
+                  ) : null}
                 </div>
                 <button type="button" className="sh-btn-ghost sh-bb-sync-btn" disabled={busy} onClick={() => run([c])}>
                   {linked ? "SYNC" : "ADD + SYNC"}
@@ -141,6 +177,12 @@ export function BlackboardSyncPanel({ userCourses, onEnsureCourse, onSynced }) {
             );
           })}
         </ul>
+      ) : null}
+
+      {bbCourses && (hiddenCount > 0 || showAll) ? (
+        <button type="button" className="sh-bb-sync-toggle" onClick={() => setShowAll((v) => !v)}>
+          {showAll ? `SHOW ${thisYear}+ COURSES ONLY` : `SHOW ${hiddenCount} OLDER / NON-TERM COURSES`}
+        </button>
       ) : null}
     </div>
   );
