@@ -1257,8 +1257,9 @@ async function injectPage(url) {
   if (bbCourse) sendToMain("bb:course-detected", bbCourse);
 }
 
-async function openBlackboardWindow() {
+async function openBlackboardWindow(targetUrl = null) {
   if (bbWindow && !bbWindow.isDestroyed()) {
+    if (targetUrl) await bbWindow.loadURL(targetUrl).catch(() => {});
     bbWindow.focus();
     return;
   }
@@ -1322,7 +1323,7 @@ async function openBlackboardWindow() {
     bbWindow = null;
   });
 
-  const startUrl = loggedIn ? `${BB_URL}/ultra/course` : BB_URL;
+  const startUrl = loggedIn ? targetUrl || `${BB_URL}/ultra/course` : BB_URL;
   await bbWindow.loadURL(startUrl);
 }
 
@@ -1363,6 +1364,12 @@ function registerBlackboardHandlers(mainWindowGetter, options = {}) {
   ipcMain.handle("bb:open", async (event) => {
     if (!isMainWindowSender(event)) return { success: false };
     await openBlackboardWindow();
+    return { success: true };
+  });
+
+  ipcMain.handle("bb:open-url", async (event, url) => {
+    if (!isMainWindowSender(event) || !isBlackboardUrl(url)) return { success: false };
+    await openBlackboardWindow(String(url));
     return { success: true };
   });
 

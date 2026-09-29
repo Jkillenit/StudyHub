@@ -21,6 +21,7 @@ import {
   mergeFlashcards,
 } from "../features/import/courseBuilders.js";
 import { bodyToHtml, htmlToPlainText, plainTextToHtml } from "../lib/notesBody.js";
+import { useMirrorBadges } from "../features/mirror/useMirrorBadges.js";
 
 const norm = (v) => String(v || "").toLowerCase().trim();
 
@@ -50,6 +51,7 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, courseSh
   const [activeItem, setActiveItem] = useState(`module:${c.activeModuleId}`);
   const shellSkelVis = useDelayedSkeletonVisible(!!courseShellLoad, courseShellLoad ? "shell" : "");
   const { importPptx, error: pptxError, reset: resetPptx } = usePptxImport();
+  const mirrorBadges = useMirrorBadges(c.uuid || c.id);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -457,7 +459,11 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, courseSh
               activeItem={activeItem}
               onRenameCourse={renameCourse}
               onRenameModule={renameModule}
-              badges={{ "qz-deck": dueCount || null }}
+              badges={{
+                "qz-deck": dueCount || null,
+                "course-assignments": mirrorBadges.dueSoon ? `${mirrorBadges.dueSoon} DUE` : null,
+                "course-announcements": mirrorBadges.unread ? `${mirrorBadges.unread} NEW` : null,
+              }}
               onActiveChange={(nextActiveItem) => {
                 if (nextActiveItem.startsWith("module:")) {
                   selectModule(nextActiveItem.slice("module:".length));

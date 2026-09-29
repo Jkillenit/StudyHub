@@ -103,6 +103,8 @@ contextBridge.exposeInMainWorld("studyHub", {
   },
   blackboard: {
     open: () => ipcRenderer.invoke("bb:open"),
+    /** Opens a *.blackboard.com URL in the signed-in Blackboard window. */
+    openUrl: (url) => ipcRenderer.invoke("bb:open-url", url),
     close: () => ipcRenderer.invoke("bb:close"),
     disconnect: () => ipcRenderer.invoke("bb:disconnect"),
     isLoggedIn: () => ipcRenderer.invoke("bb:isLoggedIn"),

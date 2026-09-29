@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from "react";
 import InlineEdit from "./InlineEdit";
 
-// Phase 1+ views (announcements, assignments, Blackboard sync, practice tests, study guide,
-// web materials, Commons) get entries here as each view lands.
-export const COURSE_ITEMS = [];
+export const COURSE_ITEMS = [
+  { id: "course-assignments", prefix: "AS·01", label: "Assignments" },
+  { id: "course-announcements", prefix: "AN·02", label: "Announcements" },
+  { id: "course-bb-content", prefix: "BB·03", label: "Blackboard Content" },
+];
 
 export const STUDY_ITEMS = [{ id: "qz-deck", prefix: "QZ·01", label: "Flashcard Deck" }];
 

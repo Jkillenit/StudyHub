@@ -3,6 +3,21 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 const FlashcardDeck = lazy(() => import("../../study/flashcards/FlashcardDeck.jsx"));
 const UserCourseTipTapNotesEditor = lazy(() => import("../UserCourseTipTapNotesEditor.jsx"));
 const GradesTab = lazy(() => import("./GradesTab.jsx"));
+const AssignmentsView = lazy(() =>
+  import("../../features/mirror/AssignmentsView.jsx").then((m) => ({ default: m.AssignmentsView }))
+);
+const AnnouncementsView = lazy(() =>
+  import("../../features/mirror/AnnouncementsView.jsx").then((m) => ({ default: m.AnnouncementsView }))
+);
+const BbContentView = lazy(() =>
+  import("../../features/mirror/BbContentView.jsx").then((m) => ({ default: m.BbContentView }))
+);
+
+const COURSE_VIEWS = {
+  "course-assignments": AssignmentsView,
+  "course-announcements": AnnouncementsView,
+  "course-bb-content": BbContentView,
+};
 
 const COLLAPSE_THRESHOLD = 120;
 const VISIBLE_DEFAULT = 4;
@@ -364,6 +379,17 @@ export default function CourseContentArea({
   }, [course?.glossary, currentModule?.id, onRemoveGlossaryTerm]);
 
   const tabs = ["content", "notes", "glossary", "grades"];
+
+  const CourseView = COURSE_VIEWS[activeItem];
+  if (CourseView) {
+    return (
+      <div className="sh-main-body sh-scroll-hover position-relative">
+        <Suspense fallback={<div className="sh-skeleton-pulse" style={{ height: 240 }} />}>
+          <CourseView key={`${course?.id}-${activeItem}`} courseUuid={course?.uuid || course?.id} />
+        </Suspense>
+      </div>
+    );
+  }
 
   return (
     <>

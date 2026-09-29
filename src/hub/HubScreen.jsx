@@ -42,7 +42,7 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
 
   return (
     <div className="sh-hub-root">
-      <TodayDashboard refreshKey={dashboardKey} onOpenCourse={onOpenCourse} />
+      <TodayDashboard refreshKey={dashboardKey} onOpenCourse={onOpenCourse} userCourses={userCourses} />
       <div className="sh-hub-inner">
         <div className="sh-hub-block">
           <div className="sh-hub-section-label">YOUR COURSES</div>

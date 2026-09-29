@@ -28,18 +28,17 @@ Tags: `local-first` (no API/cloud), `AI-optional`, `AI-required`, `cloud` (Commo
 | SEC-001 | safeStorage API key via IPC, BB bridge origin guard, file path allowlist incl. drag-and-drop (Phase 0) |
 | ARCH-001 | `src/features/` split, error boundary, debug logs removed (Phase 0) |
 | QZ-005 (v2) | Deck modes (all/due/weak/module), in-deck add/edit/delete (Phase 0) |
+| BB-MIRROR | Course sweep (content tree, announcements, assignments, own scores), sync creates the course, current-term filter, per-course views (Phase 1) |
+| DASH-001 | Today dashboard: due soon, announcements, cards due, recent grades (Phase 1) |
+| CAL-001 | Month calendar across courses, manual entry, mark complete (Phase 1) |
+| CAL-004 | Syllabus weights (incl. Simple Syllabus) + BB scores → grade calculator, manual item mapping (Phase 1) |
 
-## Phase 1 — Blackboard Mirror
+## Phase 1 — Blackboard Mirror (remaining)
 
 | ID | Feature | Impact | Diff | Est. | Tags |
 |----|---------|--------|------|------|------|
-| BB-MIRROR | Course sweep: content tree, announcements, assignments, own grades via BB REST | 5 | 4 | 1–2 wk | `Electron` |
-| DASH-001 | Today dashboard: due soon, announcements, cards due, grade changes | 5 | 2 | 2 d | `local-first` `UI` |
-| CAL-001 | Semester calendar (month view), all courses, manual entry, mark complete | 5 | 3 | 3 d | `local-first` |
 | CAL-002 | Upcoming-assignments widget in course context panel | 4 | 1 | 0.5 d | `local-first` |
 | CAL-003 | Syllabus date extraction into calendar | 4 | 2 | 2 d | `local-first` `AI-optional` |
-| CAL-004 | BB grades → grade calculator mapping | 5 | 3 | 2 d | `Electron` |
-
 ## Phase 2 — Study suite
 
 | ID | Feature | Impact | Diff | Est. | Tags |

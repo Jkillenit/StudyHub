@@ -32,7 +32,7 @@ shared study materials, past grade distributions, and professor reviews.
 
 **Exit criteria**: edit a course, restart, SM-2 progress and grade entries survive; `npm run build` passes.
 
-## Phase 1 — Blackboard Mirror *(the "better Blackboard" core)*
+## Phase 1 — Blackboard Mirror *(the "better Blackboard" core)* ✓ *(done; CAL-002/003 carried)*
 
 - Course sweep from the embedded window: content tree, announcements, assignments with due
   dates, the student's own gradebook — via Blackboard REST as the logged-in user.

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { daysFromToday, dueLabel, shortDate } from "./dateLabels.js";
+import { CalendarView } from "./CalendarView.jsx";
 
 const EMPTY = { upcoming: [], announcements: [], dueCards: [], recentGrades: [], stats: null };
 
@@ -116,8 +117,9 @@ function RecentGrades({ items }) {
   );
 }
 
-export function TodayDashboard({ refreshKey = 0, onOpenCourse }) {
+export function TodayDashboard({ refreshKey = 0, onOpenCourse, userCourses = [] }) {
   const [data, setData] = useState(EMPTY);
+  const [view, setView] = useState("today");
 
   const load = useCallback(async () => {
     const res = await window.studyHub?.db?.dashboard?.get?.();
@@ -127,6 +129,16 @@ export function TodayDashboard({ refreshKey = 0, onOpenCourse }) {
   useEffect(() => {
     void load();
   }, [load, refreshKey]);
+
+  useEffect(() => {
+    const onChange = () => void load();
+    window.addEventListener("studyhub-mirror-changed", onChange);
+    window.addEventListener("studyhub-bb-synced", onChange);
+    return () => {
+      window.removeEventListener("studyhub-mirror-changed", onChange);
+      window.removeEventListener("studyhub-bb-synced", onChange);
+    };
+  }, [load]);
 
   const toggleComplete = async (a) => {
     await window.studyHub?.db?.assignments?.setCompleted?.({ uuid: a.uuid, completed: !a.completed });
@@ -150,7 +162,23 @@ export function TodayDashboard({ refreshKey = 0, onOpenCourse }) {
     <section className="sh-today" aria-label="Today">
       <header className="sh-today-header">
         <div>
-          <div className="sh-hub-section-label">TODAY</div>
+          <div className="sh-today-views" role="tablist">
+            {[
+              ["today", "TODAY"],
+              ["calendar", "CALENDAR"],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={view === id}
+                className={`sh-today-view-tab${view === id ? " active" : ""}`}
+                onClick={() => setView(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="sh-today-date">{today}</div>
         </div>
         <div className="sh-today-stats">
@@ -169,24 +197,27 @@ export function TodayDashboard({ refreshKey = 0, onOpenCourse }) {
         </div>
       </header>
 
-      <div className="sh-today-grid">
-        <div className="sh-today-card">
-          <div className="sh-hub-section-label">DUE SOON</div>
-          <DueSoon items={data.upcoming} onToggle={toggleComplete} onOpenCourse={onOpenCourse} />
+      {view === "calendar" ? <CalendarView userCourses={userCourses} /> : null}
+      {view === "today" ? (
+        <div className="sh-today-grid">
+          <div className="sh-today-card">
+            <div className="sh-hub-section-label">DUE SOON</div>
+            <DueSoon items={data.upcoming} onToggle={toggleComplete} onOpenCourse={onOpenCourse} />
+          </div>
+          <div className="sh-today-card">
+            <div className="sh-hub-section-label">FLASHCARDS</div>
+            <CardsDue rows={data.dueCards} onOpenCourse={onOpenCourse} />
+          </div>
+          <div className="sh-today-card">
+            <div className="sh-hub-section-label">ANNOUNCEMENTS</div>
+            <Announcements items={data.announcements} onRead={markRead} />
+          </div>
+          <div className="sh-today-card">
+            <div className="sh-hub-section-label">RECENT GRADES</div>
+            <RecentGrades items={data.recentGrades} />
+          </div>
         </div>
-        <div className="sh-today-card">
-          <div className="sh-hub-section-label">FLASHCARDS</div>
-          <CardsDue rows={data.dueCards} onOpenCourse={onOpenCourse} />
-        </div>
-        <div className="sh-today-card">
-          <div className="sh-hub-section-label">ANNOUNCEMENTS</div>
-          <Announcements items={data.announcements} onRead={markRead} />
-        </div>
-        <div className="sh-today-card">
-          <div className="sh-hub-section-label">RECENT GRADES</div>
-          <RecentGrades items={data.recentGrades} />
-        </div>
-      </div>
+      ) : null}
     </section>
   );
 }
