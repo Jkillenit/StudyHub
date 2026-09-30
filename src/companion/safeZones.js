@@ -109,6 +109,97 @@ export function pointBeside(rect, size, placement = "right") {
   return { ...fallback, side: "right" };
 }
 
+/* ---------- platforms: where the 3D body can stand ---------- */
+
+const MIN_PLATFORM_W = 120;
+
+/** The window's bottom edge; always there. `el: null` marks it. */
+export function groundPlatform() {
+  return { el: null, top: window.innerHeight - EDGE, left: EDGE, right: window.innerWidth - EDGE };
+}
+
+/** Ground plus the top edge of every visible `[data-perch]` card with headroom above it. */
+export function platforms(size) {
+  const out = [groundPlatform()];
+  for (const el of document.querySelectorAll("[data-perch]")) {
+    const p = livePlatform({ el }, size);
+    if (p) out.push(p);
+  }
+  return out;
+}
+
+/** Current geometry of a platform, or null when it's gone, hidden or too cramped to stand on. */
+export function livePlatform(plat, size) {
+  if (!plat) return null;
+  if (!plat.el) return groundPlatform();
+  if (!plat.el.isConnected) return null;
+  const r = visibleRect(plat.el);
+  if (!r || r.width < MIN_PLATFORM_W || r.top < TITLEBAR_H + size * 0.92 || r.top > window.innerHeight - EDGE - 8) return null;
+  return { el: plat.el, top: r.top, left: Math.max(EDGE, r.left + 6), right: Math.min(window.innerWidth - EDGE, r.right - 6) };
+}
+
+const feetX = (pos, size) => pos.x + size / 2;
+
+/** The platform her feet are on right now (within `tol` px), if any. */
+export function platformAt(pos, size, tol = 4) {
+  const cx = feetX(pos, size);
+  const feet = pos.y + size;
+  return platforms(size).find((p) => cx >= p.left && cx <= p.right && Math.abs(p.top - feet) <= tol) || null;
+}
+
+/** The first platform under her feet (what she'd land on falling from here). */
+export function platformBelow(pos, size, exclude = null) {
+  const cx = feetX(pos, size);
+  const feet = pos.y + size;
+  return (
+    platforms(size)
+      .filter((p) => p.el !== exclude || !p.el)
+      .filter((p) => cx >= p.left && cx <= p.right && p.top >= feet - 2)
+      .sort((a, b) => a.top - b.top)[0] || groundPlatform()
+  );
+}
+
+/** Box position with her feet on `plat`, centered at `cx` (clamped onto the platform). */
+export function standOn(plat, cx, size) {
+  const x = Math.min(plat.right, Math.max(plat.left, cx)) - size / 2;
+  return clampPoint({ x, y: plat.top - size }, size);
+}
+
+/** Her standing footprint (center strip of the box) must not cover inputs, editors or media. */
+function footprintClear(p, size, avoid) {
+  return !avoid.some((r) => overlaps({ x: p.x + size * 0.3, y: p.y, w: size * 0.4, h: size }, r));
+}
+
+/**
+ * Where to go next when idle: usually a stroll along the current platform, sometimes a
+ * teleport up onto a card (or back down to the floor). `walk` says whether it's a stroll.
+ */
+export function pickStroll(size, pos, current, { sameOnly = false } = {}) {
+  const avoid = avoidRects();
+  const here = livePlatform(current, size) || platformAt(pos, size) || groundPlatform();
+  const cx = feetX(pos, size);
+  const tries = [];
+  if (sameOnly || Math.random() < 0.65) {
+    for (let i = 0; i < 6; i += 1) {
+      const dir = Math.random() < 0.5 ? -1 : 1;
+      const x = cx + dir * (60 + Math.random() * 300);
+      if (x >= here.left && x <= here.right) tries.push({ plat: here, cx: x, walk: true });
+    }
+  }
+  if (!sameOnly) {
+    const others = platforms(size).filter((p) => p.el !== here.el);
+    for (const p of others) tries.push({ plat: p, cx: p.left + Math.random() * (p.right - p.left), walk: false });
+  }
+  const ok = tries
+    .map((t) => ({ ...standOn(t.plat, t.cx, size), plat: t.plat, walk: t.walk }))
+    .filter((p) => Math.abs(p.x - pos.x) > 30 || !p.walk)
+    .filter((p) => footprintClear(p, size, avoid));
+  if (!ok.length) return null;
+  const strolls = ok.filter((p) => p.walk);
+  if (strolls.length && (sameOnly || Math.random() < 0.65)) return strolls[Math.floor(Math.random() * strolls.length)];
+  return ok[Math.floor(Math.random() * ok.length)];
+}
+
 export function findTarget(id) {
   if (!id) return null;
   const el = document.querySelector(`[data-tour-id="${id}"]`);

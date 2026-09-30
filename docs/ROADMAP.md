@@ -57,9 +57,17 @@ shared study materials, past grade distributions, and professor reviews.
   voice (flirty on streaks, harsh when failing), rampancy after neglect, synthesized sound, tints.
 - ✓ C.4 Hologram comm-panel bubbles (typewriter, tone tints), OM 300 built-in deck in the sim,
   app-wide XP table (sim, drill, practice tests, tours, daily bonus) with pops, splash cameo.
-- ○ C.5 Claude brain once an API key is set: Haiku help with `point_to`, fuzzy typed grading,
+- ✓ C.5 3D body: VRoid model (three.js + three-vrm, lazy chunk) with a hologram shader, Mixamo
+  clips baked by `scripts/bake-nova-clips.mjs`, arms-behind-back walk, turning, cursor tracking,
+  blink/expressions/lip flap, platform walking (window bottom + `[data-perch]` card tops),
+  riding scrolled cards, falling with landings, drag-to-teleport, portrait fallback.
+- ○ C.6 Personality animations: idle rotation (yawn, look, bored, stretch), edge sitting with
+  dangling legs, leaning, impatience when ignored, kiss/wink on streaks, facepalm when failing,
+  pointing on tours, rampant glitch collapse.
+- ○ C.7 Context staging: standing/sitting on the quiz panel, talking gestures facing the user.
+- ○ C.8 Claude brain once an API key is set: Haiku help with `point_to`, fuzzy typed grading,
   generated distractors, rate limit + canned fallback.
-- ○ C.6 Assessment-mode auto-hide, more tours (blackboard-sync, calendar), polish.
+- ○ C.9 Assessment-mode auto-hide, more tours (blackboard-sync, calendar), polish.
 
 ## Phase 3 — Web study-guide finder
 

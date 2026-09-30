@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { character, line, finishKey, isFailing } from "./character.js";
 import {
@@ -19,7 +19,19 @@ import { cardKey, runAwards } from "./lightRun.js";
 import { STUDY_EVENT } from "./studyEvents.js";
 import { QuizPanel } from "./QuizPanel.jsx";
 import { transition, AUTONOMOUS } from "./machine.js";
-import { clampPoint, defaultHome, pickWaypoint, pointBeside, waitForTarget } from "./safeZones.js";
+import {
+  clampPoint,
+  defaultHome,
+  groundPlatform,
+  livePlatform,
+  pickStroll,
+  pickWaypoint,
+  platformAt,
+  platformBelow,
+  pointBeside,
+  standOn,
+  waitForTarget,
+} from "./safeZones.js";
 import { useCompanionMotion } from "./useCompanionMotion.js";
 import { NovaSprite } from "./NovaSprite.jsx";
 import { playSound } from "./novaSound.js";
@@ -31,7 +43,16 @@ import { CompanionSettings } from "./CompanionSettings.jsx";
 import firstRun from "./tours/first-run.json";
 import courseTools from "./tours/course-tools.json";
 
+const Nova3D = lazy(() => import("./nova3d/Nova3D.jsx"));
+
 const TOURS = { [firstRun.id]: firstRun, [courseTools.id]: courseTools };
+/** Height of the 3D body's box at 100% size. */
+const SIZE_3D = 180;
+const LAND_QUIP_COOLDOWN_MS = 45 * 1000;
+const WALK_OFF_MS = 1300;
+const BODY_LOAD_TIMEOUT_MS = 12 * 1000;
+/** Typewriter pace in SpeechBubble (2 chars / 36ms), so her mouth stops with the text. */
+const TALK_MS_PER_CHAR = 18;
 
 const MOVE = {
   calm: { speed: 60, idle: [14000, 28000] },
@@ -88,6 +109,18 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const [pops, setPops] = useState([]);
   const popIdRef = useRef(0);
   const drillRef = useRef({ known: 0, missed: 0 });
+  /** 3D body status; "failed" drops back to the portrait sprite for good this session. */
+  const [body, setBody] = useState("loading");
+  const use3d = body !== "failed";
+  const use3dRef = useRef(use3d);
+  use3dRef.current = use3d;
+  const [gesture, setGesture] = useState(null);
+  const gestureIdRef = useRef(0);
+  const [dropMark, setDropMark] = useState(null);
+  const [talkUntil, setTalkUntil] = useState(0);
+  /** The platform the 3D body stands on: `{ el }` (el null = window bottom), or null mid-air. */
+  const platRef = useRef(null);
+  const lastLandQuipRef = useRef(0);
 
   const nodeRef = useRef(null);
   const reduced = useMemo(prefersReducedMotion, []);
@@ -95,9 +128,17 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     if (stateRef.current?.sound) playSound(name);
   }, []);
   const onTeleport = useCallback((phase) => sfx(phase === "out" ? "teleportOut" : "teleportIn"), [sfx]);
-  const { posRef, flyTo, jumpTo, cancel, flying, facing, setFacing } = useCompanionMotion(nodeRef, { reduced, onTeleport });
+  const { posRef, flyTo, jumpTo, dropTo, vanish, materialize, cancel, busy, flying, facing, setFacing, gait } = useCompanionMotion(nodeRef, {
+    reduced,
+    onTeleport,
+    walker: use3d,
+  });
+  const playGesture = useCallback((name) => {
+    gestureIdRef.current += 1;
+    setGesture({ name, id: gestureIdRef.current });
+  }, []);
 
-  const size = Math.round(character.size * (cstate?.scale || 1));
+  const size = Math.round((use3d ? SIZE_3D : character.size) * (cstate?.scale || 1));
   const sizeRef = useRef(size);
   sizeRef.current = size;
 
@@ -150,7 +191,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   const home = useCallback(() => {
     const s = sizeRef.current;
-    return clampPoint(stateRef.current?.home || defaultHome(s), s);
+    const p = clampPoint(stateRef.current?.home || defaultHome(s), s);
+    if (!use3dRef.current) return p;
+    return standOn(platformBelow(p, s), p.x + s / 2, s);
   }, []);
 
   const refreshAnchor = useCallback(() => {
@@ -250,19 +293,33 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       setMood("excited");
       jumpTo({ x: window.innerWidth + 10, y: window.innerHeight * 0.45 });
       const s = sizeRef.current;
-      const ok = await flyTo(clampPoint({ x: window.innerWidth * 0.6, y: window.innerHeight * 0.38 }, s), { speed: 380 });
+      const spot = use3dRef.current
+        ? standOn(groundPlatform(), window.innerWidth * 0.6, s)
+        : clampPoint({ x: window.innerWidth * 0.6, y: window.innerHeight * 0.38 }, s);
+      const ok = await flyTo(spot, { speed: 380 });
       if (!ok || modeRef.current !== "greet") return;
+      if (use3dRef.current) {
+        platRef.current = groundPlatform();
+        playGesture("wave");
+      }
       setMood("happy");
       api.current.greet();
     },
-    [force, send, jumpTo, flyTo, home, sfx]
+    [force, send, jumpTo, flyTo, home, sfx, playGesture]
   );
 
   useEffect(() => {
     if (!cstate || startedRef.current) return;
+    if (cstate.enabled && body === "loading") return;
     startedRef.current = true;
     if (cstate.enabled) void appear(!cstate.onboarded);
-  }, [cstate, appear]);
+  }, [cstate, appear, body]);
+
+  useEffect(() => {
+    if (body !== "loading" || !cstate?.enabled) return undefined;
+    const t = window.setTimeout(() => setBody((b) => (b === "loading" ? "failed" : b)), BODY_LOAD_TIMEOUT_MS);
+    return () => window.clearTimeout(t);
+  }, [body, cstate?.enabled]);
 
   /* ---------- tours ---------- */
 
@@ -723,28 +780,57 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         d.moved = true;
         cancel();
         setDragging(true);
+        if (use3dRef.current) {
+          d.ghost = true;
+          setBubble(null);
+          vanish();
+        }
       }
-      jumpTo(clampPoint({ x: e.clientX - d.ox, y: e.clientY - d.oy }, sizeRef.current));
+      const s = sizeRef.current;
+      if (d.ghost) {
+        const plat = platformBelow({ x: e.clientX - s / 2, y: e.clientY - s }, s);
+        const spot = standOn(plat, e.clientX, s);
+        setDropMark({ x: spot.x + s / 2, y: spot.y + s });
+        return;
+      }
+      jumpTo(clampPoint({ x: e.clientX - d.ox, y: e.clientY - d.oy }, s));
     },
-    [cancel, jumpTo]
+    [cancel, jumpTo, vanish]
   );
 
-  const onPointerUp = useCallback(() => {
-    const d = dragRef.current;
-    dragRef.current = null;
-    if (!d?.moved) return;
-    suppressClickRef.current = true;
-    window.setTimeout(() => {
-      suppressClickRef.current = false;
-    }, 0);
-    setDragging(false);
-    const m = modeRef.current;
-    if (AUTONOMOUS.has(m) || m === "sleep" || m === "menu") {
-      update({ home: { x: Math.round(posRef.current.x), y: Math.round(posRef.current.y) } });
-      if (m !== "menu") send("DROP");
-    }
-    refreshAnchor();
-  }, [update, send, refreshAnchor, posRef]);
+  const onPointerUp = useCallback(
+    (e) => {
+      const d = dragRef.current;
+      dragRef.current = null;
+      if (!d?.moved) return;
+      suppressClickRef.current = true;
+      window.setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 0);
+      setDragging(false);
+      if (d.ghost) {
+        const s = sizeRef.current;
+        const plat = platformBelow({ x: e.clientX - s / 2, y: e.clientY - s }, s);
+        setDropMark(null);
+        materialize(standOn(plat, e.clientX, s));
+        platRef.current = plat;
+        if (Math.random() < 0.35) {
+          setMood("stern");
+          window.setTimeout(() => {
+            refreshAnchor();
+            say(line("grabbed"));
+          }, 320);
+        }
+      }
+      const m = modeRef.current;
+      if (AUTONOMOUS.has(m) || m === "sleep" || m === "menu") {
+        update({ home: { x: Math.round(posRef.current.x), y: Math.round(posRef.current.y) } });
+        if (m !== "menu") send("DROP");
+      }
+      refreshAnchor();
+    },
+    [update, send, refreshAnchor, posRef, materialize, say]
+  );
 
   /* ---------- autonomy: wander, perch, sleep ---------- */
 
@@ -765,6 +851,19 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         schedule(4000);
         return;
       }
+      if (use3d) {
+        const step = pickStroll(sizeRef.current, posRef.current, platRef.current);
+        if (!step) {
+          schedule(rand(cfg.idle));
+          return;
+        }
+        send("WANDER");
+        const ok = await flyTo(step, { speed: cfg.speed, walk: step.walk });
+        if (!ok || modeRef.current !== "wander") return;
+        platRef.current = step.plat;
+        send(step.plat.el ? "PERCH" : "ARRIVE");
+        return;
+      }
       const wp = pickWaypoint(sizeRef.current, posRef.current);
       if (!wp) {
         schedule(rand(cfg.idle));
@@ -780,7 +879,82 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [mode, enabled, movement, send, flyTo, posRef]);
+  }, [mode, enabled, movement, send, flyTo, posRef, use3d]);
+
+  /*
+   * 3D: keep her feet on something. She rides her platform when it scrolls, and falls to
+   * whatever is below when it disappears (or when an engaged move left her mid-air).
+   */
+  api.current.fall = async () => {
+    const s = sizeRef.current;
+    const below = platformBelow(posRef.current, s, platRef.current?.el);
+    if (modeRef.current === "sleep") send("WAKE");
+    const ok = await dropTo(below.top - s);
+    platRef.current = below;
+    if (!ok) return;
+    if (modeRef.current === "perch") send("DONE");
+    playGesture("land");
+    sfx("teleportIn");
+    const now = Date.now();
+    if (now - lastLandQuipRef.current > LAND_QUIP_COOLDOWN_MS && AUTONOMOUS.has(modeRef.current)) {
+      lastLandQuipRef.current = now;
+      setMood("stern");
+      refreshAnchor();
+      say(line("landed"));
+    }
+    window.setTimeout(async () => {
+      if (modeRef.current !== "idle" || busy() || (stateRef.current?.movement || "normal") === "off") return;
+      const step = pickStroll(sizeRef.current, posRef.current, platRef.current, { sameOnly: true });
+      if (!step) return;
+      send("WANDER");
+      const walked = await flyTo(step, { speed: (MOVE[stateRef.current?.movement] || MOVE.normal).speed, walk: true });
+      if (walked && modeRef.current === "wander") send("ARRIVE");
+    }, WALK_OFF_MS);
+  };
+
+  const visibleNow = !!cstate?.enabled && mode !== "hidden";
+  useEffect(() => {
+    if (!use3d || !visibleNow) return undefined;
+    let raf = 0;
+    const check = () => {
+      raf = 0;
+      const m = modeRef.current;
+      const grounded = AUTONOMOUS.has(m) || m === "sleep";
+      if (!(grounded || m === "menu" || m === "nudge") || dragRef.current?.moved || busy()) return;
+      const s = sizeRef.current;
+      const pos = posRef.current;
+      const plat = platRef.current;
+      const cx = pos.x + s / 2;
+      if (plat && Math.abs(plat.top - (pos.y + s)) <= 2) {
+        const live = livePlatform(plat, s);
+        if (live && cx >= live.left - 4 && cx <= live.right + 4) {
+          if (Math.abs(live.top - plat.top) > 0.5) jumpTo({ x: pos.x, y: live.top - s });
+          platRef.current = live;
+          return;
+        }
+        if (grounded) void api.current.fall();
+        return;
+      }
+      const here = platformAt(pos, s);
+      if (here) {
+        platRef.current = here;
+        return;
+      }
+      if (grounded) void api.current.fall();
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(check);
+    };
+    const id = window.setInterval(schedule, 400);
+    window.addEventListener("scroll", schedule, true);
+    window.addEventListener("resize", schedule);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearInterval(id);
+      window.removeEventListener("scroll", schedule, true);
+      window.removeEventListener("resize", schedule);
+    };
+  }, [use3d, visibleNow, busy, jumpTo, posRef]);
 
   useEffect(() => {
     if (mode !== "perch") return undefined;
@@ -972,7 +1146,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       if (now - lastMove < 120) return;
       lastMove = now;
       onActivity();
-      if (modeRef.current !== "wander" || now - lastDriftRef.current < 3000) return;
+      if (use3dRef.current || modeRef.current !== "wander" || now - lastDriftRef.current < 3000) return;
       const s = sizeRef.current;
       const p = posRef.current;
       const cx = p.x + s / 2;
@@ -1033,8 +1207,15 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       force("idle");
     }
     const s = sizeRef.current;
-    const ok = await flyTo(clampPoint({ x: window.innerWidth * 0.55, y: window.innerHeight * 0.42 }, s), { speed: ENGAGED_SPEED });
+    const spot = use3dRef.current
+      ? standOn(groundPlatform(), window.innerWidth * 0.55, s)
+      : clampPoint({ x: window.innerWidth * 0.55, y: window.innerHeight * 0.42 }, s);
+    const ok = await flyTo(spot, { speed: ENGAGED_SPEED });
     if (!ok) return;
+    if (use3dRef.current) {
+      platRef.current = groundPlatform();
+      playGesture("wave");
+    }
     send("CLICK");
     refreshAnchor();
   };
@@ -1096,6 +1277,11 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     if (flying || mode === "tour") return;
     refreshAnchor();
   }, [flying, mode, bubble, refreshAnchor]);
+
+  const speech = mode === "tour" ? (tour?.ready ? tour.step.text : "") : bubble?.text || "";
+  useEffect(() => {
+    setTalkUntil(speech ? performance.now() + 300 + speech.length * TALK_MS_PER_CHAR : 0);
+  }, [speech, bubble]);
 
   useEffect(() => {
     const open = () => setSettingsOpen((v) => !v);
@@ -1207,6 +1393,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     <div className="sc-layer">
       {visible && mode === "tour" && tour ? <Spotlight rect={tour.rect} dim /> : null}
       {visible && ring ? <Spotlight rect={ring} dim={false} /> : null}
+      {dropMark ? <span className="nv-drop" style={{ left: dropMark.x, top: dropMark.y }} aria-hidden /> : null}
       <div
         ref={nodeRef}
         className={[
@@ -1217,6 +1404,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           reduced ? "sc-scout--still" : "",
           mode === "perch" ? "sc-scout--perched" : "",
           react ? `sc-scout--${react}` : "",
+          use3d ? "sc-scout--3d" : "",
+          use3d && body === "loading" ? "sc-scout--loading" : "",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -1236,18 +1425,43 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         >
           <span className="sc-bob">
             <span className="sc-fx">
-              <NovaSprite
-                mood={shownMood}
-                glow={glow}
-                facing={facing}
-                flying={flying || dragging}
-                glitch={react === "glitch" || react === "droop"}
-                rampant={showRampant}
-                tint={tint}
-                size={size}
-              />
+              {use3d ? (
+                cstate.enabled ? (
+                <Suspense fallback={null}>
+                  <Nova3D
+                    size={size}
+                    facing={facing}
+                    gait={gait === "walk" || gait === "fall" ? gait : null}
+                    speed={(MOVE[movement] || MOVE.normal).speed}
+                    mood={shownMood}
+                    talkUntil={talkUntil}
+                    rampant={showRampant}
+                    glow={glow}
+                    asleep={mode === "sleep"}
+                    glitch={react === "glitch" || react === "droop"}
+                    tint={tint}
+                    visible={visible}
+                    gesture={gesture}
+                    onReady={() => setBody("ready")}
+                    onFail={() => setBody("failed")}
+                  />
+                </Suspense>
+                ) : null
+              ) : (
+                <NovaSprite
+                  mood={shownMood}
+                  glow={glow}
+                  facing={facing}
+                  flying={flying || dragging}
+                  glitch={react === "glitch" || react === "droop"}
+                  rampant={showRampant}
+                  tint={tint}
+                  size={size}
+                />
+              )}
             </span>
           </span>
+          {use3d ? <span className="sc-hit" /> : null}
         </button>
         {visible
           ? pops.map((p) => (

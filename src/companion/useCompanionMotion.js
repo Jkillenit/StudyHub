@@ -5,21 +5,29 @@ const ease = (t) => 0.5 - 0.5 * Math.cos(Math.PI * t);
 const TELEPORT_MIN = 240;
 const TP_OUT_MS = 200;
 const TP_IN_MS = 300;
+const GRAVITY = 2600;
+const MAX_FALL_SPEED = 1800;
 
 /**
  * Moves the sprite by writing a transform straight to the DOM node. A requestAnimationFrame
  * loop runs only during a glide, so an idle companion costs nothing per frame. Long moves
  * are teleports: the `.sc-fx` wrapper dissolves out, the node jumps, then it re-forms.
  * `flyTo` resolves true on arrival, false if another move interrupted it.
+ *
+ * With `walker` (the 3D body) she never glides: level moves marked `walk` are a straight
+ * walk at `speed`, everything else is a teleport. `gait` tells the body what to animate.
  */
-export function useCompanionMotion(nodeRef, { reduced = false, onTeleport } = {}) {
+export function useCompanionMotion(nodeRef, { reduced = false, onTeleport, walker = false } = {}) {
   const posRef = useRef({ x: -200, y: -200 });
   const flightRef = useRef(null);
   const rafRef = useRef(0);
   const onTeleportRef = useRef(onTeleport);
   onTeleportRef.current = onTeleport;
+  const walkerRef = useRef(walker);
+  walkerRef.current = walker;
   const [flying, setFlying] = useState(false);
   const [facing, setFacing] = useState(1);
+  const [gait, setGait] = useState(null);
 
   const apply = useCallback(
     (p) => {
@@ -31,6 +39,14 @@ export function useCompanionMotion(nodeRef, { reduced = false, onTeleport } = {}
 
   const fx = useCallback(() => nodeRef.current?.querySelector(".sc-fx") || null, [nodeRef]);
 
+  const settle = useCallback((flight, ok) => {
+    if (flightRef.current === flight) flightRef.current = null;
+    rafRef.current = 0;
+    setFlying(false);
+    setGait(null);
+    flight.resolve(ok);
+  }, []);
+
   const cancel = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = 0;
@@ -39,10 +55,9 @@ export function useCompanionMotion(nodeRef, { reduced = false, onTeleport } = {}
     if (f) {
       f.timers?.forEach((t) => window.clearTimeout(t));
       fx()?.classList.remove("sc-tp-out", "sc-tp-in");
-      setFlying(false);
-      f.resolve(false);
+      settle(f, false);
     }
-  }, [fx]);
+  }, [fx, settle]);
 
   const jumpTo = useCallback(
     (p) => {
@@ -59,6 +74,7 @@ export function useCompanionMotion(nodeRef, { reduced = false, onTeleport } = {}
         const flight = { resolve, timers: [] };
         flightRef.current = flight;
         setFlying(true);
+        setGait("teleport");
         fx()?.classList.add("sc-tp-out");
         onTeleportRef.current?.("out");
         flight.timers.push(
@@ -74,19 +90,39 @@ export function useCompanionMotion(nodeRef, { reduced = false, onTeleport } = {}
               window.setTimeout(() => {
                 if (flightRef.current !== flight) return;
                 fx()?.classList.remove("sc-tp-in");
-                flightRef.current = null;
-                setFlying(false);
-                resolve(true);
+                settle(flight, true);
               }, TP_IN_MS)
             );
           }, TP_OUT_MS)
         );
       }),
-    [apply, fx]
+    [apply, fx, settle]
+  );
+
+  const walkTo = useCallback(
+    (target, speed) =>
+      new Promise((resolve) => {
+        const from = { ...posRef.current };
+        const dist = Math.abs(target.x - from.x);
+        const flight = { resolve, from, to: { x: target.x, y: target.y }, start: performance.now(), duration: (dist / speed) * 1000 };
+        flightRef.current = flight;
+        setFlying(true);
+        setGait("walk");
+        const step = (now) => {
+          if (flightRef.current !== flight) return;
+          const t = Math.min(1, (now - flight.start) / flight.duration);
+          posRef.current = { x: from.x + (flight.to.x - from.x) * t, y: from.y + (flight.to.y - from.y) * t };
+          apply(posRef.current);
+          if (t < 1) rafRef.current = requestAnimationFrame(step);
+          else settle(flight, true);
+        };
+        rafRef.current = requestAnimationFrame(step);
+      }),
+    [apply, settle]
   );
 
   const flyTo = useCallback(
-    (target, { speed = 90, teleport: allowTeleport = true } = {}) => {
+    (target, { speed = 90, teleport: allowTeleport = true, walk = false } = {}) => {
       cancel();
       const from = { ...posRef.current };
       const dx = target.x - from.x;
@@ -98,6 +134,10 @@ export function useCompanionMotion(nodeRef, { reduced = false, onTeleport } = {}
         return Promise.resolve(true);
       }
       if (Math.abs(dx) > 4) setFacing(dx >= 0 ? 1 : -1);
+      if (walkerRef.current) {
+        if (walk && Math.abs(dy) < 6) return walkTo(target, speed);
+        return teleport(target);
+      }
       if (allowTeleport && dist > TELEPORT_MIN) return teleport(target);
       const bend = (Math.random() - 0.5) * 0.3 * dist;
       const c = {
@@ -119,22 +159,74 @@ export function useCompanionMotion(nodeRef, { reduced = false, onTeleport } = {}
             y: u * u * flight.from.y + 2 * u * e * flight.c.y + e * e * flight.to.y,
           };
           apply(posRef.current);
-          if (t < 1) {
-            rafRef.current = requestAnimationFrame(step);
-          } else {
-            rafRef.current = 0;
-            flightRef.current = null;
-            setFlying(false);
-            resolve(true);
-          }
+          if (t < 1) rafRef.current = requestAnimationFrame(step);
+          else settle(flight, true);
         };
         rafRef.current = requestAnimationFrame(step);
       });
     },
-    [cancel, apply, reduced, teleport]
+    [cancel, apply, reduced, teleport, walkTo, settle]
   );
+
+  /** Fall straight down under gravity until the feet reach `y` (a box top). */
+  const dropTo = useCallback(
+    (y) => {
+      cancel();
+      if (reduced || y <= posRef.current.y) {
+        posRef.current = { x: posRef.current.x, y };
+        apply(posRef.current);
+        return Promise.resolve(true);
+      }
+      return new Promise((resolve) => {
+        const flight = { resolve };
+        flightRef.current = flight;
+        setFlying(true);
+        setGait("fall");
+        let v = 0;
+        let last = performance.now();
+        const step = (now) => {
+          if (flightRef.current !== flight) return;
+          const dt = Math.min(0.05, (now - last) / 1000);
+          last = now;
+          v = Math.min(MAX_FALL_SPEED, v + GRAVITY * dt);
+          const ny = Math.min(y, posRef.current.y + v * dt);
+          posRef.current = { x: posRef.current.x, y: ny };
+          apply(posRef.current);
+          if (ny < y) rafRef.current = requestAnimationFrame(step);
+          else settle(flight, true);
+        };
+        rafRef.current = requestAnimationFrame(step);
+      });
+    },
+    [cancel, apply, reduced, settle]
+  );
+
+  /** Dissolve out and stay gone (she slips out of a drag). Pair with `materialize`. */
+  const vanish = useCallback(() => {
+    cancel();
+    const el = fx();
+    el?.classList.remove("sc-tp-in");
+    el?.classList.add("sc-tp-out");
+    onTeleportRef.current?.("out");
+  }, [cancel, fx]);
+
+  const materialize = useCallback(
+    (p) => {
+      cancel();
+      posRef.current = { x: p.x, y: p.y };
+      apply(posRef.current);
+      const el = fx();
+      el?.classList.remove("sc-tp-out");
+      el?.classList.add("sc-tp-in");
+      onTeleportRef.current?.("in");
+      window.setTimeout(() => fx()?.classList.remove("sc-tp-in"), TP_IN_MS);
+    },
+    [cancel, apply, fx]
+  );
+
+  const busy = useCallback(() => !!flightRef.current, []);
 
   useEffect(() => cancel, [cancel]);
 
-  return { posRef, flyTo, jumpTo, cancel, flying, facing, setFacing };
+  return { posRef, flyTo, jumpTo, dropTo, vanish, materialize, cancel, busy, flying, facing, setFacing, gait };
 }

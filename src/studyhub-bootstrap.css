@@ -5982,6 +5982,79 @@ button.sh-today-row-main:hover {
 .nv-rampant .nv-beam {
   filter: hue-rotate(150deg) saturate(1.6);
 }
+/* Nova 3D body: a WebGL canvas in the same box; only a narrow strip over her takes clicks. */
+.sc-scout--3d .sc-bob {
+  animation: none;
+}
+.sc-scout--3d .sc-fx {
+  transform-origin: 50% 100%;
+}
+.sc-scout--3d .sc-scout-btn {
+  pointer-events: none;
+  border-radius: 0;
+}
+.sc-scout--loading .sc-fx {
+  opacity: 0;
+}
+.sc-hit {
+  position: absolute;
+  top: 12%;
+  bottom: 0;
+  left: 34%;
+  width: 32%;
+  pointer-events: auto;
+  cursor: grab;
+}
+.sc-scout--dragging .sc-hit {
+  cursor: grabbing;
+}
+.nv-3d {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.nv-3d-canvas {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: var(--nv-tint) brightness(calc(0.85 + var(--nv-glow) * 0.3))
+    drop-shadow(0 0 5px color-mix(in srgb, var(--sh-cyan) 45%, transparent));
+}
+.nv-3d .nv-base {
+  left: 34%;
+  right: 34%;
+  bottom: -5px;
+}
+.nv-prism .nv-3d-canvas {
+  animation: nv-prism 9s linear infinite;
+}
+.nv-rampant .nv-3d-canvas {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--sh-red) 55%, transparent));
+}
+.nv-3d--asleep .nv-3d-canvas {
+  opacity: 0.8;
+}
+.nv-drop {
+  position: absolute;
+  width: 64px;
+  height: 14px;
+  margin: -7px 0 0 -32px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--sh-cyan) 80%, transparent);
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--sh-cyan) 35%, transparent), transparent 70%);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--sh-cyan) 45%, transparent);
+  pointer-events: none;
+  animation: nv-drop 0.9s ease-in-out infinite;
+}
+@keyframes nv-drop {
+  50% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+}
 .sc-scout--asleep .nv-frame {
   opacity: 0.55;
   animation: none;
@@ -6976,6 +7049,8 @@ button.sh-today-row-main:hover {
   .nv-sweep,
   .nv-ghost,
   .nv-base,
+  .nv-3d-canvas,
+  .nv-drop,
   .sc-zzz i,
   .sc-spot--ring,
   .sc-menu-item,
