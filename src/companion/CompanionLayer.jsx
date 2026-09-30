@@ -17,6 +17,7 @@ import { loadFlashcardDeck, persistFlashcardDeck } from "../study/flashcards/fla
 import { shortCourse } from "../features/dashboard/courseLabel.js";
 import { cardKey, runAwards } from "./lightRun.js";
 import { STUDY_EVENT } from "./studyEvents.js";
+import { BORED_AFTER_MS, clockLabel, dayPart, idleGap, pickIdleGesture, sleepAfterMs } from "./idleDirector.js";
 import { QuizPanel } from "./QuizPanel.jsx";
 import { transition, AUTONOMOUS } from "./machine.js";
 import {
@@ -51,6 +52,10 @@ const SIZE_3D = 180;
 const LAND_QUIP_COOLDOWN_MS = 45 * 1000;
 const WALK_OFF_MS = 1300;
 const BODY_LOAD_TIMEOUT_MS = 12 * 1000;
+const LATE_QUIP_COOLDOWN_MS = 20 * 60 * 1000;
+const DAY_HELLO_DELAY_MS = 2500;
+/** Modes where she turns to face the user. */
+const ATTEND_MODES = new Set(["menu", "help", "nudge", "greet", "quiz"]);
 /** Typewriter pace in SpeechBubble (2 chars / 36ms), so her mouth stops with the text. */
 const TALK_MS_PER_CHAR = 18;
 
@@ -60,7 +65,6 @@ const MOVE = {
   lively: { speed: 125, idle: [5000, 12000] },
 };
 const ENGAGED_SPEED = 420;
-const SLEEP_AFTER_MS = 3 * 60 * 1000;
 const TYPING_PAUSE_MS = 5000;
 const BUBBLE_W = 290;
 const QUIZ_W = 380;
@@ -121,6 +125,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   /** The platform the 3D body stands on: `{ el }` (el null = window bottom), or null mid-air. */
   const platRef = useRef(null);
   const lastLandQuipRef = useRef(0);
+  const lastLateQuipRef = useRef(0);
+  const bubbleRef = useRef(null);
+  bubbleRef.current = bubble;
 
   const nodeRef = useRef(null);
   const reduced = useMemo(prefersReducedMotion, []);
@@ -133,9 +140,11 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     onTeleport,
     walker: use3d,
   });
-  const playGesture = useCallback((name) => {
+  const lastGestureAtRef = useRef(Date.now());
+  const playGesture = useCallback((name, { idle = false } = {}) => {
     gestureIdRef.current += 1;
-    setGesture({ name, id: gestureIdRef.current });
+    lastGestureAtRef.current = Date.now();
+    setGesture({ name, id: gestureIdRef.current, idle });
   }, []);
 
   const size = Math.round((use3d ? SIZE_3D : character.size) * (cstate?.scale || 1));
@@ -286,6 +295,16 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         force("idle");
         jumpTo(home());
         sfx("appear");
+        const part = dayPart();
+        const chance = part === "late" ? 0.7 : part === "morning" ? 0.4 : 0;
+        if (Math.random() < chance) {
+          window.setTimeout(() => {
+            if (modeRef.current !== "idle" || busy()) return;
+            setMood("happy");
+            refreshAnchor();
+            say(line(part === "late" ? "lateHello" : "morningHello", { time: clockLabel() }));
+          }, DAY_HELLO_DELAY_MS);
+        }
         return;
       }
       force("idle");
@@ -305,7 +324,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       setMood("happy");
       api.current.greet();
     },
-    [force, send, jumpTo, flyTo, home, sfx, playGesture]
+    [force, send, jumpTo, flyTo, home, sfx, playGesture, busy, say, refreshAnchor]
   );
 
   useEffect(() => {
@@ -913,6 +932,46 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   };
 
   const visibleNow = !!cstate?.enabled && mode !== "hidden";
+
+  /*
+   * 3D idle life: every 20-45s (scaled by movement) she yawns, looks around, gets bored or
+   * stretches. Checked on a steady tick so it survives idle/wander/perch hops.
+   */
+  const bodyReady = use3d && body === "ready";
+  useEffect(() => {
+    if (!bodyReady || !visibleNow) return undefined;
+    let due = Date.now() + idleGap(stateRef.current?.movement);
+    let last = null;
+    const id = window.setInterval(() => {
+      const now = Date.now();
+      if (now < Math.max(due, lastGestureAtRef.current + 8000)) return;
+      const m = modeRef.current;
+      if (document.hidden || (m !== "idle" && m !== "perch") || busy() || bubbleRef.current || dragRef.current) return;
+      const part = dayPart();
+      const name = pickIdleGesture({ part, bored: now - lastActivityRef.current > BORED_AFTER_MS, last });
+      last = name;
+      playGesture(name, { idle: true });
+      due = now + idleGap(stateRef.current?.movement);
+      if (name === "yawn" && part === "late" && now - lastLateQuipRef.current > LATE_QUIP_COOLDOWN_MS) {
+        lastLateQuipRef.current = now;
+        window.setTimeout(() => {
+          const mm = modeRef.current;
+          if ((mm !== "idle" && mm !== "perch") || bubbleRef.current || busy()) return;
+          setMood("neutral");
+          refreshAnchor();
+          say(line("lateNight", { time: clockLabel() }));
+        }, 5200);
+      }
+    }, 2000);
+    return () => window.clearInterval(id);
+  }, [bodyReady, visibleNow, busy, playGesture, refreshAnchor, say]);
+
+  const prevModeRef = useRef(mode);
+  useEffect(() => {
+    const prev = prevModeRef.current;
+    prevModeRef.current = mode;
+    if (bodyReady && prev === "sleep" && mode === "idle") playGesture("stretch", { idle: true });
+  }, [mode, bodyReady, playGesture]);
   useEffect(() => {
     if (!use3d || !visibleNow) return undefined;
     let raf = 0;
@@ -965,7 +1024,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   useEffect(() => {
     const id = window.setInterval(() => {
       if (document.hidden) return;
-      if (AUTONOMOUS.has(modeRef.current) && Date.now() - lastActivityRef.current > SLEEP_AFTER_MS) {
+      if (AUTONOMOUS.has(modeRef.current) && Date.now() - lastActivityRef.current > sleepAfterMs(dayPart())) {
         cancel();
         setBubble(null);
         send("SLEEP");
@@ -1438,6 +1497,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
                     rampant={showRampant}
                     glow={glow}
                     asleep={mode === "sleep"}
+                    attend={ATTEND_MODES.has(mode)}
                     glitch={react === "glitch" || react === "droop"}
                     tint={tint}
                     visible={visible}

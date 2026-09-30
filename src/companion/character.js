@@ -156,6 +156,22 @@ export const character = {
       "Ten out of ten landing. Don't argue.",
       "Ow. Fuck. I mean... nailed it.",
     ],
+    lateNight: [
+      "It's {time}. Normal people are asleep. You're here with me. Flattering, but go the fuck to bed after this.",
+      "{time}? Jesus. Even I'm tired, and I'm made of light.",
+      "Late-night studying. Very sexy. Also terrible for retention. Wrap it up soon.",
+      "It's {time}. If you're not studying, what the hell are you doing up with me?",
+    ],
+    lateHello: [
+      "{time}. Couldn't sleep, or couldn't stay away from me?",
+      "Burning the midnight oil? Hot. Let's make it count.",
+      "It's {time}, you absolute gremlin. Fine. Let's work.",
+    ],
+    morningHello: [
+      "Morning, sunshine. Coffee first, then cards.",
+      "Look who's up early. I like a go-getter.",
+      "Rise and grind, gorgeous. Your brain's freshest now. Use it.",
+    ],
     grabbed: [
       "Hands off the projection.",
       "You can't hold light, sweetheart. But fine, I'll stand here.",

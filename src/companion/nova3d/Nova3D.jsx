@@ -6,7 +6,8 @@ const GLITCH_MS = 520;
 /**
  * React shell around NovaStage. Lazy-loaded (three.js + the model are a separate chunk).
  * Calls `onFail` when WebGL or the model can't load so the layer can fall back to the
- * portrait sprite. `gesture` is `{ name, id }`; each new id plays that clip once.
+ * portrait sprite. `gesture` is `{ name, id, idle }`; each new id plays that gesture once
+ * (idle ones give way when she starts talking). `attend` turns her to face the user.
  */
 export default function Nova3D({
   size,
@@ -18,6 +19,7 @@ export default function Nova3D({
   rampant = false,
   glow = 1,
   asleep = false,
+  attend = false,
   glitch = false,
   tint,
   visible = true,
@@ -77,15 +79,15 @@ export default function Nova3D({
   }, [size]);
 
   useEffect(() => {
-    stageRef.current?.set({ facing, gait, speed, mood, talkUntil, rampant, glow, asleep, visible });
-  }, [facing, gait, speed, mood, talkUntil, rampant, glow, asleep, visible]);
+    stageRef.current?.set({ facing, gait, speed, mood, talkUntil, rampant, glow, asleep, attend, visible });
+  }, [facing, gait, speed, mood, talkUntil, rampant, glow, asleep, attend, visible]);
 
   useEffect(() => {
     if (glitch) stageRef.current?.set({ glitchUntil: performance.now() + GLITCH_MS });
   }, [glitch]);
 
   useEffect(() => {
-    if (gesture?.name) void stageRef.current?.play(gesture.name);
+    if (gesture?.name) void stageRef.current?.play(gesture.name, { idle: !!gesture.idle });
   }, [gesture]);
 
   const g = Math.max(0, Math.min(5, glow));

@@ -12,9 +12,12 @@ const FADE = 0.35;
 const SUPERSAMPLE = 1.5;
 const SUPERSAMPLE_MAX = 3;
 /** Clips that loop as a base layer; everything else plays once and returns to the base. */
-const LOOPING = new Set(["idle", "walk", "talk", "sit", "fall", "look", "bored"]);
+const LOOPING = new Set(["idle", "walk", "talk", "sit", "fall"]);
 /** Bases that keep her hands clasped behind her back. */
 const ARMS_BACK_BASES = new Set(["idle", "walk"]);
+/** The cursor only draws her eyes when it's this close (CSS px from her center) and recently moved. */
+const GLANCE_RADIUS = 420;
+const GLANCE_MS = 3500;
 
 const MOOD_FACE = {
   neutral: {},
@@ -40,6 +43,34 @@ const ARMS_BACK = {
   hand: new THREE.Vector3(-0.4, -0.9, 0.1).normalize(),
 };
 const mirror = (v) => new THREE.Vector3(-v.x, v.y, v.z);
+const dir = (x, y, z) => new THREE.Vector3(x, y, z).normalize();
+const bothArms = (upper, lower, hand) => ({ left: [upper, lower, hand], right: [mirror(upper), mirror(lower), mirror(hand)] });
+const smooth = (a, b, t) => THREE.MathUtils.smoothstep(t, a, b);
+/** 0 → 1 → 0 over [a, b] with `ramp`-second edges. */
+const bump = (t, a, b, ramp = 0.4) => smooth(a, a + ramp, t) * (1 - smooth(b - ramp, b, t));
+
+/**
+ * Gestures with no Mixamo clip: an arm pose (same world-direction scheme as ARMS_BACK),
+ * additive body bends in radians (VRM 1.0 axes: +x bends forward, +z tilts to her left)
+ * and a face overlay, all driven by time `t` in seconds.
+ */
+const PROC = {
+  stretch: {
+    duration: 3.4,
+    arms: () => bothArms(dir(0.28, 0.95, 0.08), dir(-0.5, 0.86, 0.05), dir(-0.7, 0.7, 0.05)),
+    body: (t) => {
+      const sway = Math.sin(smooth(0.8, 2.8, t) * Math.PI * 2) * 0.16;
+      return { spine: [-0.06, 0, sway * 0.5], chest: [-0.1, 0, sway], head: [-0.12, 0, sway * 0.6] };
+    },
+    face: (t) => ({ blink: 0.85 * bump(t, 0.5, 3.0), aa: 0.3 * bump(t, 0.9, 2.6) }),
+  },
+};
+
+/** Face overlays for clip gestures, keyed by clip name; `t` is the clip time. */
+const CLIP_FACE = {
+  yawn: (t) => ({ aa: 0.95 * bump(t, 1.1, 4.6, 0.6), blink: 0.8 * bump(t, 1.3, 4.4, 0.5) }),
+  bored: (t) => ({ relaxed: 0.5 * bump(t, 0.5, 9.5) }),
+};
 
 const VERT = /* glsl */ `
 #include <common>
@@ -173,7 +204,7 @@ export class NovaStage {
     this.root = new THREE.Group();
     this.scene.add(this.root);
     this.clock = new THREE.Clock(false);
-    this.state = { gait: null, speed: 90, facing: 1, mood: "neutral", talkUntil: 0, rampant: false, glow: 1, asleep: false, glitchUntil: 0, visible: true };
+    this.state = { gait: null, speed: 90, facing: 1, mood: "neutral", talkUntil: 0, rampant: false, glow: 1, asleep: false, attend: false, glitchUntil: 0, visible: true };
     this.uniforms = {
       uTime: { value: 0 },
       uGlitch: { value: 0 },
@@ -184,7 +215,8 @@ export class NovaStage {
       uHot: { value: new THREE.Color() },
     };
     this.yaw = 0;
-    this.look = { x: 0, y: 0, active: false };
+    this.look = { x: 0, y: 0, at: 0 };
+    this.proc = null;
     this.armsBack = 1;
     this.face = {};
     this.mouth = { key: "aa", v: 0, next: 0 };
@@ -323,10 +355,7 @@ export class NovaStage {
       left: [rest("leftUpperArm", "leftLowerArm"), rest("leftLowerArm", "leftHand"), rest("leftHand", "leftMiddleProximal")],
       right: [rest("rightUpperArm", "rightLowerArm"), rest("rightLowerArm", "rightHand"), rest("rightHand", "rightMiddleProximal")],
     };
-    this.pose = {
-      left: [ARMS_BACK.upper, ARMS_BACK.lower, ARMS_BACK.hand],
-      right: [mirror(ARMS_BACK.upper), mirror(ARMS_BACK.lower), mirror(ARMS_BACK.hand)],
-    };
+    this.pose = bothArms(ARMS_BACK.upper, ARMS_BACK.lower, ARMS_BACK.hand);
   }
 
   setSize(px) {
@@ -339,6 +368,8 @@ export class NovaStage {
     const prev = this.state;
     this.state = { ...prev, ...patch };
     if (patch.rampant !== undefined && patch.rampant !== prev.rampant) this.refreshColors();
+    const startsTalking = patch.talkUntil > performance.now() && patch.talkUntil !== prev.talkUntil;
+    if (startsTalking && this.gestureIsIdle()) this.cancelGesture();
     if (this.mixer) this.syncBase();
     if (patch.visible === false) this.stop();
     else if (patch.visible === true) this.start();
@@ -346,7 +377,16 @@ export class NovaStage {
 
   /** Pointer position relative to the canvas center, in CSS px. */
   lookAt(dx, dy) {
-    this.look = { x: dx, y: dy, active: true };
+    this.look = { x: dx, y: dy, at: performance.now() };
+  }
+
+  gestureIsIdle() {
+    return !!(this.oneShot?.idle || this.proc?.idle);
+  }
+
+  cancelGesture() {
+    if (this.oneShot) this.finishOneShot(false);
+    if (this.proc) this.finishProc(false);
   }
 
   wantedBase() {
@@ -360,6 +400,7 @@ export class NovaStage {
 
   syncBase() {
     const want = this.wantedBase();
+    if ((want === "walk" || want === "fall") && (this.oneShot || this.proc)) this.cancelGesture();
     if (want !== this.base) this.setBase(want);
   }
 
@@ -373,17 +414,48 @@ export class NovaStage {
     if (prev && prev !== next) prev.fadeOut(fade);
   }
 
-  /** One-shot gesture (yawn, wave, kiss, land...). Resolves when it hands back to the base. */
-  play(name) {
+  /**
+   * One-shot gesture (yawn, wave, kiss, land, or a procedural one like stretch). Resolves
+   * when it hands back to the base. `idle` gestures give way as soon as she starts talking.
+   */
+  play(name, { idle = false } = {}) {
+    if (!this.mixer) return Promise.resolve(false);
+    if (PROC[name]) {
+      this.cancelGesture();
+      return new Promise((resolve) => {
+        this.proc = { name, def: PROC[name], t: 0, idle, resolve };
+      });
+    }
     const action = this.actions[name];
-    if (!action || !this.mixer) return Promise.resolve(false);
-    if (this.oneShot) this.finishOneShot(false);
+    if (!action) return Promise.resolve(false);
+    this.cancelGesture();
     const base = this.actions[this.base];
     action.reset().setEffectiveWeight(1).fadeIn(0.25).play();
     base?.fadeOut(0.25);
     return new Promise((resolve) => {
-      this.oneShot = { name, action, resolve };
+      this.oneShot = { name, action, idle, resolve };
     });
+  }
+
+  finishProc(done) {
+    const p = this.proc;
+    this.proc = null;
+    p?.resolve(done);
+  }
+
+  /** Procedural gesture weight: eases in and out at the ends. */
+  procWeight() {
+    const p = this.proc;
+    return smooth(0, 0.55, p.t) * (1 - smooth(p.def.duration - 0.6, p.def.duration, p.t));
+  }
+
+  /** Additive local rotation (VRM 1.0 axes) on a normalized bone. */
+  bend(bone, [x, y, z], weight) {
+    const node = this.vrm.humanoid.getNormalizedBoneNode(bone);
+    if (!node) return;
+    const v0 = this.vrm.meta?.metaVersion === "0";
+    const e = new THREE.Euler((v0 ? -x : x) * weight, y * weight, (v0 ? -z : z) * weight, "XYZ");
+    node.quaternion.multiply(new THREE.Quaternion().setFromEuler(e));
   }
 
   onFinished(action) {
@@ -436,16 +508,29 @@ export class NovaStage {
     const talking = s.talkUntil > now;
     let targetYaw = s.facing * 0.28;
     if (s.gait === "walk") targetYaw = s.facing * (Math.PI / 2 - 0.3);
-    else if (talking) targetYaw = s.facing * 0.1;
+    else if (talking || s.attend) targetYaw = 0;
     const dy = targetYaw - this.yaw;
     this.yaw += Math.sign(dy) * Math.min(Math.abs(dy), dt * 6);
     this.root.rotation.y = this.yaw;
 
     const wantBack = !this.oneShot && ARMS_BACK_BASES.has(this.base) ? 1 : 0;
     this.armsBack += (wantBack - this.armsBack) * Math.min(1, dt * 5);
-    if (this.armsBack > 0.01) this.applyArmsBack(this.armsBack);
+    if (this.armsBack > 0.01) this.applyArmPose(this.pose, this.armsBack);
+
+    let overlay = null;
+    if (this.proc) {
+      const p = this.proc;
+      p.t += dt;
+      const w = this.procWeight();
+      if (p.def.arms) this.applyArmPose(p.def.arms(p.t), w);
+      if (p.def.body) for (const [bone, angles] of Object.entries(p.def.body(p.t))) this.bend(bone, angles, w);
+      overlay = p.def.face?.(p.t) || null;
+      if (p.t >= p.def.duration) this.finishProc(true);
+    } else if (this.oneShot && CLIP_FACE[this.oneShot.name]) {
+      overlay = CLIP_FACE[this.oneShot.name](this.oneShot.action.time);
+    }
     this.applyHeadLook(dt, s);
-    this.applyFace(dt, now, s, talking);
+    this.applyFace(dt, now, s, talking, overlay);
 
     const glitching = s.rampant ? (Math.sin(now / 900) > 0.93 ? 1 : 0.15) : 0;
     this.uniforms.uGlitch.value = Math.max(glitching, s.glitchUntil > now ? 1 : 0);
@@ -456,7 +541,8 @@ export class NovaStage {
     this.render();
   }
 
-  applyArmsBack(weight) {
+  /** Blend the arms toward a pose of world directions (relative to the chest) by `weight`. */
+  applyArmPose(pose, weight) {
     const r = this.rest;
     const chestNow = r.chest.getWorldQuaternion(new THREE.Quaternion());
     const bodyDelta = chestNow.multiply(r.chestQ.clone().invert());
@@ -466,9 +552,9 @@ export class NovaStage {
     for (const side of ["left", "right"]) {
       r[side].forEach((bone, i) => {
         if (!bone) return;
-        const dir = this.pose[side][i].clone().applyQuaternion(bodyDelta);
+        const target = pose[side][i].clone().applyQuaternion(bodyDelta);
         const restDir = bone.dir.clone().applyQuaternion(bodyDelta);
-        want.setFromUnitVectors(restDir, dir).multiply(bodyDelta).multiply(bone.q);
+        want.setFromUnitVectors(restDir, target).multiply(bodyDelta).multiply(bone.q);
         bone.node.parent.getWorldQuaternion(parentQ);
         local.copy(parentQ.invert().multiply(want));
         bone.node.quaternion.slerp(local, weight);
@@ -484,9 +570,11 @@ export class NovaStage {
     const headPos = head.getWorldPosition(new THREE.Vector3());
     const cy = (this.camera.top + this.camera.bottom) / 2;
     const t = this.lookTarget.position;
-    if (this.look.active) t.set(this.look.x / ppu, cy - this.look.y / ppu, 2.5);
+    const l = this.look;
+    const glancing = l.at && performance.now() - l.at < GLANCE_MS && Math.hypot(l.x, l.y) < GLANCE_RADIUS;
+    if (glancing || s.attend) t.set(l.x / ppu, cy - l.y / ppu, 2.5);
     else t.set(headPos.x + Math.sin(this.yaw) * 2.5, headPos.y, Math.cos(this.yaw) * 2.5);
-    const free = s.gait !== "walk" && !s.asleep && !this.oneShot;
+    const free = s.gait !== "walk" && !s.asleep && !this.oneShot && !this.proc;
     const wantYaw = free ? THREE.MathUtils.clamp(Math.atan2(t.x - headPos.x, t.z - headPos.z) - this.yaw, -0.6, 0.6) * 0.7 : 0;
     const wantPitch = free
       ? THREE.MathUtils.clamp(-Math.atan2(t.y - headPos.y, Math.hypot(t.x - headPos.x, t.z - headPos.z)), -0.4, 0.4) * 0.6
@@ -499,15 +587,16 @@ export class NovaStage {
     head.quaternion.multiply(new THREE.Quaternion().setFromEuler(e));
   }
 
-  applyFace(dt, now, s, talking) {
+  applyFace(dt, now, s, talking, overlay) {
     const em = this.vrm.expressionManager;
     if (!em) return;
     const target = MOOD_FACE[s.rampant ? "stern" : s.mood] || {};
+    const o = overlay || {};
     for (const k of FACE_KEYS) {
       const cur = this.face[k] || 0;
       const next = cur + ((target[k] || 0) - cur) * Math.min(1, dt * 6);
       this.face[k] = next;
-      if (em.getExpression(k)) em.setValue(k, next);
+      if (em.getExpression(k)) em.setValue(k, Math.max(next, o[k] || 0));
     }
     const m = this.mouth;
     if (talking && now > m.next) {
@@ -516,7 +605,7 @@ export class NovaStage {
       m.next = now + 70 + Math.random() * 90;
     }
     m.v += ((talking ? m.target || 0 : 0) - m.v) * Math.min(1, dt * 18);
-    for (const k of MOUTH_KEYS) em.setValue(k, k === m.key ? m.v : 0);
+    for (const k of MOUTH_KEYS) em.setValue(k, Math.max(k === m.key ? m.v : 0, o[k] || 0));
 
     const b = this.blink;
     let blink = 0;
@@ -534,7 +623,7 @@ export class NovaStage {
         }
       }
     }
-    em.setValue("blink", blink);
+    em.setValue("blink", Math.max(blink, o.blink || 0));
   }
 
   render() {

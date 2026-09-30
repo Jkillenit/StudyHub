@@ -64,7 +64,7 @@ shared study materials, past grade distributions, and professor reviews.
 - ✓ C.5.1 Voice pass (PG-13 to R: profanity and innuendo, never explicit), no foot ring,
   supersampled rendering at full texture quality.
 - ○ C.6 Personality. Missing moves (stretch, facepalm, point) are procedural, no new clips.
-  - C.6a Idle director: yawn/look/bored/stretch every ~20-45s scaled by movement setting,
+  - ✓ C.6a Idle director: yawn/look/bored/stretch every ~20-45s scaled by movement setting,
     cursor glances, face the user on click; time-of-day aware (late-night yawns and teasing).
   - C.6b Edge sitting (playful leg swing when doing well, crossed and cold when failing),
     leaning on panel sides, sleeping on an edge.
