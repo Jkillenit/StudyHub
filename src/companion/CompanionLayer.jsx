@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useReducedMotion } from "../shell/motion.js";
 import { createPortal } from "react-dom";
 import { character, line, finishKey, isFailing } from "./character.js";
@@ -140,6 +140,12 @@ const rand = ([a, b]) => a + Math.random() * (b - a);
 const randInt = ([a, b]) => Math.floor(a + Math.random() * (b - a + 1));
 const rectOf = (r) => ({ left: r.left, top: r.top, width: r.width, height: r.height });
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
+
+const subscribeVisibility = (cb) => {
+  document.addEventListener("visibilitychange", cb);
+  return () => document.removeEventListener("visibilitychange", cb);
+};
+const pageShown = () => !document.hidden;
 
 /** The Today home window's geometry and the size she takes inside it, or null when it isn't on screen. */
 function homeGeometry(baseSize) {
@@ -1605,6 +1611,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   };
 
   const visibleNow = !!cstate?.enabled && mode !== "hidden";
+  /** Polling loops stop while the window is minimized/hidden; listeners that detect "back" still use visibleNow. */
+  const shown = useSyncExternalStore(subscribeVisibility, pageShown);
+  const ticking = visibleNow && shown;
 
   /*
    * 3D idle life: every 20-45s (scaled by movement) she yawns, looks around, gets bored or
@@ -1612,7 +1621,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
    */
   const bodyReady = use3d && body === "ready";
   useEffect(() => {
-    if (!bodyReady || !visibleNow) return undefined;
+    if (!bodyReady || !ticking) return undefined;
     let due = Date.now() + idleGap(stateRef.current?.movement, Math.random, dayPart());
     let last = null;
     const id = window.setInterval(() => {
@@ -1637,7 +1646,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       }
     }, 2000);
     return () => window.clearInterval(id);
-  }, [bodyReady, visibleNow, busy, canAct, playGesture, refreshAnchor, say]);
+  }, [bodyReady, ticking, busy, canAct, playGesture, refreshAnchor, say]);
 
   const prevModeRef = useRef(mode);
   useEffect(() => {
@@ -1659,7 +1668,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     }, 1100);
   }, [mode, bodyReady, playGesture, memory, refreshAnchor, say]);
   useEffect(() => {
-    if (!use3d || !visibleNow) return undefined;
+    if (!use3d || !ticking) return undefined;
     let raf = 0;
     const check = () => {
       raf = 0;
@@ -1700,7 +1709,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       window.removeEventListener("scroll", schedule, true);
       window.removeEventListener("resize", schedule);
     };
-  }, [use3d, visibleNow, busy, jumpTo, posRef]);
+  }, [use3d, ticking, busy, jumpTo, posRef]);
 
   useEffect(() => {
     if (mode !== "perch") return undefined;
@@ -1725,14 +1734,14 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   /* Off her spot, if the page shifts content under her, she goes back rather than cover it. */
   useEffect(() => {
-    if (!visibleNow) return undefined;
+    if (!ticking) return undefined;
     const id = window.setInterval(() => {
       const m = modeRef.current;
       if (!awayFromSpotRef.current || activityRef.current || busy() || dragRef.current || !(AUTONOMOUS.has(m) || m === "sleep")) return;
       if (coversContent(posRef.current, sizeRef.current, { standing: use3dRef.current })) api.current.backToSpot?.();
     }, 1500);
     return () => window.clearInterval(id);
-  }, [visibleNow, busy, posRef]);
+  }, [ticking, busy, posRef]);
 
   /* ---------- idle life: staged by how long the student has been idle ---------- */
 
@@ -1950,13 +1959,13 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   };
 
   useEffect(() => {
-    if (!visibleNow || quiet || reduced) {
+    if (!ticking || quiet || reduced) {
       api.current.endActivity?.();
       return undefined;
     }
     const id = window.setInterval(() => api.current.idleTick?.(), 1000);
     return () => window.clearInterval(id);
-  }, [visibleNow, quiet, reduced]);
+  }, [ticking, quiet, reduced]);
 
   /* ---------- the spoken briefing: she walks to what she's talking about ---------- */
 

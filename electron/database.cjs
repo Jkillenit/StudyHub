@@ -22,6 +22,15 @@ function getDb() {
   if (db) return db;
 
   db = new Database(getDbPath());
+  // better-sqlite3 recompiles on every prepare(). Cached statements are shared, so never call
+  // pluck()/raw()/expand() on them or build SQL from unbounded input.
+  const rawPrepare = db.prepare.bind(db);
+  const statements = new Map();
+  db.prepare = (sql) => {
+    let stmt = statements.get(sql);
+    if (!stmt) statements.set(sql, (stmt = rawPrepare(sql)));
+    return stmt;
+  };
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
 
@@ -259,6 +268,22 @@ const MIGRATIONS = [
           fingerprint TEXT,
           announced_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
+      `);
+    },
+  },
+  {
+    version: 10,
+    up(dbRef) {
+      // With foreign_keys ON, deleting a parent scans every unindexed child column.
+      dbRef.exec(`
+        CREATE INDEX IF NOT EXISTS idx_flashcards_module ON flashcards(module_id);
+        CREATE INDEX IF NOT EXISTS idx_flashcards_content_item ON flashcards(content_item_id);
+        CREATE INDEX IF NOT EXISTS idx_glossary_module ON glossary_terms(module_id);
+        CREATE INDEX IF NOT EXISTS idx_glossary_content_item ON glossary_terms(content_item_id);
+        CREATE INDEX IF NOT EXISTS idx_web_resources_module ON web_resources(module_id);
+        CREATE INDEX IF NOT EXISTS idx_materials_module ON materials(module_id);
+        CREATE INDEX IF NOT EXISTS idx_assignments_component ON assignments(component_id);
+        CREATE INDEX IF NOT EXISTS idx_attendance_course ON attendance(course_id);
       `);
     },
   },

@@ -1,9 +1,19 @@
-const { app, BrowserWindow, session, ipcMain, net, shell } = require("electron");
+const { app, BrowserWindow, session, ipcMain, shell } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const { getDb } = require("./database.cjs");
 const { applyBbSync, ensureCourseForBb } = require("./dbMirrorHandlers.cjs");
-const { listEnrolledCourses, syncCourse, checkCourse, resetUserCache, setPageFetcher, getCourseInfo } = require("./bbSync.cjs");
+const {
+  BB_PARTITION,
+  BB_ORIGIN: BB_URL,
+  getJson,
+  listEnrolledCourses,
+  syncCourse,
+  checkCourse,
+  resetUserCache,
+  setPageFetcher,
+  getCourseInfo,
+} = require("./bbSync.cjs");
 
 let bbWindow = null;
 const syllabusPopups = new Set();
@@ -12,16 +22,12 @@ let getMainWindow = () => null;
 let allowPaths = () => {};
 let onDisconnect = () => {};
 let activeCourseId = "";
-let linkedCourseName = "";
-let linkedBbCourseId = "";
 let awaitBBDownload = null;
 
 /** filename → { resolve, reject, timeoutId } for BB will-download interceptor */
 const bbPendingDownloads = new Map();
 let bbWillDownloadListenerAttached = false;
 
-const BB_PARTITION = "persist:blackboard";
-const BB_URL = "https://ualearn.blackboard.com";
 const BB_TEMP_DIR = path.join(app.getPath("temp"), "studyhub-bb");
 const BB_TEMP_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
@@ -73,169 +79,16 @@ function sendToMain(channel, payload) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
 }
 
-function buildToolbarScript(_courseId, bbCourseId, linkedNameForPage) {
-  const safeBbCourseId = JSON.stringify(String(bbCourseId || ""));
-  const safeLinked = JSON.stringify(String(linkedNameForPage || ""));
-  const isLinked = !!(linkedNameForPage && String(linkedNameForPage).trim());
-
-  return `
-(function() {
-  if (!document.body) return;
-
-  const existing = document.getElementById("sh-bb-toolbar");
-  if (existing) existing.remove();
-
-  const toolbar = document.createElement("div");
-  toolbar.id = "sh-bb-toolbar";
-  toolbar.style.cssText = [
-    "position: fixed",
-    "top: 0",
-    "left: 0",
-    "right: 0",
-    "height: 40px",
-    "background: #0a0e0a",
-    "border-bottom: 2px solid #1a2a1a",
-    "display: flex",
-    "align-items: center",
-    "padding: 0 16px",
-    "gap: 12px",
-    "z-index: 999999",
-    "font-family: Consolas, monospace",
-    "font-size: 11px",
-    "color: #8ea88e",
-    "letter-spacing: 0.08em"
-  ].join(";");
-
-  const logo = document.createElement("span");
-  logo.style.cssText = "color:#00ff88;font-weight:600;letter-spacing:0.12em;font-size:12px;";
-  logo.textContent = "STUDY HUB";
-
-  const div1 = document.createElement("span");
-  div1.style.color = "#1a2a1a";
-  div1.textContent = "|";
-
-  const courseArea = document.createElement("div");
-  courseArea.style.cssText = "display:flex;align-items:center;gap:8px;flex:1;";
-
-  function makeSyncBtn(label) {
-    const btn = document.createElement("button");
-    btn.id = "sh-sync-course-btn";
-    btn.textContent = label;
-    btn.style.cssText = [
-      "background: transparent",
-      "border: 1px solid #00ff88",
-      "color: #00ff88",
-      "font-family: inherit",
-      "font-size: 10px",
-      "letter-spacing: 0.1em",
-      "padding: 4px 12px",
-      "cursor: pointer"
-    ].join(";");
-    btn.addEventListener("click", function() {
-      if (!window.__shBridge || !window.__shBridge.syncCourse) return;
-      var title = window.__shGetCourseTitle ? window.__shGetCourseTitle() : null;
-      btn.disabled = true;
-      btn.textContent = "SYNCING... (UP TO A MINUTE)";
-      window.__shBridge.syncCourse({ courseTitle: title || "" }).then(function(res) {
-        if (!document.body.contains(btn)) return;
-        btn.disabled = false;
-        btn.textContent = label;
-        if (!window.__shToast) return;
-        if (res && res.ok) {
-          var c = res.counts || {};
-          var msg = "\\u2713 Synced " + (c.assignments || 0) + " due dates, " + (c.scored || 0) + " of " + (c.grades || 0) + " grades scored";
-          msg += res.syllabus ? " \\u00b7 syllabus found" : " \\u00b7 no syllabus found";
-          window.__shToast(msg, "success");
-        } else {
-          window.__shToast("\\u2715 " + ((res && res.error) || "Sync failed"), "error");
-        }
-      });
-    });
-    return btn;
-  }
-
-  if (${isLinked}) {
-    const courseLabel = document.createElement("span");
-    courseLabel.style.cssText = "color:#00ff88;font-size:11px;letter-spacing:0.06em;";
-    courseLabel.textContent = "\\u25cf " + ${safeLinked};
-    courseArea.appendChild(courseLabel);
-
-    const statusBtn = document.createElement("button");
-    statusBtn.id = "sh-status-toggle";
-    statusBtn.textContent = "STATUS \\u25be";
-    statusBtn.style.cssText = [
-      "background: transparent",
-      "border: 1px solid #1a3a1a",
-      "color: #8ea88e",
-      "font-family: inherit",
-      "font-size: 9px",
-      "letter-spacing: 0.1em",
-      "padding: 3px 8px",
-      "cursor: pointer"
-    ].join(";");
-    statusBtn.addEventListener("click", function() {
-      if (window.__shToggleStatus) window.__shToggleStatus();
-    });
-    courseArea.appendChild(statusBtn);
-    courseArea.appendChild(makeSyncBtn("\\u27f3 SYNC"));
-  } else if (${safeBbCourseId}) {
-    courseArea.appendChild(makeSyncBtn("\\u27f3 SYNC TO STUDY HUB"));
-  }
-
-  const closeBtn = document.createElement("button");
-  closeBtn.textContent = "\\u2715 CLOSE";
-  closeBtn.style.cssText = [
-    "background: transparent",
-    "border: 1px solid #1a2a1a",
-    "color: #8ea88e",
-    "font-family: inherit",
-    "font-size: 10px",
-    "letter-spacing: 0.1em",
-    "padding: 3px 10px",
-    "cursor: pointer"
-  ].join(";");
-  closeBtn.addEventListener("click", function() {
-    if (window.__shBridge && window.__shBridge.closeWindow) window.__shBridge.closeWindow();
-    else window.close();
-  });
-
-  toolbar.appendChild(logo);
-  toolbar.appendChild(div1);
-  toolbar.appendChild(courseArea);
-  toolbar.appendChild(closeBtn);
-
-  document.body.prepend(toolbar);
-  document.body.style.paddingTop = "40px";
-})();
-`;
-}
-
-const OBSERVER_SCRIPT = `
-  (function() {
-    if (!document.body) return
-    if (window.__shObserverActive) return;
-    window.__shObserverActive = true
-    let injectTimer = null
-
-    const observer = new MutationObserver(() => {
-      clearTimeout(injectTimer)
-      injectTimer = setTimeout(() => {
-        window.__shInjectImportButtons?.()
-        window.__shInjectFolderButtons?.()
-      }, 300)
-    })
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    })
-  })();
-`;
+/** Page scripts live in bbInject/ as single function expressions; args are JSON-encoded at the call site. */
+const readInjected = (name) => fs.readFileSync(path.join(__dirname, "bbInject", name), "utf8");
+const PAGE_SCRIPT = readInjected("page.js");
+const CLICK_DOWNLOAD_SCRIPT = readInjected("clickDownload.js");
+const callInjected = (script, ...args) => `(\n${script}\n)(${args.map((a) => JSON.stringify(a)).join(", ")})`;
 
 async function isLoggedIn() {
   const bbSession = session.fromPartition(BB_PARTITION);
   const cookies = await bbSession.cookies.get({
-    domain: "ualearn.blackboard.com",
+    domain: new URL(BB_URL).hostname,
   });
   return cookies.some(
     (c) => c.name === "BbRouter" || c.name === "BBLEARN_Login_Code" || c.name === "bbdlicd"
@@ -250,7 +103,6 @@ function parseCourseFromUrl(url) {
 
 function displayLinkedCourseName(pageBbCourseId) {
   if (!pageBbCourseId) return "";
-  if (linkedBbCourseId && pageBbCourseId === linkedBbCourseId && linkedCourseName) return linkedCourseName;
   try {
     return getDb().prepare("SELECT name FROM courses WHERE bb_course_id = ? LIMIT 1").get(pageBbCourseId)?.name || "";
   } catch {
@@ -567,67 +419,8 @@ async function downloadBBFile(fileUrl, fileName) {
     downloadSettled = true;
   });
 
-  const safeFileUrl = JSON.stringify(String(fileUrl || ""));
-  const safeFileName = JSON.stringify(String(fileName || ""));
-
   await bbWindow.webContents
-    .executeJavaScript(
-      `
-      (function() {
-        try {
-          var targetName = ${safeFileName};
-          var targetBtn = null;
-          var items = document.querySelectorAll("[title], [aria-label]");
-          for (var i = 0; i < items.length; i++) {
-            var el = items[i];
-            var text = (
-              el.getAttribute("title") ||
-              el.getAttribute("aria-label") ||
-              el.textContent ||
-              ""
-            ).trim();
-            var baseName = targetName.replace(/\\.[^.]+$/, "");
-            if (text.indexOf(baseName) !== -1 || text.indexOf(targetName) !== -1) {
-              var container =
-                el.closest('[class*="item"],[class*="content"],[role="listitem"]') ||
-                el.parentElement;
-              if (container) {
-                targetBtn = container.querySelector(
-                  '[data-testid*="more"],[aria-label*="more"],[aria-label*="option"],button[aria-haspopup],[class*="context-menu"]'
-                );
-                if (targetBtn) break;
-              }
-            }
-          }
-
-          if (targetBtn) {
-            targetBtn.click();
-            setTimeout(function() {
-              var menuItems = document.querySelectorAll(
-                '[role="menuitem"],[role="option"],[class*="menu-item"]'
-              );
-              for (var j = 0; j < menuItems.length; j++) {
-                var item = menuItems[j];
-                var t = (item.textContent || "").toLowerCase();
-                if (t.indexOf("download") !== -1 || t.indexOf("original") !== -1) {
-                  item.click();
-                  return true;
-                }
-              }
-              window.__shFallbackDownload = ${safeFileUrl};
-            }, 300);
-            return true;
-          }
-
-          window.__shFallbackDownload = ${safeFileUrl};
-          return false;
-        } catch (e) {
-          window.__shFallbackDownload = ${safeFileUrl};
-          return false;
-        }
-      })()
-    `
-    )
+    .executeJavaScript(callInjected(CLICK_DOWNLOAD_SCRIPT, String(fileName || ""), String(fileUrl || "")))
     .catch(() => {});
 
   setTimeout(async () => {
@@ -671,102 +464,26 @@ function normalizeBbUrl(candidate) {
   if (!candidate) return null;
   if (candidate.startsWith("http://") || candidate.startsWith("https://")) return candidate;
   if (candidate.startsWith("//")) return `https:${candidate}`;
-  if (candidate.startsWith("/")) return `https://ualearn.blackboard.com${candidate}`;
+  if (candidate.startsWith("/")) return `${BB_ORIGIN}${candidate}`;
   return null;
-}
-
-async function requestJsonFromEndpoint(url, bbSession) {
-  return new Promise((resolve, reject) => {
-    const request = net.request({ url, session: bbSession });
-    request.setHeader("Accept", "application/json, text/plain, */*");
-    const chunks = [];
-    request.on("response", (response) => {
-      response.on("data", (chunk) => chunks.push(chunk));
-      response.on("end", () => {
-        const body = Buffer.concat(chunks).toString("utf8");
-        if (response.statusCode < 200 || response.statusCode >= 300) {
-          reject(new Error(`Content lookup failed: ${response.statusCode}`));
-          return;
-        }
-        try {
-          resolve(JSON.parse(body));
-        } catch {
-          resolve(body);
-        }
-      });
-      response.on("error", reject);
-    });
-    request.on("error", reject);
-    request.end();
-  });
-
-  /** Background check of one linked course (Desktop Nova). Shares the sync lock so it never overlaps a manual sync. */
-  async function backgroundCheck(bbCourseId) {
-    const id = String(bbCourseId || "");
-    if (!/^_\d+_\d+$/.test(id)) return { ok: false, error: "invalid" };
-    if (syncing) return { ok: false, error: "busy" };
-    if (!(await isLoggedIn())) return { ok: false, error: "not-logged-in" };
-    const course = getDb().prepare("SELECT uuid FROM courses WHERE bb_course_id = ? ORDER BY id ASC LIMIT 1").get(id);
-    if (!course) return { ok: false, error: "not-linked" };
-    syncing = true;
-    try {
-      const payload = await checkCourse(id);
-      const result = applyBbSync(getDb(), course.uuid, payload);
-      return { ok: !!result.success, courseUuid: course.uuid, payload };
-    } catch (err) {
-      return { ok: false, error: err?.status === 401 || err?.status === 403 ? "not-logged-in" : err?.message || String(err) };
-    } finally {
-      syncing = false;
-    }
-  }
-
-  return { backgroundCheck, openLogin: () => openBlackboardWindow() };
 }
 
 async function resolveDownloadUrlFromContent(bbCourseId, contentId) {
-  const bbSession = session.fromPartition(BB_PARTITION);
-  const encodedCourseId = encodeURIComponent(String(bbCourseId || ""));
-  const encodedContentId = encodeURIComponent(String(contentId || ""));
-  const candidates = [
-    `https://ualearn.blackboard.com/learn/api/public/v1/courses/${encodedCourseId}/contents/${encodedContentId}`,
-    `https://ualearn.blackboard.com/learn/api/public/v2/courses/${encodedCourseId}/contents/${encodedContentId}`,
-  ];
-
-  for (const endpoint of candidates) {
-    try {
-      const payload = await requestJsonFromEndpoint(endpoint, bbSession);
-      const urls = collectUrlsDeep(payload, []);
-      const direct = urls
-        .map((u) => normalizeBbUrl(u))
-        .find((u) => u && (u.includes("/bbcswebdav/") || u.includes("download") || u.includes("xid-")));
-      if (direct) return direct;
-    } catch {
-      // continue
+  const item = `/courses/${encodeURIComponent(String(bbCourseId || ""))}/contents/${encodeURIComponent(String(contentId || ""))}`;
+  for (const suffix of ["", "/attachments"]) {
+    for (const version of ["v1", "v2"]) {
+      try {
+        const payload = await getJson(`/learn/api/public/${version}${item}${suffix}`);
+        const direct = collectUrlsDeep(payload, [])
+          .map(normalizeBbUrl)
+          .find((u) => u && (u.includes("/bbcswebdav/") || u.includes("download") || u.includes("xid-")));
+        if (direct) return direct;
+      } catch {
+        // try the next endpoint
+      }
     }
   }
-
-  const attachmentEndpoints = [
-    `https://ualearn.blackboard.com/learn/api/public/v1/courses/${encodedCourseId}/contents/${encodedContentId}/attachments`,
-    `https://ualearn.blackboard.com/learn/api/public/v2/courses/${encodedCourseId}/contents/${encodedContentId}/attachments`,
-  ];
-
-  for (const endpoint of attachmentEndpoints) {
-    try {
-      const payload = await requestJsonFromEndpoint(endpoint, bbSession);
-      const urls = collectUrlsDeep(payload, []);
-      const direct = urls
-        .map((u) => normalizeBbUrl(u))
-        .find((u) => u && (u.includes("/bbcswebdav/") || u.includes("download") || u.includes("xid-")));
-      if (direct) return direct;
-    } catch {
-      // continue
-    }
-  }
-
-  const ultraFallback = normalizeBbUrl(`/ultra/courses/${bbCourseId}/cl/outline/file/${contentId}`);
-  if (ultraFallback) return ultraFallback;
-
-  return null;
+  return normalizeBbUrl(`/ultra/courses/${bbCourseId}/cl/outline/file/${contentId}`);
 }
 
 function detectFileRole(fileName, folderName) {
@@ -860,423 +577,15 @@ async function importFileFromUrl(context) {
   }
 }
 
-function buildInjectionScript(courseId, bbCourseId) {
-  const safeCourseId = JSON.stringify(String(courseId || ""));
-  const safeBbCourseId = JSON.stringify(String(bbCourseId || ""));
-  return `
-    (function() {
-      const INJECTED_ATTR = 'data-sh-injected';
-      const FOLDER_ATTR = 'data-sh-folder';
-      const courseId = ${safeCourseId};
-      const bbCourseId = ${safeBbCourseId};
-
-      function makeBtn(text, onClick, style) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.textContent = text;
-        btn.setAttribute('data-sh-btn', 'true');
-        btn.style.cssText =
-          "background:transparent;border:1px solid #00ff88;color:#00ff88;font-family:'Consolas',monospace;font-size:10px;letter-spacing:0.08em;padding:3px 10px;cursor:pointer;margin-left:8px;white-space:nowrap;vertical-align:middle;z-index:999999;position:relative;pointer-events:auto;" + (style || "");
-        btn.addEventListener('mousedown', (e) => e.stopPropagation(), true);
-        btn.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation?.();
-          onClick();
-        }, true);
-        return btn;
-      }
-
-      function getFolderContext(element) {
-        let el = element.parentElement;
-        let depth = 0;
-        while (el && depth < 15) {
-          const titleEl = el.querySelector(
-            '[data-sh-folder-title], h3, h4, .content-title, [class*="folder"] [class*="title"], [class*="item-title"]'
-          );
-          if (titleEl && titleEl.textContent && titleEl.textContent.trim().length > 0) {
-            const text = titleEl.textContent.trim();
-            if (!text.match(/\\.[a-z]{2,4}$/i)) return text;
-          }
-          el = el.parentElement;
-          depth += 1;
-        }
-        return 'General';
-      }
-
-      function getFileUrl(element) {
-        const anchor = element.closest('a') || element.querySelector('a');
-        if (
-          anchor &&
-          anchor.href &&
-          (anchor.href.includes('/bbcswebdav/') ||
-            anchor.href.includes('/xid-') ||
-            anchor.href.includes('/courses/') ||
-            anchor.href.includes('download'))
-        ) {
-          return anchor.href;
-        }
-        const dataUrl = element.closest('[data-url]')?.getAttribute('data-url');
-        if (dataUrl) return dataUrl;
-
-        const container = element.closest('[class*="content-item"],[class*="list-item"],[data-handler]');
-        if (container) {
-          const link = container.querySelector(
-            'a[href*="bbcswebdav"],a[href*="/xid-"],a[href*="download"]'
-          );
-          if (link && link.href) return link.href;
-        }
-        return null;
-      }
-
-      function getContentId(element) {
-        const container = element.closest('[data-content-id]') || element.querySelector('[data-content-id]');
-        const fromAttr = container?.getAttribute('data-content-id');
-        if (fromAttr) return fromAttr;
-        const row = element.closest('[class*="content-list-item"]');
-        return row?.getAttribute('data-content-id') || null;
-      }
-
-      function getFileName(element) {
-        const title = element.closest('[title]')?.title || element.querySelector('[title]')?.title;
-        if (title && title.match(/\\.[a-z]{2,5}$/i)) return title;
-
-        const text = element.textContent?.trim();
-        if (text && text.match(/\\.[a-z]{2,5}$/i)) return text.split('\\n')[0].trim();
-
-        const aria = element.getAttribute('aria-label') || element.querySelector('[aria-label]')?.getAttribute('aria-label');
-        if (aria) return aria.trim();
-        return 'unknown_file';
-      }
-
-      function getCourseTitle() {
-        const selectors = [
-          'h1[class*="course-title"]',
-          'h1[class*="courseName"]',
-          '.base-page-header h1',
-          '[class*="course-banner"] h1',
-          '[class*="courseBanner"] h1',
-          '[aria-label*="Course name"]',
-          'h1',
-        ];
-
-        for (const sel of selectors) {
-          const el = document.querySelector(sel);
-          const text = el?.textContent?.trim();
-          if (text && text.length > 2 && text.length < 120) {
-            return text;
-          }
-        }
-
-        const docTitle = document.title?.trim();
-        if (docTitle && docTitle.length > 2) {
-          return docTitle.replace(/\\s*\\|\\s*Blackboard.*$/i, '').trim();
-        }
-
-        return null;
-      }
-
-      window.__shToast = function(message, type) {
-        var existingToast = document.getElementById('sh-bb-toast');
-        if (existingToast) existingToast.remove();
-
-        var color =
-          type === 'error' ? '#ff4444' : type === 'warning' ? '#ffaa00' : '#00ff88';
-
-        var toast = document.createElement('div');
-        toast.id = 'sh-bb-toast';
-        toast.style.cssText =
-          'position:fixed;bottom:24px;right:24px;background:#0a0e0a;border:1px solid ' +
-          color +
-          ';border-left:3px solid ' +
-          color +
-          ';color:' +
-          color +
-          ';font-family:Consolas,monospace;font-size:11px;letter-spacing:0.06em;padding:10px 16px;z-index:999999;max-width:320px;line-height:1.4;box-shadow:0 4px 12px rgba(0,0,0,0.4);animation:shSlideIn 150ms ease';
-
-        if (!document.getElementById('sh-toast-style')) {
-          var styleEl = document.createElement('style');
-          styleEl.id = 'sh-toast-style';
-          styleEl.textContent =
-            '@keyframes shSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}';
-          document.head.appendChild(styleEl);
-        }
-
-        toast.textContent = message;
-        document.body.appendChild(toast);
-
-        setTimeout(function() {
-          if (toast.parentNode) {
-            toast.style.opacity = '0';
-            toast.style.transition = 'opacity 200ms ease';
-            setTimeout(function() {
-              toast.remove();
-            }, 200);
-          }
-        }, 4000);
-      };
-
-      function injectImportButtons() {
-        const seen = new Set();
-        const rows = document.querySelectorAll('[data-content-id], .content-list-item, [class*="content-list-item"]');
-        rows.forEach((item) => {
-          if (seen.has(item)) return;
-          if (item.hasAttribute(INJECTED_ATTR)) return;
-
-          const analyticsId =
-            item.querySelector('[data-analytics-id]')?.getAttribute('data-analytics-id') || '';
-
-          if (
-            analyticsId.includes('folder.toggleFolder') ||
-            analyticsId.includes('assessment.readOnly') ||
-            analyticsId.includes('gradebook')
-          ) {
-            return;
-          }
-
-          const fileName = getFileName(item);
-          const looksLikeFileName = /\.[a-z0-9]{2,5}$/i.test(fileName || '');
-          const isCourseContentLink = analyticsId.includes('course.outline.courseContent.link');
-          if (!looksLikeFileName && !isCourseContentLink) return;
-
-          const folderName = getFolderContext(item);
-          const contentId = getContentId(item);
-          const directUrl = getFileUrl(item);
-          const fileUrl = directUrl || (contentId ? ('bb-content-id:' + contentId) : null);
-          if (!fileUrl) return;
-
-          seen.add(item);
-          item.setAttribute(INJECTED_ATTR, '1');
-          const btn = makeBtn('→ IMPORT', () => {
-            const courseTitle = getCourseTitle();
-            let effectiveFileName = fileName;
-            if (fileUrl) {
-              try {
-                const urlParts = fileUrl.split('/');
-                const lastPart = urlParts[urlParts.length - 1].split('?')[0];
-                const decoded = decodeURIComponent(lastPart);
-                if (decoded.includes('.') && decoded.length > 3) {
-                  effectiveFileName = decoded;
-                }
-              } catch (e) {}
-            }
-            window.__shBridge?.importFile?.({
-              fileUrl,
-              fileName: effectiveFileName || fileName,
-              folderName,
-              contentId,
-              courseId,
-              bbCourseId,
-              courseTitle: courseTitle || ''
-            });
-          });
-
-          let actions = item.querySelector('[class*="action"],[class*="options"],[data-testid*="action"]');
-          if (!actions) {
-            actions = document.createElement('div');
-            actions.setAttribute('data-sh-actions', '1');
-            actions.style.cssText = 'display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-top:6px;';
-            item.appendChild(actions);
-          }
-          actions.appendChild(btn);
-        });
-      }
-
-      function injectFolderButtons() {
-        const folderSelectors = ['[class*="folder"]', '[aria-expanded]', '[data-contents]'];
-        const seen = new Set();
-        folderSelectors.forEach((selector) => {
-          document.querySelectorAll(selector).forEach((el) => {
-            if (seen.has(el)) return;
-            if (el.getAttribute(FOLDER_ATTR)) return;
-            const titleEl = el.querySelector('h3, h4, [class*="title"], [class*="folder-name"]');
-            if (!titleEl) return;
-            const folderName = titleEl.textContent?.trim();
-            if (!folderName) return;
-            seen.add(el);
-            el.setAttribute(FOLDER_ATTR, '1');
-            const btn = makeBtn(
-              '→ IMPORT ALL',
-              () => {
-                const courseTitle = getCourseTitle();
-                window.__shImportFolder?.({
-                  folderName,
-                  folderElement: el,
-                  courseId,
-                  bbCourseId,
-                  courseTitle: courseTitle || ''
-                });
-              },
-              'border-color:#00ccff;color:#00ccff;'
-            );
-            titleEl.appendChild(btn);
-          });
-        });
-      }
-
-      window.__shGetCourseTitle = getCourseTitle;
-      window.__shInjectFolderButtons = injectFolderButtons;
-
-      function escapeHtml(value) {
-        return String(value == null ? '' : value)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#39;');
-      }
-
-      window.__shToggleStatus = async function() {
-        var existingPanel = document.getElementById('sh-status-panel');
-        if (existingPanel) {
-          existingPanel.remove();
-          return;
-        }
-
-        var panel = document.createElement('div');
-        panel.id = 'sh-status-panel';
-        panel.style.cssText = [
-          'position: fixed',
-          'top: 40px',
-          'right: 0',
-          'width: 280px',
-          'max-height: calc(100vh - 40px)',
-          'background: #0a0e0a',
-          'border-left: 2px solid #1a3a1a',
-          'border-bottom: 2px solid #1a3a1a',
-          'padding: 16px',
-          'z-index: 999998',
-          'font-family: Consolas, monospace',
-          'font-size: 11px',
-          'color: #8ea88e',
-          'overflow-y: auto'
-        ].join(';');
-
-        panel.innerHTML =
-          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
-          '<div style="color:#00ff88;font-weight:600;letter-spacing:0.12em;font-size:11px;">COURSE STATUS</div>' +
-          '<button id="sh-status-refresh" style="background:transparent;border:1px solid #1a3a1a;color:#8ea88e;font-family:inherit;font-size:9px;letter-spacing:0.1em;padding:2px 8px;cursor:pointer;">\u21bb REFRESH</button>' +
-          '</div>' +
-          '<div id="sh-status-content" style="color:#8ea88e;font-size:10px;">Loading...</div>';
-
-        document.body.appendChild(panel);
-
-        function renderStatus(status, content) {
-          if (!content) return;
-          if (!status) {
-            content.textContent = 'No data available';
-            return;
-          }
-
-          var syllabusLine = status.hasSyllabus
-            ? '<div style="color:#00ff88;margin-bottom:4px">\\u2713 Syllabus \\u2014 ' +
-              Number(status.gradeComponentCount || 0) +
-              ' components</div>'
-            : '<div style="color:#8ea88e;margin-bottom:4px">\\u25cb Syllabus \\u2014 not imported</div>';
-
-          var modulesHtml = (status.modules || [])
-            .map(function(m) {
-              return (
-                '<div style="margin:3px 0;padding-left:8px">' +
-                (m.itemCount > 0
-                  ? '<span style="color:#00ff88">\\u2713</span>'
-                  : '<span style="color:#8ea88e">\\u25cb</span>') +
-                ' ' +
-                escapeHtml(m.title || '') +
-                ' <span style="color:#4a6a4a">(' +
-                Number(m.itemCount || 0) +
-                ' items)</span></div>'
-              );
-            })
-            .join('');
-
-          content.innerHTML =
-            syllabusLine +
-            '<div style="color:#00ccff;letter-spacing:0.1em;font-size:9px;margin:8px 0 4px">CONTENT</div>' +
-            (modulesHtml ||
-              '<div style="color:#4a6a4a;padding-left:8px">No content yet</div>');
-        }
-
-        var bridge = window.__shBridge;
-        var initialStatus =
-          bridge && bridge.getCourseStatus
-            ? await bridge.getCourseStatus({
-                courseId: courseId,
-                bbCourseId: bbCourseId
-              })
-            : null;
-
-        var contentEl = document.getElementById('sh-status-content');
-        renderStatus(initialStatus, contentEl);
-
-        var refreshBtn = document.getElementById('sh-status-refresh');
-        if (refreshBtn) {
-          refreshBtn.addEventListener('click', async function() {
-            var content = document.getElementById('sh-status-content');
-            if (content) {
-              content.textContent = 'Refreshing...';
-            }
-            var fresh =
-              bridge && bridge.getCourseStatus
-                ? await bridge.getCourseStatus({
-                    courseId: courseId,
-                    bbCourseId: bbCourseId
-                  })
-                : null;
-            renderStatus(fresh, content);
-          });
-        }
-      };
-
-      window.__shInjectImportButtons = injectImportButtons;
-
-      window.__shImportFile = (context) => {
-        window.__shBridge?.importFile?.(context);
-      };
-
-      window.__shImportFolder = (context) => {
-        const files = [];
-        const items = context.folderElement.querySelectorAll('[' + INJECTED_ATTR + ']');
-        items.forEach((item) => {
-          const contentId = getContentId(item);
-          const fileUrl = getFileUrl(item) || (contentId ? 'bb-content-id:' + contentId : null);
-          const fileName = getFileName(item);
-          if (fileUrl && fileName) {
-            files.push({
-              fileUrl,
-              fileName,
-              contentId,
-              folderName: context.folderName,
-              courseId: context.courseId,
-              bbCourseId: context.bbCourseId,
-              courseTitle: context.courseTitle || ''
-            });
-          }
-        });
-        window.__shBridge?.importFolder?.({
-          folderName: context.folderName,
-          courseId: context.courseId,
-          bbCourseId: context.bbCourseId,
-          courseTitle: context.courseTitle || '',
-          files
-        });
-      };
-
-      injectImportButtons();
-      injectFolderButtons();
-    })();
-  `;
-}
-
 async function injectPage(url) {
   if (!bbWindow || bbWindow.isDestroyed() || !isBlackboardUrl(url)) return;
   const courseId = activeCourseId || "";
   const bbCourse = parseCourseFromUrl(url);
   const bbCourseId = bbCourse?.bbCourseId || "";
   const displayLinked = displayLinkedCourseName(bbCourseId);
-  await bbWindow.webContents.executeJavaScript(buildToolbarScript(courseId, bbCourseId, displayLinked)).catch(() => {});
-  await bbWindow.webContents.executeJavaScript(OBSERVER_SCRIPT).catch(() => {});
-  await bbWindow.webContents.executeJavaScript(buildInjectionScript(courseId, bbCourseId, displayLinked)).catch(() => {});
+  await bbWindow.webContents
+    .executeJavaScript(callInjected(PAGE_SCRIPT, { courseId, bbCourseId, linkedName: displayLinked }))
+    .catch(() => {});
   if (bbCourse) sendToMain("bb:course-detected", bbCourse);
 }
 
@@ -1410,8 +719,6 @@ function registerBlackboardHandlers(mainWindowGetter, options = {}) {
     return { success: true };
   });
 
-  ipcMain.handle("bb:isLoggedIn", async () => isLoggedIn());
-
   ipcMain.handle("bb:getStatus", async () => ({
     loggedIn: await isLoggedIn(),
     windowOpen: bbWindow !== null && !bbWindow.isDestroyed(),
@@ -1445,35 +752,13 @@ function registerBlackboardHandlers(mainWindowGetter, options = {}) {
   });
 
   ipcMain.handle("bb:show-toast", async (event, { message, type } = {}) => {
-    if (!isMainWindowSender(event) && !isTrustedBbSender(event)) return { success: false };
+    if (!isMainWindowSender(event)) return { success: false };
     if (bbWindow && !bbWindow.isDestroyed()) {
       await bbWindow.webContents
         .executeJavaScript(
           `window.__shToast?.(${JSON.stringify(String(message || ""))}, ${JSON.stringify(type || "success")})`
         )
         .catch(() => {});
-    }
-    return { success: true };
-  });
-
-  ipcMain.handle("bb:create-course", async (event, data) => {
-    if (!isTrustedBbSender(event)) return { success: false };
-    activeCourseId = "";
-    sendToMain("bb:create-course-request", {
-      courseTitle: String(data?.courseTitle || "").slice(0, 200),
-      bbCourseId: String(data?.bbCourseId || ""),
-    });
-    return { success: true };
-  });
-
-  ipcMain.handle("bb:course-created", async (event, payload) => {
-    if (!isMainWindowSender(event)) return { success: false };
-    const { courseId, courseTitle, bbCourseId } = payload || {};
-    activeCourseId = String(courseId || "");
-    linkedCourseName = courseTitle || "";
-    linkedBbCourseId = String(bbCourseId || "");
-    if (bbWindow && !bbWindow.isDestroyed()) {
-      await injectPage(bbWindow.webContents.getURL());
     }
     return { success: true };
   });
@@ -1582,6 +867,28 @@ function registerBlackboardHandlers(mainWindowGetter, options = {}) {
     if (result.ok && bbWindow && !bbWindow.isDestroyed()) await injectPage(bbWindow.webContents.getURL());
     return result;
   });
+
+  /** Background check of one linked course (Desktop Nova). Shares the sync lock so it never overlaps a manual sync. */
+  async function backgroundCheck(bbCourseId) {
+    const id = String(bbCourseId || "");
+    if (!/^_\d+_\d+$/.test(id)) return { ok: false, error: "invalid" };
+    if (syncing) return { ok: false, error: "busy" };
+    if (!(await isLoggedIn())) return { ok: false, error: "not-logged-in" };
+    const course = getDb().prepare("SELECT uuid FROM courses WHERE bb_course_id = ? ORDER BY id ASC LIMIT 1").get(id);
+    if (!course) return { ok: false, error: "not-linked" };
+    syncing = true;
+    try {
+      const payload = await checkCourse(id);
+      const result = applyBbSync(getDb(), course.uuid, payload);
+      return { ok: !!result.success, courseUuid: course.uuid, payload };
+    } catch (err) {
+      return { ok: false, error: err?.status === 401 || err?.status === 403 ? "not-logged-in" : err?.message || String(err) };
+    } finally {
+      syncing = false;
+    }
+  }
+
+  return { backgroundCheck, openLogin: () => openBlackboardWindow() };
 }
 
 module.exports = {

@@ -48,7 +48,7 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, courseSh
   const [toastMsg, setToastMsg] = useState("");
   const [enhancing, setEnhancing] = useState(false);
   const [sourceFilter, setSourceFilter] = useState("all");
-  const c = ensureUserCourse(course);
+  const c = useMemo(() => ensureUserCourse(course), [course]);
   const [active, setActive] = useState(c.activeModuleId);
   const [activeItem, setActiveItem] = useState(`module:${c.activeModuleId}`);
   const shellSkelVis = useDelayedSkeletonVisible(!!courseShellLoad, courseShellLoad ? "shell" : "");
@@ -129,6 +129,11 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, courseSh
         if (d.moduleId && (courseRef.current?.modules || []).some((m) => m.id === d.moduleId)) selectModule(d.moduleId);
         if (d.deckMode) setSourceFilter(d.deckMode);
         setActiveItem("qz-deck");
+        setMainTab("content");
+        return;
+      }
+      if (typeof d?.item === "string" && d.item.startsWith("course-")) {
+        setActiveItem(d.item);
         setMainTab("content");
         return;
       }

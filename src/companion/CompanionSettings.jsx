@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TINTS, MOVEMENT_LEVELS, SIZES, XP_AWARDS, levelProgress, unlockedTints } from "./companionStore.js";
 
 function Segmented({ label, value, options, onChange }) {

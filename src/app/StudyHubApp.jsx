@@ -17,6 +17,7 @@ import { useUserCourses } from "../features/courses/useUserCourses.js";
 import { buildCourseFromSlides, newModule } from "../features/import/courseBuilders.js";
 import { applyBlackboardImport } from "../features/import/blackboardImport.js";
 import { applySyllabusText } from "../features/import/syllabusImport.js";
+import { openCourseView } from "../features/today/courseView.js";
 import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import { SplashScreen, useSplashPhase } from "../components/SplashScreen.jsx";
 import { SettingsPanel } from "../shell/SettingsPanel.jsx";
@@ -151,6 +152,26 @@ function StudyHubAppInner() {
     if (typeof view === "string") setHubView(view);
   }, []);
 
+  /** Desktop Nova: her "Open" buttons, and background Blackboard checks refreshing what's on screen. */
+  useEffect(() => {
+    const desktop = window.studyHub?.desktop;
+    if (!desktop?.onNavigate) return undefined;
+    const offNav = desktop.onNavigate((to) => {
+      if (to?.courseUuid && userCourses.some((c) => c.id === to.courseUuid)) {
+        openCourseView(openCourseFromShell, to.courseUuid, { tab: to.tab, item: to.item });
+      } else goHub("today");
+    });
+    const offChecked = desktop.onBbChecked?.(async (res) => {
+      if (!res?.courseUuid) return;
+      await reloadCourse(res.courseUuid);
+      window.dispatchEvent(new CustomEvent("studyhub-bb-synced", { detail: { courseUuid: res.courseUuid, ok: true } }));
+    });
+    return () => {
+      offNav();
+      offChecked?.();
+    };
+  }, [userCourses, openCourseFromShell, goHub, reloadCourse]);
+
   const openSettings = useCallback(() => {
     if (courseId === "builtin") window.dispatchEvent(new CustomEvent("studyhub-open-settings"));
     else setSettingsOpen((v) => !v);
@@ -188,18 +209,6 @@ function StudyHubAppInner() {
   );
 
   const onHubManualCreate = useCallback((name) => void createCourse(name, ""), [createCourse]);
-
-  /** One Study Hub course per Blackboard course: reuse by bbCourseId (in memory, then DB) before creating. */
-  const createBlackboardCourse = useCallback(
-    async ({ name, bbCourseId, courseCode }) => {
-      const inMemory = bbCourseId ? userCourses.find((c) => c.bbCourseId === bbCourseId) : null;
-      if (inMemory) return inMemory;
-      const stored = await courseStore.findByBbCourseId(bbCourseId);
-      if (stored) return getCourse(stored.id) || stored;
-      return createCourse(name || "Blackboard Course", "BLACKBOARD", { bbCourseId, courseCode, open: false });
-    },
-    [userCourses, getCourse, createCourse]
-  );
 
   const handleBlackboardImport = useCallback(
     async ({ courseId: targetId, bbCourseId, fileName, folderName, action, extracted }) => {
@@ -348,7 +357,7 @@ function StudyHubAppInner() {
   return (
     <div data-bs-theme="dark" className="sh-app-root sh-app-shell">
       <ApiStatusSync />
-      <BlackboardImportHandler onCreateCourse={createBlackboardCourse} onImport={handleBlackboardImport} />
+      <BlackboardImportHandler onImport={handleBlackboardImport} />
       <TitleBar
         onCommandPalette={() => setPaletteOpen(true)}
         onGoToHub={goHub}

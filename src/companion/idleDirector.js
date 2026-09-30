@@ -42,11 +42,6 @@ export function pickIdleGesture({ part = "day", bored = false, last = null, rand
   return entries[entries.length - 1][0];
 }
 
-/** Sleep sooner late at night. */
-export function sleepAfterMs(part) {
-  return part === "late" ? 2 * 60 * 1000 : 3 * 60 * 1000;
-}
-
 export function clockLabel(date = new Date()) {
   return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }

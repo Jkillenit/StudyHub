@@ -3,7 +3,6 @@ const bbCourseListenerMap = new Map();
 const bbImportStartedListenerMap = new Map();
 const bbImportReadyListenerMap = new Map();
 const bbImportErrorListenerMap = new Map();
-const bbCreateCourseListenerMap = new Map();
 
 function subscribe(channel, callback) {
   if (typeof callback !== "function") return () => {};
@@ -109,11 +108,9 @@ contextBridge.exposeInMainWorld("studyHub", {
     openUrl: (url) => ipcRenderer.invoke("bb:open-url", url),
     close: () => ipcRenderer.invoke("bb:close"),
     disconnect: () => ipcRenderer.invoke("bb:disconnect"),
-    isLoggedIn: () => ipcRenderer.invoke("bb:isLoggedIn"),
     getStatus: () => ipcRenderer.invoke("bb:getStatus"),
     setActiveCourse: (courseId) => ipcRenderer.invoke("bb:set-active-course", courseId),
     showBbToast: (message, type) => ipcRenderer.invoke("bb:show-toast", { message, type }),
-    importFile: (context) => ipcRenderer.invoke("bb:import-file", context),
     onCourseDetected: (callback) => {
       if (typeof callback !== "function") return;
       const wrapped = (_event, data) => callback(data);
@@ -154,21 +151,6 @@ contextBridge.exposeInMainWorld("studyHub", {
         map.clear();
       }
     },
-    createCourseFromBB: (data) => ipcRenderer.invoke("bb:create-course", data),
-    reportCourseCreated: (data) => ipcRenderer.invoke("bb:course-created", data),
-    onCreateCourseRequest: (callback) => {
-      if (typeof callback !== "function") return;
-      const wrapped = (_event, data) => callback(data);
-      bbCreateCourseListenerMap.set(callback, wrapped);
-      ipcRenderer.on("bb:create-course-request", wrapped);
-    },
-    offCreateCourseRequest: (callback) => {
-      const entries = callback ? [[callback, bbCreateCourseListenerMap.get(callback)]] : [...bbCreateCourseListenerMap];
-      for (const [cb, wrapped] of entries) {
-        if (wrapped) ipcRenderer.removeListener("bb:create-course-request", wrapped);
-        bbCreateCourseListenerMap.delete(cb);
-      }
-    },
     /** @returns {Promise<{ ok: boolean, courses?: Array, error?: string }>} */
     listCourses: () => ipcRenderer.invoke("bb:list-courses"),
     /** @returns {Promise<{ ok: boolean, counts?: object, error?: string }>} */
@@ -196,49 +178,21 @@ contextBridge.exposeInMainWorld("studyHub", {
       get: (uuid) => ipcRenderer.invoke("db:courses:get", uuid),
       getFull: (uuid) => ipcRenderer.invoke("db:courses:getFull", uuid),
       saveFull: (payload) => ipcRenderer.invoke("db:courses:saveFull", payload),
-      findByBbId: (bbCourseId) => ipcRenderer.invoke("db:courses:findByBbId", bbCourseId),
-      create: (course) => ipcRenderer.invoke("db:courses:create", course),
-      update: (data) => ipcRenderer.invoke("db:courses:update", data),
       delete: (courseUuid) => ipcRenderer.invoke("db:courses:delete", courseUuid),
     },
-    modules: {
-      getByCourse: (courseUuid) => ipcRenderer.invoke("db:modules:getByCourse", courseUuid),
-      create: (moduleData) => ipcRenderer.invoke("db:modules:create", moduleData),
-      update: (data) => ipcRenderer.invoke("db:modules:update", data),
-      delete: (uuid) => ipcRenderer.invoke("db:modules:delete", uuid),
-    },
     notes: {
-      get: (moduleUuid) => ipcRenderer.invoke("db:notes:get", moduleUuid),
       save: (data) => ipcRenderer.invoke("db:notes:save", data),
-    },
-    content: {
-      getByModule: (moduleUuid) => ipcRenderer.invoke("db:content:getByModule", moduleUuid),
-      saveMany: (data) => ipcRenderer.invoke("db:content:saveMany", data),
-    },
-    flashcards: {
-      getByCourse: (courseUuid) => ipcRenderer.invoke("db:flashcards:getByCourse", courseUuid),
-      getDue: (courseUuid) => ipcRenderer.invoke("db:flashcards:getDue", courseUuid),
-      saveMany: (data) => ipcRenderer.invoke("db:flashcards:saveMany", data),
-      replaceForCourse: (data) => ipcRenderer.invoke("db:flashcards:replaceForCourse", data),
     },
     mastery: {
       update: (data) => ipcRenderer.invoke("db:mastery:update", data),
     },
-    glossary: {
-      getByCourse: (courseUuid) => ipcRenderer.invoke("db:glossary:getByCourse", courseUuid),
-      saveMany: (data) => ipcRenderer.invoke("db:glossary:saveMany", data),
-      replaceForCourse: (data) => ipcRenderer.invoke("db:glossary:replaceForCourse", data),
-      delete: (uuid) => ipcRenderer.invoke("db:glossary:delete", uuid),
-    },
     settings: {
       get: (key) => ipcRenderer.invoke("db:settings:get", key),
       set: (data) => ipcRenderer.invoke("db:settings:set", data),
-      getAll: () => ipcRenderer.invoke("db:settings:getAll"),
     },
     grades: {
       getComponents: (courseUuid) => ipcRenderer.invoke("db:grades:getComponents", courseUuid),
       saveComponents: (data) => ipcRenderer.invoke("db:grades:saveComponents", data),
-      getEntries: (courseUuid) => ipcRenderer.invoke("db:grades:getEntries", courseUuid),
       upsertEntry: (data) => ipcRenderer.invoke("db:grades:upsertEntry", data),
       getSubEntries: (componentId) => ipcRenderer.invoke("db:grades:getSubEntries", componentId),
       saveSubEntry: (data) => ipcRenderer.invoke("db:grades:saveSubEntry", data),
@@ -282,7 +236,6 @@ contextBridge.exposeInMainWorld("studyHub", {
     },
     companion: {
       memory: () => ipcRenderer.invoke("db:companion:memory:getAll"),
-      remember: (entry) => ipcRenderer.invoke("db:companion:memory:set", entry),
       rememberMany: (entries) => ipcRenderer.invoke("db:companion:memory:setMany", entries),
       mute: (data) => ipcRenderer.invoke("db:companion:memory:mute", data),
       forget: () => ipcRenderer.invoke("db:companion:memory:forget"),

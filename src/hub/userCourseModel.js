@@ -17,15 +17,19 @@ function hashString(value) {
 function withStableIds(list, prefix, keyOf) {
   if (!Array.isArray(list)) return [];
   const seen = new Set();
-  return list.map((item) => {
+  let changed = false;
+  const out = list.map((item) => {
     let id = item?.id || item?.uuid;
     if (!id) {
       id = `${prefix}_${hashString(keyOf(item))}`;
       while (seen.has(id)) id = `${id}x`;
     }
     seen.add(id);
-    return item?.id === id ? item : { ...item, id };
+    if (item?.id === id) return item;
+    changed = true;
+    return { ...item, id };
   });
+  return changed ? out : list;
 }
 
 export function ensureUserCourse(course) {

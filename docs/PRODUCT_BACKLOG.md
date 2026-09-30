@@ -77,6 +77,29 @@ Tags: `local-first` (no API/cloud), `AI-optional`, `AI-required`, `cloud` (Commo
 | GRD-INS-001 | Anonymous grade distributions per course/instructor/term (≥5 reports) | 5 | 3 | 1 wk | `cloud` |
 | PROF-001 | Professor mini-reviews: structured ratings + ≤280 chars, 1 per student per course-term | 4 | 3 | 1 wk | `cloud` |
 
+## Tech debt — efficiency sweep (deferred, Sep 2026)
+
+Found in the Ponytail efficiency sweep. Phase 2.10 fixed Tiers 1–2 (SQL statement cache +
+indexes + change-guarded upserts, note-only saves, stable course normalization, shared notes
+editor hook, dead IPC removal, Blackboard page scripts moved to `electron/bbInject/`, main.cjs
+dedupe, Nova polling paused while hidden) except Nova asset compression, now TD-12. DB upsert
+behavior is covered by `npm run check:db`. Line refs are approximate. Est. cut = lines removable.
+
+| ID | Issue | Fix | Est. cut | Risk / tradeoff |
+|----|-------|-----|----------|-----------------|
+| TD-01 | Grade math re-implemented in `GradesTab.jsx` (`getCurrentLetter` = `todayView.letterFor`; hand-rolled `score*weight` in WhatIf/Drop/ComponentRow). **Bug:** `HypotheticalEngine` calls `neededAverage` on raw weights while `priority.courseStanding` normalizes → "What do I need?" disagrees with Today when weights ≠ 100%. | Move `letterFor`, `contribution`, `normalized`, `scoreTone` into `features/grades/gradeMath.js`; use everywhere | ~30 | Displayed numbers change for syllabi not summing to 100% |
+| TD-02 | Local `YYYY-MM-DD` key ×5 (`sm2.localDateString`, `blocked.dayKey`, `CalendarView.dayKey`, `priority.localDayKey`, inline in `todayView`); `startOfLocalDay`/`startOfDay`, `dayIndex`/`dayNumber`, `dueLabel`/`dueText`, `formatDuration`/`formatMinutes` pairs | One date module in `features/dashboard/dateLabels.js` (or `lib/dates.js`), shared `Intl.DateTimeFormat` instances | ~30 | Low; covered by sm2/priority/todayView tests. Keep `electron/examCards.localDateString` parity with `sm2.js` |
+| TD-03 | Duplicate fetches: `useCourseExams` runs in both `UserCourseApp` and `FlashcardDeck`, plus `useMirrorBadges` → 3× `assignments.getByCourse` per course open/sync. `hasGrades` state mirrors DB. ~40 raw `window.studyHub.db` calls bypass `courseStore` (rule violation) | Pass `examFor` down as a prop; one `useCourseMirror(uuid)` hook; `courseStore.grades.*` wrappers | ~20 + 4–6 fewer IPC calls | `FlashcardDeck` is also used by OM 300 with null course → no-op default |
+| TD-04 | `CommandPalette` rebuilds its full index on every keystroke and every app render, even when closed (inline callbacks from `StudyHubApp` in deps). Dead `act-import-backup` `run()` body; `matches` = `termMatches` | Build rows only when open, callbacks in a ref, filter separately. Optional native `<dialog>` for Escape/focus trap | ~15 (+~40 with `<dialog>`) | Fade animation moves to CSS `@starting-style` |
+| TD-05 | `FlashcardDeckContext` pushes draft `newFront/newBack` from deck to `BuiltinCourseApp` panel → 2 full renders per keystroke | Keep draft state in the panel form; deck exposes commands only | ~20 | Low |
+| TD-06 | `isTypingTarget` ×3, palette-open check ×3 (BuiltinCourseApp's version misses SELECT); `BuiltinCourseApp` has 4 identical localStorage effects, duplicate `ApiStatusSync`, `execCommand` clipboard fallback, DOM `htmlToPlainText` shadowing `lib/notesBody` | `lib/hotkeys.js` `shouldIgnoreHotkey`, `usePersistedState` | ~50 | Low |
+| TD-07 | Inline styles fighting CSS: `DefinitionCard` tier borders vs `.sh-tier-*`, `GradeScaleDisplay` vs `.sh-grade-scale-row--current`, 8× `gradeColor` inline, runtime `<style>@media print` in two apps | Tone classes + print rules in `studyhub-bootstrap.css` | ~40 | Visual regressions; untangle `!important` |
+| TD-08 | `GradesTab` loads the whole Today snapshot for `HoldTarget` and reloads all 5 queries after every structural edit; sub-entry average computed twice | Refetch only components + grade items; derive HoldTarget inputs | ~3 fewer IPC calls per edit | `neededScores` needs assignment shares |
+| TD-09 | `FlashcardDeck` copies `externalCards` into state → 3 renders per rating; `completedCount` O(n²) | `useMemo` for user decks; Set lookup | ~8 | Depends on stable `externalCards` (fixed in 2.10) |
+| TD-10 | `NovaStage.js` allocates Vector3/Quaternion per frame, recursive `updateMatrixWorld` on arm bones | Module-level scratch objects | ~0 (perf) | Low, mechanical |
+| TD-11 | Split `CompanionLayer.jsx` (~2,800 lines, 128 hooks) by concern: idle, drag, tours, quiz, nudges. Drag re-renders the whole layer per mousemove; `Nova3D` reads layout per mousemove; 10 uncleared timeouts; WebGL context leaked on toggle | Extract hooks per concern; ref-based drag position | large | High — timing-sensitive behavior |
+| TD-12 | `nova.vrm` 15.5 MB + `clips.json` 1.1 MB base64 loaded up front | meshopt-compress VRM (gltf-transform), ship clips as binary | ~12 MB payload | Needs asset pipeline + visual check |
+
 ## Parked
 
 | ID | Feature | Impact | Diff | Tags |

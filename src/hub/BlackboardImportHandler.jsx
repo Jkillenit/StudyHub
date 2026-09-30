@@ -11,25 +11,13 @@ function isSyllabusName(fileName) {
  * Bridges Blackboard-window events to the app. It never builds course objects itself:
  * course resolution and merging happen in the root app against live state.
  */
-export default function BlackboardImportHandler({ onCreateCourse, onImport }) {
-  const createRef = useRef(onCreateCourse);
+export default function BlackboardImportHandler({ onImport }) {
   const importRef = useRef(onImport);
-  createRef.current = onCreateCourse;
   importRef.current = onImport;
 
   useEffect(() => {
     const bb = window.studyHub?.blackboard;
     if (!bb) return undefined;
-
-    const handleCreateRequest = async (data) => {
-      const { courseTitle, bbCourseId } = data || {};
-      const course = await createRef.current?.({ name: courseTitle || bbCourseId || "Blackboard Course", bbCourseId });
-      if (!course) return;
-      const courseId = course.uuid || course.id;
-      await bb.setActiveCourse?.(courseId);
-      await bb.reportCourseCreated?.({ courseId, courseTitle: course.name, bbCourseId });
-      bbToast(`✓ Course linked: ${course.name}`);
-    };
 
     const handleImportReady = async (data) => {
       const { localPath, fileName, folderName, courseId, bbCourseId, role, action } = data || {};
@@ -66,12 +54,10 @@ export default function BlackboardImportHandler({ onCreateCourse, onImport }) {
     const handleImportError = (data) => bbToast(`✕ ${data?.fileName || "File"}: ${data?.error || "Import failed"}`, "error");
     const handleImportStarted = (data) => bbToast(`... importing ${data?.fileName || "file"}`);
 
-    bb.onCreateCourseRequest?.(handleCreateRequest);
     bb.onImportReady?.(handleImportReady);
     bb.onImportError?.(handleImportError);
     bb.onImportStarted?.(handleImportStarted);
     return () => {
-      bb.offCreateCourseRequest?.(handleCreateRequest);
       bb.offImportEvents?.();
     };
   }, []);

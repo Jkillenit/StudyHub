@@ -1,7 +1,3 @@
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 function cleanTerm(raw) {
   return String(raw || "")
     .replace(/^[\-\u2022\*\d\.\)]+\s*/, "")
@@ -263,15 +259,4 @@ export function textToSlides(text, title = "Notes Review") {
     return { type: isList ? "list" : "paragraph", text: normalized, runs };
   });
   return [{ slideNumber: 1, title, titleFormatting: {}, nodes }];
-}
-
-export function glossaryInjectBold(text, terms) {
-  let out = String(text || "");
-  for (const term of terms || []) {
-    const t = String(term || "").trim();
-    if (!t) continue;
-    const regex = new RegExp(`(^|[^a-zA-Z0-9])(${escapeRegExp(t)})([^a-zA-Z0-9]|$)`, "gi");
-    out = out.replace(regex, "$1**$2**$3");
-  }
-  return out;
 }

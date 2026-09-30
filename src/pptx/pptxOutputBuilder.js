@@ -71,29 +71,3 @@ export function buildReviewBlock(unclassifiedSlides) {
     slideCount: (unclassifiedSlides || []).length,
   };
 }
-
-export function buildContentText(output) {
-  const parts = [];
-  if ((output?.contentCards || []).length) {
-    parts.push("DEFINITIONS");
-    for (const card of output.contentCards) {
-      parts.push(`- ${card.term}: ${card.definition}`);
-    }
-    parts.push("");
-  }
-  if ((output?.contentSections || []).length) {
-    parts.push("SECTIONS");
-    for (const section of output.contentSections) {
-      parts.push(`# ${section.title}`);
-      for (const item of section.items || []) parts.push(`- ${item}`);
-    }
-    parts.push("");
-  }
-  if ((output?.contentFormulas || []).length) {
-    parts.push("FORMULAS");
-    for (const formula of output.contentFormulas) {
-      parts.push(`- ${formula.formula}${formula.context ? ` (${formula.context})` : ""}`);
-    }
-  }
-  return parts.join("\n").trim();
-}

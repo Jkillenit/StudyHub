@@ -412,8 +412,6 @@ function registerMirrorHandlers() {
     return { success: true, ...applyBbGrades(db, courseId) };
   });
 
-  ipcMain.handle("db:bb:applySync", (_, { courseUuid, payload }) => applyBbSync(db, courseUuid, payload));
-
   /* ---------------- dashboard ---------------- */
 
   ipcMain.handle("db:dashboard:get", () => {

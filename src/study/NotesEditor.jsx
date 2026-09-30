@@ -1,69 +1,17 @@
-import { useEditor, EditorContent, useEditorState } from "@tiptap/react";
+import { EditorContent, useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
-import { Extension } from "@tiptap/core";
 import Highlight from "@tiptap/extension-highlight";
-import Placeholder from "@tiptap/extension-placeholder";
-import StarterKit from "@tiptap/starter-kit";
-import TaskItem from "@tiptap/extension-task-item";
-import TaskList from "@tiptap/extension-task-list";
-import Typography from "@tiptap/extension-typography";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getGlossaryTermsForChapter } from "../glossary/index.js";
-import { createGlossaryPlugin, glossaryPluginKey } from "./applyGlossaryHighlights.js";
 import { getStudyChapterNote, saveStudyChapterNote } from "./chapterNotesStorage.js";
+import { bodyToHtml } from "../lib/notesBody.js";
+import { useNotesEditor } from "./useNotesEditor.js";
 
-/** Escape legacy markdown to HTML paragraphs for one-time migration into TipTap. */
-function legacyMarkdownToHtml(md) {
-  if (!md || !md.trim()) return "";
-  const esc = md.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return `<p>${esc.replace(/\n\n+/g, "</p><p>").replace(/\n/g, "<br>")}</p>`;
-}
+const EXTRA_EXTENSIONS = [Highlight.configure({ multicolor: false })];
 
 function initialHtmlForSection(sectionId) {
   const note = getStudyChapterNote(sectionId);
-
-  function sanitize(raw) {
-    if (!raw || typeof raw !== "string")
-      return "";
-    const trimmed = raw.trim();
-    if (!trimmed) return "";
-
-    // Already valid HTML
-    if (trimmed.startsWith("<")) {
-      return trimmed.length > 100000
-        ? trimmed.substring(0, 100000) +
-          "<p><em>[Truncated]</em></p>"
-        : trimmed;
-    }
-
-    // Plain text — convert to safe HTML
-    return trimmed
-      .replace(/[^\x20-\x7E\n\r\t]/g, " ")
-      .substring(0, 20000)
-      .split(/\n{2,}/)
-      .map((p) => p.trim())
-      .filter(Boolean)
-      .map((p) =>
-        "<p>" +
-        p.replace(/&/g, "&amp;")
-         .replace(/</g, "&lt;")
-         .replace(/>/g, "&gt;")
-         .split("\n")
-         .map((l) => l.trim())
-         .filter(Boolean)
-         .join("<br>") +
-        "</p>"
-      )
-      .join("") || "";
-  }
-
-  if (note.html && note.html.trim())
-    return sanitize(note.html);
-  if (note.markdown && note.markdown.trim())
-    return sanitize(
-      legacyMarkdownToHtml(note.markdown)
-    );
-  return "";
+  return bodyToHtml(note.html.trim() ? note.html : note.markdown);
 }
 
 function NotesBubbleToolbar({ editor }) {
@@ -154,110 +102,22 @@ function NotesBubbleToolbar({ editor }) {
  * @param {(phase: 'saving' | 'saved' | 'local') => void} [onAutosaveStatus]
  */
 export function NotesEditor({ sectionId, onPersist, onAutosaveStatus, className, onEditorReady }) {
-  const debounceRef = useRef(null);
-  const savedCooldownRef = useRef(null);
   const onPersistRef = useRef(onPersist);
-  const onAutosaveStatusRef = useRef(onAutosaveStatus);
-  const glossaryTermsRef = useRef([]);
-  const prevTermsRef = useRef([]);
-  const editorRef = useRef(null);
-  const [glossaryTerms, setGlossaryTerms] = useState([]);
+  onPersistRef.current = onPersist;
   const [popover, setPopover] = useState(null);
-  const glossaryPlugin = useMemo(() => createGlossaryPlugin(() => glossaryTermsRef.current), []);
-  const GlossaryHighlightExtension = useMemo(
-    () =>
-      Extension.create({
-        name: "glossaryHighlight",
-        addProseMirrorPlugins() {
-          return [glossaryPlugin];
-        },
-      }),
-    [glossaryPlugin]
-  );
-
-  useEffect(() => {
-    onPersistRef.current = onPersist;
-  }, [onPersist]);
-
-  useEffect(() => {
-    onAutosaveStatusRef.current = onAutosaveStatus;
-  }, [onAutosaveStatus]);
-
-  useEffect(() => {
-    const terms = getGlossaryTermsForChapter(sectionId);
-    setGlossaryTerms(terms);
-    glossaryTermsRef.current = terms;
-  }, [sectionId]);
-
-  const initialContent = useMemo(() => {
-    const raw = initialHtmlForSection(sectionId);
-
-    if (!raw || typeof raw !== "string") {
-      return "";
-    }
-
-    const trimmed = raw.trim();
-
-    if (trimmed.startsWith("<")) {
-      if (trimmed.length > 100000) {
-        return trimmed.substring(0, 100000) + "<p><em>[Content truncated]</em></p>";
-      }
-      return trimmed;
-    }
-
-    const safe = trimmed
-      .replace(/[^\x20-\x7E\n\r\t]/g, " ")
-      .substring(0, 20000);
-
-    if (!safe.trim()) return "";
-
-    const html = safe
-      .split(/\n{2,}/)
-      .map((para) => para.trim())
-      .filter(Boolean)
-      .map((para) =>
-        "<p>" +
-        para
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .split("\n")
-          .map((line) => line.trim())
-          .filter(Boolean)
-          .join("<br>")
-        + "</p>"
-      )
-      .join("");
-
-    return html || "";
-  }, [sectionId]);
-
-  const extensions = useMemo(
-    () => [
-      StarterKit.configure({
-        heading: { levels: [2, 3] },
-        codeBlock: {
-          HTMLAttributes: {
-            class: "sh-code-block",
-          },
-        },
-      }),
-      Placeholder.configure({
-        placeholder: "Start typing notes...",
-        emptyEditorClass: "sh-editor-empty",
-      }),
-      Typography,
-      Highlight.configure({
-        multicolor: false,
-      }),
-      TaskList,
-      TaskItem.configure({
-        nested: true,
-      }),
-      GlossaryHighlightExtension,
-    ],
-    [GlossaryHighlightExtension]
-  );
+  const glossaryTerms = useMemo(() => getGlossaryTermsForChapter(sectionId), [sectionId]);
+  const initialHtml = useMemo(() => initialHtmlForSection(sectionId), [sectionId]);
+  const { editor } = useNotesEditor({
+    sectionId,
+    initialHtml,
+    glossaryTerms,
+    onAutosaveStatus,
+    extraExtensions: EXTRA_EXTENSIONS,
+    onSave: (html, id) => {
+      saveStudyChapterNote(id, html);
+      onPersistRef.current?.();
+    },
+  });
 
   function handleEditorClick(e) {
     const mark = e.target.closest("[data-glossary]");
@@ -270,7 +130,7 @@ export function NotesEditor({ sectionId, onPersist, onAutosaveStatus, className,
     const defAttr = mark.getAttribute("data-definition");
     const definition =
       defAttr ||
-      glossaryTermsRef.current.find((t) => t.term.toLowerCase() === dataGloss.toLowerCase())?.definition ||
+      glossaryTerms.find((t) => t.term.toLowerCase() === dataGloss.toLowerCase())?.definition ||
       "";
     setPopover({
       term: dataGloss,
@@ -287,64 +147,10 @@ export function NotesEditor({ sectionId, onPersist, onAutosaveStatus, className,
     return () => document.removeEventListener("click", close);
   }, []);
 
-  const editor = useEditor(
-    {
-      extensions,
-      content: initialContent,
-      onUpdate: ({ editor: ed }) => {
-        onAutosaveStatusRef.current?.("saving");
-        window.clearTimeout(debounceRef.current);
-        debounceRef.current = window.setTimeout(() => {
-          const html = ed.getHTML();
-          saveStudyChapterNote(sectionId, html);
-          onPersistRef.current?.();
-          onAutosaveStatusRef.current?.("saved");
-          window.clearTimeout(savedCooldownRef.current);
-          savedCooldownRef.current = window.setTimeout(() => {
-            onAutosaveStatusRef.current?.("local");
-          }, 2000);
-        }, 500);
-      },
-      editorProps: {
-        attributes: {
-          class: "sh-editor-content",
-          spellcheck: "true",
-        },
-      },
-    },
-    [sectionId, extensions, initialContent]
-  );
-
   useEffect(() => {
-    editorRef.current = editor;
     onEditorReady?.(editor ?? null);
     return () => onEditorReady?.(null);
   }, [editor, onEditorReady]);
-
-  useEffect(() => {
-    const termsChanged = JSON.stringify(prevTermsRef.current) !== JSON.stringify(glossaryTerms);
-    if (!termsChanged) return;
-    prevTermsRef.current = glossaryTerms;
-    glossaryTermsRef.current = glossaryTerms;
-    const ed = editorRef.current;
-    if (ed && !ed.isDestroyed && glossaryTerms.length > 0) {
-      ed.view.dispatch(ed.state.tr.setMeta(glossaryPluginKey, true));
-    }
-  }, [glossaryTerms]);
-
-  useEffect(() => {
-    return () => {
-      if (editor && !editor.isDestroyed) {
-        editor.destroy();
-      }
-      window.clearTimeout(debounceRef.current);
-      window.clearTimeout(savedCooldownRef.current);
-      if (editor && !editor.isDestroyed) {
-        saveStudyChapterNote(sectionId, editor.getHTML());
-        onPersistRef.current?.();
-      }
-    };
-  }, [editor, sectionId]);
 
   return (
     <div

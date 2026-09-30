@@ -204,24 +204,61 @@ function toPayload(course) {
   };
 }
 
+/** Snapshot of a payload: everything except note html (serialized), plus html per module uuid. */
+function snapshotOf(payload) {
+  const html = new Map();
+  const modules = payload.modules.map(({ html: body, ...mod }) => {
+    html.set(mod.uuid, body);
+    return mod;
+  });
+  return { shape: JSON.stringify({ ...payload, modules }), html };
+}
+
+/** Module uuids whose html differs from `prev`, or null when anything besides note html changed. */
+function changedNotes(prev, next) {
+  if (!prev || prev.shape !== next.shape) return null;
+  return [...next.html].filter(([uuid, body]) => prev.html.get(uuid) !== body).map(([uuid]) => uuid);
+}
+
 /**
  * Per-course save queue: at most one write in flight, only the latest pending state is written next,
  * and identical payloads are skipped. Writes are ordered, so a stale save can never overwrite a newer one.
+ * When only note html changed, just those notes are written instead of the whole course.
  */
 const saveQueues = new Map();
 const deletedCourses = new Set();
 
-function enqueueSave(payload) {
-  const key = payload.uuid;
-  if (deletedCourses.has(key)) return Promise.resolve({ success: false, deleted: true });
-  const serialized = JSON.stringify(payload);
+function queueFor(key) {
   let queue = saveQueues.get(key);
   if (!queue) {
     queue = { lastWritten: null, pending: null, running: null };
     saveQueues.set(key, queue);
   }
-  if (queue.running === null && queue.lastWritten === serialized) return Promise.resolve({ success: true });
-  queue.pending = { payload, serialized };
+  return queue;
+}
+
+async function writeSnapshot(payload, snapshot, prev) {
+  const notes = changedNotes(prev, snapshot);
+  if (!notes) return db.courses.saveFull(payload);
+  for (const moduleUuid of notes) await db.notes.save({ moduleUuid, html: snapshot.html.get(moduleUuid) });
+  return { success: true };
+}
+
+/** Records a course just read from the DB as written, so the next note edit can take the fast path. */
+function seedWritten(course) {
+  if (!course) return course;
+  const queue = queueFor(course.uuid);
+  if (!queue.running) queue.lastWritten = snapshotOf(toPayload(course));
+  return course;
+}
+
+function enqueueSave(payload) {
+  const key = payload.uuid;
+  if (deletedCourses.has(key)) return Promise.resolve({ success: false, deleted: true });
+  const snapshot = snapshotOf(payload);
+  const queue = queueFor(key);
+  if (queue.running === null && changedNotes(queue.lastWritten, snapshot)?.length === 0) return Promise.resolve({ success: true });
+  queue.pending = { payload, snapshot };
   if (!queue.running) {
     queue.running = (async () => {
       let result = { success: true };
@@ -229,10 +266,10 @@ function enqueueSave(payload) {
         const next = queue.pending;
         queue.pending = null;
         if (deletedCourses.has(key)) break;
-        if (next.serialized === queue.lastWritten) continue;
+        if (changedNotes(queue.lastWritten, next.snapshot)?.length === 0) continue;
         try {
-          result = await db.courses.saveFull(next.payload);
-          queue.lastWritten = next.serialized;
+          result = await writeSnapshot(next.payload, next.snapshot, queue.lastWritten);
+          queue.lastWritten = next.snapshot;
         } catch (err) {
           result = { success: false, error: err?.message || String(err) };
         }
@@ -248,17 +285,11 @@ export const courseStore = {
   async loadAllCourses() {
     const rows = await db.courses.getAll();
     const full = await Promise.all(rows.map((row) => db.courses.getFull(row.uuid)));
-    return full.map(inflateCourse).filter(Boolean);
+    return full.map(inflateCourse).filter(Boolean).map(seedWritten);
   },
 
   async getCourseWithModules(courseUuid) {
-    return inflateCourse(await db.courses.getFull(courseUuid));
-  },
-
-  async findByBbCourseId(bbCourseId) {
-    if (!bbCourseId) return null;
-    const row = await db.courses.findByBbId(bbCourseId);
-    return row ? this.getCourseWithModules(row.uuid) : null;
+    return seedWritten(inflateCourse(await db.courses.getFull(courseUuid)));
   },
 
   syncCourse(course) {

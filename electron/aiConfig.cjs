@@ -8,20 +8,25 @@ function pathFor(app) {
   return path.join(app.getPath("userData"), "study-hub-ai.json");
 }
 
+/** Only this module writes the file, so the parsed copy stays valid until writeFile replaces it. */
+let cached = null;
+
 function readFile(app) {
-  try {
-    const p = pathFor(app);
-    if (!fs.existsSync(p)) return {};
-    return JSON.parse(fs.readFileSync(p, "utf8"));
-  } catch {
-    return {};
+  if (!cached) {
+    try {
+      cached = JSON.parse(fs.readFileSync(pathFor(app), "utf8"));
+    } catch {
+      cached = {};
+    }
   }
+  return { ...cached };
 }
 
 function writeFile(app, obj) {
   const p = pathFor(app);
   fs.mkdirSync(path.dirname(p), { recursive: true });
   fs.writeFileSync(p, JSON.stringify(obj, null, 2), { encoding: "utf8", mode: 0o600 });
+  cached = { ...obj };
 }
 
 function canEncrypt() {

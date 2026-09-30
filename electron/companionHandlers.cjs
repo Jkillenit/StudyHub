@@ -91,8 +91,6 @@ function registerCompanionHandlers() {
 
   ipcMain.handle("db:companion:memory:getAll", () => memoryRows(db));
 
-  ipcMain.handle("db:companion:memory:set", (_, entry) => setMemory(db, entry || {}));
-
   ipcMain.handle("db:companion:memory:setMany", (_, entries) => {
     const list = Array.isArray(entries) ? entries.slice(0, 200) : [];
     db.transaction(() => list.forEach((e) => setMemory(db, e || {})))();

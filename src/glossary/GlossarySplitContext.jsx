@@ -39,7 +39,3 @@ export function useGlossarySplit() {
   }
   return ctx;
 }
-
-export function useGlossarySplitOptional() {
-  return useContext(GlossarySplitContext);
-}

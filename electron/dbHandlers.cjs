@@ -26,10 +26,18 @@ function moduleIdFor(db, moduleUuid) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Granular upserts. Rows missing from the incoming list are deleted   */
-/* individually, so untouched rows (and their mastery/grade children)  */
-/* are never cascaded away.                                            */
+/* Granular upserts. Only rows missing from the incoming list are      */
+/* deleted, so untouched rows (and their mastery/grade children) are   */
+/* never cascaded away. Upserts skip rows whose values are unchanged.  */
 /* ------------------------------------------------------------------ */
+
+/** table/scopeCol are code constants, never renderer input. */
+function pruneMissing(db, table, scopeCol, scopeId, keepUuids) {
+  db.prepare(`DELETE FROM ${table} WHERE ${scopeCol} = ? AND uuid NOT IN (SELECT value FROM json_each(?))`).run(
+    scopeId,
+    JSON.stringify([...keepUuids])
+  );
+}
 
 function upsertCourse(db, course) {
   const row = {
@@ -71,6 +79,8 @@ function upsertModule(db, courseId, mod, position) {
       disabled = excluded.disabled,
       updated_at = datetime('now')
     WHERE modules.course_id = excluded.course_id
+      AND (modules.title, modules.position, modules.reviewed, modules.disabled)
+          IS NOT (excluded.title, excluded.position, excluded.reviewed, excluded.disabled)
   `).run({
     uuid: mod.uuid,
     courseId,
@@ -93,12 +103,7 @@ function saveNote(db, moduleId, html) {
 
 function syncContentItems(db, moduleId, items) {
   const rows = Array.isArray(items) ? items : [];
-  const keep = new Set(rows.map((item) => item.uuid).filter(Boolean));
-  const existing = db.prepare("SELECT uuid FROM content_items WHERE module_id = ?").all(moduleId);
-  const del = db.prepare("DELETE FROM content_items WHERE uuid = ?");
-  existing.forEach((row) => {
-    if (!keep.has(row.uuid)) del.run(row.uuid);
-  });
+  pruneMissing(db, "content_items", "module_id", moduleId, rows.map((item) => item.uuid).filter(Boolean));
   const stmt = db.prepare(`
     INSERT INTO content_items (
       uuid, module_id, section_type, section_title, term, definition,
@@ -120,6 +125,12 @@ function syncContentItems(db, moduleId, items) {
       source = excluded.source,
       enhanced_by_ai = excluded.enhanced_by_ai,
       position = excluded.position
+    WHERE (content_items.module_id, content_items.section_type, content_items.section_title, content_items.term,
+           content_items.definition, content_items.body, content_items.items_json, content_items.is_numbered,
+           content_items.confidence, content_items.source, content_items.enhanced_by_ai, content_items.position)
+      IS NOT (excluded.module_id, excluded.section_type, excluded.section_title, excluded.term,
+              excluded.definition, excluded.body, excluded.items_json, excluded.is_numbered,
+              excluded.confidence, excluded.source, excluded.enhanced_by_ai, excluded.position)
   `);
   rows.forEach((item, index) => {
     stmt.run({
@@ -140,11 +151,10 @@ function syncContentItems(db, moduleId, items) {
   });
 }
 
-function upsertFlashcard(db, courseId, card, fallbackModuleId = null) {
-  const front = String(card.front || "").trim();
-  const back = String(card.back || "").trim();
-  if (!front || !back) return;
-  db.prepare(`
+function syncFlashcards(db, courseId, cards, moduleIds) {
+  const rows = Array.isArray(cards) ? cards : [];
+  pruneMissing(db, "flashcards", "course_id", courseId, rows.map((card) => card.uuid || card.id).filter(Boolean));
+  const stmt = db.prepare(`
     INSERT INTO flashcards (uuid, course_id, module_id, front, back, source)
     VALUES (@uuid, @courseId, @moduleId, @front, @back, @source)
     ON CONFLICT(uuid) DO UPDATE SET
@@ -153,70 +163,60 @@ function upsertFlashcard(db, courseId, card, fallbackModuleId = null) {
       back = excluded.back,
       source = excluded.source
     WHERE flashcards.course_id = excluded.course_id
-  `).run({
-    uuid: card.uuid || card.id || newUuid("fc"),
-    courseId,
-    moduleId: moduleIdFor(db, card.moduleUuid) ?? fallbackModuleId,
-    front,
-    back,
-    source: card.source || "manual",
-  });
-}
-
-function syncFlashcards(db, courseId, cards) {
-  const rows = Array.isArray(cards) ? cards : [];
-  const keep = new Set(rows.map((card) => card.uuid || card.id).filter(Boolean));
-  const existing = db.prepare("SELECT uuid FROM flashcards WHERE course_id = ?").all(courseId);
-  const del = db.prepare("DELETE FROM flashcards WHERE uuid = ?");
-  existing.forEach((row) => {
-    if (!keep.has(row.uuid)) del.run(row.uuid);
-  });
-  rows.forEach((card) => upsertFlashcard(db, courseId, card));
-}
-
-function upsertGlossaryTerm(db, courseId, term, fallbackModuleId = null) {
-  const text = String(term.term || "").trim();
-  const definition = String(term.definition || "").trim();
-  if (!text || !definition) return;
-  const uuid = term.uuid || term.id || newUuid("gls");
-  const params = {
-    uuid,
-    courseId,
-    moduleId: moduleIdFor(db, term.moduleUuid) ?? fallbackModuleId,
-    term: text,
-    definition,
-    confidence: term.confidence || "high",
-    source: term.source || "manual",
-  };
-  const exists = db.prepare("SELECT id FROM glossary_terms WHERE uuid = ?").get(uuid);
-  try {
-    if (exists) {
-      db.prepare(`
-        UPDATE glossary_terms
-        SET module_id = @moduleId, term = @term, definition = @definition,
-            confidence = @confidence, source = @source
-        WHERE uuid = @uuid AND course_id = @courseId
-      `).run(params);
-    } else {
-      db.prepare(`
-        INSERT OR IGNORE INTO glossary_terms (uuid, course_id, module_id, term, definition, confidence, source)
-        VALUES (@uuid, @courseId, @moduleId, @term, @definition, @confidence, @source)
-      `).run(params);
-    }
-  } catch (err) {
-    if (!String(err?.message || "").includes("UNIQUE")) throw err;
+      AND (flashcards.module_id, flashcards.front, flashcards.back, flashcards.source)
+          IS NOT (excluded.module_id, excluded.front, excluded.back, excluded.source)
+  `);
+  for (const card of rows) {
+    const front = String(card.front || "").trim();
+    const back = String(card.back || "").trim();
+    if (!front || !back) continue;
+    stmt.run({
+      uuid: card.uuid || card.id || newUuid("fc"),
+      courseId,
+      moduleId: moduleIds.get(card.moduleUuid) ?? null,
+      front,
+      back,
+      source: card.source || "manual",
+    });
   }
 }
 
-function syncGlossary(db, courseId, terms) {
+function syncGlossary(db, courseId, terms, moduleIds) {
   const rows = Array.isArray(terms) ? terms : [];
-  const keep = new Set(rows.map((t) => t.uuid || t.id).filter(Boolean));
-  const existing = db.prepare("SELECT uuid FROM glossary_terms WHERE course_id = ?").all(courseId);
-  const del = db.prepare("DELETE FROM glossary_terms WHERE uuid = ?");
-  existing.forEach((row) => {
-    if (!keep.has(row.uuid)) del.run(row.uuid);
-  });
-  rows.forEach((term) => upsertGlossaryTerm(db, courseId, term));
+  pruneMissing(db, "glossary_terms", "course_id", courseId, rows.map((t) => t.uuid || t.id).filter(Boolean));
+  const stmt = db.prepare(`
+    INSERT INTO glossary_terms (uuid, course_id, module_id, term, definition, confidence, source)
+    VALUES (@uuid, @courseId, @moduleId, @term, @definition, @confidence, @source)
+    ON CONFLICT(uuid) DO UPDATE SET
+      module_id = excluded.module_id,
+      term = excluded.term,
+      definition = excluded.definition,
+      confidence = excluded.confidence,
+      source = excluded.source
+    WHERE glossary_terms.course_id = excluded.course_id
+      AND (glossary_terms.module_id, glossary_terms.term, glossary_terms.definition,
+           glossary_terms.confidence, glossary_terms.source)
+          IS NOT (excluded.module_id, excluded.term, excluded.definition, excluded.confidence, excluded.source)
+  `);
+  for (const term of rows) {
+    const text = String(term.term || "").trim();
+    const definition = String(term.definition || "").trim();
+    if (!text || !definition) continue;
+    try {
+      stmt.run({
+        uuid: term.uuid || term.id || newUuid("gls"),
+        courseId,
+        moduleId: moduleIds.get(term.moduleUuid) ?? null,
+        term: text,
+        definition,
+        confidence: term.confidence || "high",
+        source: term.source || "manual",
+      });
+    } catch (err) {
+      // Same term under another uuid (idx_glossary_unique_term): keep the existing row.
+      if (!String(err?.message || "").includes("UNIQUE")) throw err;
+    }
+  }
 }
 
 function syncGradeComponents(db, courseId, components) {
@@ -228,11 +228,7 @@ function syncGradeComponents(db, courseId, components) {
     const match = (component.uuid && byUuid.get(component.uuid)) || (component.id && byId.get(component.id)) || null;
     return { component, uuid: match?.uuid || component.uuid || newUuid("gc") };
   });
-  const keep = new Set(resolved.map((r) => r.uuid));
-  const del = db.prepare("DELETE FROM grade_components WHERE uuid = ?");
-  existing.forEach((row) => {
-    if (!keep.has(row.uuid)) del.run(row.uuid);
-  });
+  pruneMissing(db, "grade_components", "course_id", courseId, resolved.map((r) => r.uuid));
   const stmt = db.prepare(`
     INSERT INTO grade_components (uuid, course_id, name, weight, category, position)
     VALUES (@uuid, @courseId, @name, @weight, @category, @position)
@@ -280,7 +276,15 @@ function getFullCourse(db, courseUuid) {
       ORDER BY m.position ASC, m.id ASC
     `)
     .all(course.id);
-  const contentStmt = db.prepare("SELECT * FROM content_items WHERE module_id = ? ORDER BY position ASC, id ASC");
+  const contentByModule = new Map(modules.map((m) => [m.id, []]));
+  db.prepare(`
+    SELECT ci.* FROM content_items ci
+    JOIN modules m ON m.id = ci.module_id
+    WHERE m.course_id = ?
+    ORDER BY ci.position ASC, ci.id ASC
+  `)
+    .all(course.id)
+    .forEach((row) => contentByModule.get(row.module_id)?.push(row));
   const flashcards = db
     .prepare(`
       SELECT f.*, mod.uuid AS module_uuid, m.ease_factor, m.interval_days, m.repetitions,
@@ -303,7 +307,7 @@ function getFullCourse(db, courseUuid) {
     .all(course.id);
   return {
     course: { ...course, meta: safeJsonParse(course.meta_json, {}) },
-    modules: modules.map((m) => ({ ...m, content: contentStmt.all(m.id) })),
+    modules: modules.map((m) => ({ ...m, content: contentByModule.get(m.id) })),
     flashcards,
     glossary,
   };
@@ -313,20 +317,17 @@ function saveFullCourse(db, payload) {
   const tx = db.transaction((data) => {
     const courseId = upsertCourse(db, data);
     const modules = Array.isArray(data.modules) ? data.modules : [];
-    const keep = new Set(modules.map((m) => m.uuid));
-    const existing = db.prepare("SELECT uuid FROM modules WHERE course_id = ?").all(courseId);
-    const del = db.prepare("DELETE FROM modules WHERE uuid = ?");
-    existing.forEach((row) => {
-      if (!keep.has(row.uuid)) del.run(row.uuid);
-    });
+    pruneMissing(db, "modules", "course_id", courseId, modules.map((m) => m.uuid).filter(Boolean));
+    const moduleIds = new Map();
     modules.forEach((mod, position) => {
       const moduleId = upsertModule(db, courseId, mod, position);
       if (!moduleId) return;
+      moduleIds.set(mod.uuid, moduleId);
       saveNote(db, moduleId, mod.html);
       syncContentItems(db, moduleId, mod.content);
     });
-    syncFlashcards(db, courseId, data.flashcards);
-    syncGlossary(db, courseId, data.glossary);
+    syncFlashcards(db, courseId, data.flashcards, moduleIds);
+    syncGlossary(db, courseId, data.glossary, moduleIds);
   });
   tx(payload);
   return { success: true };
@@ -373,33 +374,6 @@ function registerDbHandlers() {
     return saveFullCourse(db, payload);
   });
 
-  ipcMain.handle("db:courses:create", (_, course) => {
-    upsertCourse(db, course);
-    return db.prepare("SELECT * FROM courses WHERE uuid = ?").get(course.uuid);
-  });
-
-  ipcMain.handle("db:courses:update", (_, { uuid, ...fields }) => {
-    const columns = {
-      name: "name",
-      color: "color",
-      subtitle: "subtitle",
-      bbCourseId: "bb_course_id",
-      term: "term",
-      courseCode: "course_code",
-      instructor: "instructor",
-    };
-    const keys = Object.keys(fields).filter((key) => columns[key]);
-    if (!keys.length) return null;
-    const sets = keys.map((key) => `${columns[key]} = @${key}`).join(", ");
-    db.prepare(`UPDATE courses SET ${sets}, updated_at = datetime('now') WHERE uuid = @uuid`).run({ uuid, ...fields });
-    return db.prepare("SELECT * FROM courses WHERE uuid = ?").get(uuid);
-  });
-
-  ipcMain.handle("db:courses:findByBbId", (_, bbCourseId) => {
-    if (!bbCourseId) return null;
-    return db.prepare("SELECT * FROM courses WHERE bb_course_id = ? ORDER BY id ASC LIMIT 1").get(bbCourseId) || null;
-  });
-
   ipcMain.handle("db:courses:delete", (_, courseUuid) => {
     if (!courseUuid) return { success: false };
     try {
@@ -409,119 +383,16 @@ function registerDbHandlers() {
     }
   });
 
-  /* ---------------- modules / notes / content ---------------- */
-
-  ipcMain.handle("db:modules:getByCourse", (_, courseUuid) => {
-    return db
-      .prepare(`
-        SELECT m.* FROM modules m
-        JOIN courses c ON c.id = m.course_id
-        WHERE c.uuid = ?
-        ORDER BY m.position ASC
-      `)
-      .all(courseUuid);
-  });
-
-  ipcMain.handle("db:modules:create", (_, moduleData) => {
-    const courseId = courseIdFor(db, moduleData.courseUuid);
-    if (!courseId) throw new Error("Course not found");
-    upsertModule(db, courseId, moduleData, moduleData.position || 0);
-    return db.prepare("SELECT * FROM modules WHERE uuid = ?").get(moduleData.uuid);
-  });
-
-  ipcMain.handle("db:modules:update", (_, { uuid, ...fields }) => {
-    const columns = { title: "title", position: "position", reviewed: "reviewed", disabled: "disabled" };
-    const keys = Object.keys(fields).filter((key) => columns[key] && fields[key] !== undefined);
-    if (!keys.length) return { success: true };
-    const params = { uuid };
-    keys.forEach((key) => {
-      const value = fields[key];
-      params[key] = typeof value === "boolean" ? (value ? 1 : 0) : value;
-    });
-    const sets = keys.map((key) => `${columns[key]} = @${key}`).join(", ");
-    db.prepare(`UPDATE modules SET ${sets}, updated_at = datetime('now') WHERE uuid = @uuid`).run(params);
-    return { success: true };
-  });
-
-  ipcMain.handle("db:modules:delete", (_, uuid) => {
-    db.prepare("DELETE FROM modules WHERE uuid = ?").run(uuid);
-    return { success: true };
-  });
-
-  ipcMain.handle("db:notes:get", (_, moduleUuid) => {
-    return db
-      .prepare("SELECT n.* FROM notes n JOIN modules m ON m.id = n.module_id WHERE m.uuid = ?")
-      .get(moduleUuid);
-  });
+  /* ---------------- notes / mastery ---------------- */
 
   ipcMain.handle("db:notes:save", (_, { moduleUuid, html }) => {
     const moduleId = moduleIdFor(db, moduleUuid);
     if (!moduleId) return { success: true, skipped: true };
-    saveNote(db, moduleId, html);
-    return { success: true };
-  });
-
-  ipcMain.handle("db:content:getByModule", (_, moduleUuid) => {
-    return db
-      .prepare(`
-        SELECT ci.* FROM content_items ci
-        JOIN modules m ON m.id = ci.module_id
-        WHERE m.uuid = ?
-        ORDER BY ci.position ASC
-      `)
-      .all(moduleUuid);
-  });
-
-  ipcMain.handle("db:content:saveMany", (_, { moduleUuid, items }) => {
-    const moduleId = moduleIdFor(db, moduleUuid);
-    if (!moduleId) throw new Error("Module not found");
-    db.transaction(() => syncContentItems(db, moduleId, items))();
-    return { success: true, count: (items || []).length };
-  });
-
-  /* ---------------- flashcards / mastery ---------------- */
-
-  ipcMain.handle("db:flashcards:getByCourse", (_, courseUuid) => {
-    return db
-      .prepare(`
-        SELECT f.*, mod.uuid as module_uuid, m.ease_factor, m.interval_days, m.repetitions,
-               m.next_review, m.last_review, m.last_grade
-        FROM flashcards f
-        JOIN courses c ON c.id = f.course_id
-        LEFT JOIN modules mod ON mod.id = f.module_id
-        LEFT JOIN mastery m ON m.flashcard_id = f.id
-        WHERE c.uuid = ?
-        ORDER BY f.created_at ASC
-      `)
-      .all(courseUuid);
-  });
-
-  ipcMain.handle("db:flashcards:getDue", (_, courseUuid) => {
-    return db
-      .prepare(`
-        SELECT f.*, m.ease_factor, m.interval_days, m.repetitions, m.next_review
-        FROM flashcards f
-        JOIN courses c ON c.id = f.course_id
-        LEFT JOIN mastery m ON m.flashcard_id = f.id
-        WHERE c.uuid = ?
-          AND (m.next_review IS NULL OR m.next_review <= date('now', 'localtime'))
-        ORDER BY COALESCE(m.next_review, '1970-01-01') ASC
-      `)
-      .all(courseUuid);
-  });
-
-  ipcMain.handle("db:flashcards:saveMany", (_, { courseUuid, moduleUuid, cards }) => {
-    const courseId = courseIdFor(db, courseUuid);
-    if (!courseId) throw new Error("Course not found");
-    const fallbackModuleId = moduleIdFor(db, moduleUuid);
-    db.transaction(() => (cards || []).forEach((card) => upsertFlashcard(db, courseId, card, fallbackModuleId)))();
-    return { success: true };
-  });
-
-  ipcMain.handle("db:flashcards:replaceForCourse", (_, { courseUuid, cards }) => {
-    const courseId = courseIdFor(db, courseUuid);
-    if (!courseId) throw new Error("Course not found");
-    db.transaction(() => syncFlashcards(db, courseId, cards))();
+    if (saveNote(db, moduleId, html).changes) {
+      db.prepare("UPDATE courses SET updated_at = datetime('now') WHERE id = (SELECT course_id FROM modules WHERE id = ?)").run(
+        moduleId
+      );
+    }
     return { success: true };
   });
 
@@ -549,41 +420,6 @@ function registerDbHandlers() {
     }
   );
 
-  /* ---------------- glossary ---------------- */
-
-  ipcMain.handle("db:glossary:getByCourse", (_, courseUuid) => {
-    return db
-      .prepare(`
-        SELECT g.*, mod.uuid as module_uuid
-        FROM glossary_terms g
-        JOIN courses c ON c.id = g.course_id
-        LEFT JOIN modules mod ON mod.id = g.module_id
-        WHERE c.uuid = ?
-        ORDER BY lower(g.term) ASC
-      `)
-      .all(courseUuid);
-  });
-
-  ipcMain.handle("db:glossary:saveMany", (_, { courseUuid, moduleUuid, terms }) => {
-    const courseId = courseIdFor(db, courseUuid);
-    if (!courseId) throw new Error("Course not found");
-    const fallbackModuleId = moduleIdFor(db, moduleUuid);
-    db.transaction(() => (terms || []).forEach((term) => upsertGlossaryTerm(db, courseId, term, fallbackModuleId)))();
-    return { success: true };
-  });
-
-  ipcMain.handle("db:glossary:replaceForCourse", (_, { courseUuid, terms }) => {
-    const courseId = courseIdFor(db, courseUuid);
-    if (!courseId) throw new Error("Course not found");
-    db.transaction(() => syncGlossary(db, courseId, terms))();
-    return { success: true };
-  });
-
-  ipcMain.handle("db:glossary:delete", (_, uuid) => {
-    db.prepare("DELETE FROM glossary_terms WHERE uuid = ?").run(uuid);
-    return { success: true };
-  });
-
   /* ---------------- settings ---------------- */
 
   ipcMain.handle("db:settings:get", (_, key) => {
@@ -599,11 +435,6 @@ function registerDbHandlers() {
     return { success: true };
   });
 
-  ipcMain.handle("db:settings:getAll", () => {
-    const rows = db.prepare("SELECT key, value FROM settings").all();
-    return Object.fromEntries(rows.map((row) => [row.key, row.value]));
-  });
-
   /* ---------------- grades ---------------- */
 
   ipcMain.handle("db:grades:getComponents", (_, courseUuid) => getGradeComponentsWithScores(db, courseUuid));
@@ -613,19 +444,6 @@ function registerDbHandlers() {
     if (!courseId) throw new Error("Course not found");
     db.transaction(() => syncGradeComponents(db, courseId, components))();
     return getGradeComponentsWithScores(db, courseUuid);
-  });
-
-  ipcMain.handle("db:grades:getEntries", (_, courseUuid) => {
-    return db
-      .prepare(`
-        SELECT ge.*, gc.name as component_name, gc.weight, gc.category, gc.id as component_id
-        FROM grade_entries ge
-        JOIN grade_components gc ON gc.id = ge.component_id
-        JOIN courses c ON c.id = gc.course_id
-        WHERE c.uuid = ? AND ge.is_main = 1
-        ORDER BY gc.position ASC
-      `)
-      .all(courseUuid);
   });
 
   ipcMain.handle("db:grades:upsertEntry", (_, { componentId, score }) => {

@@ -87,6 +87,15 @@ function isBbTempPath(normalized) {
   return normalized === bbTempDir || normalized.startsWith(bbTempDir + path.sep);
 }
 
+/** Normalized path if the user registered it (or it's a Blackboard download when allowBbTemp); throws otherwise. */
+function readablePath(filePath, { allowBbTemp = true } = {}) {
+  const normalized = path.normalize(String(filePath || ""));
+  if (!allowedReadPaths.has(normalized) && !(allowBbTemp && isBbTempPath(normalized))) {
+    throw new Error("Path is not registered. Re-add the file from Materials.");
+  }
+  return normalized;
+}
+
 ipcMain.handle("studyhub:pick-files", async (_evt, filters) => {
   const win = BrowserWindow.getFocusedWindow();
   const opts = {
@@ -121,11 +130,7 @@ ipcMain.handle("studyhub:open-file-dialog", async (_evt, options) => {
 });
 
 ipcMain.handle("studyhub:read-text", async (_evt, filePath) => {
-  const normalized = path.normalize(filePath);
-  if (!allowedReadPaths.has(normalized)) {
-    throw new Error("Path was not chosen in a file picker for this session.");
-  }
-  const buf = await fs.promises.readFile(normalized);
+  const buf = await fs.promises.readFile(readablePath(filePath, { allowBbTemp: false }));
   return buf.toString("utf8");
 });
 
@@ -185,10 +190,7 @@ ipcMain.handle("studyhub:allow-dropped-path", async (evt, filePath) => {
 });
 
 ipcMain.handle("studyhub:open-path", async (_evt, filePath) => {
-  const normalized = path.normalize(String(filePath || ""));
-  if (!allowedReadPaths.has(normalized) && !isBbTempPath(normalized)) {
-    throw new Error("Path is not registered. Re-add the file from Materials.");
-  }
+  const normalized = readablePath(filePath);
   if (!OPENABLE_EXT.has(path.extname(normalized).toLowerCase())) {
     throw new Error("This file type cannot be opened from Study Hub.");
   }
@@ -197,65 +199,31 @@ ipcMain.handle("studyhub:open-path", async (_evt, filePath) => {
   return { ok: true };
 });
 
+async function pdfText(buf) {
+  const { PDFParse } = require("pdf-parse");
+  const parser = new PDFParse({ data: buf });
+  try {
+    const result = await parser.getText();
+    return { text: String(result?.text ?? "").trim(), pages: typeof result?.total === "number" ? result.total : 0 };
+  } finally {
+    await parser.destroy().catch(() => {});
+  }
+}
+
 ipcMain.handle("studyhub:extract-pdf-text", async (_evt, filePath) => {
   try {
-    const normalized = path.normalize(String(filePath || ""));
-
-    if (!isBbTempPath(normalized) && !allowedReadPaths.has(normalized)) {
-      return {
-        ok: false,
-        error: "Path is not registered for this session.",
-      };
-    }
-
-    if (path.extname(normalized).toLowerCase() !== ".pdf") {
-      return {
-        ok: false,
-        error: "Only PDF files supported.",
-      };
-    }
-
-    const buf = await fs.promises.readFile(normalized);
-
-    const { PDFParse } = require("pdf-parse");
-    const parser = new PDFParse({ data: buf });
-    try {
-      const textResult = await parser.getText();
-      const text = String(textResult?.text ?? "").trim();
-      const numpages = typeof textResult?.total === "number" ? textResult.total : 0;
-      await parser.destroy();
-      return {
-        ok: true,
-        text,
-        numpages,
-        empty: !text,
-      };
-    } catch (e) {
-      try {
-        await parser.destroy();
-      } catch {
-        /* ignore */
-      }
-      throw e;
-    }
+    const normalized = readablePath(filePath);
+    if (path.extname(normalized).toLowerCase() !== ".pdf") return { ok: false, error: "Only PDF files supported." };
+    const { text, pages } = await pdfText(await fs.promises.readFile(normalized));
+    return { ok: true, text, numpages: pages, empty: !text };
   } catch (err) {
-    return {
-      ok: false,
-      error: err?.message || String(err),
-    };
+    return { ok: false, error: err?.message || String(err) };
   }
 });
 
 ipcMain.handle("studyhub:extract-pptx", async (_evt, filePath) => {
   try {
-    const normalized = path.normalize(String(filePath || ""));
-    if (!isBbTempPath(normalized) && !allowedReadPaths.has(normalized)) {
-      return {
-        success: false,
-        error: "Path is not registered. Re-add the file from Materials.",
-      };
-    }
-    const fileBuffer = await fs.promises.readFile(normalized);
+    const fileBuffer = await fs.promises.readFile(readablePath(filePath));
     const ast = await officeParser.parseOffice(fileBuffer, { ignoreNotes: true });
     const slides = groupIntoSlides(Array.isArray(ast?.content) ? ast.content : []);
     return { success: true, slides };
@@ -316,72 +284,29 @@ function extractTextFromAst(node) {
 /** Plain text from an in-memory PDF / Office / text file. Returns "" when the format is unsupported. */
 async function extractBufferText(buf, ext) {
   const kind = String(ext || "").toLowerCase().replace(/^\./, "");
-  if (kind === "pdf") {
-    const { PDFParse } = require("pdf-parse");
-    const parser = new PDFParse({ data: buf });
-    try {
-      const result = await parser.getText();
-      return String(result?.text ?? "").trim();
-    } finally {
-      await parser.destroy().catch(() => {});
-    }
-  }
-  if (["docx", "pptx", "xlsx", "odt", "odp"].includes(kind)) {
-    const data = await new Promise((resolve, reject) => {
-      officeParser.parseOffice(buf, (result, err) => (err ? reject(err) : resolve(result)), {
-        ignoreNotes: false,
-        outputErrorToConsole: false,
-      });
-    });
+  if (kind === "pdf") return (await pdfText(buf)).text;
+  if (OFFICE_KINDS.has(kind)) {
+    const data = await officeParser.parseOffice(buf, { ignoreNotes: false, outputErrorToConsole: false });
     return typeof data === "string" ? data : extractTextFromAst(data);
   }
-  if (["txt", "md", "html", "htm"].includes(kind)) return buf.toString("utf8");
+  if (TEXT_KINDS.has(kind)) return buf.toString("utf8");
   return "";
 }
 
+const OFFICE_KINDS = new Set(["docx", "pptx", "xlsx", "odt", "odp", "ods"]);
+const TEXT_KINDS = new Set(["txt", "md", "html", "htm"]);
+
 ipcMain.handle("studyhub:extract-text", async (_evt, filePath) => {
   try {
-    const normalized = path.normalize(String(filePath || ""));
-    if (!isBbTempPath(normalized) && !allowedReadPaths.has(normalized)) {
-      return {
-        success: false,
-        error: "Path is not registered for this session. Re-add the file from Materials.",
-        text: "",
-      };
-    }
-
+    const normalized = readablePath(filePath);
     const ext = path.extname(normalized).toLowerCase();
-    if (ext === ".pdf") {
-      return {
-        success: false,
-        error: "Use extract-pdf-text for PDFs.",
-        text: "",
-      };
-    }
-
-    const fileBuffer = await fs.promises.readFile(normalized);
-    const data = await new Promise((resolve, reject) => {
-      officeParser.parseOffice(
-        fileBuffer,
-        (result, err) => {
-          if (err) reject(err);
-          else resolve(result);
-        },
-        { ignoreNotes: false, outputErrorToConsole: false }
-      );
-    });
-    const text = typeof data === "string" ? data : extractTextFromAst(data);
-    return {
-      success: true,
-      text,
-      filePath: normalized,
-    };
+    if (ext === ".pdf") return { success: false, error: "Use extract-pdf-text for PDFs.", text: "" };
+    const kind = ext.slice(1);
+    if (!OFFICE_KINDS.has(kind) && !TEXT_KINDS.has(kind)) return { success: false, error: "Unsupported file type.", text: "" };
+    const text = await extractBufferText(await fs.promises.readFile(normalized), ext);
+    return { success: true, text, filePath: normalized };
   } catch (err) {
-    return {
-      success: false,
-      error: err?.message || String(err),
-      text: "",
-    };
+    return { success: false, error: err?.message || String(err), text: "" };
   }
 });
 
@@ -473,60 +398,52 @@ ipcMain.handle("studyhub:ai-status", async () => {
   };
 });
 
-function requireKey() {
-  const key = aiConfig.getApiKey(app);
-  return key || null;
+/** AI IPC: key check, then `fn(key, payload)` merged into { ok: true, ... }; errors come back as { ok: false, error }. */
+function aiHandler(channel, fn, { noKeyError = "no-key" } = {}) {
+  ipcMain.handle(channel, async (_evt, payload) => {
+    const key = aiConfig.getApiKey(app);
+    if (!key) return { ok: false, error: noKeyError };
+    try {
+      return { ok: true, ...(await fn(key, payload || {})) };
+    } catch (e) {
+      return { ok: false, error: e?.name === "AbortError" ? "Request timed out. Try shorter text." : e?.message || String(e) };
+    }
+  });
 }
 
-ipcMain.handle("studyhub:ai-enhance", async (_evt, payload) => {
-  const key = requireKey();
-  if (!key) return { ok: false, error: "no-key" };
-  try {
-    const result = await enhanceContent(key, {
-      definitions: Array.isArray(payload?.definitions) ? payload.definitions.slice(0, 200) : [],
-      unclassified: typeof payload?.unclassified === "string" ? payload.unclassified : null,
-    });
-    return { ok: true, result };
-  } catch (e) {
-    return { ok: false, error: e?.message || String(e) };
-  }
-});
+aiHandler("studyhub:ai-enhance", async (key, p) => ({
+  result: await enhanceContent(key, {
+    definitions: Array.isArray(p.definitions) ? p.definitions.slice(0, 200) : [],
+    unclassified: typeof p.unclassified === "string" ? p.unclassified : null,
+  }),
+}));
 
-ipcMain.handle("studyhub:ai-practice", async (_evt, payload) => {
-  const key = requireKey();
-  if (!key) return { ok: false, error: "no-key" };
-  try {
-    const questions = await generatePracticeQuestions(key, {
-      courseName: String(payload?.courseName || ""),
-      definitions: Array.isArray(payload?.definitions) ? payload.definitions : [],
-      count: Math.min(Math.max(Number(payload?.count) || 8, 1), 20),
-    });
-    return { ok: true, questions };
-  } catch (e) {
-    return { ok: false, error: e?.message || String(e) };
-  }
-});
+aiHandler("studyhub:ai-practice", async (key, p) => ({
+  questions: await generatePracticeQuestions(key, {
+    courseName: String(p.courseName || ""),
+    definitions: Array.isArray(p.definitions) ? p.definitions : [],
+    count: Math.min(Math.max(Number(p.count) || 8, 1), 20),
+  }),
+}));
 
-ipcMain.handle("studyhub:ai-web-search", async (_evt, payload) => {
-  const key = requireKey();
-  if (!key) return { ok: false, error: "no-key" };
-  try {
-    const results = await searchStudyMaterials(key, { query: String(payload?.query || "") });
-    return { ok: true, results };
-  } catch (e) {
-    return { ok: false, error: e?.message || String(e) };
-  }
-});
+aiHandler("studyhub:ai-web-search", async (key, p) => ({
+  results: await searchStudyMaterials(key, { query: String(p.query || "") }),
+}));
 
-ipcMain.handle("studyhub:ai-companion-rephrase", async (_evt, payload) => {
-  const key = requireKey();
-  if (!key) return { ok: false, error: "no-key" };
-  try {
-    return { ok: true, text: await rephraseCompanionLine(key, { text: String(payload?.text || "") }) };
-  } catch (e) {
-    return { ok: false, error: e?.message || String(e) };
-  }
-});
+aiHandler("studyhub:ai-companion-rephrase", async (key, p) => ({
+  text: await rephraseCompanionLine(key, { text: String(p.text || "") }),
+}));
+
+aiHandler(
+  "studyhub:ai-generate-flashcards",
+  async (key, p) => {
+    const sourceText = String(p.sourceText ?? "");
+    if (!sourceText.trim()) throw new Error("Paste some notes or textbook text first.");
+    const mode = p.mode === "exam_cram" ? "exam_cram" : "chapter_mastery";
+    return { cards: await generateFlashcards(key, aiConfig.getModel(app), sourceText, mode) };
+  },
+  { noKeyError: "No Anthropic API key. Open AI Assistant and save your key, or set ANTHROPIC_API_KEY (see README.md)." }
+);
 
 ipcMain.handle("studyhub:open-external", async (_evt, url) => {
   const value = String(url || "");
@@ -578,30 +495,6 @@ function attachWindowStateEvents(win) {
   win.on("maximize", () => win.webContents.send("window-maximized"));
   win.on("unmaximize", () => win.webContents.send("window-unmaximized"));
 }
-
-ipcMain.handle("studyhub:ai-generate-flashcards", async (_evt, payload) => {
-  const sourceText = String(payload?.sourceText ?? "");
-  const mode = payload?.mode === "exam_cram" ? "exam_cram" : "chapter_mastery";
-  const key = aiConfig.getApiKey(app);
-  if (!key) {
-    return {
-      ok: false,
-      error:
-        "No Anthropic API key. Open AI Assistant and save your key, or set ANTHROPIC_API_KEY (see README.md).",
-    };
-  }
-  if (!sourceText.trim()) {
-    return { ok: false, error: "Paste some notes or textbook text first." };
-  }
-  try {
-    const model = aiConfig.getModel(app);
-    const cards = await generateFlashcards(key, model, sourceText, mode);
-    return { ok: true, cards };
-  } catch (e) {
-    const msg = e?.name === "AbortError" ? "Request timed out. Try shorter text." : e.message || String(e);
-    return { ok: false, error: msg };
-  }
-});
 
 function createWindow() {
   /** @type {import('electron').BrowserWindowConstructorOptions} */

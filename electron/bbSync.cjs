@@ -472,4 +472,14 @@ function resetUserCache() {
   cachedUserId = null;
 }
 
-module.exports = { listEnrolledCourses, syncCourse, checkCourse, resetUserCache, setPageFetcher, getCourseInfo };
+module.exports = {
+  BB_PARTITION,
+  BB_ORIGIN,
+  getJson,
+  listEnrolledCourses,
+  syncCourse,
+  checkCourse,
+  resetUserCache,
+  setPageFetcher,
+  getCourseInfo,
+};
