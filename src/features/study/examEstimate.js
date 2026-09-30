@@ -1,5 +1,6 @@
 import { deckBreakdown } from "../progress/deckBreakdown.js";
 import { daysFromToday } from "../dashboard/dateLabels.js";
+import { daysUntilExam, examReadyPercent, getDueCards } from "../../study/sm2.js";
 
 /** Reviews a card typically needs before it is exam-ready, by SM-2 bucket. */
 export const REVIEWS_TO_READY = { fresh: 4, weak: 3, learning: 2, mastered: 0.3 };
@@ -21,6 +22,19 @@ export async function loadScope(examUuid) {
 export function saveScope(examUuid, moduleIds) {
   if (!examUuid) return;
   void window.studyHub?.db?.settings?.set?.({ key: scopeKey(examUuid), value: JSON.stringify(moduleIds || []) });
+  window.dispatchEvent(new CustomEvent("studyhub-exam-scope-changed", { detail: { examUuid } }));
+}
+
+/** A course's open exams from today on, soonest first: { uuid, title, dueDate, moduleIds }. */
+export async function loadUpcomingExams(courseUuid) {
+  if (!courseUuid) return [];
+  const rows = await window.studyHub?.db?.assignments?.getByCourse?.(courseUuid);
+  const exams = (Array.isArray(rows) ? rows : [])
+    .filter((a) => a.kind === "exam" && !a.completed && (daysUntilExam(a.due_date) ?? -1) >= 0)
+    .sort((a, b) => a.due_date.localeCompare(b.due_date));
+  return Promise.all(
+    exams.map(async (a) => ({ uuid: a.uuid, title: a.title, dueDate: a.due_date, moduleIds: await loadScope(a.uuid) }))
+  );
 }
 
 export function cardsInScope(cards, moduleIds) {
@@ -33,6 +47,7 @@ export function cardsInScope(cards, moduleIds) {
 /**
  * Minutes of review left before a card set is exam-ready. Uses the student's own pace when
  * there is session history (clamped so one odd session can't skew it), else 10s per card.
+ * `readiness` is exam ready %: the share of cards whose latest rating was a pass.
  */
 export function estimateExam(cards, { avgSecondsPerCard = null, examDate = null } = {}) {
   const b = deckBreakdown(cards);
@@ -45,15 +60,15 @@ export function estimateExam(cards, { avgSecondsPerCard = null, examDate = null 
   const totalMinutes = Math.ceil((reviews * pace) / 60);
   const days = examDate ? daysFromToday(examDate) : null;
   const studyDays = days == null ? null : Math.max(days, 1);
-  const readiness = b.total ? Math.round(((b.mastered + b.learning * 0.5) / b.total) * 100) : 0;
   return {
     ...b,
+    due: examDate ? getDueCards(cards, { examFor: () => examDate }).length : b.due,
     pace,
     reviews: Math.round(reviews),
     totalMinutes,
     days,
     perDayMinutes: studyDays ? Math.ceil(totalMinutes / studyDays) : null,
-    readiness,
+    readiness: examReadyPercent(cards),
   };
 }
 

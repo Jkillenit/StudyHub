@@ -293,6 +293,20 @@ describe("rankToday", () => {
     expect(items.find((i) => i.type === ITEM_TYPES.EXAM_PREP).reason).toContain("12 cards due");
   });
 
+  it("uses exam-scoped card stats over the course-wide count", () => {
+    const withStats = (examCards) =>
+      rank([course({ cardsDue: 12, cardsTotal: 40, assignments: [asg({ kind: "exam", dueDate: inDays(4), examCards })] })])[0];
+    const exam = withStats({ total: 20, due: 3, ready: 45 });
+    expect(exam.reason).toContain("3 cards due");
+    expect(exam.reason).toContain("45% exam ready");
+    expect(exam.reason).not.toContain("12 cards");
+    expect(exam.examReady).toBe(45);
+    expect(withStats({ total: 20, due: 0, ready: 100 }).reason).not.toContain("due ·");
+    const empty = withStats({ total: 0, due: 0, ready: 0 });
+    expect(empty.reason).toContain("no flashcards yet");
+    expect(empty.examReady).toBeNull();
+  });
+
   it("handles empty input", () => {
     expect(rankToday({ courses: [] })).toEqual([]);
     expect(rankToday(null)).toEqual([]);

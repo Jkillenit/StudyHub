@@ -13,6 +13,7 @@ import { hasApiKey } from "../ai/apiKeyUtils.js";
 import { enhanceWithClaude } from "../ai/pptxEnhancer.js";
 import { mergeEnhancedOutput } from "../ai/mergeEnhancedOutput.js";
 import { getDueCards, masteryPercent } from "../study/sm2.js";
+import { useCourseExams } from "../features/study/useCourseExams.js";
 import {
   addTermsToGlossary,
   applyOutputToCourse,
@@ -354,7 +355,8 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, courseSh
     () => (c.glossary || []).filter((g) => g.confidence !== "low").map((g) => ({ term: g.term, definition: g.definition })),
     [c.glossary]
   );
-  const dueCount = useMemo(() => getDueCards(c.flashcards || []).length, [c.flashcards]);
+  const { examFor } = useCourseExams(c.uuid || c.id);
+  const dueCount = useMemo(() => getDueCards(c.flashcards || [], { examFor }).length, [c.flashcards, examFor]);
   const masteryPct = useMemo(() => masteryPercent(c.flashcards || []), [c.flashcards]);
   const completedCount = [...completedIds].filter((id) => visibleChapters.some((ch) => ch.id === id)).length;
   const chNum = (id) => `CH·${String(c.modules.findIndex((x) => x.id === id) + 1).padStart(2, "0")}`;
@@ -518,6 +520,7 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, courseSh
               onSourceFilterChange={setSourceFilter}
               masteryPct={masteryPct}
               dueCount={dueCount}
+              examFor={examFor}
               onAddModule={addModule}
               onDeleteModule={(moduleId) => {
                 if (!moduleId || c.modules.length <= 1) return;

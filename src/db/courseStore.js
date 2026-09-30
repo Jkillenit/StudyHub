@@ -125,6 +125,7 @@ function inflateCourse(full) {
           repetitions: card.repetitions,
           next_review: card.next_review,
           lastReview: card.last_review,
+          lastGrade: card.last_grade ?? null,
         }
       : {}),
   }));

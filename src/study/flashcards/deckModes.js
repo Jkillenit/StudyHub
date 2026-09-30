@@ -9,7 +9,8 @@ export const DECK_MODES = [
   { id: "pptx", label: "IMPORTED" },
 ];
 
-export function filterDeck(cards, mode, moduleId = null) {
+/** `examFor(card)` returns the exam date governing a card, so DUE includes final-window exam cards. */
+export function filterDeck(cards, mode, moduleId = null, { examFor = null } = {}) {
   const base = Array.isArray(cards) ? cards : [];
   switch (mode) {
     case "manual":
@@ -17,7 +18,7 @@ export function filterDeck(cards, mode, moduleId = null) {
     case "pptx":
       return base.filter((c) => c.source && c.source !== "manual");
     case "due":
-      return getDueCards(base);
+      return getDueCards(base, { examFor });
     case "weak":
       return getWeakCards(base);
     case "module":

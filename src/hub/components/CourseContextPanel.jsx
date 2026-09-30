@@ -9,6 +9,7 @@ function CourseContextPanel({
   onSourceFilterChange,
   masteryPct,
   dueCount,
+  examFor = null,
   onAddModule,
   onDeleteModule,
   onDeleteCourse,
@@ -19,7 +20,7 @@ function CourseContextPanel({
   onEditCard,
 }) {
   const userFlashcards = Array.isArray(course?.flashcards) ? course.flashcards : [];
-  const filteredFlashcards = filterDeck(userFlashcards, sourceFilter, currentModule?.id);
+  const filteredFlashcards = filterDeck(userFlashcards, sourceFilter, currentModule?.id, { examFor });
 
   return (
     <div className="ctx-section" data-tour-id="course-context">

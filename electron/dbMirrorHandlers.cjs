@@ -2,6 +2,7 @@ const { ipcMain } = require("electron");
 const { getDb } = require("./database.cjs");
 const { courseIdFor, newUuid, saveFullCourse } = require("./dbHandlers.cjs");
 const { applyBbGrades, resolveMappings, loadForCourse } = require("./gradeMapping.cjs");
+const { courseCards, examCardStats, examScope } = require("./examCards.cjs");
 
 let registered = false;
 
@@ -207,6 +208,8 @@ function todayData(db, courseUuid = null) {
     }
 
     const cards = cardsStmt.get(today, course.id);
+    const openAssignments = assignmentStmt.all(course.id, since);
+    const deck = openAssignments.some((a) => a.kind === "exam") ? courseCards(db, course.id) : [];
     return {
       uuid: course.uuid,
       name: course.name,
@@ -224,7 +227,7 @@ function todayData(db, courseUuid = null) {
         pointsTotal: totals.get(c.uuid)?.points || 0,
         itemCount: totals.get(c.uuid)?.items || 0,
       })),
-      assignments: assignmentStmt.all(course.id, since).map((a) => ({
+      assignments: openAssignments.map((a) => ({
         uuid: a.uuid,
         title: a.title,
         kind: a.kind || "assignment",
@@ -234,6 +237,9 @@ function todayData(db, courseUuid = null) {
         url: a.url || null,
         source: a.source,
         componentUuid: componentFor(a),
+        ...(a.kind === "exam"
+          ? { examCards: examCardStats(deck, { dueDate: a.due_date, moduleIds: examScope(db, a.uuid) }) }
+          : {}),
       })),
     };
   });

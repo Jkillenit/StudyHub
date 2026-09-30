@@ -166,6 +166,19 @@ function neededPhrase(needed, target) {
   return `need ${formatPct(Math.max(0, needed))}% to hold ${formatPct(target)}%`;
 }
 
+const cardsPhrase = (n) => `${n} card${n === 1 ? "" : "s"} due`;
+
+/** Exam-scoped card stats when the snapshot has them, else the course-wide due count. */
+function examCardPhrases(a, course) {
+  const stats = a.examCards;
+  if (stats) {
+    if (!stats.total) return ["no flashcards yet"];
+    return [...(stats.due > 0 ? [cardsPhrase(stats.due)] : []), `${stats.ready}% exam ready`];
+  }
+  if (course.cardsDue > 0) return [cardsPhrase(course.cardsDue)];
+  return course.cardsTotal ? [] : ["no flashcards yet"];
+}
+
 /** The needed score for this assignment if it is the course's next major item or its final. */
 function neededFor(a, needs) {
   if (needs.next?.uuid === a.uuid && needs.next.needed != null) return needs.next.needed;
@@ -181,10 +194,7 @@ function assignmentItem(a, course, needs, days, config) {
   const parts = [whenPhrase(days, isExam)];
   if (known) parts.push(`worth ${sharePct(share)}% of grade`);
   if (needed != null) parts.push(neededPhrase(needed, needs.target));
-  if (isExam) {
-    if (course.cardsDue > 0) parts.push(`${course.cardsDue} card${course.cardsDue === 1 ? "" : "s"} due`);
-    else if (!course.cardsTotal) parts.push("no flashcards yet");
-  }
+  if (isExam) parts.push(...examCardPhrases(a, course));
   const standingText = needed == null ? standingPhrase(needs) : null;
   if (standingText) parts.push(standingText);
 
@@ -205,6 +215,7 @@ function assignmentItem(a, course, needs, days, config) {
     share,
     shareKnown: known,
     needed,
+    examReady: isExam && a.examCards?.total ? a.examCards.ready : null,
     score,
     reason: parts.join(" · "),
     action,

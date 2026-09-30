@@ -7,6 +7,7 @@ import { loadFlashcardDeck, persistFlashcardDeck, resetFlashcardDeckToSeed } fro
 import { emitStudyEvent } from "../../companion/studyEvents.js";
 import { SEED_FLASHCARDS } from "./seedCards.js";
 import { filterDeck } from "./deckModes.js";
+import { useCourseExams } from "../../features/study/useCourseExams.js";
 
 const FLIP_GUARD_MS = 200;
 
@@ -38,8 +39,8 @@ function isTypingTarget(el) {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
 }
 
-function NextReviewSummary({ cards }) {
-  const due = getDueCards(cards || []);
+function NextReviewSummary({ cards, examFor }) {
+  const due = getDueCards(cards || [], { examFor });
   const tomorrow = (cards || []).filter((c) => c.next_review && daysUntilReview(c) === 1);
   if (due.length > 0) {
     return <div className="sh-next-review-text">{due.length} card{due.length !== 1 ? "s" : ""} still due</div>;
@@ -67,7 +68,7 @@ function NextReviewSummary({ cards }) {
   );
 }
 
-function SessionSummary({ know, again, cards, onContinue, onClose }) {
+function SessionSummary({ know, again, cards, examFor, onContinue, onClose }) {
   const score = Math.round((know / (know + again)) * 100) || 0;
   return (
     <div className="sh-session-summary">
@@ -100,7 +101,7 @@ function SessionSummary({ know, again, cards, onContinue, onClose }) {
       </div>
       <div className="sh-session-next">
         <div className="sh-section-label">NEXT REVIEW</div>
-        <NextReviewSummary cards={cards} />
+        <NextReviewSummary cards={cards} examFor={examFor} />
       </div>
       <div className="sh-session-actions">
         <button className="sh-btn-ghost" onClick={onContinue}>
@@ -177,6 +178,7 @@ export default function FlashcardDeck({
 }) {
   const isUserDeck = typeof onSaveCards === "function";
   const { setPanelApi } = useFlashcardDeckContext();
+  const { examFor } = useCourseExams(isUserDeck ? courseId : null);
   const [cards, setCards] = useState(null);
   const [sessionIds, setSessionIds] = useState([]);
   const [pos, setPos] = useState(0);
@@ -248,7 +250,10 @@ export default function FlashcardDeck({
   }, [isUserDeck]);
 
   const cardsById = useMemo(() => new Map((cards || []).map((c) => [cardKey(c), c])), [cards]);
-  const filteredCards = useMemo(() => filterDeck(cards || [], sourceFilter, moduleId), [cards, sourceFilter, moduleId]);
+  const filteredCards = useMemo(
+    () => filterDeck(cards || [], sourceFilter, moduleId, { examFor }),
+    [cards, sourceFilter, moduleId, examFor]
+  );
 
   // The session order is a snapshot: ratings change SM-2 fields (and may drop a card out of DUE)
   // without reshuffling. Only a mode change or adding/removing cards rebuilds it.
@@ -422,7 +427,7 @@ export default function FlashcardDeck({
       if (!card) return;
       ratingRef.current = true;
       try {
-        const result = sm2(card, grade);
+        const result = sm2(card, grade, { examDate: examFor(card) });
         if (isUserDeck) {
           await window.studyHub?.db?.mastery?.update?.({
             flashcardUuid: cardKey(card),
@@ -444,6 +449,7 @@ export default function FlashcardDeck({
                 repetitions: result.repetitions,
                 next_review: result.nextReview,
                 lastReview: localDateString(),
+                lastGrade: grade,
               }
             : c
         );
@@ -462,7 +468,7 @@ export default function FlashcardDeck({
         ratingRef.current = false;
       }
     },
-    [flipped, flipPhase, slide, current, isUserDeck, commitCards, startSlide]
+    [flipped, flipPhase, slide, current, isUserDeck, commitCards, startSlide, examFor]
   );
 
   const onKnowIt = useCallback(() => void rate(5), [rate]);
@@ -599,6 +605,7 @@ export default function FlashcardDeck({
           know={sessionKnow}
           again={sessionAgain}
           cards={cards || []}
+          examFor={examFor}
           onContinue={() => {
             resetSession();
             rebuildSession();

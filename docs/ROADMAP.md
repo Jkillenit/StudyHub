@@ -72,10 +72,15 @@ per-category minimum); unmatched items use a per-kind default and show no weight
 
 ## Phase 2 — Exam prep
 
-- **2.1 Exam-aware SM-2** (EXAM-001): optional cap in `sm2.js` so cards linked to an upcoming
+- ✓ **2.1 Exam-aware SM-2** (EXAM-001): optional cap in `sm2.js` so cards linked to an upcoming
   exam get intervals ≤ days until exam − 1; every card reviewed at least once in the final
   48 h; normal SM-2 after the exam. Exam ready % = share of the exam's cards with latest
   rating ≥ 3.
+  Shipped notes: a card's exam is the nearest upcoming exam whose study-guide scope covers its
+  module (empty scope = whole course) until 2.2 adds `exam_modules`. The final window is the two
+  calendar days before the exam plus exam day. The capped interval is what gets stored, so growth
+  after the exam restarts from it. The drill, DUE filter, study guide and Today exam reason are
+  exam-aware; Nova's quiz reviews are not yet (2.3).
 - **2.2 Exam ↔ module linking** (EXAM-002): `exam_modules` join table (existing study-guide
   scopes migrated in); parse from syllabus where possible, module picker fallback.
 - **2.3 Nova runs the session** (EXAM-003): opening line from a local template built from DB

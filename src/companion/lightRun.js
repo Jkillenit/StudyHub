@@ -166,6 +166,7 @@ export function reviewCard(card, grade) {
     repetitions: r.repetitions,
     next_review: r.nextReview,
     lastReview: localDateString(),
+    lastGrade: grade,
   };
 }
 
