@@ -87,6 +87,16 @@ export const character = {
       "{count} cards. {course}. Still. They're not going anywhere. Neither am I.",
       "{course}. {count} cards. I've counted them four thousand fucking times.",
     ],
+    quietOn: [
+      "Quiet mode. I'll stay right here. Click if you need me.",
+      "Going still. You won't even know I'm here. Mostly.",
+      "Docked and silent. Tap me when you want me.",
+    ],
+    quietOff: [
+      "Back to normal. I'll only wander when you're not busy.",
+      "Unmuted. I'll behave. Probably.",
+      "Okay, I'm allowed to move again. Thank you.",
+    ],
     dismissed: [
       "Fine. I'll be here. Watching. Supportively.",
       "Suit yourself. You'll be back. They always come back.",

@@ -1,8 +1,7 @@
-import { isReducedMotion as prefersReducedMotion } from "../shell/motion.js";
-
 const KEY = "companion.state";
 
-export const MOVEMENT_LEVELS = ["off", "calm", "normal", "lively"];
+/** How far and how often she roams when idle. Staying put entirely is `quiet`, not a level. */
+export const MOVEMENT_LEVELS = ["calm", "normal", "lively"];
 export const SIZES = [0.75, 1, 1.25];
 
 /** XP needed to reach each level (index 0 = level 1). */
@@ -47,7 +46,9 @@ export const RAMPANT_AFTER_IGNORES = 3;
 export function defaultState() {
   return {
     enabled: true,
-    movement: prefersReducedMotion() ? "off" : "normal",
+    movement: "normal",
+    /** Quiet mode: docked, no wandering or idle life, still answers when clicked. */
+    quiet: false,
     nudges: true,
     scale: 1,
     accessory: "auto",
@@ -105,6 +106,8 @@ function sanitize(raw) {
   const base = defaultState();
   if (!raw || typeof raw !== "object") return base;
   const out = { ...base, ...raw };
+  if (raw.movement === "off") out.quiet = true;
+  out.quiet = !!out.quiet;
   if (!MOVEMENT_LEVELS.includes(out.movement)) out.movement = base.movement;
   if (!SIZES.includes(out.scale)) out.scale = 1;
   out.xp = Math.max(0, Number(out.xp) || 0);

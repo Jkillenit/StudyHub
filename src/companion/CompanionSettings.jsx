@@ -84,6 +84,12 @@ export function CompanionSettings({ state, onChange, onClose, onResetTours, onRe
       </details>
 
       <Toggle label="SHOW NOVA" checked={state.enabled} onChange={(v) => onChange({ enabled: v })} />
+      <Toggle
+        label="QUIET MODE"
+        hint="Stays docked, no wandering or idle life. Still answers when clicked."
+        checked={!!state.quiet}
+        onChange={(v) => onChange({ quiet: v })}
+      />
       <Segmented
         label="MOVEMENT"
         value={state.movement}

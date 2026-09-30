@@ -1,12 +1,26 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useShell } from "./ShellContext.jsx";
 import { setMotionPref, useMotionPref, useReducedMotion } from "./motion.js";
+
+/** Nova's quiet mode lives in her own state; the layer broadcasts changes. */
+function useNovaQuiet() {
+  const [quiet, setQuiet] = useState(() => document.documentElement.dataset.novaQuiet === "on");
+  useEffect(() => {
+    const onState = (e) => {
+      if (typeof e.detail?.quiet === "boolean") setQuiet(e.detail.quiet);
+    };
+    window.addEventListener("studyhub-companion-state", onState);
+    return () => window.removeEventListener("studyhub-companion-state", onState);
+  }, []);
+  return quiet;
+}
 
 export function SettingsPanel({ open, onClose }) {
   const ref = useRef(null);
   const { apiLive } = useShell();
   const pref = useMotionPref();
   const reduced = useReducedMotion();
+  const quiet = useNovaQuiet();
 
   useEffect(() => {
     if (!open) return undefined;
@@ -46,7 +60,7 @@ export function SettingsPanel({ open, onClose }) {
           <span>
             <span className="sh-settings-row-title">Reduce motion</span>
             <span className="sh-settings-hint">
-              {pref === null ? "Following your system setting." : "Overrides your system setting."} No arrival animation, count-ups or typing.
+              {pref === null ? "Following your system setting." : "Overrides your system setting."} No arrival animation, count-ups or typing, and Nova only fades between spots.
             </span>
           </span>
           <input type="checkbox" className="sh-switch" checked={reduced} onChange={(e) => setMotionPref(e.target.checked)} />
@@ -60,6 +74,18 @@ export function SettingsPanel({ open, onClose }) {
 
       <section className="sh-settings-section">
         <div className="sh-settings-section-label">COMPANION</div>
+        <label className="sh-settings-row">
+          <span>
+            <span className="sh-settings-row-title">Quiet mode</span>
+            <span className="sh-settings-hint">Nova stays docked: no wandering or idle animations. She still answers when you click her.</span>
+          </span>
+          <input
+            type="checkbox"
+            className="sh-switch"
+            checked={quiet}
+            onChange={(e) => window.dispatchEvent(new CustomEvent("studyhub-companion-quiet", { detail: { quiet: e.target.checked } }))}
+          />
+        </label>
         <button type="button" className="sh-settings-action" onClick={() => openOther("studyhub-scout-settings")}>
           Nova settings
           <span aria-hidden>›</span>

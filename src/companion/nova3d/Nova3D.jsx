@@ -7,7 +7,7 @@ const GLITCH_MS = 520;
  * React shell around NovaStage. Lazy-loaded (three.js + the model are a separate chunk).
  * Calls `onFail` when WebGL or the model can't load so the layer can fall back to the
  * portrait sprite. `gesture` is `{ name, id, idle }`; each new id plays that gesture once
- * (idle ones give way when she starts talking). `attend` turns her to face the user; `held` means she is dangling from the cursor; `seat` ("playful" | "cold") sits her on the platform edge.
+ * (idle ones give way when she starts talking). `attend` turns her to face the user; `held` means she is dangling from the cursor; `seat` ("playful" | "cold") sits her on the platform edge; `lie` ("prop" | "back" | "belly" | "side") lays her down. `still` (reduced motion) turns off the leg swing and breathing; `energy` scales the leg swing pace.
  */
 export default function Nova3D({
   size,
@@ -22,6 +22,9 @@ export default function Nova3D({
   attend = false,
   held = false,
   seat = null,
+  lie = null,
+  still = false,
+  energy = 1,
   glitch = false,
   tint,
   visible = true,
@@ -66,11 +69,16 @@ export default function Nova3D({
       const r = canvas.getBoundingClientRect();
       stage.lookAt(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2));
     };
+    const onOut = (e) => {
+      if (!e.relatedTarget) stage.lookAway();
+    };
     window.addEventListener("pointermove", onMove, { passive: true });
+    document.addEventListener("mouseout", onOut);
     return () => {
       alive = false;
       canvas.removeEventListener("webglcontextlost", onLost);
       window.removeEventListener("pointermove", onMove);
+      document.removeEventListener("mouseout", onOut);
       stage.dispose();
       stageRef.current = null;
     };
@@ -81,8 +89,8 @@ export default function Nova3D({
   }, [size]);
 
   useEffect(() => {
-    stageRef.current?.set({ facing, gait, speed, mood, talkUntil, rampant, glow, asleep, attend, held, seat, visible });
-  }, [facing, gait, speed, mood, talkUntil, rampant, glow, asleep, attend, held, seat, visible]);
+    stageRef.current?.set({ facing, gait, speed, mood, talkUntil, rampant, glow, asleep, attend, held, seat, lie, still, energy, visible });
+  }, [facing, gait, speed, mood, talkUntil, rampant, glow, asleep, attend, held, seat, lie, still, energy, visible]);
 
   useEffect(() => {
     if (glitch) stageRef.current?.set({ glitchUntil: performance.now() + GLITCH_MS });

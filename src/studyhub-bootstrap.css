@@ -7169,6 +7169,33 @@ button.sh-today-row-main:hover {
   opacity: 1;
 }
 
+/* Reduced motion: Nova's teleports become a plain fade out and back in */
+[data-motion="reduced"] .sc-tp-out {
+  animation: nv-fade-out 200ms ease-in forwards;
+}
+
+[data-motion="reduced"] .sc-tp-in {
+  animation: nv-fade-in 300ms ease-out;
+}
+
+@keyframes nv-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes nv-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @media print {
   .sc-layer {
     display: none !important;
@@ -8447,6 +8474,19 @@ a:hover {
 
 .sc-scout--home .sc-bubble--above {
   bottom: 62%;
+}
+
+/* Asleep in 3D she lies on her side along the floor, head toward the left */
+.sc-scout--3d.sc-scout--asleep .sc-hit {
+  top: 60%;
+  left: 8%;
+  width: 84%;
+}
+
+.sc-scout--3d.sc-scout--asleep .sc-zzz {
+  top: 48%;
+  left: 14%;
+  right: auto;
 }
 
 @media print {

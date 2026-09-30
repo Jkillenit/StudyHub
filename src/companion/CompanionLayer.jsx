@@ -23,6 +23,7 @@ import { QuizPanel } from "./QuizPanel.jsx";
 import { transition, AUTONOMOUS } from "./machine.js";
 import {
   clampPoint,
+  coversContent,
   defaultHome,
   groundPlatform,
   livePlatform,
@@ -31,10 +32,12 @@ import {
   platformAt,
   platformBelow,
   pointBeside,
+  seatClear,
   standOn,
   waitForTarget,
 } from "./safeZones.js";
 import { useCompanionMotion } from "./useCompanionMotion.js";
+import { isAtSpot, mayAct, nextCheckMs } from "./attention.js";
 import { NovaSprite } from "./NovaSprite.jsx";
 import { playSound } from "./novaSound.js";
 import { SpeechBubble } from "./SpeechBubble.jsx";
@@ -74,7 +77,6 @@ const MOVE = {
   lively: { speed: 125, idle: [5000, 12000] },
 };
 const ENGAGED_SPEED = 420;
-const TYPING_PAUSE_MS = 5000;
 const BUBBLE_W = 290;
 const QUIZ_W = 380;
 const NUDGE_FIRST_MS = 90 * 1000;
@@ -96,7 +98,9 @@ const HOME_AWAY_STOPS = [2, 4];
 const HOME_RETURN_DELAY_MS = 600;
 const GROW_MS = 420;
 /** Modes she can hold while standing big in her home window; anything else walks her out at normal size. */
-const HOME_MODES = new Set(["idle", "menu", "sleep", "nudge"]);
+const HOME_MODES = new Set(["idle", "menu", "sleep", "nudge", "perch"]);
+/** Modes that can take her away from her spot on purpose. */
+const ENGAGED_MODES = new Set(["tour", "help", "quiz", "nudge", "greet"]);
 
 const rand = ([a, b]) => a + Math.random() * (b - a);
 const randInt = ([a, b]) => Math.floor(a + Math.random() * (b - a + 1));
@@ -229,7 +233,26 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   navRef.current = { courses, quizCourses, activeCourseId, onHub, onGoHub, onOpenCourse, stageActive };
 
   const lastActivityRef = useRef(Date.now());
-  const lastInputRef = useRef(0);
+  /** Last pointer, key, wheel or touch input; she only acts on her own after IDLE_START_MS of none. */
+  const lastInputRef = useRef(Date.now());
+  /** Last flashcard answered anywhere in the app; mid-session she stays still and silent. */
+  const lastStudyRef = useRef(0);
+  /** She has wandered off her spot and should go back on the next input. */
+  const awayFromSpotRef = useRef(false);
+  const returningRef = useRef(false);
+  const reducedRef = useRef(reduced);
+  reducedRef.current = reduced;
+  const canAct = useCallback(
+    () =>
+      mayAct({
+        lastInput: lastInputRef.current,
+        lastStudy: lastStudyRef.current,
+        quiet: !!stateRef.current?.quiet,
+        reduced: reducedRef.current,
+        hidden: document.hidden,
+      }),
+    []
+  );
   const lastDriftRef = useRef(0);
   const tourRef = useRef(null);
   const dragRef = useRef(null);
@@ -247,6 +270,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     const next = transition(modeRef.current, event);
     if (next !== modeRef.current) {
       if (housedRef.current && !HOME_MODES.has(next)) api.current.leaveHome?.();
+      /* A tour, quiz, help answer or nudge may have taken her elsewhere; the next input brings her back. */
+      if (AUTONOMOUS.has(next) && ENGAGED_MODES.has(modeRef.current) && !housedRef.current) awayFromSpotRef.current = true;
       modeRef.current = next;
       setMode(next);
     }
@@ -292,6 +317,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     jumpTo(homeSpot(g, g.size));
     markStage(true);
     awayRef.current = { stops: 0, goal: randInt(HOME_AWAY_STOPS) };
+    awayFromSpotRef.current = false;
     return true;
   }, [jumpTo]);
 
@@ -331,6 +357,40 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     },
     [flyTo, home]
   );
+
+  /**
+   * Input while she's off her spot sends her straight back: the home window on Today,
+   * her saved spot everywhere else. Only interrupts her own wandering, never an engaged mode.
+   */
+  api.current.backToSpot = () => {
+    const m = modeRef.current;
+    if (!awayFromSpotRef.current || returningRef.current || dragRef.current) return;
+    if (!(AUTONOMOUS.has(m) || m === "sleep")) return;
+    returningRef.current = true;
+    cancel();
+    setBubble(null);
+    if (m === "sleep") send("WAKE");
+    const done = () => {
+      returningRef.current = false;
+      awayFromSpotRef.current = false;
+    };
+    if (navRef.current.stageActive && homeGeometry(baseSizeRef.current)) {
+      void api.current.goHome({ speed: ENGAGED_SPEED }).finally(done);
+      return;
+    }
+    const spot = home();
+    if (isAtSpot(posRef.current, spot)) {
+      if (modeRef.current === "wander") send("ARRIVE");
+      done();
+      return;
+    }
+    if (modeRef.current !== "wander") send("WANDER");
+    void flyTo(spot, { speed: ENGAGED_SPEED })
+      .then((ok) => {
+        if (ok && modeRef.current === "wander") send("ARRIVE");
+      })
+      .finally(done);
+  };
 
   const refreshAnchor = useCallback(() => {
     const p = posRef.current;
@@ -663,6 +723,16 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   );
 
   /* ---------- menu actions ---------- */
+
+  /** Temporary, for checking the leg swing: sit down where she stands for a minute. */
+  const sitHoldRef = useRef(0);
+  const sitTest = useCallback(() => {
+    setBubble(null);
+    send("CLOSE");
+    if (send("PERCH") !== "perch") return;
+    sitHoldRef.current = Date.now() + 60 * 1000;
+    setSeat("playful");
+  }, [send]);
 
   const hideForNow = useCallback(() => {
     setBubble(null);
@@ -1058,8 +1128,10 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const movement = cstate?.movement || "normal";
   const enabled = !!cstate?.enabled;
 
+  const quiet = !!cstate?.quiet;
+
   useEffect(() => {
-    if (mode !== "idle" || !enabled || movement === "off") return undefined;
+    if (mode !== "idle" || !enabled || quiet || reduced) return undefined;
     const cfg = MOVE[movement] || MOVE.normal;
     let timer = 0;
     let alive = true;
@@ -1068,10 +1140,11 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     };
     const tick = async () => {
       if (!alive) return;
-      if (document.hidden || Date.now() - lastInputRef.current < TYPING_PAUSE_MS) {
-        schedule(4000);
+      if (!canAct()) {
+        schedule(nextCheckMs({ lastInput: lastInputRef.current, lastStudy: lastStudyRef.current }) + rand([500, 4000]));
         return;
       }
+      awayFromSpotRef.current = true;
       if (housedRef.current) {
         leaveHome();
         if (use3d) {
@@ -1111,7 +1184,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [mode, enabled, movement, send, flyTo, posRef, use3d, leaveHome]);
+  }, [mode, enabled, movement, quiet, reduced, canAct, send, flyTo, posRef, use3d, leaveHome]);
 
   /* Leaving Today sends her out of the home window; coming back walks her home. */
   useEffect(() => {
@@ -1119,6 +1192,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     if (!stageActive) {
       if (housedRef.current) {
         leaveHome();
+        awayFromSpotRef.current = true;
         if (use3dRef.current) void api.current.fall();
       }
       return undefined;
@@ -1221,7 +1295,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       say(line("landed"));
     }
     window.setTimeout(async () => {
-      if (modeRef.current !== "idle" || busy() || (stateRef.current?.movement || "normal") === "off") return;
+      if (modeRef.current !== "idle" || busy() || !canAct()) return;
       const step = pickStroll(sizeRef.current, posRef.current, platRef.current, { sameOnly: true });
       if (!step) return;
       send("WANDER");
@@ -1245,7 +1319,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       const now = Date.now();
       if (now < Math.max(due, lastGestureAtRef.current + 8000)) return;
       const m = modeRef.current;
-      if (document.hidden || (m !== "idle" && m !== "perch") || busy() || bubbleRef.current || dragRef.current) return;
+      if (!canAct() || (m !== "idle" && m !== "perch") || busy() || bubbleRef.current || dragRef.current) return;
       const part = dayPart();
       const name = seatRef.current ? "sitYawn" : pickIdleGesture({ part, bored: now - lastActivityRef.current > BORED_AFTER_MS, last });
       last = name;
@@ -1263,7 +1337,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       }
     }, 2000);
     return () => window.clearInterval(id);
-  }, [bodyReady, visibleNow, busy, playGesture, refreshAnchor, say]);
+  }, [bodyReady, visibleNow, busy, canAct, playGesture, refreshAnchor, say]);
 
   const prevModeRef = useRef(mode);
   useEffect(() => {
@@ -1317,7 +1391,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   useEffect(() => {
     if (mode !== "perch") return undefined;
-    const t = window.setTimeout(() => send("DONE"), rand([10000, 30000]));
+    const t = window.setTimeout(() => send("DONE"), Math.max(rand([10000, 30000]), sitHoldRef.current - Date.now()));
     return () => window.clearTimeout(t);
   }, [mode, send]);
 
@@ -1325,7 +1399,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   useEffect(() => {
     if (mode !== "perch" || !bodyReady) return undefined;
     const t = window.setTimeout(() => {
-      if (modeRef.current !== "perch" || busy() || dragRef.current || Math.random() > SIT_CHANCE) return;
+      if (modeRef.current !== "perch" || busy() || dragRef.current || sitHoldRef.current > Date.now() || Math.random() > SIT_CHANCE) return;
+      if (!seatClear(posRef.current, sizeRef.current)) return;
       const slipping = isRampant(stateRef.current) || lastTierRef.current === "finishedBad" || lastTierRef.current === "finishedMeh";
       setSeat(slipping ? "cold" : "playful");
     }, rand(SIT_DELAY_MS));
@@ -1333,11 +1408,22 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       window.clearTimeout(t);
       setSeat(null);
     };
-  }, [mode, bodyReady, busy]);
+  }, [mode, bodyReady, busy, posRef]);
+
+  /* Off her spot, if the page shifts content under her, she goes back rather than cover it. */
+  useEffect(() => {
+    if (!visibleNow) return undefined;
+    const id = window.setInterval(() => {
+      const m = modeRef.current;
+      if (!awayFromSpotRef.current || busy() || dragRef.current || !(AUTONOMOUS.has(m) || m === "sleep")) return;
+      if (coversContent(posRef.current, sizeRef.current, { standing: use3dRef.current })) api.current.backToSpot?.();
+    }, 1500);
+    return () => window.clearInterval(id);
+  }, [visibleNow, busy, posRef]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
-      if (document.hidden) return;
+      if (document.hidden || stateRef.current?.quiet || reducedRef.current) return;
       if (AUTONOMOUS.has(modeRef.current) && Date.now() - lastActivityRef.current > sleepAfterMs(dayPart())) {
         cancel();
         setBubble(null);
@@ -1361,6 +1447,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       const m = modeRef.current;
       if (away < RETURN_AWAY_MS || !(AUTONOMOUS.has(m) || m === "sleep") || busy() || dragRef.current) return;
       if (m === "sleep") send("WAKE");
+      if (stateRef.current?.quiet) return;
       lastActivityRef.current = Date.now();
       window.setTimeout(() => {
         const mm = modeRef.current;
@@ -1393,7 +1480,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     if (modeRef.current !== "idle" && modeRef.current !== "perch") return;
     if (n.count >= NUDGE_MAX_PER_SESSION || now - n.mountedAt < NUDGE_FIRST_MS) return;
     if (n.last && now - n.last < n.cooldown) return;
-    if (now - lastInputRef.current < TYPING_PAUSE_MS) return;
+    if (cur.quiet || !mayAct({ lastInput: lastInputRef.current, lastStudy: lastStudyRef.current, hidden: document.hidden, now })) return;
     const best = [...navRef.current.courses, builtinCourse(loadFlashcardDeck())]
       .map((c) => ({ c, due: getDueCards(c.flashcards || []).length }))
       .sort((a, b) => b.due - a.due)[0];
@@ -1406,6 +1493,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     if (spot) {
       const r = spot.getBoundingClientRect();
       if (r.width && r.bottom > 0 && r.top < window.innerHeight) {
+        awayFromSpotRef.current = true;
         await flyTo(pointBeside(r, sizeRef.current, "right"), { speed: 200 });
         if (modeRef.current !== "nudge") return;
       }
@@ -1475,7 +1563,10 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       const m = modeRef.current;
       const canTalk = !!stateRef.current?.enabled && (AUTONOMOUS.has(m) || m === "sleep");
       if (canTalk && m === "sleep") send("WAKE");
+      if (canTalk) api.current.backToSpot?.();
       if (d.type === "card") {
+        /* Mid-drill she stays put and silent: XP pops and her expression only. */
+        lastStudyRef.current = Date.now();
         const r = drillRef.current;
         if (d.correct) {
           r.known += 1;
@@ -1484,24 +1575,10 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           r.missed += 1;
           r.known = 0;
         }
-        const res = awardXp([[d.correct ? "cardKnown" : "cardAgain", 1]], { announce: canTalk });
-        if (!canTalk || res?.spoke) return;
-        if (res?.daily) {
-          setMood("happy");
-          say(line("dailyBonus", { xp: XP_AWARDS.daily.xp }));
-        } else if (d.correct && r.known % 5 === 0) {
-          setMood("excited");
-          flashReaction("bounce");
-          sfx("streak");
-          say(line("drillStreak", { streak: r.known }));
-          playGesture("wink");
-        } else if (!d.correct && r.missed === 3) {
-          setMood("stern");
-          flashReaction("glitch");
-          sfx("glitch");
-          say(line("drillHarsh"));
-          playGesture("facepalm");
-        }
+        awardXp([[d.correct ? "cardKnown" : "cardAgain", 1]], { announce: false });
+        if (!canTalk) return;
+        if (d.correct && r.known % 5 === 0) setMood("excited");
+        else if (!d.correct && r.missed === 3) setMood("stern");
         return;
       }
       if (d.type === "test" && d.total) {
@@ -1536,7 +1613,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     };
     const tick = () => {
       const m = modeRef.current;
-      if (!document.hidden && (m === "idle" || m === "perch") && Date.now() - lastInputRef.current > TYPING_PAUSE_MS) {
+      if ((m === "idle" || m === "perch") && canAct()) {
         setMood("stern");
         flashReaction("glitch");
         sfx("glitch");
@@ -1550,20 +1627,24 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       window.clearTimeout(timer);
       delete document.documentElement.dataset.novaRampant;
     };
-  }, [rampantNow, enabled, flashReaction, sfx, refreshAnchor, say]);
+  }, [rampantNow, enabled, canAct, flashReaction, sfx, refreshAnchor, say]);
 
-  /* Activity, typing pauses, cursor shyness, the summon hotkey. */
+  /* Input: resets the idle clock, wakes her, and calls her back if she wandered off. Plus cursor shyness and the summon hotkey. */
   useEffect(() => {
     let lastMove = 0;
-    const onActivity = () => {
-      lastActivityRef.current = Date.now();
-      if (modeRef.current === "sleep") send("WAKE");
+    const onActivity = (e) => {
+      const now = Date.now();
+      lastActivityRef.current = now;
+      lastInputRef.current = now;
+      if (e?.target && nodeRef.current?.contains(e.target)) return;
+      if (modeRef.current === "sleep" && !awayFromSpotRef.current) send("WAKE");
+      api.current.backToSpot?.();
     };
     const onPointerMoveGlobal = (e) => {
       const now = Date.now();
       if (now - lastMove < 120) return;
       lastMove = now;
-      onActivity();
+      onActivity(e);
       if (use3dRef.current || modeRef.current !== "wander" || now - lastDriftRef.current < 3000) return;
       const s = sizeRef.current;
       const p = posRef.current;
@@ -1584,29 +1665,21 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         api.current.summon();
         return;
       }
-      lastInputRef.current = Date.now();
       onActivity();
-      if (modeRef.current === "wander") {
-        cancel();
-        send("ARRIVE");
-      }
-    };
-    const onWheel = () => {
-      lastInputRef.current = Date.now();
-      onActivity();
-      if (modeRef.current === "perch") send("DONE");
     };
     window.addEventListener("pointermove", onPointerMoveGlobal, { passive: true });
     window.addEventListener("pointerdown", onActivity, true);
     window.addEventListener("keydown", onKey);
-    window.addEventListener("wheel", onWheel, { passive: true });
+    window.addEventListener("wheel", onActivity, { passive: true });
+    window.addEventListener("touchstart", onActivity, { passive: true });
     return () => {
       window.removeEventListener("pointermove", onPointerMoveGlobal);
       window.removeEventListener("pointerdown", onActivity, true);
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("wheel", onActivity);
+      window.removeEventListener("touchstart", onActivity);
     };
-  }, [send, cancel, flyTo, posRef]);
+  }, [send, flyTo, posRef]);
 
   api.current.summon = async () => {
     const cur = stateRef.current;
@@ -1710,7 +1783,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   /* Today's arrival waves her hello; the briefing's voice moves her mouth. */
   useEffect(() => {
     const onGreet = () => {
-      if (!visibleNow || !AUTONOMOUS.has(modeRef.current) || busy()) return;
+      if (!visibleNow || stateRef.current?.quiet || reducedRef.current || !AUTONOMOUS.has(modeRef.current) || busy()) return;
       setMood("happy");
       playGesture("wave");
     };
@@ -1728,8 +1801,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   useEffect(() => {
     document.documentElement.dataset.nova = visibleNow ? "on" : "off";
-    window.dispatchEvent(new CustomEvent("studyhub-companion-state", { detail: { visible: visibleNow } }));
-  }, [visibleNow]);
+    document.documentElement.dataset.novaQuiet = quiet ? "on" : "off";
+    window.dispatchEvent(new CustomEvent("studyhub-companion-state", { detail: { visible: visibleNow, quiet } }));
+  }, [visibleNow, quiet]);
 
   /* ---------- settings ---------- */
 
@@ -1752,14 +1826,22 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         }
         return;
       }
-      if (patch.movement === "off" && modeRef.current === "wander") {
-        cancel();
-        send("ARRIVE");
-      }
       update(patch);
+      if (patch.quiet) {
+        if (modeRef.current === "sleep") send("WAKE");
+        if (modeRef.current === "perch") send("DONE");
+        api.current.backToSpot?.();
+      }
     },
     [update, appear, cancel, force, send]
   );
+
+  /* Quiet mode can be flipped from the app Settings panel and from her menu too. */
+  useEffect(() => {
+    const onQuiet = (e) => onSettingsChange({ quiet: !!e.detail?.quiet });
+    window.addEventListener("studyhub-companion-quiet", onQuiet);
+    return () => window.removeEventListener("studyhub-companion-quiet", onQuiet);
+  }, [onSettingsChange]);
 
   if (!cstate) return null;
 
@@ -1767,6 +1849,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const tint = resolveTint(cstate);
   const level = levelForXp(cstate.xp || 0);
   const shownMood = mode === "sleep" ? "sleep" : mood;
+  /** Leg swing pace: livelier after a good grade or streak, lazier late at night. */
+  const legEnergy = (mood === "excited" ? 1.4 : mood === "happy" ? 1.2 : 1) * (dayPart() === "late" ? 0.7 : 1);
   const showRampant = rampantNow && mode !== "quiz" && mode !== "tour" && mode !== "help" && mode !== "sleep";
   const center = { x: posRef.current.x + size / 2, y: posRef.current.y + size / 2 };
 
@@ -1828,6 +1912,18 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     { id: "quiz", label: "QUIZ ME", icon: "✦", onClick: () => startQuiz() },
     { id: "tour", label: "SHOW ME AROUND", icon: "◎", onClick: contextualTour },
     { id: "help", label: "HOW DO I…?", icon: "?", onClick: startHelp },
+    {
+      id: "quiet",
+      label: quiet ? "QUIET MODE: ON" : "QUIET MODE",
+      icon: "◐",
+      onClick: () => {
+        send("CLOSE");
+        onSettingsChange({ quiet: !quiet });
+        setMood("neutral");
+        say(line(quiet ? "quietOff" : "quietOn"));
+      },
+    },
+    ...(use3d && body === "ready" ? [{ id: "sit", label: "SIT (TEST)", icon: "▾", onClick: sitTest }] : []),
     { id: "hide", label: "HIDE FOR NOW", icon: "–", onClick: hideForNow },
   ];
 
@@ -1885,6 +1981,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
                     attend={ATTEND_MODES.has(mode)}
                     held={dragging}
                     seat={mode === "perch" ? seat : null}
+                    lie={mode === "sleep" ? "side" : null}
+                    still={reduced}
+                    energy={legEnergy}
                     glitch={react === "glitch" || react === "droop"}
                     tint={tint}
                     visible={visible}

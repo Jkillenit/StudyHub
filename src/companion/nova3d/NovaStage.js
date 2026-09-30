@@ -3,16 +3,35 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 import clipData from "./clips.json";
 import modelUrl from "./nova.vrm?url";
+import { createLegSwing, stepLegSwing } from "./legSwing.js";
 
 const FRAME_MS = 1000 / 30;
+/** While the window is in the background she keeps breathing, barely: about 6 frames a second. */
+const BLUR_FRAME_MS = 1000 / 6;
+/** Gaze: the eyes catch the cursor fast and drift back to neutral slowly (rates per second). */
+const GAZE_CATCH = 12;
+const GAZE_RELEASE = 1.6;
+/** The eyes cover this much on their own before the head starts to turn (radians, ~8°). */
+const EYE_RANGE = 0.14;
+/** Head spring: lower is lazier. It trails the eyes by roughly 1/HEAD_OMEGA seconds. */
+const HEAD_OMEGA = 7;
+const HEAD_YAW_MAX = 0.45;
+const HEAD_PITCH_MAX = 0.3;
 /** Frame height as a multiple of the model's height; the headroom fits raised arms. */
 const FRAME_SCALE = 1.14;
 const FADE = 0.35;
+/** Getting down onto the floor and back up takes longer than a normal blend. */
+const LIE_FADE = 0.9;
 /** Render above screen resolution so fine detail (hair, circuit lines) stays crisp; the canvas is small. */
 const SUPERSAMPLE = 1.5;
 const SUPERSAMPLE_MAX = 3;
 /** Clips that loop as a base layer; everything else plays once and returns to the base. */
-const LOOPING = new Set(["idle", "walk", "talk", "sit", "fall"]);
+const LOOPING = new Set(["idle", "walk", "talk", "sit", "fall", "lieProp", "lieBack", "lieBelly", "lieSide"]);
+/** Lying poses (single-frame clips, body along the x axis, head toward screen left). */
+const LIE_CLIPS = { prop: "lieProp", back: "lieBack", belly: "lieBelly", side: "lieSide" };
+/** Lying poses she can still look around from; the others keep the head still. */
+const LIE_LOOKS = new Set(["prop", "belly"]);
+const LIE_EXTENT_BONES = ["head", "hips", "leftHand", "rightHand", "leftFoot", "rightFoot", "leftToes", "rightToes"];
 /** Bases that keep her hands clasped behind her back. */
 const ARMS_BACK_BASES = new Set(["idle", "walk"]);
 /** The cursor only draws her eyes when it's this close (CSS px from her center) and recently moved. */
@@ -137,17 +156,28 @@ const HELD = {
 
 /** Sitting on a platform edge with the hips on the line; the canvas drops by this much of the frame so the legs hang below it. */
 const SEAT_FRAC = 0.27;
-/** Playful seat: thighs forward over the edge, shins swinging alternately, hands planted beside the hips. */
+/** Playful seat: thighs forward over the edge, hands planted beside the hips. The legs come from legSwing. */
 const SEAT_PLAYFUL = {
   arms: bothArms(dir(0.32, -0.92, -0.2), dir(0.08, -1, 0.12), dir(0, -0.85, 0.5)),
-  legs: (t) => {
-    const k = Math.sin(t * 2.6);
-    return {
-      left: [dir(0.1, -0.2, 1), dir(0.02, -1, 0.2 + 0.4 * k), dir(0, -0.55, 0.85)],
-      right: [dir(-0.1, -0.2, 1), dir(-0.02, -1, 0.2 - 0.4 * k), dir(0, -0.55, 0.85)],
-    };
-  },
 };
+
+/** Tip a direction forward (toward +z, the way she faces) by `a` radians around the x axis. */
+function forward(v, a) {
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  return new THREE.Vector3(v.x, v.y * c + v.z * s, -v.y * s + v.z * c).normalize();
+}
+
+/** Seated leg directions from legSwing angles. `sign` is +1 for her left leg, -1 for her right. */
+function seatLeg(j, cross, sign) {
+  const thigh = forward(new THREE.Vector3(0.1 * sign, -0.2, 1), j.hip * 0.5);
+  const shin = forward(new THREE.Vector3(0.02 * sign, -1, 0.2), j.hip + j.knee);
+  shin.x -= sign * 0.3 * cross;
+  shin.z += (sign > 0 ? 0.12 : 0) * cross;
+  const foot = forward(new THREE.Vector3(0, -0.55, 0.85), j.hip + j.knee + j.ankle);
+  foot.x -= sign * 0.25 * cross;
+  return [thigh.normalize(), shin.normalize(), foot.normalize()];
+}
 
 /** Face overlays for clip gestures, keyed by clip name; `t` is the clip time. */
 const CLIP_FACE = {
@@ -287,7 +317,20 @@ export class NovaStage {
     this.root = new THREE.Group();
     this.scene.add(this.root);
     this.clock = new THREE.Clock(false);
-    this.state = { gait: null, speed: 90, facing: 1, mood: "neutral", talkUntil: 0, rampant: false, glow: 1, asleep: false, attend: false, held: false, seat: null, glitchUntil: 0, visible: true };
+    this.state = { gait: null, speed: 90, facing: 1, mood: "neutral", talkUntil: 0, rampant: false, glow: 1, asleep: false, attend: false, held: false, seat: null, lie: null, still: false, energy: 1, glitchUntil: 0, visible: true };
+    this.legSwing = createLegSwing();
+    this.gaze = new THREE.Vector3(0, 1, 2.5);
+    this.headVel = { yaw: 0, pitch: 0 };
+    this.focused = typeof document.hasFocus === "function" ? document.hasFocus() : true;
+    this.onFocus = () => {
+      this.focused = true;
+    };
+    this.onBlur = () => {
+      this.focused = false;
+      this.lookAway();
+    };
+    window.addEventListener("focus", this.onFocus);
+    window.addEventListener("blur", this.onBlur);
     this.uniforms = {
       uTime: { value: 0 },
       uGlitch: { value: 0 },
@@ -304,6 +347,8 @@ export class NovaStage {
     this.heldW = 0;
     this.seatW = 0;
     this.playW = 0;
+    this.lieW = 0;
+    this.lieX = 0;
     this.t = 0;
     this.face = {};
     this.mouth = { key: "aa", v: 0, next: 0 };
@@ -472,6 +517,11 @@ export class NovaStage {
     this.look = { x: dx, y: dy, at: performance.now() };
   }
 
+  /** The cursor left the window (or the window lost focus): drift back to a neutral gaze. */
+  lookAway() {
+    this.look = { ...this.look, at: 0 };
+  }
+
   gestureIsIdle() {
     return !!(this.oneShot?.idle || this.proc?.idle);
   }
@@ -486,6 +536,7 @@ export class NovaStage {
     if (s.held) return "idle";
     if (s.gait === "fall") return "fall";
     if (s.gait === "walk") return "walk";
+    if (LIE_CLIPS[s.lie] && this.actions[LIE_CLIPS[s.lie]]) return LIE_CLIPS[s.lie];
     if (s.asleep || s.seat) return "sit";
     if (s.talkUntil > performance.now()) return "talk";
     return "idle";
@@ -494,7 +545,7 @@ export class NovaStage {
   syncBase() {
     const want = this.wantedBase();
     if ((want === "walk" || want === "fall" || this.state.held) && (this.oneShot || this.proc)) this.cancelGesture();
-    if (want !== this.base) this.setBase(want);
+    if (want !== this.base) this.setBase(want, want.startsWith("lie") || this.base?.startsWith("lie") ? LIE_FADE : FADE);
   }
 
   setBase(name, fade = FADE) {
@@ -571,7 +622,7 @@ export class NovaStage {
     const loop = (t) => {
       this.raf = requestAnimationFrame(loop);
       if (document.hidden) return;
-      if (this.last && t - this.last < FRAME_MS - 2) return;
+      if (this.last && t - this.last < (this.focused ? FRAME_MS : BLUR_FRAME_MS) - 2) return;
       this.last = t;
       this.tick();
     };
@@ -599,10 +650,12 @@ export class NovaStage {
     this.mixer.update(dt);
 
     const talking = s.talkUntil > now;
-    const seated = !!(s.seat || s.asleep) && !s.held && !s.gait && !this.oneShot;
+    const lying = this.base?.startsWith("lie") ? s.lie : null;
+    const seated = !lying && !!(s.seat || s.asleep) && !s.held && !s.gait && !this.oneShot;
     const cold = seated && !s.asleep && s.seat === "cold";
     let targetYaw = s.facing * 0.28;
-    if (s.gait === "walk") targetYaw = s.facing * (Math.PI / 2 - 0.3);
+    if (lying) targetYaw = 0;
+    else if (s.gait === "walk") targetYaw = s.facing * (Math.PI / 2 - 0.3);
     else if (talking || s.attend || s.held) targetYaw = 0;
     else if (cold) targetYaw = s.facing * 0.5;
     else if (seated) targetYaw = s.facing * 0.12;
@@ -615,6 +668,7 @@ export class NovaStage {
     this.heldW = ease(this.heldW, s.held ? 1 : 0, 8);
     this.seatW = ease(this.seatW, seated ? 1 : 0, 4);
     this.playW = ease(this.playW, seated && !s.asleep && s.seat === "playful" ? 1 : 0, 4);
+    this.lieW = ease(this.lieW, lying ? 1 : 0, 4);
 
     const wantBack = !this.oneShot && !s.held && ARMS_BACK_BASES.has(this.base) ? 1 : 0;
     this.armsBack += (wantBack - this.armsBack) * Math.min(1, dt * 5);
@@ -624,17 +678,21 @@ export class NovaStage {
       this.applyLegPose(HELD.legs(this.t), this.heldW);
       this.bend("head", [-0.22, 0, 0], this.heldW);
     }
+    const swing = stepLegSwing(this.legSwing, dt, { active: this.playW > 0.5 && !s.still, energy: s.energy || 1 });
     if (this.playW > 0.01) {
       this.applyArmPose(SEAT_PLAYFUL.arms, this.playW);
-      this.applyLegPose(SEAT_PLAYFUL.legs(this.t), this.playW);
-      this.bend("head", [0, 0, Math.sin(this.t * 1.3) * 0.08], this.playW);
+      this.applyLegPose({ left: seatLeg(swing.left, swing.cross, 1), right: seatLeg(swing.right, swing.cross, -1) }, this.playW);
+      if (!s.still) this.bend("head", [0, 0, Math.sin(this.t * 1.3) * 0.08], this.playW);
     }
     if (cold) this.bend("head", [0.06, s.facing * 0.45, 0], this.seatW);
     if (seated && s.asleep) {
       this.bend("neck", [0.3, 0, 0.1], this.seatW);
       this.bend("head", [0.35, 0, 0.14], this.seatW);
     }
+    this.lying = lying;
+    if (lying && !s.still) this.lieLife(lying, s.asleep);
     this.placeSeat();
+    this.centerLie(lying, dt);
 
     let overlay = null;
     if (this.proc) {
@@ -674,8 +732,53 @@ export class NovaStage {
       const hipsY = this.rest.hips.getWorldPosition(new THREE.Vector3()).y;
       this.root.position.y = (this.rest.floorY + SEAT_FRAC * this.frameH - hipsY) * w;
     }
-    const shift = w ? `translateY(${(SEAT_FRAC * w * 100).toFixed(2)}%)` : "";
+    const parts = [];
+    if (w) parts.push(`translateY(${(SEAT_FRAC * w * 100).toFixed(2)}%)`);
+    if (this.lying && this.state.facing < 0) parts.push("scaleX(-1)");
+    const shift = parts.join(" ");
     if (this.canvas.style.transform !== shift) this.canvas.style.transform = shift;
+  }
+
+  /** Lying: slow breathing through the chest, and the feet kick lazily on her stomach. */
+  lieLife(pose, asleep) {
+    const w = this.lieW;
+    const breath = Math.sin(this.t * (asleep ? 1.3 : 1.8)) * (asleep ? 0.035 : 0.025);
+    this.bend("chest", [breath, 0, 0], w);
+    this.bend("upperChest", [breath * 0.6, 0, 0], w);
+    if (pose === "belly" && !asleep) {
+      const k = Math.sin(this.t * 2.2);
+      this.bend("leftLowerLeg", [0.3 * k, 0, 0], w);
+      this.bend("rightLowerLeg", [-0.3 * Math.sin(this.t * 2.2 + 0.6 * Math.PI * 2), 0, 0], w);
+      this.bend("head", [0, 0, Math.sin(this.t * 0.9) * 0.05], w);
+    }
+  }
+
+  /**
+   * The lying clips put the hips at the origin with the head and feet off to either side.
+   * Slide the body so the whole figure sits centered in her frame.
+   */
+  centerLie(pose, dt) {
+    let want = 0;
+    if (pose) {
+      const h = this.vrm.humanoid;
+      this.root.updateMatrixWorld(true);
+      let lo = Infinity;
+      let hi = -Infinity;
+      const p = new THREE.Vector3();
+      for (const name of LIE_EXTENT_BONES) {
+        const node = h.getNormalizedBoneNode(name);
+        if (!node) continue;
+        const x = node.getWorldPosition(p).x - this.root.position.x;
+        lo = Math.min(lo, x);
+        hi = Math.max(hi, x);
+      }
+      if (Number.isFinite(lo)) {
+        const headPad = this.height * 0.06;
+        want = -((lo - headPad + hi) / 2);
+      }
+    }
+    this.lieX += (want - this.lieX) * Math.min(1, dt * 4);
+    this.root.position.x = Math.abs(this.lieX) < 1e-4 ? 0 : this.lieX;
   }
 
   /** Blend the arms toward a pose of world directions (relative to the chest) by `weight`. */
@@ -719,19 +822,32 @@ export class NovaStage {
     const ppu = this.sizePx / this.frameH;
     const headPos = head.getWorldPosition(new THREE.Vector3());
     const cy = (this.camera.top + this.camera.bottom) / 2;
-    const t = this.lookTarget.position;
     const l = this.look;
     const glancing = l.at && performance.now() - l.at < GLANCE_MS && Math.hypot(l.x, l.y) < GLANCE_RADIUS;
-    if (glancing || s.attend) t.set(l.x / ppu, cy - l.y / ppu, 2.5);
-    else t.set(headPos.x + Math.sin(this.yaw) * 2.5, headPos.y, Math.cos(this.yaw) * 2.5);
-    const free = s.gait !== "walk" && !s.asleep && s.seat !== "cold" && !this.oneShot && !this.proc;
-    const wantYaw = free ? THREE.MathUtils.clamp(Math.atan2(t.x - headPos.x, t.z - headPos.z) - this.yaw, -0.6, 0.6) * 0.7 : 0;
-    const wantPitch = free
-      ? THREE.MathUtils.clamp(-Math.atan2(t.y - headPos.y, Math.hypot(t.x - headPos.x, t.z - headPos.z)), -0.4, 0.4) * 0.6
-      : 0;
-    const k = Math.min(1, dt * 5);
-    this.headYaw = (this.headYaw || 0) + (wantYaw - (this.headYaw || 0)) * k;
-    this.headPitch = (this.headPitch || 0) + (wantPitch - (this.headPitch || 0)) * k;
+    const onCursor = glancing || (s.attend && l.at);
+    const want = onCursor
+      ? new THREE.Vector3(l.x / ppu, cy - l.y / ppu, 2.5)
+      : new THREE.Vector3(headPos.x + Math.sin(this.yaw) * 2.5, headPos.y, Math.cos(this.yaw) * 2.5);
+    /* Eyes: the gaze point catches the cursor quickly and eases back to neutral slowly. */
+    this.gaze.lerp(want, 1 - Math.exp(-(onCursor ? GAZE_CATCH : GAZE_RELEASE) * dt));
+    this.lookTarget.position.copy(this.gaze);
+    const g = this.gaze;
+
+    /* Head: only turns for what the eyes can't cover, and trails them on a soft spring. */
+    const lieOk = !this.lying || LIE_LOOKS.has(this.lying);
+    const free = lieOk && s.gait !== "walk" && !s.asleep && s.seat !== "cold" && !this.oneShot && !this.proc;
+    const beyondEyes = (a) => Math.sign(a) * Math.max(0, Math.abs(a) - EYE_RANGE);
+    const yawToGaze = Math.atan2(g.x - headPos.x, g.z - headPos.z) - this.yaw;
+    const pitchToGaze = -Math.atan2(g.y - headPos.y, Math.hypot(g.x - headPos.x, g.z - headPos.z));
+    const wantYaw = free ? THREE.MathUtils.clamp(beyondEyes(yawToGaze), -HEAD_YAW_MAX, HEAD_YAW_MAX) : 0;
+    const wantPitch = free ? THREE.MathUtils.clamp(beyondEyes(pitchToGaze) * 0.8, -HEAD_PITCH_MAX, HEAD_PITCH_MAX) : 0;
+    const spring = (cur, target, key) => {
+      const v = this.headVel[key] + (HEAD_OMEGA * HEAD_OMEGA * (target - cur) - 2 * HEAD_OMEGA * this.headVel[key]) * dt;
+      this.headVel[key] = v;
+      return cur + v * dt;
+    };
+    this.headYaw = spring(this.headYaw || 0, wantYaw, "yaw");
+    this.headPitch = spring(this.headPitch || 0, wantPitch, "pitch");
     const v0 = this.vrm.meta?.metaVersion === "0";
     const e = new THREE.Euler(v0 ? -this.headPitch : this.headPitch, this.headYaw, 0, "YXZ");
     head.quaternion.multiply(new THREE.Quaternion().setFromEuler(e));
@@ -790,6 +906,8 @@ export class NovaStage {
   dispose() {
     this.disposed = true;
     this.stop();
+    window.removeEventListener("focus", this.onFocus);
+    window.removeEventListener("blur", this.onBlur);
     if (this.vrm) VRMUtils.deepDispose(this.vrm.scene);
     for (const m of this.meshes || []) {
       for (const mat of [m.color, m.depth].flat()) mat.dispose();

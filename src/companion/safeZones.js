@@ -11,6 +11,47 @@ const AVOID_SELECTOR = [
   "iframe",
 ].join(",");
 
+/** Everything she must not cover when she moves on her own: panels, text and anything clickable. */
+const CONTENT_SELECTOR = [
+  AVOID_SELECTOR,
+  ".sh-panel",
+  ".sh-hub-block",
+  "button",
+  "a[href]",
+  "[role='button']",
+  "p",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "li",
+  "label",
+  "img",
+  "table",
+].join(",");
+/** Text and controls inside a panel, for checking where her legs would hang when she sits on its edge. */
+const TEXT_SELECTOR = [
+  "p",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "li",
+  "label",
+  "button",
+  "a[href]",
+  "input",
+  "textarea",
+  "select",
+  "[class*='title']",
+  "[class*='label']",
+  "[class*='chip']",
+].join(",");
+/** Her own UI and her home window never count as content. */
+const NOT_CONTENT = ".sc-layer, [data-nova-home]";
+/** Share of the frame her legs hang below the edge when seated (matches NovaStage SEAT_FRAC). */
+const SEAT_LEG_FRAC = 0.3;
+
 const TITLEBAR_H = 64;
 const EDGE = 12;
 const MARGIN_BAND = 96;
@@ -48,6 +89,42 @@ function avoidRects() {
   return [...document.querySelectorAll(AVOID_SELECTOR)].map(visibleRect).filter(Boolean);
 }
 
+/**
+ * Content rects she must keep clear of. Anything starting at or below `feetLine` is skipped:
+ * a standing body is entirely above its feet, so the panel she stands on can't be covered.
+ */
+function contentRects(feetLine = Infinity) {
+  const out = [];
+  for (const el of document.querySelectorAll(CONTENT_SELECTOR)) {
+    if (el.closest(NOT_CONTENT)) continue;
+    const r = visibleRect(el);
+    if (!r || r.top >= feetLine - 2) continue;
+    out.push(r);
+  }
+  return out;
+}
+
+/** Standing body: the middle strip of her box, from the head down to just above the feet. */
+const bodyBox = (p, size) => ({ x: p.x + size * 0.3, y: p.y + size * 0.08, w: size * 0.4, h: size * 0.9 });
+
+/** Would she cover text, a button or a panel standing at `p`? */
+export function coversContent(p, size, { standing = true, rects = null } = {}) {
+  const box = standing ? bodyBox(p, size) : { x: p.x, y: p.y, w: size, h: size };
+  const list = rects || contentRects(standing ? p.y + size : Infinity);
+  return list.some((r) => overlaps(box, r, 0));
+}
+
+/** Room to sit on the edge at `p`: no text or controls where her legs would hang. */
+export function seatClear(p, size) {
+  const legs = { x: p.x + size * 0.3, y: p.y + size, w: size * 0.4, h: size * SEAT_LEG_FRAC };
+  for (const el of document.querySelectorAll(TEXT_SELECTOR)) {
+    if (el.closest(NOT_CONTENT)) continue;
+    const r = visibleRect(el);
+    if (r && overlaps(legs, r, 2)) return false;
+  }
+  return true;
+}
+
 function isClear(p, size, avoid) {
   const box = { x: p.x, y: p.y, w: size, h: size };
   return !avoid.some((r) => overlaps(box, r));
@@ -74,10 +151,10 @@ function marginPoint(size) {
 
 /**
  * Pick somewhere to fly: a perch on a card edge about half the time, otherwise a
- * spot in the window margins. Never lands on inputs, editors or the flashcard face.
+ * spot in the window margins. Never covers panels, text, buttons or inputs.
  */
 export function pickWaypoint(size, from) {
-  const avoid = avoidRects();
+  const avoid = contentRects();
   const perches = Math.random() < 0.55 ? perchPoints(size) : [];
   const candidates = [];
   for (const p of perches) candidates.push(p);
@@ -165,17 +242,13 @@ export function standOn(plat, cx, size) {
   return clampPoint({ x, y: plat.top - size }, size);
 }
 
-/** Her standing footprint (center strip of the box) must not cover inputs, editors or media. */
-function footprintClear(p, size, avoid) {
-  return !avoid.some((r) => overlaps({ x: p.x + size * 0.3, y: p.y, w: size * 0.4, h: size }, r));
-}
-
 /**
  * Where to go next when idle: usually a stroll along the current platform, sometimes a
  * teleport up onto a card (or back down to the floor). `walk` says whether it's a stroll.
+ * Every candidate is checked against panels, text and buttons, and a stroll's whole path
+ * has to be clear too.
  */
 export function pickStroll(size, pos, current, { sameOnly = false } = {}) {
-  const avoid = avoidRects();
   const here = livePlatform(current, size) || platformAt(pos, size) || groundPlatform();
   const cx = feetX(pos, size);
   const tries = [];
@@ -190,10 +263,25 @@ export function pickStroll(size, pos, current, { sameOnly = false } = {}) {
     const others = platforms(size).filter((p) => p.el !== here.el);
     for (const p of others) tries.push({ plat: p, cx: p.left + Math.random() * (p.right - p.left), walk: false });
   }
+  const byLine = new Map();
+  const rectsAt = (feetLine) => {
+    const key = Math.round(feetLine);
+    if (!byLine.has(key)) byLine.set(key, contentRects(feetLine));
+    return byLine.get(key);
+  };
+  const pathClear = (p) => {
+    const rects = rectsAt(p.y + size);
+    if (!p.walk) return !coversContent(p, size, { rects });
+    const steps = Math.max(1, Math.ceil(Math.abs(p.x - pos.x) / (size * 0.3)));
+    for (let i = 1; i <= steps; i += 1) {
+      if (coversContent({ x: pos.x + ((p.x - pos.x) * i) / steps, y: p.y }, size, { rects })) return false;
+    }
+    return true;
+  };
   const ok = tries
     .map((t) => ({ ...standOn(t.plat, t.cx, size), plat: t.plat, walk: t.walk }))
     .filter((p) => Math.abs(p.x - pos.x) > 30 || !p.walk)
-    .filter((p) => footprintClear(p, size, avoid));
+    .filter(pathClear);
   if (!ok.length) return null;
   const strolls = ok.filter((p) => p.walk);
   if (strolls.length && (sameOnly || Math.random() < 0.65)) return strolls[Math.floor(Math.random() * strolls.length)];

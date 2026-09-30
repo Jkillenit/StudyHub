@@ -16,6 +16,7 @@ const MAX_FALL_SPEED = 1800;
  *
  * With `walker` (the 3D body) she never glides: level moves marked `walk` are a straight
  * walk at `speed`, everything else is a teleport. `gait` tells the body what to animate.
+ * With `reduced` every move is a teleport, which the stylesheet turns into a plain fade.
  */
 export function useCompanionMotion(nodeRef, { reduced = false, onTeleport, walker = false } = {}) {
   const posRef = useRef({ x: -200, y: -200 });
@@ -128,11 +129,12 @@ export function useCompanionMotion(nodeRef, { reduced = false, onTeleport, walke
       const dx = target.x - from.x;
       const dy = target.y - from.y;
       const dist = Math.hypot(dx, dy);
-      if (reduced || dist < 3) {
+      if (dist < 3) {
         posRef.current = { x: target.x, y: target.y };
         apply(posRef.current);
         return Promise.resolve(true);
       }
+      if (reduced) return teleport(target);
       if (Math.abs(dx) > 4) setFacing(dx >= 0 ? 1 : -1);
       if (walkerRef.current) {
         if (walk && Math.abs(dy) < 6) return walkTo(target, speed);
