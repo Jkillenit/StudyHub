@@ -253,6 +253,10 @@ contextBridge.exposeInMainWorld("studyHub", {
     dashboard: {
       get: () => ipcRenderer.invoke("db:dashboard:get"),
     },
+    today: {
+      get: () => ipcRenderer.invoke("db:today:get"),
+      setTargetGrade: (data) => ipcRenderer.invoke("db:courses:setTargetGrade", data),
+    },
     sessions: {
       log: (data) => ipcRenderer.invoke("db:sessions:log", data),
       stats: (courseUuid) => ipcRenderer.invoke("db:sessions:stats", courseUuid),

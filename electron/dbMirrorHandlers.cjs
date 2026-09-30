@@ -141,6 +141,110 @@ function gradeItemsWithMapping(db, courseUuid) {
   return resolveMappings(items, components);
 }
 
+const TODAY_LOOKBACK_DAYS = 30;
+
+/**
+ * Everything the Today priority engine needs, per course: target, weighted components (with how many
+ * points / items each holds, for an item's share of the final grade), open assignments mapped to a
+ * component, and flashcards due. The engine itself is pure and runs in the renderer.
+ */
+function todayData(db) {
+  const courses = db
+    .prepare(`
+      SELECT id, uuid, name, course_code, bb_course_id, target_grade FROM courses
+      WHERE type = 'user' ORDER BY name COLLATE NOCASE ASC
+    `)
+    .all();
+  const since = new Date(Date.now() - TODAY_LOOKBACK_DAYS * 86400000).toISOString();
+  const today = localDate(0);
+  const componentStmt = db.prepare(`
+    SELECT gc.id, gc.uuid, gc.name, gc.weight, gc.category, ge.score AS score
+    FROM grade_components gc
+    LEFT JOIN grade_entries ge ON ge.component_id = gc.id AND ge.is_main = 1
+    WHERE gc.course_id = ? GROUP BY gc.id ORDER BY gc.position ASC
+  `);
+  const assignmentStmt = db.prepare(`
+    SELECT uuid, bb_id, component_id, title, kind, due_date, completed, score, points_possible, url, source
+    FROM assignments WHERE course_id = ? AND completed = 0 AND due_date IS NOT NULL AND due_date >= ?
+    ORDER BY due_date ASC
+  `);
+  const countStmt = db.prepare("SELECT component_id, bb_id, title FROM assignments WHERE course_id = ?");
+  const cardsStmt = db.prepare(`
+    SELECT COUNT(f.id) AS total,
+           COALESCE(SUM(CASE WHEN m.next_review IS NULL OR m.next_review <= ? THEN 1 ELSE 0 END), 0) AS due
+    FROM flashcards f LEFT JOIN mastery m ON m.flashcard_id = f.id WHERE f.course_id = ?
+  `);
+
+  const result = courses.map((course) => {
+    const components = componentStmt.all(course.id);
+    const byId = new Map(components.map((c) => [c.id, c]));
+    const { items } = loadForCourse(db, course.id);
+    const resolvedItems = components.length ? resolveMappings(items, components) : [];
+    const componentOfBb = new Map(resolvedItems.map((i) => [String(i.bb_id), i.componentUuid]));
+    const componentFor = (row) => {
+      if (row.component_id && byId.has(row.component_id)) return byId.get(row.component_id).uuid;
+      if (row.bb_id && componentOfBb.has(String(row.bb_id))) return componentOfBb.get(String(row.bb_id));
+      if (!components.length) return null;
+      return resolveMappings([{ name: row.title, component_uuid: null }], components)[0].componentUuid;
+    };
+
+    const totals = new Map();
+    for (const item of resolvedItems) {
+      if (!item.componentUuid) continue;
+      const t = totals.get(item.componentUuid) || { points: 0, items: 0 };
+      t.items += 1;
+      t.points += Number(item.points_possible) || 0;
+      totals.set(item.componentUuid, t);
+    }
+    if (!resolvedItems.length) {
+      for (const row of countStmt.all(course.id)) {
+        const uuid = componentFor(row);
+        if (!uuid) continue;
+        const t = totals.get(uuid) || { points: 0, items: 0 };
+        t.items += 1;
+        totals.set(uuid, t);
+      }
+    }
+
+    const cards = cardsStmt.get(today, course.id);
+    return {
+      uuid: course.uuid,
+      name: course.name,
+      courseCode: course.course_code || "",
+      bbCourseId: course.bb_course_id || "",
+      targetGrade: Number.isFinite(course.target_grade) ? course.target_grade : 80,
+      cardsTotal: cards.total || 0,
+      cardsDue: cards.due || 0,
+      components: components.map((c) => ({
+        uuid: c.uuid,
+        name: c.name,
+        weight: Number(c.weight) || 0,
+        category: c.category || "other",
+        score: c.score ?? null,
+        pointsTotal: totals.get(c.uuid)?.points || 0,
+        itemCount: totals.get(c.uuid)?.items || 0,
+      })),
+      assignments: assignmentStmt.all(course.id, since).map((a) => ({
+        uuid: a.uuid,
+        title: a.title,
+        kind: a.kind || "assignment",
+        dueDate: a.due_date,
+        score: a.score ?? null,
+        pointsPossible: a.points_possible ?? null,
+        url: a.url || null,
+        source: a.source,
+        componentUuid: componentFor(a),
+      })),
+    };
+  });
+
+  const synced =
+    db.prepare("SELECT 1 FROM assignments WHERE source = 'blackboard' LIMIT 1").get() ||
+    db.prepare("SELECT 1 FROM bb_items LIMIT 1").get() ||
+    db.prepare("SELECT 1 FROM bb_grade_items LIMIT 1").get();
+  return { now: new Date().toISOString(), synced: !!synced, courses: result };
+}
+
 function localDate(offsetDays = 0) {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
@@ -340,6 +444,16 @@ function registerMirrorHandlers() {
       `)
       .all();
     return { upcoming, announcements, dueCards, recentGrades, stats: sessionStats(db, null) };
+  });
+
+  ipcMain.handle("db:today:get", () => todayData(db));
+
+  /** Not an edit to the course itself, so updated_at (course list order) is left alone. */
+  ipcMain.handle("db:courses:setTargetGrade", (_, { courseUuid, targetGrade }) => {
+    const value = Number(targetGrade);
+    if (!Number.isFinite(value) || value < 0 || value > 100) return { success: false };
+    const res = db.prepare("UPDATE courses SET target_grade = ? WHERE uuid = ?").run(value, courseUuid);
+    return { success: res.changes > 0 };
   });
 
   /* ---------------- study sessions ---------------- */

@@ -1,4 +1,5 @@
 const { session, net } = require("electron");
+const { assignmentKind } = require("./assignmentKind.cjs");
 
 const BB_PARTITION = "persist:blackboard";
 const BB_ORIGIN = "https://ualearn.blackboard.com";
@@ -318,7 +319,7 @@ async function collectGradebook(bbCourseId) {
         id: c.id,
         title: name,
         dueDate: c.grading.due,
-        kind: /exam|midterm|final|test|quiz/i.test(name) ? "exam" : "assignment",
+        kind: assignmentKind(name),
         pointsPossible: Number(c.score?.possible) || null,
         score: gradeScore(grade),
         url: `${BB_ORIGIN}/ultra/courses/${bbCourseId}/grades`,

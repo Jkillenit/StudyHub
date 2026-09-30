@@ -3,6 +3,7 @@ import { daysFromToday, dueLabel, shortDate } from "./dateLabels.js";
 import { CalendarView } from "./CalendarView.jsx";
 import { cardsInScope, estimateExam, formatMinutes, loadScope } from "../study/examEstimate.js";
 import { pctTone, shortCourse } from "./courseLabel.js";
+import { KindTag } from "./KindTag.jsx";
 
 const EMPTY = { upcoming: [], announcements: [], dueCards: [], recentGrades: [], stats: null };
 
@@ -33,7 +34,7 @@ function DueSoon({ items, onToggle, onOpenCourse }) {
               onClick={() => onOpenCourse(a.course_uuid)}
             >
               <span className="sh-today-row-title sh-today-row-title--wrap">
-                {a.kind === "exam" ? <span className="sh-today-tag sh-today-tag--exam">EXAM</span> : null}
+                <KindTag kind={a.kind} />
                 {a.title}
               </span>
               <span className="sh-today-row-sub">

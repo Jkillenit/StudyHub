@@ -277,6 +277,17 @@ export const courseStore = {
     }
   },
 
+  /** Input for the Today priority engine: { now, synced, courses: [...] }. */
+  async loadTodayData() {
+    return (await db?.today?.get?.()) || { now: new Date().toISOString(), synced: false, courses: [] };
+  },
+
+  async setTargetGrade(courseUuid, targetGrade) {
+    const res = await db?.today?.setTargetGrade?.({ courseUuid, targetGrade });
+    if (res?.success) window.dispatchEvent(new CustomEvent("studyhub-target-changed", { detail: { courseUuid, targetGrade } }));
+    return res || { success: false };
+  },
+
   async saveGradeComponents(courseUuid, components) {
     return db.grades.saveComponents({
       courseUuid,

@@ -4619,6 +4619,10 @@ button.sh-today-row-main:hover {
   color: var(--sh-amber);
   border-color: var(--sh-amber);
 }
+.sh-today-tag--quiz {
+  color: var(--sh-cyan);
+  border-color: var(--sh-cyan);
+}
 .sh-today-when,
 .sh-today-count,
 .sh-today-score {
@@ -4979,6 +4983,9 @@ button.sh-today-row-main:hover {
 }
 .sh-cal-chip--exam {
   box-shadow: inset 2px 0 0 var(--sh-amber);
+}
+.sh-cal-chip--quiz {
+  box-shadow: inset 2px 0 0 var(--sh-cyan);
 }
 .sh-cal-chip--done {
   opacity: 0.45;

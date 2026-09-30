@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { parseSyllabus } from "../../syllabus/syllabusParser";
 import { courseStore } from "../../db/courseStore.js";
 import InlineEdit from "./InlineEdit";
+import { currentGrade as weightedGrade, hasScore, neededAverage } from "../../features/grades/gradeMath.js";
 
 const SCORE_SAVE_DEBOUNCE_MS = 600;
-const hasScore = (c) => c.score !== null && c.score !== undefined && !Number.isNaN(c.score);
 const keyOf = (c, i) => c.uuid || (c.id != null ? `id${c.id}` : `new${i}`);
 
 function gradeColor(pct) {
@@ -68,9 +68,7 @@ function HypotheticalEngine({ components, gradingScale }) {
   const unscored = components.filter((c) => !hasScore(c));
   if (scored.length === 0 || unscored.length === 0) return null;
 
-  const scoredContrib = scored.reduce((sum, c) => sum + Number(c.score) * Number(c.weight || 0), 0);
-  const remainingWeight = unscored.reduce((sum, c) => sum + Number(c.weight || 0), 0);
-  const needed = remainingWeight > 0 ? (target - scoredContrib) / remainingWeight : null;
+  const needed = neededAverage(components, target);
   const isPossible = needed !== null && needed <= 100;
   const isAlreadyAchieved = needed !== null && needed <= 0;
   const letter = getCurrentLetter(target, gradingScale) || `${target}%`;
@@ -591,12 +589,7 @@ export default function GradesTab({ course, onComponentsChange }) {
       preset || { name: "New Component", weight: 0.05, category: "other", score: null },
     ]);
 
-  const currentGrade = useMemo(() => {
-    const scored = components.filter(hasScore);
-    const scoredWeight = scored.reduce((sum, c) => sum + Number(c.weight || 0), 0);
-    if (!scored.length || scoredWeight <= 0) return null;
-    return scored.reduce((sum, c) => sum + Number(c.score) * Number(c.weight || 0), 0) / scoredWeight;
-  }, [components]);
+  const currentGrade = useMemo(() => weightedGrade(components), [components]);
 
   async function handleImport() {
     const result = await window.studyHub?.openFileDialog?.({

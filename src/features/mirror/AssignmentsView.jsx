@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { daysFromToday, dueLabel } from "../dashboard/dateLabels.js";
 import { AssignmentForm } from "./AssignmentForm.jsx";
+import { KindTag } from "../dashboard/KindTag.jsx";
 import { openInBlackboard } from "./openInBlackboard.js";
 
 function groupAssignments(rows) {
@@ -37,7 +38,7 @@ function AssignmentRow({ a, onToggle, onDelete }) {
       />
       <span className="sh-today-row-main">
         <span className="sh-today-row-title">
-          {a.kind === "exam" ? <span className="sh-today-tag sh-today-tag--exam">EXAM</span> : null}
+          <KindTag kind={a.kind} />
           {a.title}
         </span>
         <span className="sh-today-row-sub">

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AssignmentForm } from "../mirror/AssignmentForm.jsx";
+import { KindTag } from "./KindTag.jsx";
 
 const WEEKDAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
@@ -108,7 +109,7 @@ export function CalendarView({ userCourses }) {
               {list.slice(0, 3).map((a) => (
                 <span
                   key={a.uuid}
-                  className={`sh-cal-chip${a.kind === "exam" ? " sh-cal-chip--exam" : ""}${a.completed ? " sh-cal-chip--done" : ""}`}
+                  className={`sh-cal-chip${a.kind === "exam" || a.kind === "quiz" ? ` sh-cal-chip--${a.kind}` : ""}${a.completed ? " sh-cal-chip--done" : ""}`}
                 >
                   {a.title}
                 </span>
@@ -149,7 +150,7 @@ export function CalendarView({ userCourses }) {
                 />
                 <span className="sh-today-row-main">
                   <span className="sh-today-row-title">
-                    {a.kind === "exam" ? <span className="sh-today-tag sh-today-tag--exam">EXAM</span> : null}
+                    <KindTag kind={a.kind} />
                     {a.title}
                   </span>
                   <span className="sh-today-row-sub">{a.course_name}</span>

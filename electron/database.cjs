@@ -1,6 +1,7 @@
 const Database = require("better-sqlite3");
 const path = require("path");
 const { app } = require("electron");
+const { assignmentKind } = require("./assignmentKind.cjs");
 
 let db = null;
 
@@ -171,6 +172,19 @@ const MIGRATIONS = [
         ALTER TABLE bb_grade_items ADD COLUMN category TEXT;
         ALTER TABLE bb_grade_items ADD COLUMN component_uuid TEXT;
       `);
+    },
+  },
+  {
+    version: 6,
+    up(dbRef) {
+      addColumn(dbRef, "courses", "target_grade", "REAL NOT NULL DEFAULT 80");
+      // Blackboard quizzes were synced as 'exam'; only rows the sync owns are re-derived.
+      const rows = dbRef.prepare("SELECT id, title, kind FROM assignments WHERE source = 'blackboard'").all();
+      const update = dbRef.prepare("UPDATE assignments SET kind = ? WHERE id = ?");
+      for (const row of rows) {
+        const kind = assignmentKind(row.title);
+        if (kind !== row.kind) update.run(kind, row.id);
+      }
     },
   },
 ];
