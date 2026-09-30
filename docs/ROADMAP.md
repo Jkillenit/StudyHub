@@ -66,10 +66,11 @@ shared study materials, past grade distributions, and professor reviews.
 - ○ C.6 Personality. Missing moves (stretch, facepalm, point) are procedural, no new clips.
   - ✓ C.6a Idle director: yawn/look/bored/stretch every ~20-45s scaled by movement setting,
     cursor glances, face the user on click; time-of-day aware (late-night yawns and teasing).
-  - C.6b Edge sitting (playful leg swing when doing well, crossed and cold when failing),
-    leaning on panel sides, sleeping on an edge.
+  - ✓ C.6b Edge sitting (playful leg swing when doing well, crossed and cold when failing),
+    sleeping seated on her platform, and a real grab: she dangles from the cursor, swings,
+    kicks, and drops onto whatever is below when released.
   - C.6c Event gestures: kiss/wink on streaks and level-ups, facepalm when failing, pointing
-    at tour/help targets, taunt/foot tap when ignored, wave on return.
+    at tour/help targets, taunt/foot tap when ignored, wave on return, leaning on panel sides.
   - C.6d Rampant: glitch collapse and re-form, jittery idles.
 - ○ C.7 Context staging: on top of the quiz panel, standing on tour targets, bubble follows her head.
 - ○ C.8 Settings and robustness: 3D / portrait switch, animation intensity, context-loss

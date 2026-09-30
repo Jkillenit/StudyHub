@@ -201,32 +201,9 @@ export function useCompanionMotion(nodeRef, { reduced = false, onTeleport, walke
     [cancel, apply, reduced, settle]
   );
 
-  /** Dissolve out and stay gone (she slips out of a drag). Pair with `materialize`. */
-  const vanish = useCallback(() => {
-    cancel();
-    const el = fx();
-    el?.classList.remove("sc-tp-in");
-    el?.classList.add("sc-tp-out");
-    onTeleportRef.current?.("out");
-  }, [cancel, fx]);
-
-  const materialize = useCallback(
-    (p) => {
-      cancel();
-      posRef.current = { x: p.x, y: p.y };
-      apply(posRef.current);
-      const el = fx();
-      el?.classList.remove("sc-tp-out");
-      el?.classList.add("sc-tp-in");
-      onTeleportRef.current?.("in");
-      window.setTimeout(() => fx()?.classList.remove("sc-tp-in"), TP_IN_MS);
-    },
-    [cancel, apply, fx]
-  );
-
   const busy = useCallback(() => !!flightRef.current, []);
 
   useEffect(() => cancel, [cancel]);
 
-  return { posRef, flyTo, jumpTo, dropTo, vanish, materialize, cancel, busy, flying, facing, setFacing, gait };
+  return { posRef, flyTo, jumpTo, dropTo, cancel, busy, flying, facing, setFacing, gait };
 }

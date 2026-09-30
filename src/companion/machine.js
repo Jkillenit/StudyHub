@@ -5,7 +5,7 @@
 const ENGAGE = { TOUR: "tour", HELP: "help", QUIZ: "quiz", HIDE: "hidden" };
 
 const TABLE = {
-  idle: { WANDER: "wander", CLICK: "menu", NUDGE: "nudge", SLEEP: "sleep", GREET: "greet", DROP: "idle", ...ENGAGE },
+  idle: { WANDER: "wander", PERCH: "perch", CLICK: "menu", NUDGE: "nudge", SLEEP: "sleep", GREET: "greet", DROP: "idle", ...ENGAGE },
   wander: { ARRIVE: "idle", PERCH: "perch", CLICK: "menu", NUDGE: "nudge", SLEEP: "sleep", GREET: "greet", DROP: "idle", ...ENGAGE },
   perch: { DONE: "idle", WANDER: "wander", CLICK: "menu", NUDGE: "nudge", SLEEP: "sleep", DROP: "idle", ...ENGAGE },
   sleep: { WAKE: "idle", CLICK: "menu", DROP: "idle", ...ENGAGE },

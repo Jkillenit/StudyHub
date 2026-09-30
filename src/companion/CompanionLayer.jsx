@@ -54,6 +54,12 @@ const WALK_OFF_MS = 1300;
 const BODY_LOAD_TIMEOUT_MS = 12 * 1000;
 const LATE_QUIP_COOLDOWN_MS = 20 * 60 * 1000;
 const DAY_HELLO_DELAY_MS = 2500;
+/** Dangling swing: radians of tilt per px/s of cursor speed, and the tilt limit. */
+const SWING_PER_PX = 0.0007;
+const SWING_MAX = 0.75;
+/** Chance she sits down after perching on a card, and the delay before she does. */
+const SIT_CHANCE = 0.6;
+const SIT_DELAY_MS = [900, 2400];
 /** Modes where she turns to face the user. */
 const ATTEND_MODES = new Set(["menu", "help", "nudge", "greet", "quiz"]);
 /** Typewriter pace in SpeechBubble (2 chars / 36ms), so her mouth stops with the text. */
@@ -126,6 +132,10 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const platRef = useRef(null);
   const lastLandQuipRef = useRef(0);
   const lastLateQuipRef = useRef(0);
+  const [seat, setSeat] = useState(null);
+  const seatRef = useRef(null);
+  seatRef.current = seat;
+  const lastTierRef = useRef(null);
   const bubbleRef = useRef(null);
   bubbleRef.current = bubble;
 
@@ -135,7 +145,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     if (stateRef.current?.sound) playSound(name);
   }, []);
   const onTeleport = useCallback((phase) => sfx(phase === "out" ? "teleportOut" : "teleportIn"), [sfx]);
-  const { posRef, flyTo, jumpTo, dropTo, vanish, materialize, cancel, busy, flying, facing, setFacing, gait } = useCompanionMotion(nodeRef, {
+  const { posRef, flyTo, jumpTo, dropTo, cancel, busy, flying, facing, setFacing, gait } = useCompanionMotion(nodeRef, {
     reduced,
     onTeleport,
     walker: use3d,
@@ -683,6 +693,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       }
 
       const tier = finishKey(summary.correct, summary.answered);
+      lastTierRef.current = tier;
       setMood({ finishedGreat: "excited", finishedGood: "happy", finishedMeh: "neutral", finishedBad: "stern" }[tier]);
       if (tier === "finishedBad") {
         flashReaction("glitch");
@@ -771,6 +782,54 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     refreshAnchor();
   }, [cancel, send, closeHelp, refreshAnchor, sfx]);
 
+  /*
+   * Held in 3D: she dangles from the grab point and swings on a damped spring driven by
+   * the cursor's horizontal speed, then settles back upright after release.
+   */
+  const swingRef = useRef({ a: 0, v: 0, vx: 0, lastT: 0, raf: 0, held: false });
+  const swingStep = useCallback(() => {
+    const sw = swingRef.current;
+    let last = performance.now();
+    const step = (now) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      sw.vx *= Math.exp(-dt * 6);
+      const target = sw.held ? Math.max(-SWING_MAX, Math.min(SWING_MAX, sw.vx * SWING_PER_PX)) : 0;
+      sw.v += (-(sw.a - target) * 70 - sw.v * 4.5) * dt;
+      sw.a += sw.v * dt;
+      const el = nodeRef.current?.querySelector(".sc-bob");
+      if (!sw.held && Math.abs(sw.a) < 0.003 && Math.abs(sw.v) < 0.02) {
+        sw.raf = 0;
+        sw.a = 0;
+        sw.v = 0;
+        if (el) {
+          el.style.transform = "";
+          el.style.transformOrigin = "";
+        }
+        return;
+      }
+      if (el) el.style.transform = `rotate(${sw.a.toFixed(4)}rad)`;
+      sw.raf = requestAnimationFrame(step);
+    };
+    sw.raf = requestAnimationFrame(step);
+  }, []);
+  const startSwing = useCallback(
+    (ox, oy) => {
+      const sw = swingRef.current;
+      sw.held = true;
+      sw.vx = 0;
+      sw.lastT = 0;
+      const el = nodeRef.current?.querySelector(".sc-bob");
+      if (el) el.style.transformOrigin = `${Math.round(ox)}px ${Math.round(oy)}px`;
+      if (!reduced && !sw.raf) swingStep();
+    },
+    [reduced, swingStep]
+  );
+  const releaseSwing = useCallback(() => {
+    swingRef.current.held = false;
+  }, []);
+  useEffect(() => () => cancelAnimationFrame(swingRef.current.raf), []);
+
   const onPointerDown = useCallback(
     (e) => {
       if (e.button !== 0) return;
@@ -800,25 +859,31 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         cancel();
         setDragging(true);
         if (use3dRef.current) {
-          d.ghost = true;
+          d.held = true;
           setBubble(null);
-          vanish();
+          setMood("stern");
+          platRef.current = null;
+          startSwing(d.ox, d.oy);
         }
       }
       const s = sizeRef.current;
-      if (d.ghost) {
-        const plat = platformBelow({ x: e.clientX - s / 2, y: e.clientY - s }, s);
-        const spot = standOn(plat, e.clientX, s);
-        setDropMark({ x: spot.x + s / 2, y: spot.y + s });
-        return;
+      const p = clampPoint({ x: e.clientX - d.ox, y: e.clientY - d.oy }, s);
+      if (d.held) {
+        const sw = swingRef.current;
+        const now = performance.now();
+        const dt = Math.max(1, now - (sw.lastT || now - 16));
+        sw.vx = sw.vx * 0.6 + ((p.x - posRef.current.x) / dt) * 1000 * 0.4;
+        sw.lastT = now;
+        const below = platformBelow(p, s);
+        setDropMark({ x: p.x + s / 2, y: below.top });
       }
-      jumpTo(clampPoint({ x: e.clientX - d.ox, y: e.clientY - d.oy }, s));
+      jumpTo(p);
     },
-    [cancel, jumpTo, vanish]
+    [cancel, jumpTo, posRef, startSwing]
   );
 
   const onPointerUp = useCallback(
-    (e) => {
+    () => {
       const d = dragRef.current;
       dragRef.current = null;
       if (!d?.moved) return;
@@ -827,28 +892,21 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         suppressClickRef.current = false;
       }, 0);
       setDragging(false);
-      if (d.ghost) {
-        const s = sizeRef.current;
-        const plat = platformBelow({ x: e.clientX - s / 2, y: e.clientY - s }, s);
-        setDropMark(null);
-        materialize(standOn(plat, e.clientX, s));
-        platRef.current = plat;
-        if (Math.random() < 0.35) {
-          setMood("stern");
-          window.setTimeout(() => {
-            refreshAnchor();
-            say(line("grabbed"));
-          }, 320);
-        }
-      }
       const m = modeRef.current;
+      if (d.held) {
+        setDropMark(null);
+        releaseSwing();
+        if (AUTONOMOUS.has(m) || m === "sleep") send("DROP");
+        void api.current.fall({ dropped: true });
+        return;
+      }
       if (AUTONOMOUS.has(m) || m === "sleep" || m === "menu") {
         update({ home: { x: Math.round(posRef.current.x), y: Math.round(posRef.current.y) } });
         if (m !== "menu") send("DROP");
       }
       refreshAnchor();
     },
-    [update, send, refreshAnchor, posRef, materialize, say]
+    [update, send, refreshAnchor, posRef, releaseSwing]
   );
 
   /* ---------- autonomy: wander, perch, sleep ---------- */
@@ -904,9 +962,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
    * 3D: keep her feet on something. She rides her platform when it scrolls, and falls to
    * whatever is below when it disappears (or when an engaged move left her mid-air).
    */
-  api.current.fall = async () => {
+  api.current.fall = async ({ dropped = false } = {}) => {
     const s = sizeRef.current;
-    const below = platformBelow(posRef.current, s, platRef.current?.el);
+    const below = dropped ? platformBelow(posRef.current, s) : platformBelow(posRef.current, s, platRef.current?.el);
     if (modeRef.current === "sleep") send("WAKE");
     const ok = await dropTo(below.top - s);
     platRef.current = below;
@@ -915,6 +973,19 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     playGesture("land");
     sfx("teleportIn");
     const now = Date.now();
+    if (dropped) {
+      if (AUTONOMOUS.has(modeRef.current)) {
+        update({ home: { x: Math.round(posRef.current.x), y: Math.round(posRef.current.y) } });
+        if (below.el && modeRef.current === "idle") send("PERCH");
+      }
+      if (Math.random() < 0.45) {
+        lastLandQuipRef.current = now;
+        setMood("stern");
+        refreshAnchor();
+        say(line("grabbed"));
+      }
+      return;
+    }
     if (now - lastLandQuipRef.current > LAND_QUIP_COOLDOWN_MS && AUTONOMOUS.has(modeRef.current)) {
       lastLandQuipRef.current = now;
       setMood("stern");
@@ -948,11 +1019,11 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       const m = modeRef.current;
       if (document.hidden || (m !== "idle" && m !== "perch") || busy() || bubbleRef.current || dragRef.current) return;
       const part = dayPart();
-      const name = pickIdleGesture({ part, bored: now - lastActivityRef.current > BORED_AFTER_MS, last });
+      const name = seatRef.current ? "sitYawn" : pickIdleGesture({ part, bored: now - lastActivityRef.current > BORED_AFTER_MS, last });
       last = name;
       playGesture(name, { idle: true });
       due = now + idleGap(stateRef.current?.movement);
-      if (name === "yawn" && part === "late" && now - lastLateQuipRef.current > LATE_QUIP_COOLDOWN_MS) {
+      if ((name === "yawn" || name === "sitYawn") && part === "late" && now - lastLateQuipRef.current > LATE_QUIP_COOLDOWN_MS) {
         lastLateQuipRef.current = now;
         window.setTimeout(() => {
           const mm = modeRef.current;
@@ -1020,6 +1091,20 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     const t = window.setTimeout(() => send("DONE"), rand([10000, 30000]));
     return () => window.clearTimeout(t);
   }, [mode, send]);
+
+  /* 3D: sometimes she sits on the edge of the card she perched on; cold when you're slipping. */
+  useEffect(() => {
+    if (mode !== "perch" || !bodyReady) return undefined;
+    const t = window.setTimeout(() => {
+      if (modeRef.current !== "perch" || busy() || dragRef.current || Math.random() > SIT_CHANCE) return;
+      const slipping = isRampant(stateRef.current) || lastTierRef.current === "finishedBad" || lastTierRef.current === "finishedMeh";
+      setSeat(slipping ? "cold" : "playful");
+    }, rand(SIT_DELAY_MS));
+    return () => {
+      window.clearTimeout(t);
+      setSeat(null);
+    };
+  }, [mode, bodyReady, busy]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -1498,6 +1583,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
                     glow={glow}
                     asleep={mode === "sleep"}
                     attend={ATTEND_MODES.has(mode)}
+                    held={dragging}
+                    seat={mode === "perch" ? seat : null}
                     glitch={react === "glitch" || react === "droop"}
                     tint={tint}
                     visible={visible}

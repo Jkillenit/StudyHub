@@ -30,6 +30,7 @@ const MOOD_FACE = {
   point: { happy: 0.25 },
   sleep: { relaxed: 0.4 },
 };
+const HELD_FACE = { angry: 0.45, Surprised: 0.3, oh: 0.35 };
 const FACE_KEYS = ["happy", "angry", "sad", "relaxed", "Surprised"];
 const MOUTH_KEYS = ["aa", "ih", "ou", "ee", "oh"];
 
@@ -63,6 +64,49 @@ const PROC = {
       return { spine: [-0.06, 0, sway * 0.5], chest: [-0.1, 0, sway], head: [-0.12, 0, sway * 0.6] };
     },
     face: (t) => ({ blink: 0.85 * bump(t, 0.5, 3.0), aa: 0.3 * bump(t, 0.9, 2.6) }),
+  },
+  /** A yawn she can do sitting down: head back, mouth wide, no arms. */
+  sitYawn: {
+    duration: 3.2,
+    body: (t) => {
+      const b = bump(t, 0.4, 2.8, 0.7);
+      return { chest: [-0.12 * b, 0, 0], neck: [-0.15 * b, 0, 0], head: [-0.25 * b, 0, 0.08 * b] };
+    },
+    face: (t) => ({ aa: 0.95 * bump(t, 0.6, 2.6, 0.5), blink: 0.8 * bump(t, 0.7, 2.5, 0.4) }),
+  },
+};
+
+/**
+ * Held by the cursor: legs hang and kick, arms flail out, alternating sides. Same
+ * world-direction scheme; legs are [upperLeg, lowerLeg, foot].
+ */
+const HELD = {
+  arms: (t) => {
+    const w = Math.sin(t * 7);
+    const left = [dir(0.9, 0.2 + 0.25 * w, 0.2), dir(0.6, 0.65 + 0.2 * w, 0.35), dir(0.4, 0.85, 0.3)];
+    const right = [dir(-0.9, 0.2 - 0.25 * w, 0.2), dir(-0.6, 0.65 - 0.2 * w, 0.35), dir(-0.4, 0.85, 0.3)];
+    return { left, right };
+  },
+  legs: (t) => {
+    const k = Math.sin(t * 8);
+    return {
+      left: [dir(0.1 + 0.1 * k, -1, 0.12 + 0.2 * k), dir(0.02 - 0.2 * k, -1, -0.1 - 0.45 * k), dir(0, -0.75, 0.66)],
+      right: [dir(-0.1 + 0.1 * k, -1, 0.12 - 0.2 * k), dir(-0.02 - 0.2 * k, -1, -0.1 + 0.45 * k), dir(0, -0.75, 0.66)],
+    };
+  },
+};
+
+/** Sitting on a platform edge with the hips on the line; the canvas drops by this much of the frame so the legs hang below it. */
+const SEAT_FRAC = 0.27;
+/** Playful seat: thighs forward over the edge, shins swinging alternately, hands planted beside the hips. */
+const SEAT_PLAYFUL = {
+  arms: bothArms(dir(0.32, -0.92, -0.2), dir(0.08, -1, 0.12), dir(0, -0.85, 0.5)),
+  legs: (t) => {
+    const k = Math.sin(t * 2.6);
+    return {
+      left: [dir(0.1, -0.2, 1), dir(0.02, -1, 0.2 + 0.4 * k), dir(0, -0.55, 0.85)],
+      right: [dir(-0.1, -0.2, 1), dir(-0.02, -1, 0.2 - 0.4 * k), dir(0, -0.55, 0.85)],
+    };
   },
 };
 
@@ -204,7 +248,7 @@ export class NovaStage {
     this.root = new THREE.Group();
     this.scene.add(this.root);
     this.clock = new THREE.Clock(false);
-    this.state = { gait: null, speed: 90, facing: 1, mood: "neutral", talkUntil: 0, rampant: false, glow: 1, asleep: false, attend: false, glitchUntil: 0, visible: true };
+    this.state = { gait: null, speed: 90, facing: 1, mood: "neutral", talkUntil: 0, rampant: false, glow: 1, asleep: false, attend: false, held: false, seat: null, glitchUntil: 0, visible: true };
     this.uniforms = {
       uTime: { value: 0 },
       uGlitch: { value: 0 },
@@ -218,6 +262,10 @@ export class NovaStage {
     this.look = { x: 0, y: 0, at: 0 };
     this.proc = null;
     this.armsBack = 1;
+    this.heldW = 0;
+    this.seatW = 0;
+    this.playW = 0;
+    this.t = 0;
     this.face = {};
     this.mouth = { key: "aa", v: 0, next: 0 };
     this.blink = { next: 1.5, t: -1 };
@@ -348,12 +396,17 @@ export class NovaStage {
       return { node, dir: b.sub(a).normalize(), q: node.getWorldQuaternion(new THREE.Quaternion()) };
     };
     const chest = h.getNormalizedBoneNode("upperChest") || h.getNormalizedBoneNode("chest");
+    const hips = h.getNormalizedBoneNode("hips");
     this.rest = {
       chest,
       chestQ: chest.getWorldQuaternion(new THREE.Quaternion()),
-      rootQ: this.root.getWorldQuaternion(new THREE.Quaternion()),
+      hips,
+      hipsQ: hips.getWorldQuaternion(new THREE.Quaternion()),
+      floorY: new THREE.Box3().setFromObject(this.vrm.scene).min.y,
       left: [rest("leftUpperArm", "leftLowerArm"), rest("leftLowerArm", "leftHand"), rest("leftHand", "leftMiddleProximal")],
       right: [rest("rightUpperArm", "rightLowerArm"), rest("rightLowerArm", "rightHand"), rest("rightHand", "rightMiddleProximal")],
+      leftLeg: [rest("leftUpperLeg", "leftLowerLeg"), rest("leftLowerLeg", "leftFoot"), rest("leftFoot", "leftToes")],
+      rightLeg: [rest("rightUpperLeg", "rightLowerLeg"), rest("rightLowerLeg", "rightFoot"), rest("rightFoot", "rightToes")],
     };
     this.pose = bothArms(ARMS_BACK.upper, ARMS_BACK.lower, ARMS_BACK.hand);
   }
@@ -391,16 +444,17 @@ export class NovaStage {
 
   wantedBase() {
     const s = this.state;
+    if (s.held) return "idle";
     if (s.gait === "fall") return "fall";
     if (s.gait === "walk") return "walk";
-    if (s.asleep) return "sit";
+    if (s.asleep || s.seat) return "sit";
     if (s.talkUntil > performance.now()) return "talk";
     return "idle";
   }
 
   syncBase() {
     const want = this.wantedBase();
-    if ((want === "walk" || want === "fall") && (this.oneShot || this.proc)) this.cancelGesture();
+    if ((want === "walk" || want === "fall" || this.state.held) && (this.oneShot || this.proc)) this.cancelGesture();
     if (want !== this.base) this.setBase(want);
   }
 
@@ -506,16 +560,42 @@ export class NovaStage {
     this.mixer.update(dt);
 
     const talking = s.talkUntil > now;
+    const seated = !!(s.seat || s.asleep) && !s.held && !s.gait;
+    const cold = seated && !s.asleep && s.seat === "cold";
     let targetYaw = s.facing * 0.28;
     if (s.gait === "walk") targetYaw = s.facing * (Math.PI / 2 - 0.3);
-    else if (talking || s.attend) targetYaw = 0;
+    else if (talking || s.attend || s.held) targetYaw = 0;
+    else if (cold) targetYaw = s.facing * 0.5;
+    else if (seated) targetYaw = s.facing * 0.12;
     const dy = targetYaw - this.yaw;
     this.yaw += Math.sign(dy) * Math.min(Math.abs(dy), dt * 6);
     this.root.rotation.y = this.yaw;
 
-    const wantBack = !this.oneShot && ARMS_BACK_BASES.has(this.base) ? 1 : 0;
+    this.t += dt;
+    const ease = (cur, want, rate) => cur + (want - cur) * Math.min(1, dt * rate);
+    this.heldW = ease(this.heldW, s.held ? 1 : 0, 8);
+    this.seatW = ease(this.seatW, seated ? 1 : 0, 4);
+    this.playW = ease(this.playW, seated && !s.asleep && s.seat === "playful" ? 1 : 0, 4);
+
+    const wantBack = !this.oneShot && !s.held && ARMS_BACK_BASES.has(this.base) ? 1 : 0;
     this.armsBack += (wantBack - this.armsBack) * Math.min(1, dt * 5);
     if (this.armsBack > 0.01) this.applyArmPose(this.pose, this.armsBack);
+    if (this.heldW > 0.01) {
+      this.applyArmPose(HELD.arms(this.t), this.heldW);
+      this.applyLegPose(HELD.legs(this.t), this.heldW);
+      this.bend("head", [-0.22, 0, 0], this.heldW);
+    }
+    if (this.playW > 0.01) {
+      this.applyArmPose(SEAT_PLAYFUL.arms, this.playW);
+      this.applyLegPose(SEAT_PLAYFUL.legs(this.t), this.playW);
+      this.bend("head", [0, 0, Math.sin(this.t * 1.3) * 0.08], this.playW);
+    }
+    if (cold) this.bend("head", [0.06, s.facing * 0.45, 0], this.seatW);
+    if (seated && s.asleep) {
+      this.bend("neck", [0.3, 0, 0.1], this.seatW);
+      this.bend("head", [0.35, 0, 0.14], this.seatW);
+    }
+    this.placeSeat();
 
     let overlay = null;
     if (this.proc) {
@@ -528,6 +608,8 @@ export class NovaStage {
       if (p.t >= p.def.duration) this.finishProc(true);
     } else if (this.oneShot && CLIP_FACE[this.oneShot.name]) {
       overlay = CLIP_FACE[this.oneShot.name](this.oneShot.action.time);
+    } else if (s.held) {
+      overlay = HELD_FACE;
     }
     this.applyHeadLook(dt, s);
     this.applyFace(dt, now, s, talking, overlay);
@@ -541,16 +623,45 @@ export class NovaStage {
     this.render();
   }
 
+  /**
+   * Seated: drop the canvas by SEAT_FRAC of the frame and lower the body so the hips sit on
+   * the platform line, with the legs hanging below it. Both follow `seatW` so they stay in step.
+   */
+  placeSeat() {
+    const w = this.seatW < 0.002 ? 0 : this.seatW;
+    this.root.position.y = 0;
+    if (w) {
+      this.root.updateMatrixWorld(true);
+      const hipsY = this.rest.hips.getWorldPosition(new THREE.Vector3()).y;
+      this.root.position.y = (this.rest.floorY + SEAT_FRAC * this.frameH - hipsY) * w;
+    }
+    const shift = w ? `translateY(${(SEAT_FRAC * w * 100).toFixed(2)}%)` : "";
+    if (this.canvas.style.transform !== shift) this.canvas.style.transform = shift;
+  }
+
   /** Blend the arms toward a pose of world directions (relative to the chest) by `weight`. */
   applyArmPose(pose, weight) {
     const r = this.rest;
-    const chestNow = r.chest.getWorldQuaternion(new THREE.Quaternion());
-    const bodyDelta = chestNow.multiply(r.chestQ.clone().invert());
+    this.applyLimbs(pose, weight, r.chest, r.chestQ, ["left", "right"]);
+  }
+
+  /** Same for the legs, relative to the hips. */
+  applyLegPose(pose, weight) {
+    const r = this.rest;
+    this.applyLimbs(pose, weight, r.hips, r.hipsQ, ["leftLeg", "rightLeg"]);
+  }
+
+  applyLimbs(pose, weight, anchor, anchorRestQ, chains) {
+    const r = this.rest;
+    const bodyDelta = anchor.getWorldQuaternion(new THREE.Quaternion()).multiply(anchorRestQ.clone().invert());
     const parentQ = new THREE.Quaternion();
     const want = new THREE.Quaternion();
     const local = new THREE.Quaternion();
-    for (const side of ["left", "right"]) {
-      r[side].forEach((bone, i) => {
+    for (const [chain, side] of [
+      [chains[0], "left"],
+      [chains[1], "right"],
+    ]) {
+      r[chain].forEach((bone, i) => {
         if (!bone) return;
         const target = pose[side][i].clone().applyQuaternion(bodyDelta);
         const restDir = bone.dir.clone().applyQuaternion(bodyDelta);
@@ -574,7 +685,7 @@ export class NovaStage {
     const glancing = l.at && performance.now() - l.at < GLANCE_MS && Math.hypot(l.x, l.y) < GLANCE_RADIUS;
     if (glancing || s.attend) t.set(l.x / ppu, cy - l.y / ppu, 2.5);
     else t.set(headPos.x + Math.sin(this.yaw) * 2.5, headPos.y, Math.cos(this.yaw) * 2.5);
-    const free = s.gait !== "walk" && !s.asleep && !this.oneShot && !this.proc;
+    const free = s.gait !== "walk" && !s.asleep && s.seat !== "cold" && !this.oneShot && !this.proc;
     const wantYaw = free ? THREE.MathUtils.clamp(Math.atan2(t.x - headPos.x, t.z - headPos.z) - this.yaw, -0.6, 0.6) * 0.7 : 0;
     const wantPitch = free
       ? THREE.MathUtils.clamp(-Math.atan2(t.y - headPos.y, Math.hypot(t.x - headPos.x, t.z - headPos.z)), -0.4, 0.4) * 0.6
