@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Options fanned around Scout, opening toward the middle of the window so they never
+ * Options fanned around Nova, opening toward the middle of the window so they never
  * spill off-screen. Arrow keys move focus, Enter picks, Escape closes.
  */
 export function RadialMenu({ items, center, size, onClose, footer }) {
@@ -32,7 +32,7 @@ export function RadialMenu({ items, center, size, onClose, footer }) {
   const n = items.length;
 
   return (
-    <div className="sc-menu" role="menu" aria-label="Scout menu" onPointerDown={(e) => e.stopPropagation()}>
+    <div className="sc-menu" role="menu" aria-label="Nova menu" onPointerDown={(e) => e.stopPropagation()}>
       {items.map((item, i) => {
         const a = toward - spread / 2 + (n === 1 ? spread / 2 : (spread * i) / (n - 1));
         const x = size / 2 + Math.cos(a) * radius;

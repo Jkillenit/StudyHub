@@ -1,5 +1,5 @@
 /**
- * Scout's behavior states. Every mode change goes through `transition` so impossible
+ * Nova's behavior states. Every mode change goes through `transition` so impossible
  * jumps (say, wandering off mid-quiz) simply don't happen.
  */
 const ENGAGE = { TOUR: "tour", HELP: "help", QUIZ: "quiz", HIDE: "hidden" };
@@ -25,5 +25,5 @@ export function transition(mode, event) {
   return TABLE[mode]?.[event] || mode;
 }
 
-/** Modes where Scout acts on her own (wanders, perches, sleeps, nudges). */
+/** Modes where Nova acts on her own (wanders, perches, sleeps, nudges). */
 export const AUTONOMOUS = new Set(["idle", "wander", "perch"]);

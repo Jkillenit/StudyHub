@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ACCESSORIES, MOVEMENT_LEVELS, SIZES, levelProgress, unlockedAccessories } from "./companionStore.js";
+import { TINTS, MOVEMENT_LEVELS, SIZES, levelProgress, unlockedTints } from "./companionStore.js";
 
 function Segmented({ label, value, options, onChange }) {
   return (
@@ -38,7 +38,7 @@ function Toggle({ label, checked, onChange, hint }) {
 export function CompanionSettings({ state, onChange, onClose, onResetTours, onResetStats, onReplayWelcome }) {
   const ref = useRef(null);
   const { level, into, span } = levelProgress(state.xp || 0);
-  const unlocked = new Set(unlockedAccessories(state.xp || 0).map((a) => a.id));
+  const unlocked = new Set(unlockedTints(state.xp || 0).map((t) => t.id));
 
   useEffect(() => {
     const onKey = (e) => {
@@ -56,9 +56,9 @@ export function CompanionSettings({ state, onChange, onClose, onResetTours, onRe
   }, [onClose]);
 
   return (
-    <div ref={ref} className="sc-settings" role="dialog" aria-label="Scout settings" data-sprite-avoid>
+    <div ref={ref} className="sc-settings" role="dialog" aria-label="Nova settings" data-sprite-avoid>
       <header className="sc-settings-head">
-        <span className="mono">SCOUT · SETTINGS</span>
+        <span className="mono">NOVA · SETTINGS</span>
         <button type="button" className="sc-settings-close mono" onClick={onClose} aria-label="Close settings">
           ×
         </button>
@@ -72,7 +72,7 @@ export function CompanionSettings({ state, onChange, onClose, onResetTours, onRe
         <span className="mono sc-settings-xp">{span ? `${into}/${span} XP` : "MAX"}</span>
       </div>
 
-      <Toggle label="SHOW SCOUT" checked={state.enabled} onChange={(v) => onChange({ enabled: v })} />
+      <Toggle label="SHOW NOVA" checked={state.enabled} onChange={(v) => onChange({ enabled: v })} />
       <Segmented
         label="MOVEMENT"
         value={state.movement}
@@ -85,6 +85,7 @@ export function CompanionSettings({ state, onChange, onClose, onResetTours, onRe
         checked={state.nudges}
         onChange={(v) => onChange({ nudges: v })}
       />
+      <Toggle label="SOUND" hint="Hologram chirps and glitches" checked={!!state.sound} onChange={(v) => onChange({ sound: v })} />
       <Segmented
         label="SIZE"
         value={state.scale}
@@ -92,17 +93,17 @@ export function CompanionSettings({ state, onChange, onClose, onResetTours, onRe
         onChange={(v) => onChange({ scale: v })}
       />
       <div className="sc-set-row">
-        <span className="sc-set-label mono">ACCESSORY</span>
+        <span className="sc-set-label mono">PROJECTION</span>
         <select
           className="sc-set-select mono"
-          value={state.accessory || "auto"}
+          value={state.accessory && TINTS.some((t) => t.id === state.accessory) ? state.accessory : "auto"}
           onChange={(e) => onChange({ accessory: e.target.value })}
         >
           <option value="auto">Newest unlock</option>
-          {ACCESSORIES.map((a) => (
-            <option key={a.id} value={a.id} disabled={!unlocked.has(a.id)}>
-              {a.label}
-              {unlocked.has(a.id) ? "" : ` (LV ${a.level})`}
+          {TINTS.map((t) => (
+            <option key={t.id} value={t.id} disabled={!unlocked.has(t.id)}>
+              {t.label}
+              {unlocked.has(t.id) ? "" : ` (LV ${t.level})`}
             </option>
           ))}
         </select>
@@ -119,7 +120,7 @@ export function CompanionSettings({ state, onChange, onClose, onResetTours, onRe
           RESET QUIZ STATS
         </button>
       </div>
-      <p className="sc-settings-foot">Drag Scout anywhere to give her a new home spot. Ctrl+Shift+Space summons her.</p>
+      <p className="sc-settings-foot">Drag Nova anywhere to give her a new home spot. Ctrl+Shift+Space summons her.</p>
     </div>
   );
 }

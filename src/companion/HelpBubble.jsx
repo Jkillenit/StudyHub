@@ -32,7 +32,7 @@ export function HelpBubble({ help, h, v, onQuery, onPick, onBack, onClose, onSho
           if (e.key === "Escape") onClose();
         }}
         placeholder="Ask about Study Hub…"
-        aria-label="Ask Scout a question"
+        aria-label="Ask Nova a question"
         autoFocus
       />
       {help.query.trim() && !results.length ? <p className="sc-bubble-text sc-help-dunno">{dunno}</p> : null}

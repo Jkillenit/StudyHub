@@ -1,6 +1,6 @@
 /**
- * Scout's answer sheet until an API key is set. `pointTo` must be a data-tour-id;
- * `route` says where it lives ("hub" or "course") so Scout can take the student there first.
+ * Nova's answer sheet until an API key is set. `pointTo` must be a data-tour-id;
+ * `route` says where it lives ("hub" or "course") so Nova can take the student there first.
  */
 export const FAQ = [
   {
@@ -94,8 +94,8 @@ export const FAQ = [
   {
     id: "quiz-scout",
     q: "Can you quiz me?",
-    a: "Absolutely. Pick Quiz me from my menu and I'll run your flashcards as a game. My lantern tracks your streak.",
-    keywords: ["quiz", "game", "scout", "light", "run", "streak", "play"],
+    a: "Obviously. Pick Quiz me from my menu and I'll run your flashcards as a training sim. Fair warning: I keep score.",
+    keywords: ["quiz", "game", "nova", "scout", "sim", "training", "run", "streak", "play"],
     action: "quiz",
   },
   {
@@ -114,8 +114,8 @@ export const FAQ = [
   {
     id: "scout-settings",
     q: "How do I change or hide you?",
-    a: "Click SCOUT in the title bar. You can turn me off, slow me down, resize me, or swap accessories.",
-    keywords: ["hide", "scout", "settings", "turn", "off", "move", "size", "annoying", "stop"],
+    a: "Click NOVA in the title bar. You can turn me off, slow me down, resize me, mute me, or change my projection color.",
+    keywords: ["hide", "nova", "scout", "settings", "turn", "off", "move", "size", "sound", "mute", "color", "annoying", "stop"],
     pointTo: "titlebar-scout",
   },
 ];

@@ -5573,7 +5573,7 @@ button.sh-today-row-main:hover {
   color: var(--sh-text-secondary);
 }
 
-/* —— Scout companion —— */
+/* —— Nova companion —— */
 .sh-titlebar-scout {
   display: inline-flex;
   align-items: center;
@@ -5588,14 +5588,20 @@ button.sh-today-row-main:hover {
   -webkit-app-region: no-drag;
 }
 .sh-titlebar-scout:hover {
-  color: var(--sh-amber);
+  color: var(--sh-cyan);
 }
 .sh-titlebar-scout-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--sh-amber);
-  box-shadow: 0 0 6px var(--sh-green);
+  background: var(--sh-cyan);
+  box-shadow: 0 0 6px var(--sh-cyan);
+  animation: nv-flicker 5.5s steps(1, end) infinite;
+}
+[data-nova-rampant] .sh-titlebar-scout-dot {
+  background: var(--sh-red);
+  box-shadow: 0 0 6px var(--sh-red);
+  animation: nv-flicker 1.3s steps(1, end) infinite;
 }
 
 .sc-layer {
@@ -5624,7 +5630,7 @@ button.sh-today-row-main:hover {
   cursor: grab;
   pointer-events: auto;
   touch-action: none;
-  border-radius: 50%;
+  border-radius: 10px;
 }
 .sc-scout-btn:focus-visible {
   outline: 2px solid var(--sh-green);
@@ -5645,9 +5651,6 @@ button.sh-today-row-main:hover {
 .sc-scout--still .sc-bob {
   animation: none;
 }
-.sc-scout--asleep .sc-sprite {
-  opacity: 0.6;
-}
 @keyframes sc-bob {
   0%,
   100% {
@@ -5658,160 +5661,297 @@ button.sh-today-row-main:hover {
   }
 }
 
-/* Sprite parts */
-.sc-sprite {
+/* Nova hologram */
+.sc-fx {
   display: block;
-  overflow: visible;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 92%;
+}
+.sc-tp-out {
+  animation: nv-tp-out 200ms ease-in forwards;
+}
+.sc-tp-in {
+  animation: nv-tp-in 300ms ease-out;
+}
+@keyframes nv-tp-out {
+  0% {
+    opacity: 1;
+    transform: scale(1, 1);
+    filter: brightness(1);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(0.8, 1.06);
+    filter: brightness(2.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.08, 1.2);
+    filter: brightness(4);
+  }
+}
+@keyframes nv-tp-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.08, 1.2);
+    filter: brightness(4);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.08, 0.96);
+    filter: brightness(2);
+  }
+  70% {
+    transform: scale(0.97, 1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1, 1);
+    filter: brightness(1);
+  }
+}
+.nv-sprite {
+  position: relative;
+  display: block;
+  pointer-events: none;
+}
+.nv-frame {
+  position: absolute;
+  top: 0;
+  left: 12.5%;
+  width: 75%;
+  height: 100%;
+  filter: var(--nv-tint) brightness(calc(0.8 + var(--nv-glow) * 0.35))
+    drop-shadow(0 0 6px color-mix(in srgb, var(--sh-cyan) 40%, transparent));
+  animation: nv-flicker 5.5s steps(1, end) infinite;
   transition: transform 160ms ease;
 }
-.sc-body {
-  fill: var(--sh-amber);
-  stroke: var(--sh-void);
-  stroke-width: 1.5;
+.nv-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  user-select: none;
+  animation: nv-swap 220ms ease-out;
 }
-.sc-belly {
-  fill: var(--sh-text-primary);
-  opacity: 0.16;
-}
-.sc-lantern {
-  fill: var(--sh-green);
-  stroke: var(--sh-void);
-  stroke-width: 1.5;
-  transition: fill-opacity 300ms ease;
-}
-.sc-halo {
-  transition: opacity 300ms ease;
-}
-.sc-wing {
-  fill: var(--sh-cyan);
-  fill-opacity: 0.25;
-  stroke: var(--sh-cyan);
-  stroke-opacity: 0.7;
-  stroke-width: 1;
-  transform-box: fill-box;
-  transform-origin: 50% 90%;
-  animation: sc-flap 0.7s ease-in-out infinite alternate;
-}
-.sc-wing--r {
-  animation-delay: 0.05s;
-}
-.sc-flying .sc-wing {
-  animation-duration: 0.09s;
-}
-.sc-mood--sleep .sc-wing {
-  animation: none;
-}
-@keyframes sc-flap {
-  from {
-    scale: 1 1;
-  }
-  to {
-    scale: 1 0.62;
-  }
-}
-.sc-ant {
-  transition: transform 220ms ease;
-}
-.sc-ant path {
-  fill: none;
-  stroke: var(--sh-void);
-  stroke-width: 1.6;
-  stroke-linecap: round;
-}
-.sc-ant circle {
-  fill: var(--sh-amber);
-  stroke: var(--sh-void);
-  stroke-width: 1.3;
-}
-.sc-mood--thinking .sc-ant {
-  animation: sc-twitch 0.9s ease-in-out infinite;
-}
-@keyframes sc-twitch {
-  0%,
-  100% {
-    rotate: 0deg;
+@keyframes nv-swap {
+  0% {
+    opacity: 0.2;
+    filter: brightness(2);
+    clip-path: inset(0 0 60% 0);
   }
   50% {
-    rotate: 7deg;
+    opacity: 1;
+    clip-path: inset(0 0 10% 0);
+  }
+  100% {
+    filter: brightness(1);
+    clip-path: inset(0 0 0 0);
   }
 }
-.sc-eyes ellipse {
-  fill: var(--sh-void);
+@keyframes nv-flicker {
+  0%,
+  100% {
+    opacity: 0.95;
+  }
+  37% {
+    opacity: 0.78;
+  }
+  38% {
+    opacity: 0.95;
+  }
+  71% {
+    opacity: 0.86;
+  }
+  72% {
+    opacity: 0.97;
+  }
+  73% {
+    opacity: 0.8;
+  }
+  74% {
+    opacity: 0.95;
+  }
 }
-.sc-eyes path {
-  fill: none;
-  stroke: var(--sh-void);
-  stroke-width: 2.1;
-  stroke-linecap: round;
+.nv-scan,
+.nv-sweep {
+  position: absolute;
+  inset: 0;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  pointer-events: none;
 }
-.sc-eye-shine {
-  fill: var(--sh-text-primary);
+.nv-scan {
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0 2px,
+    color-mix(in srgb, var(--sh-void) 55%, transparent) 2px 3px
+  );
 }
-.sc-brows path {
-  stroke-width: 1.6;
+.nv-sweep {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    color-mix(in srgb, var(--sh-cyan) 35%, transparent) 48%,
+    color-mix(in srgb, var(--sh-text-primary) 25%, transparent) 50%,
+    transparent 56%
+  );
+  background-size: 100% 260%;
+  mix-blend-mode: screen;
+  animation: nv-sweep 4.2s linear infinite;
 }
-.sc-eyes--open {
-  transform-box: view-box;
-  transform-origin: 34px 35px;
-  transition: transform 70ms linear;
+@keyframes nv-sweep {
+  from {
+    background-position: 0 100%;
+  }
+  to {
+    background-position: 0 -160%;
+  }
 }
-.sc-blink .sc-eyes--open {
-  transform: scaleY(0.1);
+.nv-ghost {
+  display: none;
+  opacity: 0.55;
+  mix-blend-mode: screen;
+  animation: none;
 }
-.sc-cheek {
-  fill: var(--sh-red);
-  opacity: 0.4;
+.nv-glitch .nv-ghost,
+.nv-rampant .nv-ghost {
+  display: block;
 }
-.sc-mouth {
-  fill: none;
-  stroke: var(--sh-void);
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.nv-ghost--a {
+  filter: hue-rotate(-60deg) saturate(2);
+  animation: nv-slice-a 0.5s steps(2, end) infinite;
 }
-.sc-mouth--open {
-  fill: var(--sh-void);
+.nv-ghost--b {
+  filter: hue-rotate(120deg) saturate(2);
+  animation: nv-slice-b 0.42s steps(2, end) infinite;
 }
-.sc-mouth-o {
-  fill: var(--sh-void);
+@keyframes nv-slice-a {
+  0% {
+    clip-path: inset(12% 0 70% 0);
+    transform: translateX(-5px);
+  }
+  25% {
+    clip-path: inset(55% 0 30% 0);
+    transform: translateX(4px);
+  }
+  50% {
+    clip-path: inset(30% 0 52% 0);
+    transform: translateX(-3px);
+  }
+  75% {
+    clip-path: inset(78% 0 8% 0);
+    transform: translateX(6px);
+  }
+  100% {
+    clip-path: inset(40% 0 44% 0);
+    transform: translateX(-2px);
+  }
 }
-.sc-strap {
-  fill: none;
-  stroke: var(--sh-void);
-  stroke-opacity: 0.55;
-  stroke-width: 2.2;
-  stroke-linecap: round;
+@keyframes nv-slice-b {
+  0% {
+    clip-path: inset(62% 0 20% 0);
+    transform: translateX(5px);
+  }
+  33% {
+    clip-path: inset(18% 0 66% 0);
+    transform: translateX(-4px);
+  }
+  66% {
+    clip-path: inset(44% 0 40% 0);
+    transform: translateX(3px);
+  }
+  100% {
+    clip-path: inset(5% 0 85% 0);
+    transform: translateX(-6px);
+  }
 }
-.sc-buckle {
-  fill: var(--sh-text-secondary);
+.nv-glitch .nv-frame {
+  animation: nv-jitter 0.18s steps(2, end) 3;
 }
-.sc-acc path,
-.sc-acc circle {
-  fill: none;
-  stroke: var(--sh-text-secondary);
-  stroke-width: 1.3;
+.nv-rampant .nv-frame {
+  animation: nv-flicker 1.3s steps(1, end) infinite, nv-jitter 2.8s steps(1, end) infinite;
 }
-.sc-acc--cap .sc-acc-fill {
-  fill: var(--sh-void);
-  stroke: var(--sh-muted);
-  stroke-width: 1;
+@keyframes nv-jitter {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  8% {
+    translate: -3px 0;
+  }
+  10% {
+    translate: 2px 1px;
+  }
+  12% {
+    translate: 0 0;
+  }
+  60% {
+    translate: 4px 0;
+  }
+  62% {
+    translate: 0 0;
+  }
 }
-.sc-acc--cap .sc-acc-tassel {
-  stroke: var(--sh-amber);
-  stroke-width: 1.2;
+.nv-prism .nv-frame {
+  animation: nv-flicker 5.5s steps(1, end) infinite, nv-prism 9s linear infinite;
 }
-.sc-acc--cap .sc-acc-tassel-end {
-  fill: var(--sh-amber);
-  stroke: none;
+@keyframes nv-prism {
+  from {
+    filter: hue-rotate(0deg) brightness(calc(0.8 + var(--nv-glow) * 0.35));
+  }
+  to {
+    filter: hue-rotate(360deg) brightness(calc(0.8 + var(--nv-glow) * 0.35));
+  }
 }
-.sc-acc--headlamp path {
-  stroke: var(--sh-muted);
-  stroke-width: 2.4;
+.nv-moving .nv-frame {
+  opacity: 0.85;
 }
-.sc-acc--headlamp .sc-acc-lamp {
-  fill: var(--sh-text-primary);
-  stroke: var(--sh-void);
-  stroke-width: 1;
+.nv-base {
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  bottom: -4px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--sh-cyan) 70%, transparent) 0%,
+    color-mix(in srgb, var(--sh-cyan) 18%, transparent) 55%,
+    transparent 72%
+  );
+  filter: var(--nv-tint);
+  opacity: calc(0.4 + var(--nv-glow) * 0.5);
+  animation: nv-base 2.6s ease-in-out infinite;
+}
+@keyframes nv-base {
+  50% {
+    transform: scaleX(0.86);
+  }
+}
+.nv-beam {
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  top: 8%;
+  bottom: 0;
+  clip-path: polygon(0 0, 100% 0, 62% 100%, 38% 100%);
+  background: linear-gradient(to top, color-mix(in srgb, var(--sh-cyan) 14%, transparent), transparent 80%);
+  filter: var(--nv-tint);
+  opacity: 0.5;
+}
+.nv-rampant .nv-base,
+.nv-rampant .nv-beam {
+  filter: hue-rotate(150deg) saturate(1.6);
+}
+.sc-scout--asleep .nv-frame {
+  opacity: 0.55;
+  animation: none;
+}
+.sc-scout--asleep .nv-sweep {
+  animation-duration: 9s;
 }
 .sc-zzz {
   position: absolute;
@@ -6577,8 +6717,11 @@ button.sh-today-row-main:hover {
 
 @media (prefers-reduced-motion: reduce) {
   .sc-bob,
-  .sc-wing,
-  .sc-ant,
+  .nv-frame,
+  .nv-img,
+  .nv-sweep,
+  .nv-ghost,
+  .nv-base,
   .sc-zzz i,
   .sc-spot--ring,
   .sc-menu-item,

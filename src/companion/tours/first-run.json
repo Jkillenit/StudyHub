@@ -53,7 +53,7 @@
     {
       "targetId": "titlebar-scout",
       "title": "That's me",
-      "text": "Click here to change my settings. Click me any time for quizzes, help, or the course tour.",
+      "text": "My settings live here. Click me any time for quizzes, help, or the course tour. I don't bite. Usually.",
       "placement": "bottom"
     }
   ]

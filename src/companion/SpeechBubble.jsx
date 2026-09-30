@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef } from "react";
 const EDGE = 8;
 
 /**
- * Bubble anchored to Scout. `h` is the side it opens toward (left/right of Scout),
+ * Bubble anchored to Nova. `h` is the side it opens toward (left/right of Nova),
  * `v` whether it sits above or below; it then nudges itself back inside the window.
  * Buttons are real buttons so the keyboard path works.
  */

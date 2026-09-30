@@ -69,11 +69,11 @@ export function TitleBar({ onCommandPalette, onGoToHub }) {
           className="sh-titlebar-scout mono"
           data-tour-id="titlebar-scout"
           onClick={() => window.dispatchEvent(new CustomEvent("studyhub-scout-settings"))}
-          title="Scout settings"
-          aria-label="Scout settings"
+          title="Nova settings"
+          aria-label="Nova settings"
         >
           <span className="sh-titlebar-scout-dot" aria-hidden />
-          SCOUT
+          NOVA
         </button>
         <button
           type="button"

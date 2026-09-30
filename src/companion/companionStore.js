@@ -6,12 +6,18 @@ export const SIZES = [0.75, 1, 1.25];
 /** XP needed to reach each level (index 0 = level 1). */
 export const LEVEL_XP = [0, 100, 250, 500, 900, 1400, 2000, 2800, 3800, 5000];
 
-export const ACCESSORIES = [
-  { id: "none", label: "None", level: 1 },
-  { id: "glasses", label: "Reading glasses", level: 3 },
-  { id: "cap", label: "Graduation cap", level: 5 },
-  { id: "headlamp", label: "Headlamp", level: 10 },
+/** Hologram projection tints, unlocked by level. `filter` is applied on top of the blue portraits. */
+export const TINTS = [
+  { id: "blue", label: "Standard blue", level: 1, filter: "hue-rotate(0deg)" },
+  { id: "emerald", label: "Emerald", level: 3, filter: "hue-rotate(-70deg) saturate(1.1)" },
+  { id: "gold", label: "Gold", level: 5, filter: "hue-rotate(-170deg) saturate(1.4) brightness(1.05)" },
+  { id: "violet", label: "Violet", level: 7, filter: "hue-rotate(55deg)" },
+  { id: "prism", label: "Prism", level: 10, filter: "hue-rotate(0deg)" },
 ];
+
+export const DAY_MS = 24 * 60 * 60 * 1000;
+export const RAMPANT_AFTER_DAYS = 3;
+export const RAMPANT_AFTER_IGNORES = 3;
 
 function prefersReducedMotion() {
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -30,7 +36,19 @@ export function defaultState() {
     tours: {},
     highScores: {},
     runs: 0,
+    sound: false,
+    firstSeenAt: new Date().toISOString(),
+    lastStudyAt: null,
+    ignored: 0,
   };
+}
+
+/** Days without studying or a string of ignored nudges and she starts to come apart. */
+export function isRampant(state, now = Date.now()) {
+  if (!state?.onboarded) return false;
+  if ((state.ignored || 0) >= RAMPANT_AFTER_IGNORES) return true;
+  const since = Date.parse(state.lastStudyAt || state.firstSeenAt || "");
+  return Number.isFinite(since) && now - since > RAMPANT_AFTER_DAYS * DAY_MS;
 }
 
 export function levelForXp(xp) {
@@ -47,18 +65,18 @@ export function levelProgress(xp) {
   return { level, into: xp - floor, span: next == null ? 0 : next - floor };
 }
 
-export function unlockedAccessories(xp) {
+export function unlockedTints(xp) {
   const level = levelForXp(xp);
-  return ACCESSORIES.filter((a) => a.level <= level);
+  return TINTS.filter((t) => t.level <= level);
 }
 
-/** "auto" wears the newest unlock. */
-export function resolveAccessory(state) {
-  const unlocked = unlockedAccessories(state.xp || 0);
+/** "auto" projects in the newest unlock. Stored under `accessory` for older saves. */
+export function resolveTint(state) {
+  const unlocked = unlockedTints(state.xp || 0);
   if (state.accessory && state.accessory !== "auto") {
-    return unlocked.some((a) => a.id === state.accessory) ? state.accessory : "none";
+    return unlocked.find((t) => t.id === state.accessory) || TINTS[0];
   }
-  return unlocked[unlocked.length - 1]?.id || "none";
+  return unlocked[unlocked.length - 1] || TINTS[0];
 }
 
 function sanitize(raw) {
@@ -71,6 +89,9 @@ function sanitize(raw) {
   if (!out.tours || typeof out.tours !== "object") out.tours = {};
   if (!out.highScores || typeof out.highScores !== "object") out.highScores = {};
   if (out.home && !(Number.isFinite(out.home.x) && Number.isFinite(out.home.y))) out.home = null;
+  out.sound = !!out.sound;
+  out.ignored = Math.max(0, Number(out.ignored) || 0);
+  if (!raw.firstSeenAt) out.firstSeenAt = base.firstSeenAt;
   return out;
 }
 

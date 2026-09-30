@@ -1,4 +1,4 @@
-/** Things Scout must never sit on top of. */
+/** Things Nova must never sit on top of. */
 const AVOID_SELECTOR = [
   "[data-sprite-avoid]",
   "input",

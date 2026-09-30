@@ -29,7 +29,7 @@ function isTypingTarget(el) {
   return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
 }
 
-/** One question at a time; hands every graded answer to the layer (SM-2 write + Scout's reaction). */
+/** One question at a time; hands every graded answer to the layer (SM-2 write + Nova's reaction). */
 export function QuizPanel({ courses, initialDeck = "all", highScores = {}, onAnswer, onFinish, onClose }) {
   const [screen, setScreen] = useState("setup");
   const [deckId, setDeckId] = useState(initialDeck);
@@ -258,9 +258,9 @@ export function QuizPanel({ courses, initialDeck = "all", highScores = {}, onAns
   }, [onKey]);
 
   return (
-    <div className="sc-quiz" role="dialog" aria-label="Light Run quiz" data-sprite-avoid onPointerDown={(e) => e.stopPropagation()}>
+    <div className="sc-quiz" role="dialog" aria-label="Training sim quiz" data-sprite-avoid onPointerDown={(e) => e.stopPropagation()}>
       <header className="sc-quiz-head">
-        <span className="mono">LIGHT RUN{run && screen !== "setup" ? ` · ${RUN_MODES.find((m) => m.id === run.mode)?.label}` : ""}</span>
+        <span className="mono">TRAINING SIM{run && screen !== "setup" ? ` · ${RUN_MODES.find((m) => m.id === run.mode)?.label}` : ""}</span>
         <button type="button" className="sc-settings-close mono" onClick={quit} aria-label="Close quiz">
           ×
         </button>
