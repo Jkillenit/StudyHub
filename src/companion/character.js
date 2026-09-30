@@ -18,6 +18,12 @@ export const character = {
       "Poking the hologram again? Buy me dinner first.",
       "Yes? Make it good, I was in the middle of judging your study habits.",
     ],
+    clickHi: ["Hey, you.", "What's up?", "Yes?", "You rang?", "Present.", "At your service. Mostly.", "Hi, trouble."],
+    clickSpam: ["Okay, okay.", "Okay, okay. I'm here.", "Okay, okay. Jesus.", "Okay, okay. I felt all of those."],
+    pickedUp: ["Whoa, hey!", "Put me down!", "Where are we going?", "Wheee. I mean, rude."],
+    dropTask: ["On it. Let's knock this out.", "Good pick. Go get it.", "That one. Now. Go."],
+    dropExam: ["Exam review. Let's make you dangerous.", "Review time. Focus up."],
+    dropGauge: ["Let's see what you need.", "Running the numbers."],
     correct: [
       "Correct. Keep that up and I might start blushing.",
       "Look at you. Smart is a damn good look on you.",

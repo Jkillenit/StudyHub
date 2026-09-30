@@ -123,6 +123,16 @@ const REST_MS = [30 * 1000, 60 * 1000];
 const SYNC_CLOSE_MS = 700;
 const SYNC_STALE_MS = 60 * 1000;
 const DROWSY_MS = 16 * 1000;
+/** Clicks: this many inside the window counts as spam; then clicks are ignored for a beat. */
+const SPAM_CLICKS = 4;
+const SPAM_WINDOW_MS = 3000;
+const SPAM_LOCK_MS = 1500;
+const MENU_LINE_MS = 2600;
+/** After a drop she stays put this long (so her line can land), then walks back to her spot. */
+const BACK_AFTER_DROP_MS = 1600;
+const PICKUP_LINE_CHANCE = 0.5;
+const DROP_LINES = { task: "dropTask", exam: "dropExam", gauge: "dropGauge" };
+const BURST_MS = 900;
 /** Modes that can take her away from her spot on purpose. */
 const ENGAGED_MODES = new Set(["tour", "help", "quiz", "nudge", "greet", "brief"]);
 
@@ -153,6 +163,15 @@ function overHome(p, s, baseSize) {
   const cy = p.y + s / 2;
   const r = g.rect;
   return cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom ? g : null;
+}
+
+/** The Today task, exam or gauge under a screen point, or null. */
+function dropTargetAt(x, y) {
+  for (const el of document.elementsFromPoint(x, y)) {
+    const t = el.closest?.("[data-nova-drop]");
+    if (t) return t;
+  }
+  return null;
 }
 
 /** Lets the home window dim its core while she stands in it. */
@@ -196,6 +215,12 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const [gesture, setGesture] = useState(null);
   const gestureIdRef = useRef(0);
   const [dropMark, setDropMark] = useState(null);
+  /** What a drop would start (a Today task, exam or gauge), ringed while she's held over it. */
+  const [dropTarget, setDropTarget] = useState(null);
+  const [menuLine, setMenuLine] = useState(null);
+  const clicksRef = useRef([]);
+  const spamUntilRef = useRef(0);
+  const [burst, setBurst] = useState(0);
   const [talkUntil, setTalkUntil] = useState(0);
   /** The platform the 3D body stands on: `{ el }` (el null = window bottom), or null mid-air. */
   const platRef = useRef(null);
@@ -1181,14 +1206,37 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       closeHelp();
       return;
     }
+    const now = Date.now();
+    if (now < spamUntilRef.current) return;
+    clicksRef.current = [...clicksRef.current.filter((t) => now - t < SPAM_WINDOW_MS), now];
     cancel();
+    lastActivityRef.current = now;
+    if (clicksRef.current.length >= SPAM_CLICKS) {
+      clicksRef.current = [];
+      spamUntilRef.current = now + SPAM_LOCK_MS;
+      if (m === "menu") send("CLOSE");
+      setMood("stern");
+      if (use3dRef.current) playGesture("facepalm");
+      refreshAnchor();
+      say(line("clickSpam"));
+      return;
+    }
     setBubble(null);
-    lastActivityRef.current = Date.now();
-    send("CLICK");
+    const next = send("CLICK");
     sfx("open");
-    setMood(m === "sleep" ? "confused" : "neutral");
+    setMood(m === "sleep" ? "confused" : "happy");
+    if (next === "menu") {
+      if (use3dRef.current && m !== "sleep") playGesture(Math.random() < 0.5 ? "wave" : "wink");
+      setMenuLine(m === "sleep" ? null : line("clickHi"));
+    }
     refreshAnchor();
-  }, [cancel, send, closeHelp, refreshAnchor, sfx]);
+  }, [cancel, send, closeHelp, refreshAnchor, sfx, say, playGesture]);
+
+  useEffect(() => {
+    if (!menuLine) return undefined;
+    const t = window.setTimeout(() => setMenuLine(null), MENU_LINE_MS);
+    return () => window.clearTimeout(t);
+  }, [menuLine]);
 
   /*
    * Held in 3D: she dangles from the grab point and swings on a damped spring driven by
@@ -1272,17 +1320,31 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           d.oy *= k;
           leaveHome();
         }
+        setBubble(null);
         if (use3dRef.current) {
           d.held = true;
-          setBubble(null);
           setMood("stern");
           platRef.current = null;
           startSwing(d.ox, d.oy);
+        }
+        if (Math.random() < PICKUP_LINE_CHANCE) {
+          refreshAnchor();
+          say(line("pickedUp"));
         }
       }
       const s = sizeRef.current;
       const p = clampPoint({ x: e.clientX - d.ox, y: e.clientY - d.oy }, s);
       const g = navRef.current.stageActive ? overHome(p, s, baseSizeRef.current) : null;
+      const hit = g ? null : dropTargetAt(e.clientX, e.clientY);
+      if (hit !== d.target) {
+        d.target = hit;
+        setDropTarget(hit ? rectOf(hit.getBoundingClientRect()) : null);
+      }
+      if (hit) {
+        setDropMark(null);
+        jumpTo(p);
+        return;
+      }
       if (d.held) {
         const sw = swingRef.current;
         const now = performance.now();
@@ -1295,7 +1357,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       else setDropMark(null);
       jumpTo(p);
     },
-    [cancel, jumpTo, posRef, startSwing, leaveHome]
+    [cancel, jumpTo, posRef, startSwing, leaveHome, refreshAnchor, say]
   );
 
   const onPointerUp = useCallback(
@@ -1308,32 +1370,33 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         suppressClickRef.current = false;
       }, 0);
       setDragging(false);
+      setDropMark(null);
+      setDropTarget(null);
+      releaseSwing();
       const m = modeRef.current;
       const homeable = AUTONOMOUS.has(m) || m === "sleep" || m === "menu";
-      if (homeable && navRef.current.stageActive && overHome(posRef.current, sizeRef.current, baseSizeRef.current)) {
-        setDropMark(null);
-        releaseSwing();
-        if (m !== "menu") send("DROP");
-        if (houseAt()) {
-          refreshAnchor();
-          return;
-        }
-      }
-      setDropMark(null);
-      if (d.held) {
-        setDropMark(null);
-        releaseSwing();
-        if (AUTONOMOUS.has(m) || m === "sleep") send("DROP");
-        void api.current.fall({ dropped: true });
+      if (homeable && m !== "menu") send("DROP");
+      if (homeable && navRef.current.stageActive && overHome(posRef.current, sizeRef.current, baseSizeRef.current) && houseAt()) {
+        refreshAnchor();
         return;
       }
-      if (AUTONOMOUS.has(m) || m === "sleep" || m === "menu") {
-        update({ home: { x: Math.round(posRef.current.x), y: Math.round(posRef.current.y) } });
-        if (m !== "menu") send("DROP");
+      if (!homeable) {
+        refreshAnchor();
+        return;
       }
-      refreshAnchor();
+      /* Dropped on a task, exam or gauge: start it with the item's own button. */
+      const kind = d.target?.isConnected ? d.target.dataset.novaDrop : null;
+      if (kind) {
+        const btn = d.target.matches("button") ? d.target : d.target.querySelector("button");
+        btn?.click();
+        setMood("happy");
+        refreshAnchor();
+        say(line(DROP_LINES[kind] || "dropTask"));
+      }
+      if (d.held) void api.current.fall({ dropped: true, quip: !kind });
+      else api.current.returnAfterDrop();
     },
-    [update, send, refreshAnchor, posRef, releaseSwing, houseAt]
+    [send, refreshAnchor, posRef, releaseSwing, houseAt, say]
   );
 
   /* ---------- autonomy: wander, perch, sleep ---------- */
@@ -1494,7 +1557,16 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
    * 3D: keep her feet on something. She rides her platform when it scrolls, and falls to
    * whatever is below when it disappears (or when an engaged move left her mid-air).
    */
-  api.current.fall = async ({ dropped = false } = {}) => {
+  /** After a drop she lingers a beat, then heads back to her spot (the home window on Today). */
+  api.current.returnAfterDrop = () => {
+    window.setTimeout(() => {
+      if (dragRef.current || !(AUTONOMOUS.has(modeRef.current) || modeRef.current === "sleep")) return;
+      awayFromSpotRef.current = true;
+      api.current.backToSpot?.();
+    }, BACK_AFTER_DROP_MS);
+  };
+
+  api.current.fall = async ({ dropped = false, quip = true } = {}) => {
     if (housedRef.current) return;
     const s = sizeRef.current;
     const below = dropped ? platformBelow(posRef.current, s) : platformBelow(posRef.current, s, platRef.current?.el);
@@ -1507,11 +1579,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     sfx("teleportIn");
     const now = Date.now();
     if (dropped) {
-      if (AUTONOMOUS.has(modeRef.current)) {
-        update({ home: { x: Math.round(posRef.current.x), y: Math.round(posRef.current.y) } });
-        if (below.el && modeRef.current === "idle") send("PERCH");
-      }
-      if (Math.random() < 0.45) {
+      api.current.returnAfterDrop();
+      if (quip && Math.random() < 0.45) {
         lastLandQuipRef.current = now;
         setMood("stern");
         refreshAnchor();
@@ -2308,24 +2377,32 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       send("CLOSE");
       return;
     }
+    if (m === "help") {
+      closeHelp();
+      return;
+    }
+    cancel();
     setBubble(null);
-    setHelp(null);
-    if (modeRef.current !== "idle" && modeRef.current !== "wander" && modeRef.current !== "perch" && modeRef.current !== "sleep") {
-      force("idle");
+    if (!AUTONOMOUS.has(modeRef.current) && modeRef.current !== "sleep") force("idle");
+    if (!housedRef.current) {
+      const s = sizeRef.current;
+      jumpTo(
+        use3dRef.current
+          ? standOn(groundPlatform(), window.innerWidth * 0.55, s)
+          : clampPoint({ x: window.innerWidth * 0.55, y: window.innerHeight * 0.42 }, s)
+      );
+      if (use3dRef.current) platRef.current = groundPlatform();
     }
-    const s = sizeRef.current;
-    const spot = use3dRef.current
-      ? standOn(groundPlatform(), window.innerWidth * 0.55, s)
-      : clampPoint({ x: window.innerWidth * 0.55, y: window.innerHeight * 0.42 }, s);
-    const ok = await flyTo(spot, { speed: ENGAGED_SPEED });
-    if (!ok) return;
-    if (use3dRef.current) {
-      platRef.current = groundPlatform();
-      playGesture("wave");
-    }
-    send("CLICK");
-    refreshAnchor();
+    setBurst((n) => n + 1);
+    sfx("teleportIn");
+    startHelp();
   };
+
+  useEffect(() => {
+    if (!burst) return undefined;
+    const t = window.setTimeout(() => setBurst(0), BURST_MS);
+    return () => window.clearTimeout(t);
+  }, [burst]);
 
   /* Close the menu / help when clicking elsewhere. */
   useEffect(() => {
@@ -2548,6 +2625,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     <div className="sc-layer">
       {visible && mode === "tour" && tour ? <Spotlight rect={tour.rect} dim /> : null}
       {visible && ring ? <Spotlight rect={ring} dim={false} /> : null}
+      {dropTarget ? <Spotlight rect={dropTarget} dim={false} pad={4} /> : null}
       {dropMark ? <span className="nv-drop" style={{ left: dropMark.x, top: dropMark.y }} aria-hidden /> : null}
       {doodle ? (
         <DoodleTrail
@@ -2661,6 +2739,13 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           </span>
         ) : null}
         {visible && offline ? <span className="sc-static" aria-hidden /> : null}
+        {visible && burst ? (
+          <span key={burst} className="sc-burst" aria-hidden>
+            {Array.from({ length: 12 }, (_, i) => (
+              <i key={i} style={{ "--a": `${i * 30}deg` }} />
+            ))}
+          </span>
+        ) : null}
         {visible && mode === "sleep" ? (
           <span className="sc-zzz mono" aria-hidden>
             <i>z</i>
@@ -2674,6 +2759,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
             center={center}
             size={size}
             onClose={() => send("CLOSE")}
+            caption={menuLine}
             footer={
               <>
                 <span>NOVA · LV {level}</span>

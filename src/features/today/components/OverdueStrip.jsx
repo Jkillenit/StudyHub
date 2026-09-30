@@ -42,7 +42,7 @@ export function OverdueStrip({ items, onMarkSubmitted, onOpen, index = 0 }) {
       </span>
       <div className="sh-overdue-chips">
         {items.slice(0, CHIPS_SHOWN).map((it) => (
-          <button key={it.uuid} type="button" className="sh-overdue-chip" title={it.title} onClick={() => onOpen(it)}>
+          <button key={it.uuid} type="button" className="sh-overdue-chip" data-nova-drop="task" title={it.title} onClick={() => onOpen(it)}>
             <span className="sh-overdue-chip-title">{it.title}</span>
             <span className="sh-overdue-chip-meta">
               {it.courseLabel} · {it.daysLate}d

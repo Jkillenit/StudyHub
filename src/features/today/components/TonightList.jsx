@@ -51,7 +51,7 @@ export function TonightList({ items, hasCourses, synced, onRun, index = 0 }) {
           {items.map((item, i) => {
             const first = i === 0;
             return (
-              <li key={item.id} className={`sh-tonight-row${first ? " sh-tonight-row--first" : ""}`} data-brief-target={`tonight-${i}`}>
+              <li key={item.id} className={`sh-tonight-row${first ? " sh-tonight-row--first" : ""}`} data-brief-target={`tonight-${i}`} data-nova-drop={item.type === "EXAM_PREP" ? "exam" : "task"}>
                 <span className="sh-tonight-num">{String(i + 1).padStart(2, "0")}</span>
                 <div className="sh-tonight-main">
                   <div className="sh-tonight-title" title={item.title}>

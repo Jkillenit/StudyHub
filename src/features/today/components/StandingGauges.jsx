@@ -42,6 +42,7 @@ function Gauge({ row, arriving, onOpen }) {
       type="button"
       className={`sh-gauge sh-gauge--${row.state}`}
       data-brief-target={`gauge-${row.courseUuid}`}
+      data-nova-drop="gauge"
       onClick={() => onOpen(row.courseUuid)}
       title={`${row.label}: open the what-if calculator`}
     >

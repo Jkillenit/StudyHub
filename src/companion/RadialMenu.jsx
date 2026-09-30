@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
  * Options fanned around Nova, opening toward the middle of the window so they never
  * spill off-screen. Arrow keys move focus, Enter picks, Escape closes.
  */
-export function RadialMenu({ items, center, size, onClose, footer }) {
+export function RadialMenu({ items, center, size, onClose, footer, caption }) {
   const refs = useRef([]);
   const radius = 64 + size * 0.45;
 
@@ -56,6 +56,11 @@ export function RadialMenu({ items, center, size, onClose, footer }) {
           </button>
         );
       })}
+      {caption ? (
+        <div className="sc-menu-caption" aria-live="polite">
+          {caption}
+        </div>
+      ) : null}
       {footer ? (
         <div className="sc-menu-footer mono" style={{ top: size + 6 }}>
           {footer}

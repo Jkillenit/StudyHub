@@ -6767,6 +6767,63 @@ button.sh-today-row-main:hover {
   color: var(--sh-text-3);
   pointer-events: auto;
 }
+.sc-menu-caption {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translateX(-50%);
+  margin-bottom: 4px;
+  padding: 3px 8px;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--sh-text);
+  background: var(--sh-panel-strong);
+  border: 1px solid var(--sh-border);
+  border-radius: 6px;
+  pointer-events: none;
+  animation: sc-caption 2.6s ease-out forwards;
+}
+@keyframes sc-caption {
+  0% {
+    opacity: 0;
+    translate: 0 4px;
+  }
+  10%,
+  80% {
+    opacity: 1;
+    translate: 0 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+/* Summon: particles fly out from her center as she materializes. */
+.sc-burst {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  pointer-events: none;
+}
+.sc-burst i {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: var(--sh-accent);
+  box-shadow: 0 0 8px var(--sh-accent);
+  animation: sc-burst 0.8s cubic-bezier(0.1, 0.7, 0.3, 1) forwards;
+}
+@keyframes sc-burst {
+  from {
+    transform: rotate(var(--a)) translateX(0) scale(1.4);
+    opacity: 1;
+  }
+  to {
+    transform: rotate(var(--a)) translateX(90px) scale(0.3);
+    opacity: 0;
+  }
+}
 .sc-menu-gear {
   background: transparent;
   border: none;
@@ -7327,6 +7384,7 @@ button.sh-today-row-main:hover {
 [data-motion="reduced"] .nv-base,
 [data-motion="reduced"] .nv-3d-canvas,
 [data-motion="reduced"] .nv-drop,
+[data-motion="reduced"] .sc-menu-caption,
 [data-motion="reduced"] .sc-zzz i,
 [data-motion="reduced"] .sc-spot--ring,
 [data-motion="reduced"] .sc-menu-item,
@@ -7335,6 +7393,9 @@ button.sh-today-row-main:hover {
 }
 [data-motion="reduced"] .sc-zzz i {
   opacity: 1;
+}
+[data-motion="reduced"] .sc-burst {
+  display: none;
 }
 
 /* Reduced motion: Nova's teleports become a plain fade out and back in */
