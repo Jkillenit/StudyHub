@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { configDefaults } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 /** Relative base so assets resolve inside Electron (`file:`) and installers. */
@@ -34,5 +35,8 @@ export default defineConfig({
       },
     },
     chunkSizeWarningLimit: 600,
+  },
+  test: {
+    exclude: [...configDefaults.exclude, "ponytail/**"],
   },
 });

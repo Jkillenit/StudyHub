@@ -33,3 +33,6 @@ Thumbs.db
 
 # Electron builder cache
 .cache/
+
+# Ponytail (Cursor hooks run from here; keep the folder, don't commit it)
+ponytail/
