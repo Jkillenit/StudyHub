@@ -1,11 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { isReducedMotion as prefersReducedMotion } from "../shell/motion.js";
 
 const EDGE = 8;
 const TYPE_MS = 18;
-
-function prefersReducedMotion() {
-  return !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-}
 
 /** Reveals `text` a few characters per frame; clicking the bubble finishes it. */
 function useTypewriter(text) {

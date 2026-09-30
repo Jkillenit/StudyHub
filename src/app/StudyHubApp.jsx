@@ -19,6 +19,7 @@ import { applyBlackboardImport } from "../features/import/blackboardImport.js";
 import { applySyllabusText } from "../features/import/syllabusImport.js";
 import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import { SplashScreen, useSplashPhase } from "../components/SplashScreen.jsx";
+import { SettingsPanel } from "../shell/SettingsPanel.jsx";
 
 const CompanionLayer = lazy(() => import("../companion/CompanionLayer.jsx"));
 
@@ -62,6 +63,8 @@ function StudyHubAppInner() {
   const [courseId, setCourseId] = useState(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [hubView, setHubView] = useState("today");
   const [courseShellLoad, setCourseShellLoad] = useState(false);
   const [paletteChapterMeta, setPaletteChapterMeta] = useState(() => ({ courseId: null, chapterId: null }));
 
@@ -143,9 +146,20 @@ function StudyHubAppInner() {
     [openCourseFromShell]
   );
 
+  const goHub = useCallback((view) => {
+    setCourseId(null);
+    if (typeof view === "string") setHubView(view);
+  }, []);
+
+  const openSettings = useCallback(() => {
+    if (courseId === "builtin") window.dispatchEvent(new CustomEvent("studyhub-open-settings"));
+    else setSettingsOpen((v) => !v);
+  }, [courseId]);
+
   const goHubAndNewCourse = useCallback(() => {
     setCourseId(null);
-    window.setTimeout(() => window.dispatchEvent(new CustomEvent("studyhub-open-manual-add")), 0);
+    setHubView("courses");
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent("studyhub-open-manual-add")), 50);
   }, []);
 
   const deleteUserCourse = useCallback(
@@ -335,10 +349,19 @@ function StudyHubAppInner() {
     <div data-bs-theme="dark" className="sh-app-root sh-app-shell">
       <ApiStatusSync />
       <BlackboardImportHandler onCreateCourse={createBlackboardCourse} onImport={handleBlackboardImport} />
-      <TitleBar onCommandPalette={() => setPaletteOpen(true)} onGoToHub={() => setCourseId(null)} />
+      <TitleBar
+        onCommandPalette={() => setPaletteOpen(true)}
+        onGoToHub={goHub}
+        onNavigate={goHub}
+        onOpenSettings={() => setSettingsOpen((v) => !v)}
+        onHub={onHub}
+        hubView={hubView}
+      />
       <ErrorBoundary resetKey={courseId} onReset={() => setCourseId(null)}>
         {onHub ? (
           <HubScreen
+            view={hubView}
+            onNavigate={goHub}
             userCourses={userCoursesList}
             onOpenCourse={openCourseFromShell}
             onManualCreate={onHubManualCreate}
@@ -371,10 +394,10 @@ function StudyHubAppInner() {
         userCourses={userCoursesList}
         onSelectCourse={openCourseFromShell}
         onNavigateCourseChapter={navigateCourseChapter}
-        onGoToHub={() => setCourseId(null)}
+        onGoToHub={goHub}
         onGoToHubAndNewCourse={goHubAndNewCourse}
         onPickImportFiles={pickExpressImport}
-        onOpenSettings={() => window.dispatchEvent(new CustomEvent("studyhub-open-settings"))}
+        onOpenSettings={openSettings}
         onExport={exportHub}
         onImportFile={importHub}
         onMarkChapterReviewed={() => window.dispatchEvent(new CustomEvent("studyhub-mark-chapter-reviewed"))}
@@ -382,6 +405,7 @@ function StudyHubAppInner() {
         builtinActiveChapter={paletteChapterMeta.courseId === "builtin" ? paletteChapterMeta.chapterId : null}
       />
       <AiAssistantPanel open={aiOpen} onClose={() => setAiOpen(false)} />
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       {splashPhase === "done" ? (
         <ErrorBoundary resetKey="companion" fallback={null}>
           <Suspense fallback={null}>
@@ -389,7 +413,8 @@ function StudyHubAppInner() {
               courses={userCoursesList}
               activeCourseId={courseId}
               onHub={onHub}
-              onGoHub={() => setCourseId(null)}
+              hubView={hubView}
+              onGoHub={goHub}
               onOpenCourse={openCourseFromShell}
               onUpdateCourse={updateCourse}
             />

@@ -97,13 +97,13 @@ export function GlossaryTerm({ id, sectionId, children }) {
           top: tip.top,
           maxWidth: 320,
           zIndex: 10050,
-          background: "var(--sh-surface-1, #0b0b0e)",
-          border: "1px solid var(--bs-border-color, #25252e)",
-          borderRadius: 8,
+          background: "var(--sh-panel-solid)",
+          border: "1px solid var(--sh-border-strong)",
+          borderRadius: "var(--sh-radius-sm)",
           padding: "10px 12px",
           fontSize: "0.88em",
           lineHeight: 1.55,
-          color: "#c8c8d0",
+          color: "var(--sh-text)",
           pointerEvents: "none",
         }}
       >

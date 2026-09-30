@@ -248,7 +248,7 @@ function TestResults({ questions, results, modules, onRetakeMissed, onNewTest })
       <div className="sh-pt-score">
         <span
           className="sh-pt-score-value mono"
-          style={{ color: pct >= 80 ? "var(--sh-green)" : pct >= 60 ? "var(--sh-amber)" : "var(--sh-red)" }}
+          style={{ color: pct >= 80 ? "var(--sh-accent)" : pct >= 60 ? "var(--sh-warn)" : "var(--sh-danger)" }}
         >
           {pct}%
         </span>

@@ -424,7 +424,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
                 <div className="sh-meter-track flex-grow-1">
                   <div className="sh-meter-fill" style={{ width: `${masteryPct}%` }} />
                 </div>
-                <span className="mono" style={{ fontSize: 10, color: "var(--sh-green)" }}>
+                <span className="mono" style={{ fontSize: 11, color: "var(--sh-accent)" }}>
                   {masteryPct}%
                 </span>
               </div>
@@ -491,9 +491,9 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
                     const enabled = !disabledIds.has(ch.id);
                     const onlyOne = STUDY_CHAPTERS.length - disabledIds.size <= 1 && enabled;
                     return (
-                      <label key={ch.id} className="mono d-flex align-items-center gap-2" style={{ fontSize: 10, cursor: onlyOne ? "not-allowed" : "pointer" }}>
+                      <label key={ch.id} className="mono d-flex align-items-center gap-2" style={{ fontSize: 11, cursor: onlyOne ? "not-allowed" : "pointer" }}>
                         <input type="checkbox" checked={enabled} disabled={onlyOne} onChange={() => toggleModule(ch.id)} />
-                        <span style={{ color: "var(--sh-text-secondary)" }}>
+                        <span style={{ color: "var(--sh-text-2)" }}>
                           {ch.label} — {ch.title}
                         </span>
                       </label>
@@ -506,11 +506,11 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
                 <button type="button" className="sh-btn-ghost mb-2" onClick={clearProgress}>
                   CLEAR COMPLETION
                 </button>
-                <label className="mono d-flex align-items-center gap-2 mb-2" style={{ fontSize: 10 }}>
+                <label className="mono d-flex align-items-center gap-2 mb-2" style={{ fontSize: 11 }}>
                   <input type="checkbox" checked={comfortable} onChange={(e) => setComfortable(e.target.checked)} />
                   COMFORT SPACING
                 </label>
-                <div className="d-flex align-items-center gap-2 mono" style={{ fontSize: 10 }}>
+                <div className="d-flex align-items-center gap-2 mono" style={{ fontSize: 11 }}>
                   <span className="sh-kv-key">TEXT</span>
                   <button type="button" className="sh-btn-ghost" style={{ width: "auto", margin: 0, padding: "4px 8px" }} disabled={fontStep <= 0} onClick={() => setFontStep((s) => Math.max(0, s - 1))}>
                     A−

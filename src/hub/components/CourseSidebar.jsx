@@ -58,7 +58,7 @@ function CourseSidebar({ course, activeItem, onActiveChange, onRenameCourse, onR
         </div>
       </div>
       <div className="sh-sidebar-search">
-        <span className="sh-sidebar-search-prefix" style={{ color: "var(--sh-cyan)" }} aria-hidden>
+        <span className="sh-sidebar-search-prefix" style={{ color: "var(--sh-accent)" }} aria-hidden>
           ›
         </span>
         <input

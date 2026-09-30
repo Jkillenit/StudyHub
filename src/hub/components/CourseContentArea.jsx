@@ -39,7 +39,7 @@ const VISIBLE_DEFAULT = 4;
 const itemText = (item) => (item && typeof item === "object" ? String(item.text ?? item.label ?? "") : String(item ?? ""));
 
 function confidenceColor(g) {
-  return g.confidence === "high" ? "var(--sh-green)" : g.confidence === "medium" ? "var(--sh-amber)" : "var(--sh-text-dim)";
+  return g.confidence === "high" ? "var(--sh-accent)" : g.confidence === "medium" ? "var(--sh-warn)" : "var(--sh-text-3)";
 }
 
 function DefinitionCard({ item, onEdit, onDelete }) {
@@ -104,7 +104,7 @@ function DefinitionCard({ item, onEdit, onDelete }) {
       className={`def-card sh-pptx-card sh-tier-${tier}`}
       style={{
         borderLeftWidth: 3,
-        borderLeftColor: tier === "low" ? "var(--sh-border)" : "var(--sh-green)",
+        borderLeftColor: tier === "low" ? "var(--sh-border)" : "var(--sh-accent)",
         opacity: tier === "low" ? 0.75 : 1,
       }}
     >
@@ -118,7 +118,7 @@ function DefinitionCard({ item, onEdit, onDelete }) {
             <div
               className="sh-confidence-dot"
               title={`${tier} confidence — verify this term`}
-              style={{ background: tier === "medium" ? "var(--sh-amber)" : "var(--sh-text-dim)" }}
+              style={{ background: tier === "medium" ? "var(--sh-warn)" : "var(--sh-text-3)" }}
             />
           ) : null}
           <button className="sh-card-action-btn" onClick={() => setIsEditing(true)} title="Edit">
@@ -221,10 +221,10 @@ function NeedsReviewSection({ items, onEdit, onDelete }) {
   return (
     <div className="sh-needs-review">
       <button className="sh-needs-review-toggle" onClick={() => setOpen((o) => !o)}>
-        <span className="sh-section-label" style={{ color: "var(--sh-amber)", marginBottom: 0 }}>
+        <span className="sh-section-label" style={{ color: "var(--sh-warn)", marginBottom: 0 }}>
           NEEDS REVIEW — {items.length} TERM{items.length !== 1 ? "S" : ""}
         </span>
-        <span className="sh-expand-btn" style={{ color: "var(--sh-amber)" }}>
+        <span className="sh-expand-btn" style={{ color: "var(--sh-warn)" }}>
           {open ? "↑ hide" : "↓ show"}
         </span>
       </button>

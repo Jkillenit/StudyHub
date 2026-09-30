@@ -27,17 +27,17 @@ export function GlossaryContextBlock() {
       <div className="sh-ctx-scroll font-sans" style={{ maxHeight: 280, overflowY: "auto" }}>
         {entry ? (
           <article ref={entryRef}>
-            <h2 className="font-sans fw-semibold mb-2 mb-0" style={{ fontSize: 13, color: "var(--sh-text-primary)" }}>
+            <h2 className="font-sans fw-semibold mb-2 mb-0" style={{ fontSize: 13, color: "var(--sh-text)" }}>
               {entry.term}
             </h2>
             {entry.detail.map((p, i) => (
-              <p key={i} className="font-sans mb-2" style={{ fontSize: 12, color: "var(--sh-text-secondary)", lineHeight: 1.6 }}>
+              <p key={i} className="font-sans mb-2" style={{ fontSize: 12, color: "var(--sh-text-2)", lineHeight: 1.6 }}>
                 {p}
               </p>
             ))}
           </article>
         ) : (
-          <p className="mono" style={{ fontSize: 10, color: "var(--sh-text-dim)" }}>
+          <p className="mono" style={{ fontSize: 11, color: "var(--sh-text-3)" }}>
             SELECT A TERM IN THE MAIN COLUMN.
           </p>
         )}

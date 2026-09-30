@@ -318,8 +318,8 @@ export class NovaStage {
   }
 
   refreshColors() {
-    this.uniforms.uColor.value.copy(cssColor(this.state.rampant ? "--sh-red" : "--sh-cyan", "--sh-green"));
-    this.uniforms.uHot.value.copy(cssColor("--sh-text-primary", "--sh-cyan"));
+    this.uniforms.uColor.value.copy(cssColor(this.state.rampant ? "--sh-danger" : "--sh-accent", "--sh-accent"));
+    this.uniforms.uHot.value.copy(cssColor("--sh-text", "--sh-accent"));
   }
 
   async load() {

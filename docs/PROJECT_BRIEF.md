@@ -58,7 +58,11 @@ Personal data never leaves the machine unless the student explicitly publishes a
 - **DB**: better-sqlite3 via IPC (`db:*` handlers); schema migrations via `schema_version`
 - **Parsing**: officeparser v6 (PPTX/DOCX/XLSX), pdf-parse (PDF) — main process only
 - **Editor**: TipTap 3
-- **Styling**: Bootstrap reset + custom `--sh-*` tokens in `src/studyhub-bootstrap.css`
+- **Styling**: Bootstrap reset + custom `--sh-*` tokens in `src/studyhub-bootstrap.css`.
+  Holographic HUD look (reference: `docs/design/today-mockup.html`): cyan is the only accent,
+  fonts bundled via `@fontsource` (Manrope content, Chakra Petch HUD labels, JetBrains Mono
+  numbers). Reduced motion is `html[data-motion="reduced"]`, driven by Settings or the OS
+  (`src/shell/motion.js`).
 - **AI**: Claude Haiku (`claude-haiku-4-5-20251001`) via main-process IPC, optional
 - **Cloud (Later, gated on alpha)**: Supabase (Postgres + auth + RLS + edge functions)
 
@@ -90,7 +94,9 @@ electron/
 src/
   app/StudyHubApp.jsx           Root: course list, routing, import orchestration
   features/                     Feature modules split out of the god-components
-  features/today/               Priority engine (pure) + Today screen
+  features/today/               Priority engine + todayView/briefing (pure) + Today screen
+  features/dashboard/           CourseFeeds (cards due, announcements, exam prep) on Courses
+  shell/                        Command palette, Settings panel, motion preference
   hub/                          User course view (sidebar, content area, grades)
   study/                        OM 300 built-in course + flashcard deck + sm2.js
   companion/                    Nova: 3D companion, quiz panel, tours, XP

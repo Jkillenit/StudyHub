@@ -56,13 +56,13 @@ function NextReviewSummary({ cards, examFor }) {
   if (next) {
     const days = daysUntilReview(next);
     return (
-      <div className="sh-next-review-text" style={{ color: "var(--sh-green)" }}>
+      <div className="sh-next-review-text" style={{ color: "var(--sh-accent)" }}>
         All caught up · Next review in {days} day{days !== 1 ? "s" : ""}
       </div>
     );
   }
   return (
-    <div className="sh-next-review-text" style={{ color: "var(--sh-green)" }}>
+    <div className="sh-next-review-text" style={{ color: "var(--sh-accent)" }}>
       All caught up
     </div>
   );
@@ -93,7 +93,7 @@ function SessionSummary({ know, again, cards, examFor, onContinue, onClose }) {
           <span className="sh-stat-label">SCORE</span>
           <span
             className="sh-stat-value"
-            style={{ color: score >= 80 ? "var(--sh-green)" : score >= 60 ? "var(--sh-amber)" : "var(--sh-red)" }}
+            style={{ color: score >= 80 ? "var(--sh-accent)" : score >= 60 ? "var(--sh-warn)" : "var(--sh-danger)" }}
           >
             {score}%
           </span>

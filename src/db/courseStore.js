@@ -289,6 +289,20 @@ export const courseStore = {
     );
   },
 
+  async getGradingScale(courseUuid) {
+    try {
+      return (await db?.grades?.getGradingScale?.(courseUuid)) || null;
+    } catch {
+      return null;
+    }
+  },
+
+  async setAssignmentCompleted(uuid, completed = true) {
+    const res = await db?.assignments?.setCompleted?.({ uuid, completed });
+    window.dispatchEvent(new CustomEvent("studyhub-mirror-changed", { detail: { assignmentUuid: uuid } }));
+    return res;
+  },
+
   async getTargetGrade(courseUuid) {
     const row = await db?.courses?.get?.(courseUuid);
     const value = Number(row?.target_grade);

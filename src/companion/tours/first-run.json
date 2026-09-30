@@ -5,44 +5,50 @@
     {
       "targetId": "today-dashboard",
       "title": "This is Today",
-      "text": "Everything due, new announcements and cards to review, across every class. Start here each day.",
+      "text": "Your briefing, what to do tonight, and where you stand, across every class. Start here each day.",
       "placement": "bottom",
       "route": "hub"
     },
     {
-      "targetId": "today-stats",
-      "title": "Your week at a glance",
-      "text": "Due this week, flashcards waiting, and your study streak. Keep that streak alive.",
+      "targetId": "today-tonight",
+      "title": "Tonight",
+      "text": "The three things worth your time tonight, most important first. Hit the top one and you're winning.",
       "placement": "left",
       "route": "hub"
     },
     {
-      "targetId": "today-views",
-      "title": "Calendar",
-      "text": "Flip to Calendar for a month view. You can add your own due dates there too.",
-      "placement": "right",
+      "targetId": "today-standing",
+      "title": "Where you stand",
+      "text": "Each gauge is a class grade; the tick is your target. Click one for the what-if calculator.",
+      "placement": "top",
       "route": "hub"
+    },
+    {
+      "targetId": "nav-calendar",
+      "title": "Calendar",
+      "text": "A month view of everything due. You can add your own due dates there too.",
+      "placement": "bottom"
     },
     {
       "targetId": "hub-courses",
       "title": "Your courses",
       "text": "Every class lives here. Click one to open its modules, notes and study tools.",
       "placement": "right",
-      "route": "hub"
+      "route": "hub:courses"
     },
     {
       "targetId": "hub-add-course",
       "title": "Add a course",
       "text": "Drop in a PowerPoint and I'll build flashcards from it, or set a course up by hand.",
       "placement": "right",
-      "route": "hub"
+      "route": "hub:courses"
     },
     {
       "targetId": "hub-blackboard",
       "title": "Blackboard",
       "text": "Connect once, then Sync. Assignments, grades, announcements and files come straight over.",
       "placement": "right",
-      "route": "hub"
+      "route": "hub:courses"
     },
     {
       "targetId": "titlebar-palette",
@@ -52,9 +58,10 @@
     },
     {
       "targetId": "titlebar-scout",
-      "title": "That's me",
-      "text": "My settings live here. Click me any time for quizzes, help, or the course tour. I don't bite. Usually.",
-      "placement": "bottom"
+      "title": "Settings",
+      "text": "The gear opens Settings: reduce motion, my settings, and the AI key. Click me any time for quizzes, help, or the course tour. I don't bite. Usually.",
+      "placement": "bottom",
+      "route": "hub"
     }
   ]
 }

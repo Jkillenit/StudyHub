@@ -11,7 +11,7 @@ const AVOID_SELECTOR = [
   "iframe",
 ].join(",");
 
-const TITLEBAR_H = 40;
+const TITLEBAR_H = 64;
 const EDGE = 12;
 const MARGIN_BAND = 96;
 

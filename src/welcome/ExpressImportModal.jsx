@@ -144,7 +144,7 @@ export function ExpressImportModal({ open, onClose, onExpressComplete }) {
               BROWSE FILES…
             </button>
             {expressError ? (
-              <div className="mono mt-2" style={{ color: "var(--sh-amber)", fontSize: 10 }}>
+              <div className="mono mt-2" style={{ color: "var(--sh-warn)", fontSize: 11 }}>
                 {expressError}
               </div>
             ) : null}

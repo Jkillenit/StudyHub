@@ -1,3 +1,5 @@
+import { isReducedMotion as prefersReducedMotion } from "../shell/motion.js";
+
 const KEY = "companion.state";
 
 export const MOVEMENT_LEVELS = ["off", "calm", "normal", "lively"];
@@ -41,10 +43,6 @@ export function isStudyAward(parts) {
 export const DAY_MS = 24 * 60 * 60 * 1000;
 export const RAMPANT_AFTER_DAYS = 3;
 export const RAMPANT_AFTER_IGNORES = 3;
-
-function prefersReducedMotion() {
-  return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-}
 
 export function defaultState() {
   return {

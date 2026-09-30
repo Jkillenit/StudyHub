@@ -25,9 +25,9 @@ export function GlossarySidePanel({ layout = "split" }) {
         width: stack ? "100%" : "min(420px, 42vw)",
         minWidth: stack ? undefined : 260,
         flexShrink: 0,
-        borderLeft: stack ? "none" : "1px solid #1e2d45",
-        borderTop: stack ? "1px solid #1e2d45" : "none",
-        background: "#080d18",
+        borderLeft: stack ? "none" : "1px solid var(--sh-border)",
+        borderTop: stack ? "1px solid var(--sh-border)" : "none",
+        background: "var(--sh-panel-solid)",
         display: "flex",
         flexDirection: "column",
         maxHeight: stack ? "min(46vh, 380px)" : "calc(100vh - 168px)",
@@ -41,14 +41,14 @@ export function GlossarySidePanel({ layout = "split" }) {
           justifyContent: "space-between",
           gap: 8,
           padding: "10px 12px",
-          borderBottom: "1px solid #1e2d45",
+          borderBottom: "1px solid var(--sh-border)",
           position: "sticky",
           top: 0,
-          background: "#080d18",
+          background: "var(--sh-panel-solid)",
           zIndex: 2,
         }}
       >
-        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", color: "#64748b" }}>
+        <span style={{ fontFamily: "var(--sh-font-hud)", fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", color: "var(--sh-text-3)" }}>
           GLOSSARY
         </span>
         <Button type="button" variant="outline-secondary" size="sm" onClick={closeSplit}>
@@ -63,7 +63,7 @@ export function GlossarySidePanel({ layout = "split" }) {
               style={{
                 fontSize: "1.1em",
                 fontWeight: 700,
-                color: "#e2e8f0",
+                color: "var(--sh-text)",
                 margin: "0 0 12px",
                 lineHeight: 1.35,
               }}
@@ -75,7 +75,7 @@ export function GlossarySidePanel({ layout = "split" }) {
                 key={i}
                 style={{
                   fontSize: "0.95em",
-                  color: "#94a3b8",
+                  color: "var(--sh-text-2)",
                   margin: "0 0 12px",
                   lineHeight: 1.65,
                 }}
@@ -85,7 +85,7 @@ export function GlossarySidePanel({ layout = "split" }) {
             ))}
           </article>
         ) : (
-          <p style={{ color: "#64748b", fontSize: 13 }}>
+          <p style={{ color: "var(--sh-text-3)", fontSize: 13 }}>
             Select a highlighted term in any chapter or the Final review.
           </p>
         )}

@@ -11,11 +11,11 @@ const SCORE_SAVE_DEBOUNCE_MS = 600;
 const keyOf = (c, i) => c.uuid || (c.id != null ? `id${c.id}` : `new${i}`);
 
 function gradeColor(pct) {
-  if (pct === null || pct === undefined) return "var(--sh-text-dim)";
-  if (pct >= 90) return "var(--sh-green)";
-  if (pct >= 80) return "var(--sh-cyan)";
-  if (pct >= 70) return "var(--sh-amber)";
-  return "var(--sh-red)";
+  if (pct === null || pct === undefined) return "var(--sh-text-3)";
+  if (pct >= 90) return "var(--sh-accent)";
+  if (pct >= 80) return "var(--sh-accent)";
+  if (pct >= 70) return "var(--sh-warn)";
+  return "var(--sh-danger)";
 }
 
 export function getCurrentLetter(grade, scale) {
@@ -28,10 +28,10 @@ export function getCurrentLetter(grade, scale) {
 }
 
 function neededColor(needed) {
-  if (needed <= 70) return "var(--sh-green)";
-  if (needed <= 85) return "var(--sh-cyan)";
-  if (needed <= 95) return "var(--sh-amber)";
-  return "var(--sh-red)";
+  if (needed <= 70) return "var(--sh-accent)";
+  if (needed <= 85) return "var(--sh-accent)";
+  if (needed <= 95) return "var(--sh-warn)";
+  return "var(--sh-danger)";
 }
 
 function GradeScaleDisplay({ scale, currentGrade }) {
@@ -47,12 +47,12 @@ function GradeScaleDisplay({ scale, currentGrade }) {
           const isCurrent = letter === currentLetter;
           return (
             <div key={letter} className={`sh-grade-scale-row ${isCurrent ? "sh-grade-scale-row--current" : ""}`}>
-              <span className="sh-grade-scale-letter" style={{ color: isCurrent ? "var(--sh-green)" : "var(--sh-text-dim)" }}>
+              <span className="sh-grade-scale-letter" style={{ color: isCurrent ? "var(--sh-accent)" : "var(--sh-text-3)" }}>
                 {letter}
               </span>
               <span
                 className="sh-grade-scale-threshold mono"
-                style={{ color: isCurrent ? "var(--sh-text-primary)" : "var(--sh-text-dim)" }}
+                style={{ color: isCurrent ? "var(--sh-text)" : "var(--sh-text-3)" }}
               >
                 {letter === "F" && !threshold ? "below" : `${threshold}%+`}
               </span>
@@ -279,7 +279,7 @@ function GradeDropCalculator({ components }) {
             <span className="sh-drop-result mono" style={{ color: gradeColor(item.gradeWithZero) }}>
               {item.gradeWithZero.toFixed(1)}%
             </span>
-            <span className="sh-drop-delta mono" style={{ color: "var(--sh-red)", opacity: 0.7 }}>
+            <span className="sh-drop-delta mono" style={{ color: "var(--sh-danger)", opacity: 0.7 }}>
               -{item.impact.toFixed(1)}
             </span>
           </div>
@@ -380,7 +380,7 @@ function ComponentRow({ component, index, onScoreChange, onUpdate, onDelete }) {
           </span>
           <span
             className="sh-grades-col sh-grades-col--contribution mono"
-            style={{ color: contrib !== null ? "var(--sh-text-primary)" : "var(--sh-text-dim)" }}
+            style={{ color: contrib !== null ? "var(--sh-text)" : "var(--sh-text-3)" }}
           >
             {contrib !== null ? contrib.toFixed(2) : "—"}
           </span>
@@ -435,7 +435,7 @@ function ComponentRow({ component, index, onScoreChange, onUpdate, onDelete }) {
           </div>
           {subEntries.length > 0 ? (
             <div className="sh-subentry-avg">
-              <span className="sh-section-label" style={{ fontSize: 9 }}>
+              <span className="sh-section-label" style={{ fontSize: 11 }}>
                 AVERAGE
               </span>
               <span className="mono" style={{ fontSize: 12 }}>
@@ -735,7 +735,7 @@ export default function GradesTab({ course, onComponentsChange }) {
       </div>
 
       {status ? (
-        <div className="sh-grades-status" style={{ color: status.startsWith("Found") ? "var(--sh-green)" : "var(--sh-amber)" }}>
+        <div className="sh-grades-status" style={{ color: status.startsWith("Found") ? "var(--sh-accent)" : "var(--sh-warn)" }}>
           {status}
         </div>
       ) : null}
@@ -775,7 +775,7 @@ export default function GradesTab({ course, onComponentsChange }) {
           <span className="sh-grades-col sh-grades-col--name mono">TOTAL</span>
           <span
             className="sh-grades-col sh-grades-col--weight mono"
-            style={{ color: Math.abs(totalWeight - 1) > 0.01 ? "var(--sh-amber)" : undefined }}
+            style={{ color: Math.abs(totalWeight - 1) > 0.01 ? "var(--sh-warn)" : undefined }}
             title={Math.abs(totalWeight - 1) > 0.01 ? "Weights do not add up to 100%" : undefined}
           >
             {(totalWeight * 100).toFixed(0)}%

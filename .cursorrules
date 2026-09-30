@@ -59,18 +59,28 @@ supabase/              Commons SQL schema, RLS, edge functions
 docs/                  PROJECT_BRIEF.md, ROADMAP.md, PRODUCT_BACKLOG.md
 
 ## CSS DESIGN SYSTEM
-NEVER use hardcoded colors. ALWAYS use tokens:
- --sh-base --sh-surface --sh-raised --sh-border
- --sh-green --sh-green-dim --sh-amber --sh-cyan --sh-red
- --sh-text-primary --sh-text-secondary --sh-text-dim --sh-muted
+Holographic HUD look. Visual reference: docs/design/today-mockup.html.
+NEVER hardcode colors, fonts, radii or shadows. ALWAYS use tokens
+(defined in :root of studyhub-bootstrap.css; color-mix() over tokens is fine):
+ Surfaces: --sh-bg --sh-panel --sh-panel-strong --sh-panel-solid (floating UI)
+ Lines:    --sh-border --sh-border-strong --sh-track
+ Accent:   --sh-accent --sh-accent-soft --sh-accent-line --sh-accent-hover
+ States:   --sh-warn(-soft/-line) --sh-danger(-soft/-line)
+ Text:     --sh-text --sh-text-2 --sh-text-3 (never dimmer than text-3)
+ Shape:    --sh-radius-xs/sm/md/lg/xl --sh-shadow-panel --sh-glow-accent
+Cyan (--sh-accent) is the ONLY accent. No terminal green.
+Glow only on the single most important element on screen.
 
-Typography:
- - Section labels: monospace, 9-11px, letter-spacing 0.1em, uppercase
- - Body: Inter, 13px, line-height 1.5
- - Terms/cards: Inter, normal weight
- - Code/numbers: monospace
+Typography (fonts bundled via @fontsource, never a CDN):
+ - Content: --sh-font-body (Manrope). Task titles 17-18px / 600.
+ - HUD labels: --sh-font-hud (Chakra Petch), uppercase, letter-spacing 0.1em
+ - Numbers, times, course codes: --sh-font-mono (JetBrains Mono)
+ - Minimum text size 11px.
 
-Tab active state: border-bottom only (2px solid var(--sh-green)), never full border.
+Motion: respect html[data-motion="reduced"] (set from Settings or the OS via
+src/shell/motion.js). Never use @media (prefers-reduced-motion) directly.
+
+Tab/nav active state: border-bottom only (2px solid var(--sh-accent)), never full border.
 
 ## IPC PATTERN
 Main: ipcMain.handle('namespace:action', async (_, args) => {})

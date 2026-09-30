@@ -236,7 +236,7 @@ export function MaterialsOffcanvas({ show, onHide }) {
                 whiteSpace: "pre-wrap",
                 wordBreak: "break-word",
                 margin: 0,
-                fontFamily: "ui-monospace, Consolas, monospace",
+                fontFamily: "var(--sh-font-mono)",
                 lineHeight: 1.55,
               }}
             >

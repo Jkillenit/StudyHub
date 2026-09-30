@@ -27,9 +27,9 @@ function CourseContextPanel({
       <div className="ctx-label">MASTERY</div>
       <div className="d-flex align-items-center gap-2 mb-1">
         <div className="sh-meter-track flex-grow-1">
-          <div className="sh-meter-fill" style={{ width: `${masteryPct}%`, background: "var(--sh-cyan)" }} />
+          <div className="sh-meter-fill" style={{ width: `${masteryPct}%`, background: "var(--sh-accent)" }} />
         </div>
-        <span className="mono" style={{ fontSize: 10, color: "var(--sh-cyan)" }}>
+        <span className="mono" style={{ fontSize: 11, color: "var(--sh-accent)" }}>
           {masteryPct}%
         </span>
       </div>
@@ -57,14 +57,14 @@ function CourseContextPanel({
                   key={opt.id}
                   type="button"
                   className={`sh-btn-ghost ${sourceFilter === opt.id ? "sh-btn-ghost--active" : ""}`}
-                  style={{ width: "auto", marginBottom: 0, padding: "4px 8px", fontSize: 10 }}
+                  style={{ width: "auto", marginBottom: 0, padding: "4px 8px", fontSize: 11 }}
                   onClick={() => onSourceFilterChange(opt.id)}
                 >
                   {opt.id === "due" ? (
                     <>
                       DUE{" "}
                       {dueCount > 0 ? (
-                        <span className="sh-due-badge" style={{ color: "var(--sh-amber)" }}>
+                        <span className="sh-due-badge" style={{ color: "var(--sh-warn)" }}>
                           · {dueCount}
                         </span>
                       ) : null}
@@ -75,15 +75,15 @@ function CourseContextPanel({
                 </button>
               ))}
             </div>
-            <p className="mono mb-2" style={{ fontSize: 10, color: "var(--sh-text-dim)" }}>
+            <p className="mono mb-2" style={{ fontSize: 11, color: "var(--sh-text-3)" }}>
               {filteredFlashcards.length}/{userFlashcards.length} cards{" "}
-              <span style={{ color: dueCount > 0 ? "var(--sh-amber)" : "var(--sh-text-dim)" }}>· {dueCount} due</span>
+              <span style={{ color: dueCount > 0 ? "var(--sh-warn)" : "var(--sh-text-3)" }}>· {dueCount} due</span>
             </p>
           </>
         ) : null}
 
         {(course?.materialPaths || []).length > 0 ? (
-          <p className="mono mb-2" style={{ fontSize: 10, color: "var(--sh-text-dim)" }}>
+          <p className="mono mb-2" style={{ fontSize: 11, color: "var(--sh-text-3)" }}>
             MATERIALS · {(course?.materialPaths || []).length} FILE(S)
           </p>
         ) : null}

@@ -1,15 +1,15 @@
 /**
  * Nova's answer sheet until an API key is set. `pointTo` must be a data-tour-id;
- * `route` says where it lives ("hub" or "course") so Nova can take the student there first.
+ * `route` says where it lives ("hub", "hub:<view>" or "course") so Nova can take the student there first.
  */
 export const FAQ = [
   {
     id: "sync-bb",
     q: "How do I sync Blackboard?",
-    a: "Connect Blackboard once on the home screen, then hit Sync. Assignments, announcements, grades and files come over.",
+    a: "Connect Blackboard once on the Courses page, then hit Sync. Assignments, announcements, grades and files come over.",
     keywords: ["blackboard", "sync", "bb", "connect", "login", "import"],
     pointTo: "hub-blackboard",
-    route: "hub",
+    route: "hub:courses",
   },
   {
     id: "add-course",
@@ -17,7 +17,7 @@ export const FAQ = [
     a: "Express Import builds a course from a PowerPoint. Manual Setup makes an empty one you can fill yourself.",
     keywords: ["add", "course", "new", "create", "class", "setup"],
     pointTo: "hub-add-course",
-    route: "hub",
+    route: "hub:courses",
   },
   {
     id: "import-slides",
@@ -25,23 +25,22 @@ export const FAQ = [
     a: "Use Express Import with a .pptx. I pull out definitions, sections and formulas, and the definitions become flashcards.",
     keywords: ["slides", "pptx", "powerpoint", "flashcards", "import", "make", "cards", "lecture"],
     pointTo: "hub-add-course",
-    route: "hub",
+    route: "hub:courses",
   },
   {
     id: "whats-due",
     q: "Where do I see what's due?",
-    a: "The Today dashboard on the home screen lists everything due in the next two weeks across all your classes.",
-    keywords: ["due", "deadline", "assignment", "homework", "today", "upcoming", "week"],
-    pointTo: "today-due",
+    a: "Today shows the three things worth doing tonight, anything overdue, and the rest of your week across all your classes.",
+    keywords: ["due", "deadline", "assignment", "homework", "today", "upcoming", "week", "tonight", "overdue"],
+    pointTo: "today-tonight",
     route: "hub",
   },
   {
     id: "calendar",
     q: "Is there a calendar?",
-    a: "Yep. Flip the Today dashboard to Calendar for a month view. You can add your own items too.",
+    a: "Yep. Calendar in the top bar has a month view. You can add your own items too.",
     keywords: ["calendar", "month", "schedule", "date", "plan"],
-    pointTo: "today-views",
-    route: "hub",
+    pointTo: "nav-calendar",
   },
   {
     id: "flashcards",
@@ -71,7 +70,7 @@ export const FAQ = [
   {
     id: "grades",
     q: "Where are my grades?",
-    a: "Recent grades show on the Today dashboard. Inside a course, the Grades tab has the full breakdown and a what-if calculator.",
+    a: "Today's Standing gauges show each class grade against your target. Click one, or open a course's Grades tab, for the full breakdown and a what-if calculator.",
     keywords: ["grade", "grades", "score", "gpa", "calculator", "what", "if", "percent"],
     pointTo: "course-tabs",
     route: "course",
@@ -114,7 +113,7 @@ export const FAQ = [
   {
     id: "scout-settings",
     q: "How do I change or hide you?",
-    a: "Click NOVA in the title bar. You can turn me off, slow me down, resize me, mute me, or change my projection color.",
+    a: "Open Settings from the gear in the top bar, then Nova settings. You can turn me off, slow me down, resize me, mute me, or change my projection color.",
     keywords: ["hide", "nova", "scout", "settings", "turn", "off", "move", "size", "sound", "mute", "color", "annoying", "stop"],
     pointTo: "titlebar-scout",
   },

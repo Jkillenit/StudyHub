@@ -26,7 +26,7 @@ export function SLabel({ children, id }) {
 }
 
 export function Term({ children }) {
-  return <span style={{ color: "var(--sh-text-primary)", fontWeight: 600 }}>{children}</span>;
+  return <span style={{ color: "var(--sh-text)", fontWeight: 600 }}>{children}</span>;
 }
 
 export function Grid2({ children }) {
@@ -47,7 +47,7 @@ export function BulletList({ items }) {
   return (
     <ul style={{ paddingLeft: 18, margin: 0 }}>
       {items.map((item, i) => (
-        <li key={i} className="font-sans" style={{ fontSize: 12, color: "var(--sh-text-secondary)", lineHeight: 1.75, marginBottom: 2 }}>
+        <li key={i} className="font-sans" style={{ fontSize: 12, color: "var(--sh-text-2)", lineHeight: 1.75, marginBottom: 2 }}>
           {item}
         </li>
       ))}
@@ -59,7 +59,7 @@ export function NumList({ items }) {
   return (
     <ol style={{ paddingLeft: 18, margin: 0 }}>
       {items.map((item, i) => (
-        <li key={i} className="font-sans" style={{ fontSize: 12, color: "var(--sh-text-secondary)", lineHeight: 1.75, marginBottom: 2 }}>
+        <li key={i} className="font-sans" style={{ fontSize: 12, color: "var(--sh-text-2)", lineHeight: 1.75, marginBottom: 2 }}>
           {item}
         </li>
       ))}

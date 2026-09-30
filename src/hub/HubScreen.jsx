@@ -3,15 +3,15 @@ import { loadJson } from "../lib/storage.js";
 import { HUB_KEYS, ensureUserCourse } from "./userCourseModel.js";
 import { ManualCourseEntry } from "../welcome/ManualCourseEntry.jsx";
 import { ExpressImportModal } from "../welcome/ExpressImportModal.jsx";
-import { TodayDashboard } from "../features/dashboard/TodayDashboard.jsx";
+import { TodayScreen } from "../features/today/TodayScreen.jsx";
+import { CalendarView } from "../features/dashboard/CalendarView.jsx";
+import { CourseFeeds } from "../features/dashboard/CourseFeeds.jsx";
 import { BlackboardSyncPanel } from "../features/blackboard/BlackboardSyncPanel.jsx";
 import { shortCourse } from "../features/dashboard/courseLabel.js";
 
-export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpressComplete }) {
+function CoursesView({ userCourses, onOpenCourse, onManualCreate, refreshKey, onSynced, onExpress }) {
   const [manualOpen, setManualOpen] = useState(false);
-  const [expressOpen, setExpressOpen] = useState(false);
   const [bbStatus, setBbStatus] = useState({ loggedIn: false, windowOpen: false });
-  const [dashboardKey, setDashboardKey] = useState(0);
   const highlightId = loadJson(HUB_KEYS.lastCourse, null);
 
   useEffect(() => {
@@ -42,25 +42,24 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
   }
 
   return (
-    <div className="sh-hub-root">
-      <TodayDashboard refreshKey={dashboardKey} onOpenCourse={onOpenCourse} userCourses={userCourses} />
-      <div className="sh-hub-inner">
-        <div className="sh-hub-block" data-tour-id="hub-courses">
-          <div className="sh-hub-section-label">YOUR COURSES</div>
+    <div className="sh-courses-page">
+      <div className="sh-courses-main">
+        <div className="sh-panel sh-hub-block" data-tour-id="hub-courses">
+          <h2 className="sh-hud-title">YOUR COURSES</h2>
           <div className="sh-hub-list" data-perch>
             <button
               type="button"
-              className={`sh-hub-course-row sh-hub-course-row--cyan ${highlightId === "builtin" ? "sh-hub-course-row--recent" : ""}`}
+              className={`sh-hub-course-row ${highlightId === "builtin" ? "sh-hub-course-row--recent" : ""}`}
               onClick={() => onOpenCourse("builtin")}
             >
               <div className="sh-hub-course-row-text">
                 <div className="sh-hub-course-name">OM 300</div>
                 <div className="sh-hub-course-sub mono">
-                  BUILT-IN · OM 300
-                  {highlightId === "builtin" ? " · LAST OPENED" : ""}
+                  Built-in · OM 300
+                  {highlightId === "builtin" ? " · last opened" : ""}
                 </div>
               </div>
-              <span className="sh-hub-course-open mono">OPEN →</span>
+              <span className="sh-hub-course-open">Open →</span>
             </button>
 
             {userCourses.map((c) => {
@@ -80,29 +79,25 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
                     </div>
                     <div className="sh-hub-course-sub mono">
                       {ec.courseCode && shortCourse(ec.courseCode) !== ec.name ? `${shortCourse(ec.courseCode)} · ` : ""}
-                      {nMod} MODULES{isRecent ? " · LAST OPENED" : ""}
+                      {nMod} modules{isRecent ? " · last opened" : ""}
                     </div>
                   </div>
-                  <span className="sh-hub-course-open mono">OPEN →</span>
+                  <span className="sh-hub-course-open">Open →</span>
                 </button>
               );
             })}
           </div>
-          {userCourses.length === 0 ? (
-            <p className="sh-hub-empty-hint mono">NO CUSTOM COURSES YET</p>
-          ) : null}
+          {userCourses.length === 0 ? <p className="sh-hub-empty-hint">No custom courses yet.</p> : null}
         </div>
 
-        <div className="sh-hub-divider" />
-
-        <div className="sh-hub-block">
-          <div className="sh-hub-section-label">ADD COURSE</div>
+        <div className="sh-panel sh-hub-block">
+          <h2 className="sh-hud-title">ADD COURSE</h2>
           <div className="sh-hub-add-actions" data-tour-id="hub-add-course">
-            <button type="button" className="sh-btn-ghost sh-btn-ghost-amber sh-hub-add-btn" onClick={() => setExpressOpen(true)}>
-              + EXPRESS IMPORT
+            <button type="button" className="sh-btn-outline" onClick={onExpress}>
+              + Express import
             </button>
-            <button type="button" className="sh-btn-ghost sh-hub-add-btn" onClick={() => setManualOpen(true)}>
-              + MANUAL SETUP
+            <button type="button" className="sh-btn-outline" onClick={() => setManualOpen(true)}>
+              + Manual setup
             </button>
           </div>
           {manualOpen ? (
@@ -116,36 +111,60 @@ export function HubScreen({ userCourses, onOpenCourse, onManualCreate, onExpress
               />
             </div>
           ) : null}
+        </div>
 
-          <div className="sh-hub-bb-section" data-tour-id="hub-blackboard">
-            <div className="sh-section-label" style={{ marginBottom: 10 }}>
-              BLACKBOARD
-            </div>
-            <button className="sh-hub-bb-btn" onClick={handleOpenBlackboard}>
-              <span className="sh-hub-bb-icon">⬡</span>
-              <span className="sh-hub-bb-text">{bbStatus.loggedIn ? "OPEN BLACKBOARD" : "CONNECT BLACKBOARD"}</span>
-              <span className="sh-hub-bb-status" style={{ color: bbStatus.loggedIn ? "var(--sh-green)" : "var(--sh-text-dim)" }}>
-                {bbStatus.loggedIn ? "● CONNECTED" : "○ NOT CONNECTED"}
-              </span>
+        <div className="sh-panel sh-hub-block sh-hub-bb-section" data-tour-id="hub-blackboard">
+          <h2 className="sh-hud-title">BLACKBOARD</h2>
+          <button className="sh-hub-bb-btn" onClick={handleOpenBlackboard}>
+            <span className="sh-hub-bb-icon">⬡</span>
+            <span className="sh-hub-bb-text">{bbStatus.loggedIn ? "Open Blackboard" : "Connect Blackboard"}</span>
+            <span className={`sh-hub-bb-status${bbStatus.loggedIn ? " sh-hub-bb-status--on" : ""}`}>
+              {bbStatus.loggedIn ? "● Connected" : "○ Not connected"}
+            </span>
+          </button>
+          {bbStatus.loggedIn ? (
+            <button
+              className="sh-hub-bb-disconnect"
+              onClick={async () => {
+                await window.studyHub?.blackboard?.disconnect?.();
+                setBbStatus({ loggedIn: false, windowOpen: false });
+              }}
+            >
+              Disconnect
             </button>
-            {bbStatus.loggedIn ? (
-              <button
-                className="sh-hub-bb-disconnect"
-                onClick={async () => {
-                  await window.studyHub?.blackboard?.disconnect?.();
-                  setBbStatus({ loggedIn: false, windowOpen: false });
-                }}
-              >
-                DISCONNECT
-              </button>
-            ) : null}
-            {bbStatus.loggedIn ? (
-              <BlackboardSyncPanel userCourses={userCourses} onSynced={() => setDashboardKey((k) => k + 1)} />
-            ) : null}
-          </div>
+          ) : null}
+          {bbStatus.loggedIn ? <BlackboardSyncPanel userCourses={userCourses} onSynced={onSynced} /> : null}
         </div>
       </div>
+      <aside className="sh-courses-side">
+        <CourseFeeds refreshKey={refreshKey} onOpenCourse={onOpenCourse} userCourses={userCourses} />
+      </aside>
+    </div>
+  );
+}
 
+export function HubScreen({ view = "today", onNavigate, userCourses, onOpenCourse, onManualCreate, onExpressComplete }) {
+  const [expressOpen, setExpressOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  return (
+    <div className="sh-hub-root">
+      {view === "today" ? <TodayScreen refreshKey={refreshKey} onOpenCourse={onOpenCourse} onNavigate={onNavigate} /> : null}
+      {view === "calendar" ? (
+        <div className="sh-page">
+          <CalendarView userCourses={userCourses} />
+        </div>
+      ) : null}
+      {view === "courses" ? (
+        <CoursesView
+          userCourses={userCourses}
+          onOpenCourse={onOpenCourse}
+          onManualCreate={onManualCreate}
+          refreshKey={refreshKey}
+          onSynced={() => setRefreshKey((k) => k + 1)}
+          onExpress={() => setExpressOpen(true)}
+        />
+      ) : null}
       <ExpressImportModal open={expressOpen} onClose={() => setExpressOpen(false)} onExpressComplete={onExpressComplete} />
     </div>
   );

@@ -1,4 +1,5 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useReducedMotion } from "../shell/motion.js";
 import { createPortal } from "react-dom";
 import { character, line, finishKey, isFailing } from "./character.js";
 import {
@@ -88,19 +89,57 @@ const BUILTIN_NAME = "OM 300";
 
 const builtinCourse = (flashcards) => ({ id: BUILTIN_ID, uuid: BUILTIN_ID, name: BUILTIN_NAME, flashcards });
 
+/** Home window on Today: how big she may grow, how long she stays, and how many stops she makes before heading back. */
+const HOME_SCALE = [0.6, 2.6];
+const HOME_STAY_MS = [40 * 1000, 90 * 1000];
+const HOME_AWAY_STOPS = [2, 4];
+const HOME_RETURN_DELAY_MS = 600;
+const GROW_MS = 420;
+/** Modes she can hold while standing big in her home window; anything else walks her out at normal size. */
+const HOME_MODES = new Set(["idle", "menu", "sleep", "nudge"]);
+
 const rand = ([a, b]) => a + Math.random() * (b - a);
+const randInt = ([a, b]) => Math.floor(a + Math.random() * (b - a + 1));
 const rectOf = (r) => ({ left: r.left, top: r.top, width: r.width, height: r.height });
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
 
-function prefersReducedMotion() {
-  return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+/** The Today home window's geometry and the size she takes inside it, or null when it isn't on screen. */
+function homeGeometry(baseSize) {
+  const el = document.querySelector("[data-nova-home]");
+  if (!el) return null;
+  const rect = el.getBoundingClientRect();
+  if (rect.width < 40 || rect.height < 40 || rect.bottom < 0 || rect.top > window.innerHeight) return null;
+  const floorTop = (el.querySelector("[data-nova-floor]") || el).getBoundingClientRect().top;
+  const room = Math.min((floorTop - rect.top - 8) * 0.92, rect.width * 1.1);
+  const size = Math.round(Math.max(baseSize * HOME_SCALE[0], Math.min(baseSize * HOME_SCALE[1], room)));
+  return { el, rect, floorTop, cx: rect.left + rect.width / 2, size };
+}
+
+const homeSpot = (g, size) => ({ x: g.cx - size / 2, y: g.floorTop - size });
+
+/** Home geometry when a box at `p` (size `s`) has its center over the home window. */
+function overHome(p, s, baseSize) {
+  const g = homeGeometry(baseSize);
+  if (!g) return null;
+  const cx = p.x + s / 2;
+  const cy = p.y + s / 2;
+  const r = g.rect;
+  return cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom ? g : null;
+}
+
+/** Lets the home window dim its core while she stands in it. */
+function markStage(on) {
+  const el = document.querySelector("[data-nova-home]");
+  if (!el) return;
+  if (on) el.dataset.housed = "true";
+  else delete el.dataset.housed;
 }
 
 /**
  * Nova's overlay. Lives above the app in a portal; only Nova, her bubbles and menus take
  * pointer events. Mounted by StudyHubApp once the launch splash is gone.
  */
-export default function CompanionLayer({ courses = [], activeCourseId = null, onHub = true, onGoHub, onOpenCourse, onUpdateCourse }) {
+export default function CompanionLayer({ courses = [], activeCourseId = null, onHub = true, hubView = "today", onGoHub, onOpenCourse, onUpdateCourse }) {
   const [cstate, setCstate] = useState(null);
   const stateRef = useRef(null);
   const [mode, setMode] = useState("hidden");
@@ -142,7 +181,13 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   bubbleRef.current = bubble;
 
   const nodeRef = useRef(null);
-  const reduced = useMemo(prefersReducedMotion, []);
+  const growRef = useRef(null);
+  const reduced = useReducedMotion();
+  /** Standing big inside the Today home window. `homeSize` is her size there. */
+  const [housed, setHoused] = useState(false);
+  const housedRef = useRef(false);
+  const [homeSize, setHomeSize] = useState(null);
+  const awayRef = useRef({ stops: 0, goal: randInt(HOME_AWAY_STOPS) });
   const sfx = useCallback((name) => {
     if (stateRef.current?.sound) playSound(name);
   }, []);
@@ -168,7 +213,10 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     [playGesture, posRef]
   );
 
-  const size = Math.round((use3d ? SIZE_3D : character.size) * (cstate?.scale || 1));
+  const baseSize = Math.round((use3d ? SIZE_3D : character.size) * (cstate?.scale || 1));
+  const baseSizeRef = useRef(baseSize);
+  baseSizeRef.current = baseSize;
+  const size = housed && homeSize ? homeSize : baseSize;
   const sizeRef = useRef(size);
   sizeRef.current = size;
 
@@ -176,8 +224,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     () => (builtinCards.length ? [...courses, builtinCourse(builtinCards)] : courses),
     [courses, builtinCards]
   );
+  const stageActive = onHub && hubView === "today";
   const navRef = useRef({});
-  navRef.current = { courses, quizCourses, activeCourseId, onHub, onGoHub, onOpenCourse };
+  navRef.current = { courses, quizCourses, activeCourseId, onHub, onGoHub, onOpenCourse, stageActive };
 
   const lastActivityRef = useRef(Date.now());
   const lastInputRef = useRef(0);
@@ -197,6 +246,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const send = useCallback((event) => {
     const next = transition(modeRef.current, event);
     if (next !== modeRef.current) {
+      if (housedRef.current && !HOME_MODES.has(next)) api.current.leaveHome?.();
       modeRef.current = next;
       setMode(next);
     }
@@ -204,6 +254,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   }, []);
 
   const force = useCallback((next) => {
+    if (housedRef.current && !HOME_MODES.has(next)) api.current.leaveHome?.();
     modeRef.current = next;
     setMode(next);
   }, []);
@@ -225,6 +276,61 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     if (!use3dRef.current) return p;
     return standOn(platformBelow(p, s), p.x + s / 2, s);
   }, []);
+
+  /* ---------- home window on Today: big inside it, normal size everywhere else ---------- */
+
+  /** Snap into the home window at full home size. False when the window isn't on screen. */
+  const houseAt = useCallback(() => {
+    if (!navRef.current.stageActive) return false;
+    const g = homeGeometry(baseSizeRef.current);
+    if (!g) return false;
+    housedRef.current = true;
+    sizeRef.current = g.size;
+    platRef.current = null;
+    setHomeSize(g.size);
+    setHoused(true);
+    jumpTo(homeSpot(g, g.size));
+    markStage(true);
+    awayRef.current = { stops: 0, goal: randInt(HOME_AWAY_STOPS) };
+    return true;
+  }, [jumpTo]);
+
+  /** Shrink back to normal size where she stands, feet and center kept in place. */
+  const leaveHome = useCallback(() => {
+    if (!housedRef.current) return;
+    const big = sizeRef.current;
+    const s = baseSizeRef.current;
+    const p = posRef.current;
+    housedRef.current = false;
+    sizeRef.current = s;
+    setHoused(false);
+    markStage(false);
+    jumpTo({ x: p.x + (big - s) / 2, y: p.y + big - s });
+  }, [jumpTo, posRef]);
+  api.current.leaveHome = leaveHome;
+
+  /**
+   * Teleport back into the home window and grow. Resolves null when there's no home window to
+   * go to (callers fall back to the usual spot), false when something interrupted the trip.
+   */
+  api.current.goHome = async ({ speed = ENGAGED_SPEED } = {}) => {
+    if (housedRef.current) return true;
+    const g = navRef.current.stageActive ? homeGeometry(baseSizeRef.current) : null;
+    if (!g) return null;
+    if (modeRef.current !== "wander" && send("WANDER") !== "wander") return false;
+    const ok = await flyTo(homeSpot(g, sizeRef.current), { speed });
+    if (!ok || modeRef.current !== "wander") return false;
+    if (!houseAt()) return false;
+    send("ARRIVE");
+    return true;
+  };
+  const returnHome = useCallback(
+    async (speed) => {
+      const res = await api.current.goHome({ speed });
+      if (res === null) await flyTo(home(), { speed });
+    },
+    [flyTo, home]
+  );
 
   const refreshAnchor = useCallback(() => {
     const p = posRef.current;
@@ -315,7 +421,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       setMood("neutral");
       if (!greet) {
         force("idle");
-        jumpTo(home());
+        if (!houseAt()) jumpTo(home());
         sfx("appear");
         const part = dayPart();
         const chance = part === "late" ? 0.7 : part === "morning" ? 0.4 : 0;
@@ -346,7 +452,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       setMood("happy");
       api.current.greet();
     },
-    [force, send, jumpTo, flyTo, home, sfx, playGesture, busy, say, refreshAnchor]
+    [force, send, jumpTo, flyTo, home, houseAt, sfx, playGesture, busy, say, refreshAnchor]
   );
 
   useEffect(() => {
@@ -366,8 +472,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   const ensureRoute = useCallback((route) => {
     const nav = navRef.current;
-    if (route === "hub") {
-      if (!nav.onHub) nav.onGoHub?.();
+    if (route === "hub" || route?.startsWith("hub:")) {
+      nav.onGoHub?.(route === "hub" ? "today" : route.slice(4));
       return true;
     }
     if (route === "course") {
@@ -744,8 +850,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     send("END");
     setGlow(1);
     setMood("neutral");
-    void flyTo(home(), { speed: 220 });
-  }, [send, flyTo, home]);
+    void returnHome(220);
+  }, [send, returnHome]);
 
   const contextualTour = useCallback(() => {
     const nav = navRef.current;
@@ -772,7 +878,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
             update({ onboarded: true });
             send("CLOSE");
             say(line("dismissed"));
-            void flyTo(home(), { speed: 200 });
+            void returnHome(200);
           },
         },
       ],
@@ -877,6 +983,12 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         d.moved = true;
         cancel();
         setDragging(true);
+        if (housedRef.current) {
+          const k = baseSizeRef.current / sizeRef.current;
+          d.ox *= k;
+          d.oy *= k;
+          leaveHome();
+        }
         if (use3dRef.current) {
           d.held = true;
           setBubble(null);
@@ -887,18 +999,20 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       }
       const s = sizeRef.current;
       const p = clampPoint({ x: e.clientX - d.ox, y: e.clientY - d.oy }, s);
+      const g = navRef.current.stageActive ? overHome(p, s, baseSizeRef.current) : null;
       if (d.held) {
         const sw = swingRef.current;
         const now = performance.now();
         const dt = Math.max(1, now - (sw.lastT || now - 16));
         sw.vx = sw.vx * 0.6 + ((p.x - posRef.current.x) / dt) * 1000 * 0.4;
         sw.lastT = now;
-        const below = platformBelow(p, s);
-        setDropMark({ x: p.x + s / 2, y: below.top });
       }
+      if (g) setDropMark({ x: g.cx, y: g.floorTop });
+      else if (d.held) setDropMark({ x: p.x + s / 2, y: platformBelow(p, s).top });
+      else setDropMark(null);
       jumpTo(p);
     },
-    [cancel, jumpTo, posRef, startSwing]
+    [cancel, jumpTo, posRef, startSwing, leaveHome]
   );
 
   const onPointerUp = useCallback(
@@ -912,6 +1026,17 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       }, 0);
       setDragging(false);
       const m = modeRef.current;
+      const homeable = AUTONOMOUS.has(m) || m === "sleep" || m === "menu";
+      if (homeable && navRef.current.stageActive && overHome(posRef.current, sizeRef.current, baseSizeRef.current)) {
+        setDropMark(null);
+        releaseSwing();
+        if (m !== "menu") send("DROP");
+        if (houseAt()) {
+          refreshAnchor();
+          return;
+        }
+      }
+      setDropMark(null);
       if (d.held) {
         setDropMark(null);
         releaseSwing();
@@ -925,7 +1050,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       }
       refreshAnchor();
     },
-    [update, send, refreshAnchor, posRef, releaseSwing]
+    [update, send, refreshAnchor, posRef, releaseSwing, houseAt]
   );
 
   /* ---------- autonomy: wander, perch, sleep ---------- */
@@ -946,6 +1071,17 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       if (document.hidden || Date.now() - lastInputRef.current < TYPING_PAUSE_MS) {
         schedule(4000);
         return;
+      }
+      if (housedRef.current) {
+        leaveHome();
+        if (use3d) {
+          void api.current.fall();
+          schedule(rand(cfg.idle));
+          return;
+        }
+      } else if (navRef.current.stageActive && ++awayRef.current.stops > awayRef.current.goal) {
+        const res = await api.current.goHome({ speed: cfg.speed });
+        if (res !== null || !alive) return;
       }
       if (use3d) {
         const step = pickStroll(sizeRef.current, posRef.current, platRef.current);
@@ -970,18 +1106,91 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       if (!ok || modeRef.current !== "wander") return;
       send(wp.perch ? "PERCH" : "ARRIVE");
     };
-    schedule(rand(cfg.idle));
+    schedule(rand(housedRef.current ? HOME_STAY_MS : cfg.idle));
     return () => {
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [mode, enabled, movement, send, flyTo, posRef, use3d]);
+  }, [mode, enabled, movement, send, flyTo, posRef, use3d, leaveHome]);
+
+  /* Leaving Today sends her out of the home window; coming back walks her home. */
+  useEffect(() => {
+    if (!enabled) return undefined;
+    if (!stageActive) {
+      if (housedRef.current) {
+        leaveHome();
+        if (use3dRef.current) void api.current.fall();
+      }
+      return undefined;
+    }
+    const t = window.setTimeout(() => {
+      const m = modeRef.current;
+      if (housedRef.current || !AUTONOMOUS.has(m) || busy() || dragRef.current) return;
+      void api.current.goHome();
+    }, HOME_RETURN_DELAY_MS);
+    return () => window.clearTimeout(t);
+  }, [stageActive, enabled, leaveHome, busy]);
+
+  /* Keep her sized and standing on the home floor as the window reflows. */
+  useEffect(() => {
+    if (!housed) return undefined;
+    let raf = 0;
+    const refit = () => {
+      raf = 0;
+      if (!housedRef.current || dragRef.current?.moved) return;
+      const g = homeGeometry(baseSizeRef.current);
+      if (!g) {
+        leaveHome();
+        jumpTo(clampPoint(posRef.current, baseSizeRef.current));
+        return;
+      }
+      sizeRef.current = g.size;
+      setHomeSize(g.size);
+      const spot = homeSpot(g, g.size);
+      const p = posRef.current;
+      if (Math.abs(spot.x - p.x) > 0.5 || Math.abs(spot.y - p.y) > 0.5) jumpTo(spot);
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(refit);
+    };
+    const stage = document.querySelector("[data-nova-home]");
+    const ro = stage && typeof ResizeObserver !== "undefined" ? new ResizeObserver(schedule) : null;
+    if (ro) ro.observe(stage);
+    window.addEventListener("resize", schedule);
+    window.addEventListener("scroll", schedule, true);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro?.disconnect();
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("scroll", schedule, true);
+    };
+  }, [housed, leaveHome, jumpTo, posRef]);
+
+  /* Grow into / shrink out of the home size instead of snapping. */
+  const grownSizeRef = useRef(size);
+  useLayoutEffect(() => {
+    const prev = grownSizeRef.current;
+    grownSizeRef.current = size;
+    const el = growRef.current;
+    if (!el || prev === size || reduced || Math.abs(prev - size) < 4) return undefined;
+    el.style.transition = "none";
+    el.style.transform = `scale(${prev / size})`;
+    void el.offsetWidth;
+    el.style.transition = `transform ${GROW_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1)`;
+    el.style.transform = "scale(1)";
+    const t = window.setTimeout(() => {
+      el.style.transition = "";
+      el.style.transform = "";
+    }, GROW_MS + 40);
+    return () => window.clearTimeout(t);
+  }, [size, reduced]);
 
   /*
    * 3D: keep her feet on something. She rides her platform when it scrolls, and falls to
    * whatever is below when it disappears (or when an engaged move left her mid-air).
    */
   api.current.fall = async ({ dropped = false } = {}) => {
+    if (housedRef.current) return;
     const s = sizeRef.current;
     const below = dropped ? platformBelow(posRef.current, s) : platformBelow(posRef.current, s, platRef.current?.el);
     if (modeRef.current === "sleep") send("WAKE");
@@ -1067,6 +1276,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     let raf = 0;
     const check = () => {
       raf = 0;
+      if (housedRef.current) return;
       const m = modeRef.current;
       const grounded = AUTONOMOUS.has(m) || m === "sleep";
       if (!(grounded || m === "menu" || m === "nudge") || dragRef.current?.moved || busy()) return;
@@ -1497,6 +1707,30 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     return () => window.removeEventListener("studyhub-scout-settings", open);
   }, []);
 
+  /* Today's arrival waves her hello; the briefing's voice moves her mouth. */
+  useEffect(() => {
+    const onGreet = () => {
+      if (!visibleNow || !AUTONOMOUS.has(modeRef.current) || busy()) return;
+      setMood("happy");
+      playGesture("wave");
+    };
+    const onTalk = (e) => {
+      const ms = e.detail?.ms;
+      setTalkUntil(ms ? performance.now() + ms : 0);
+    };
+    window.addEventListener("studyhub-companion-greet", onGreet);
+    window.addEventListener("studyhub-companion-talk", onTalk);
+    return () => {
+      window.removeEventListener("studyhub-companion-greet", onGreet);
+      window.removeEventListener("studyhub-companion-talk", onTalk);
+    };
+  }, [visibleNow, busy, playGesture]);
+
+  useEffect(() => {
+    document.documentElement.dataset.nova = visibleNow ? "on" : "off";
+    window.dispatchEvent(new CustomEvent("studyhub-companion-state", { detail: { visible: visibleNow } }));
+  }, [visibleNow]);
+
   /* ---------- settings ---------- */
 
   const onSettingsChange = useCallback(
@@ -1614,6 +1848,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           react ? `sc-scout--${react}` : "",
           use3d ? "sc-scout--3d" : "",
           use3d && body === "loading" ? "sc-scout--loading" : "",
+          housed ? "sc-scout--home" : "",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -1631,6 +1866,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
         >
+          <span className="sc-grow" ref={growRef}>
           <span className="sc-bob">
             <span className="sc-fx">
               {use3d ? (
@@ -1671,6 +1907,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
                 />
               )}
             </span>
+          </span>
           </span>
           {use3d ? <span className="sc-hit" /> : null}
         </button>
