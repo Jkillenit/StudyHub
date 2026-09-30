@@ -5312,6 +5312,64 @@ button.sh-today-row-main:hover {
   height: auto;
 }
 
+/* Ranked Today */
+.sh-rank {
+  margin-bottom: 14px;
+  border-left: 2px solid var(--sh-green);
+}
+.sh-rank-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.sh-rank-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 4px;
+  border-top: 1px solid var(--sh-border);
+}
+.sh-rank-row:first-child {
+  border-top: none;
+}
+.sh-rank-num {
+  font-family: monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--sh-green);
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+.sh-rank-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sh-rank-reason {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--sh-text-secondary);
+}
+.sh-rank-action {
+  flex-shrink: 0;
+  align-self: center;
+  white-space: nowrap;
+}
+.sh-rank-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.sh-today-tag--risk {
+  color: var(--sh-red);
+  border-color: var(--sh-red);
+}
+
 /* Study guide */
 .sh-guide-controls .sh-hub-section-label {
   margin-top: 12px;

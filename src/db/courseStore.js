@@ -282,6 +282,12 @@ export const courseStore = {
     return (await db?.today?.get?.()) || { now: new Date().toISOString(), synced: false, courses: [] };
   },
 
+  async getTargetGrade(courseUuid) {
+    const row = await db?.courses?.get?.(courseUuid);
+    const value = Number(row?.target_grade);
+    return Number.isFinite(value) ? value : 80;
+  },
+
   async setTargetGrade(courseUuid, targetGrade) {
     const res = await db?.today?.setTargetGrade?.({ courseUuid, targetGrade });
     if (res?.success) window.dispatchEvent(new CustomEvent("studyhub-target-changed", { detail: { courseUuid, targetGrade } }));

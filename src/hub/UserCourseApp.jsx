@@ -22,6 +22,7 @@ import {
 } from "../features/import/courseBuilders.js";
 import { bodyToHtml, htmlToPlainText, plainTextToHtml } from "../lib/notesBody.js";
 import { useMirrorBadges } from "../features/mirror/useMirrorBadges.js";
+import { takePendingCourseView } from "../features/today/courseView.js";
 
 const norm = (v) => String(v || "").toLowerCase().trim();
 
@@ -122,9 +123,17 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, courseSh
     const onTermNav = (e) => {
       const d = e.detail;
       if (d?.courseId !== course.id) return;
+      takePendingCourseView(course.id);
+      if (d?.item === "qz-deck") {
+        setActiveItem("qz-deck");
+        setMainTab("content");
+        return;
+      }
       if (d?.moduleId) selectModule(d.moduleId);
       setMainTab(d?.tab || "content");
     };
+    const pending = takePendingCourseView(course.id);
+    if (pending) onTermNav({ detail: pending });
     window.addEventListener("studyhub-navigate-chapter", onNav);
     window.addEventListener("studyhub-open-content-tab", onTermNav);
     return () => {

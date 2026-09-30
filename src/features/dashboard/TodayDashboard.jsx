@@ -4,6 +4,7 @@ import { CalendarView } from "./CalendarView.jsx";
 import { cardsInScope, estimateExam, formatMinutes, loadScope } from "../study/examEstimate.js";
 import { pctTone, shortCourse } from "./courseLabel.js";
 import { KindTag } from "./KindTag.jsx";
+import { RankedToday } from "../today/RankedToday.jsx";
 
 const EMPTY = { upcoming: [], announcements: [], dueCards: [], recentGrades: [], stats: null };
 
@@ -184,6 +185,7 @@ function ExamPrep({ exams, userCourses, pace, onOpenCourse }) {
 export function TodayDashboard({ refreshKey = 0, onOpenCourse, userCourses = [] }) {
   const [data, setData] = useState(EMPTY);
   const [view, setView] = useState("today");
+  const [rankKey, setRankKey] = useState(0);
 
   const load = useCallback(async () => {
     const res = await window.studyHub?.db?.dashboard?.get?.();
@@ -207,6 +209,7 @@ export function TodayDashboard({ refreshKey = 0, onOpenCourse, userCourses = [] 
   const toggleComplete = async (a) => {
     await window.studyHub?.db?.assignments?.setCompleted?.({ uuid: a.uuid, completed: !a.completed });
     void load();
+    setRankKey((k) => k + 1);
   };
 
   const markRead = async (a) => {
@@ -262,6 +265,7 @@ export function TodayDashboard({ refreshKey = 0, onOpenCourse, userCourses = [] 
       </header>
 
       {view === "calendar" ? <CalendarView userCourses={userCourses} /> : null}
+      {view === "today" ? <RankedToday onOpenCourse={onOpenCourse} refreshKey={refreshKey + rankKey} /> : null}
       {view === "today" ? (
         <ExamPrep
           exams={data.upcoming.filter((a) => a.kind === "exam" && !a.completed && (daysFromToday(a.due_date) ?? -1) >= 0)}

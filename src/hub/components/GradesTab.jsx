@@ -62,16 +62,11 @@ function GradeScaleDisplay({ scale, currentGrade }) {
   );
 }
 
-function HypotheticalEngine({ components, gradingScale }) {
-  const [target, setTarget] = useState(90);
-  const scored = components.filter(hasScore);
-  const unscored = components.filter((c) => !hasScore(c));
-  if (scored.length === 0 || unscored.length === 0) return null;
-
-  const needed = neededAverage(components, target);
-  const isPossible = needed !== null && needed <= 100;
-  const isAlreadyAchieved = needed !== null && needed <= 0;
-  const letter = getCurrentLetter(target, gradingScale) || `${target}%`;
+function TargetSelector({ target, gradingScale, onChange }) {
+  const [draft, setDraft] = useState(String(target));
+  const timerRef = useRef(null);
+  useEffect(() => setDraft(String(target)), [target]);
+  useEffect(() => () => window.clearTimeout(timerRef.current), []);
 
   const targetOptions = gradingScale
     ? Object.entries(gradingScale)
@@ -85,32 +80,59 @@ function HypotheticalEngine({ components, gradingScale }) {
         { letter: "D", threshold: 60 },
       ];
 
+  const typed = (value) => {
+    setDraft(value);
+    window.clearTimeout(timerRef.current);
+    const n = parseFloat(value);
+    if (!Number.isFinite(n) || n < 0 || n > 100) return;
+    timerRef.current = window.setTimeout(() => onChange(n), SCORE_SAVE_DEBOUNCE_MS);
+  };
+
+  return (
+    <div className="sh-target-selector" title="Today ranks this course against your target">
+      <span className="sh-target-label">TARGET:</span>
+      <div className="sh-target-options">
+        {targetOptions.map((opt) => (
+          <button
+            key={opt.letter}
+            type="button"
+            className={`sh-target-btn ${target === opt.threshold ? "sh-target-btn--active" : ""}`}
+            onClick={() => {
+              window.clearTimeout(timerRef.current);
+              onChange(opt.threshold);
+            }}
+          >
+            {opt.letter}
+          </button>
+        ))}
+        <input
+          type="number"
+          min="0"
+          max="100"
+          value={draft}
+          aria-label="Target grade percent"
+          onChange={(event) => typed(event.target.value)}
+          className="sh-target-input"
+        />
+      </div>
+    </div>
+  );
+}
+
+function HypotheticalEngine({ components, gradingScale, target }) {
+  const scored = components.filter(hasScore);
+  const unscored = components.filter((c) => !hasScore(c));
+  if (scored.length === 0 || unscored.length === 0) return null;
+
+  const needed = neededAverage(components, target);
+  const isPossible = needed !== null && needed <= 100;
+  const isAlreadyAchieved = needed !== null && needed <= 0;
+  const letter = getCurrentLetter(target, gradingScale) || `${target}%`;
+
   return (
     <div className="sh-hypothetical">
       <div className="sh-hypothetical-header">
         <div className="sh-section-label">WHAT DO I NEED?</div>
-        <div className="sh-target-selector">
-          <span className="sh-target-label">TARGET:</span>
-          <div className="sh-target-options">
-            {targetOptions.map((opt) => (
-              <button
-                key={opt.letter}
-                className={`sh-target-btn ${target === opt.threshold ? "sh-target-btn--active" : ""}`}
-                onClick={() => setTarget(opt.threshold)}
-              >
-                {opt.letter}
-              </button>
-            ))}
-            <input
-              type="number"
-              min="0"
-              max="100"
-              value={target}
-              onChange={(event) => setTarget(parseFloat(event.target.value) || 0)}
-              className="sh-target-input"
-            />
-          </div>
-        </div>
       </div>
       <div className="sh-hypothetical-result">
         {isAlreadyAchieved ? (
@@ -480,6 +502,7 @@ export default function GradesTab({ course, onComponentsChange }) {
   const [status, setStatus] = useState(null);
   const [gradingScale, setGradingScale] = useState(null);
   const [bbItems, setBbItems] = useState([]);
+  const [target, setTarget] = useState(80);
   const componentsRef = useRef(components);
   const bbItemsRef = useRef(bbItems);
   const scoreTimersRef = useRef(new Map());
@@ -496,12 +519,14 @@ export default function GradesTab({ course, onComponentsChange }) {
       window.studyHub?.db?.grades?.getComponents(courseUuid),
       window.studyHub?.db?.grades?.getGradingScale(courseUuid),
       window.studyHub?.db?.bb?.getGradeItems?.(courseUuid),
+      courseStore.getTargetGrade(courseUuid),
     ])
-      .then(([rows, scale, items]) => {
+      .then(([rows, scale, items, targetGrade]) => {
         if (cancelled) return;
         setComponents(Array.isArray(rows) ? rows : []);
         setGradingScale(scale || null);
         setBbItems(Array.isArray(items) ? items : []);
+        setTarget(targetGrade);
       })
       .catch(() => setStatus("Could not load grades"))
       .finally(() => {
@@ -591,6 +616,14 @@ export default function GradesTab({ course, onComponentsChange }) {
 
   const currentGrade = useMemo(() => weightedGrade(components), [components]);
 
+  const changeTarget = useCallback(
+    (value) => {
+      setTarget(value);
+      void courseStore.setTargetGrade(courseUuid, value);
+    },
+    [courseUuid]
+  );
+
   async function handleImport() {
     const result = await window.studyHub?.openFileDialog?.({
       filters: [{ name: "Syllabus", extensions: ["pdf", "docx", "doc", "pptx", "txt"] }],
@@ -673,6 +706,7 @@ export default function GradesTab({ course, onComponentsChange }) {
         ) : null}
         <span className="sh-grade-label">{currentGrade !== null ? "CURRENT GRADE" : "NO SCORES YET"}</span>
       </div>
+      <TargetSelector target={target} gradingScale={gradingScale} onChange={changeTarget} />
 
       <div className="sh-grades-table">
         <div className="sh-grades-thead">
@@ -717,7 +751,7 @@ export default function GradesTab({ course, onComponentsChange }) {
         </button>
       </div>
       <GradeScaleDisplay scale={gradingScale} currentGrade={currentGrade} />
-      <HypotheticalEngine components={components} gradingScale={gradingScale} />
+      <HypotheticalEngine components={components} gradingScale={gradingScale} target={target} />
       <WhatIfSimulator components={components} />
       <GradeDropCalculator components={components} />
       <BlackboardGradebook items={bbItems} components={components} onAssign={assignBbItem} />
