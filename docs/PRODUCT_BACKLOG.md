@@ -37,14 +37,14 @@ Tags: `local-first` (no API/cloud), `AI-optional`, `AI-required`, `cloud` (Commo
 | PT-001 | Practice tests: pick term / pick definition / typed, weak-first, missed retake, optional Haiku application questions (Phase 2) |
 | SG-001 | Study guide per exam scope: focus list, terms, outline, formulas, notes; print + Markdown copy (Phase 2) |
 | EST-002 | Exam time estimate (per-exam scope, own pace), Exam Prep strip on Today (Phase 2) |
+| TODAY-001 | Priority engine (`src/features/today/priority.js`), per-course target grade, quiz kind, vitest (Phase 1.1) |
+| TODAY-002 | Ranked Today: top 5 with reason + action, empty states, persisted target in calculator (Phase 1.2) |
+| TODAY-003 | Needed score on next major item and final, NEED badge, pressure-based risk (Phase 1.3) |
 
-## Phase 1 — Mirror + Today
+## Phase 1 — Mirror + Today (carried)
 
 | ID | Feature | Impact | Diff | Est. | Tags |
 |----|---------|--------|------|------|------|
-| TODAY-001 | Priority engine: ASSIGNMENT / EXAM_PREP / GRADE_RISK, score = urgency × weight × risk, per-course target grade, unit tests | 5 | 2 | 2 d | `local-first` |
-| TODAY-002 | Ranked Today: top 5 with one-line reason + one action, empty states | 5 | 2 | 2 d | `local-first` `UI` |
-| TODAY-003 | Needed score on next major item and final; badge on Today; feeds risk | 5 | 2 | 1 d | `local-first` |
 | CAL-002 | Upcoming-assignments widget in course context panel | 4 | 1 | 0.5 d | `local-first` |
 | CAL-003 | Syllabus date extraction into calendar | 4 | 2 | 2 d | `local-first` `AI-optional` |
 

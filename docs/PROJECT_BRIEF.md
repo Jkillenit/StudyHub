@@ -145,7 +145,7 @@ Rules:
 | Blackboard mirror, calendar, Today dashboard v1 | Done |
 | Practice tests, study guide generator, exam estimate | Done |
 | Nova companion C.1–C.6c | Done |
-| Priority engine, ranked Today, needed score | Phase 1 |
+| Priority engine, ranked Today, needed score | Done (Phase 1) |
 | Exam-aware SM-2, exam ready %, Nova review sessions | Phase 2 |
 | Onboarding, backup/export, auto-update, alpha (20–30 users) | Phase 3 |
 | Web guides, Commons, grade insights, professor reviews | Later (gated on alpha) |

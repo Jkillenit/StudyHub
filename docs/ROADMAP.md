@@ -50,19 +50,23 @@ The Blackboard mirror is the engine; Today is the product.
 
 ---
 
-## Phase 1 — Mirror + Today
+## Phase 1 — Mirror + Today ✓
 
-- **1.1 Priority engine** (TODAY-001): pure module `src/features/today/priority.js`, fed by
+- ✓ **1.1 Priority engine** (TODAY-001): pure module `src/features/today/priority.js`, fed by
   `courseStore`. Item types ASSIGNMENT (due ≤ 14 days or overdue), EXAM_PREP (exam ≤ 14 days),
   GRADE_RISK (current < target). Score = urgency × weight × risk; constants in one config
   object; unit tests (vitest). Per-course `target_grade` (default 80) via migration.
   Quizzes get their own assignment kind so they don't count as exams.
-- **1.2 Ranked Today** (TODAY-002): top 5 items with course, title, date, one-line reason and
+- ✓ **1.2 Ranked Today** (TODAY-002): top 5 items with course, title, date, one-line reason and
   one action (Blackboard deep link / review session / grade calculator). Empty states for
   not synced and nothing due. Today stays the default landing view; existing views remain in
   the sidebar and command palette.
-- **1.3 Needed score** (TODAY-003): grade calculator computes the score needed on the next
+- ✓ **1.3 Needed score** (TODAY-003): grade calculator computes the score needed on the next
   major item and on the final to hold the target; badge on Today; feeds risk.
+
+Shipped notes: exam review action opens the course deck (Nova-run sessions are 2.3). An item's
+share of the grade is its component weight split by points, else by item count (with a
+per-category minimum); unmatched items use a per-kind default and show no weight or needed score.
 
 **Exit criteria**: a fresh sync lands on a sensible ranked list; changing a target reorders it.
 
