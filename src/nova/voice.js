@@ -53,8 +53,14 @@ const clip = (text) => (text.length > MAX_CHARS ? `${text.slice(0, MAX_CHARS - 1
  * { id, text } or null. Prefers variants not in `recent` whose fill-ins are all known.
  * `strict` (memory lines): null when every variant was said recently, so she moves on to something else.
  * Otherwise a recent variant is fine, and as a last resort unknown fill-ins are left blank.
+ * `tone` (her mood, see nova/mood.js) prefers a `key@tone` entry when it has a fresh usable line.
  */
-export function pick(lib, key, vars = {}, { level = "salty", serious = false, recent = new Set(), random = Math.random, pools = {}, strict = false } = {}) {
+export function pick(lib, key, vars = {}, opts = {}) {
+  const { level = "salty", serious = false, recent = new Set(), random = Math.random, pools = {}, strict = false, tone = null } = opts;
+  if (tone && !serious && lib[`${key}@${tone}`]) {
+    const toned = pick(lib, `${key}@${tone}`, vars, { ...opts, tone: null, strict: true });
+    if (toned) return toned;
+  }
   const all = variants(key, lib[key], level, serious);
   const withFacts = all.filter((v) => hasFacts(v.text, vars));
   const fresh = withFacts.filter((v) => !recent.has(v.id));
@@ -70,3 +76,9 @@ export const voiceLevel = () => level;
 export function setVoiceLevel(next) {
   if (LEVELS.includes(next)) level = next;
 }
+
+let tone = null;
+export const voiceTone = () => tone;
+export const setVoiceTone = (next) => {
+  tone = next || null;
+};

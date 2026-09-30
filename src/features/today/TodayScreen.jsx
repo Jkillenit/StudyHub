@@ -1,7 +1,8 @@
-import { Fragment, useCallback, useLayoutEffect, useMemo } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo } from "react";
 import { courseStore } from "../../db/courseStore.js";
 import { openInBlackboard } from "../mirror/openInBlackboard.js";
 import { PANELS, inSlot, lastRects, useWorkspace } from "../../nova/workspace.js";
+import { publishToday } from "../../nova/director.js";
 import { openCourseView } from "./courseView.js";
 import { briefingContext, buildBriefing } from "./briefing.js";
 import { dueText } from "./todayView.js";
@@ -46,6 +47,9 @@ export function TodayScreen({ refreshKey = 0, onOpenCourse, onNavigate }) {
 
   const briefing = useMemo(() => (view ? buildBriefing(view, { now: new Date(), dueText }) : { segments: [], text: "" }), [view]);
   const briefingFacts = useMemo(() => (view ? briefingContext(view, { now: new Date(), dueText }) : null), [view]);
+  useEffect(() => {
+    if (briefingFacts) publishToday(briefingFacts);
+  }, [briefingFacts]);
 
   const run = useCallback(
     (action) => {

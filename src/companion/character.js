@@ -1,4 +1,4 @@
-import { pick, voiceLevel } from "../nova/voice.js";
+import { pick, voiceLevel, voiceTone } from "../nova/voice.js";
 
 /**
  * Everything that makes Nova "Nova". Swap this file to change the companion's voice.
@@ -67,6 +67,30 @@ export const character = {
     "briefing.onTrack": ["Every graded course is on target. Don't get comfortable.", "Grades are on target across the board. I'm almost impressed."],
     "briefing.closer": ["That's the sitrep. Your move.", "Briefing over. Go be productive.", "That's it. I'll be here, judging supportively.", "Done. Now go do the thing."],
     "briefing.noCourses": ["Connect Blackboard and sync your courses, and I'll brief you here every day.", "No courses yet. Sync Blackboard and I'll have plenty to say."],
+    "briefing.opener@tired": ["{greeting} Low battery, but here's the sitrep.", "{greeting} Running on fumes. Short briefing."],
+    briefingOffer: ["Morning. Want the rundown before you start?", "Morning. Two minutes for the sitrep?", "Before you dive in: want the briefing?"],
+    "director.gradeUp": [
+      "{grade.course} just went up to {grade.pct}%. Look at you.",
+      "New grade in {grade.course}: {grade.pct}%. Up. I noticed.",
+      "{grade.course} climbed to {grade.pct}%. Hell yes.",
+    ],
+    "director.gradeDown": [
+      "{grade.course} dropped to {grade.pct}%. We can fix that.",
+      "New grade in {grade.course}. It's {grade.pct}% now. Not the end. Let's make a plan.",
+    ],
+    "director.gaugeBehind": [
+      "{gauge.course}: {gauge.pct}%, {gauge.gap} points under a {gauge.letter}. That's the gap we're closing.",
+      "That's {gauge.course}. {gauge.pct}%. You need {gauge.gap} more for the {gauge.letter}.",
+    ],
+    "director.gaugeAhead": [
+      "{gauge.course} is at {gauge.pct}%. Your {gauge.letter} is safe. For now.",
+      "{gauge.course}: {gauge.pct}%. On target. Don't get cocky.",
+    ],
+    "director.overdue": [
+      "Still {today.overdue.count} overdue down here. Mark what's done, and we'll handle the rest.",
+      "{today.overdue.count} overdue. Not judging. Okay, slightly judging.",
+      "These {today.overdue.count} overdue ones aren't going to mark themselves, damn it.",
+    ],
     correct: [
       "Correct. Keep that up and I might start blushing.",
       "Look at you. Smart is a damn good look on you.",
@@ -134,6 +158,11 @@ export const character = {
       "{count} cards due in {course}. Five minutes. For me?",
       "{count} cards in {course} are overdue. Get your ass over here.",
     ],
+    "due@annoyed": [
+      "{count} cards in {course}. I'm only mentioning it because it's my job.",
+      "{course}. {count} cards. You know the drill. Literally.",
+    ],
+    "due@proud": ["{count} cards in {course}. You've been on a roll. Keep it going?", "{course} has {count} due. Winning streak's still alive. Feed it."],
     dueRampant: [
       "{count} cards. {course}. Still. They're not going anywhere. Neither am I.",
       "{course}. {count} cards. I've counted them four thousand fucking times.",
@@ -158,6 +187,7 @@ export const character = {
       "Unmuted. I'll behave. Probably.",
       "Okay, I'm allowed to move again. Thank you.",
     ],
+    "dismissed@annoyed": ["Again. Great. Love that for us.", "Sure. Not now. Never now, apparently."],
     dismissed: [
       "Fine. I'll be here. Watching. Supportively.",
       "Suit yourself. You'll be back. They always come back.",
@@ -279,7 +309,7 @@ const recent = new Set();
 
 /** Pick a line at the current language level, fill {placeholders}, avoid recent repeats. "" for an unknown key. */
 export function line(key, vars = {}) {
-  const got = pick(character.lines, key, vars, { level: voiceLevel(), recent });
+  const got = pick(character.lines, key, vars, { level: voiceLevel(), tone: voiceTone(), recent });
   if (!got) return "";
   recent.delete(got.id);
   recent.add(got.id);

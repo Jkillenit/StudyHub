@@ -81,6 +81,17 @@ export function briefingContext(view, { now = new Date(), dueText }) {
     overdue: view?.overdue?.length ? { count: view.overdue.length } : null,
     risk: risk ? { uuid: risk.courseUuid, course: risk.label, current: formatPct(risk.current), gap: formatPct(risk.gap), letter: risk.targetLetter } : null,
     onTrack: !risk && rows.some((r) => r.state === "ok"),
+    courses: rows
+      .filter((r) => r.current != null && r.courseUuid)
+      .map((r) => ({
+        uuid: r.courseUuid,
+        course: r.label,
+        current: r.current,
+        pct: formatPct(r.current),
+        gap: formatPct(Math.abs(r.gap)),
+        behind: r.gap > 0,
+        letter: r.targetLetter,
+      })),
   };
 }
 

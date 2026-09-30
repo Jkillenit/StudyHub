@@ -62,7 +62,11 @@ import { useWorkspace, workspace } from "../nova/workspace.js";
 import { arrangeWorkspace } from "../nova/scenes/arrange.js";
 import { stageDemo } from "../nova/scenes/stageDemo.js";
 import { onScreen } from "../nova/anchors.js";
-import { setVoiceLevel } from "../nova/voice.js";
+import { setVoiceLevel, setVoiceTone } from "../nova/voice.js";
+import { INTENTS, choose, events as directorEvents, onWake, ran, snooze, take, timing, today as directorToday } from "../nova/director.js";
+import { current, feel, tone as moodTone } from "../nova/mood.js";
+import { sceneFrom } from "../nova/scenePlayer.js";
+import briefingScene from "../nova/scenes/briefing.json";
 import { HelpBubble } from "./HelpBubble.jsx";
 import { CompanionSettings } from "./CompanionSettings.jsx";
 import firstRun from "./tours/first-run.json";
@@ -103,6 +107,7 @@ const NUDGE_FIRST_MS = 90 * 1000;
 const NUDGE_COOLDOWN_MS = 10 * 60 * 1000;
 const NUDGE_MAX_PER_SESSION = 4;
 const NUDGE_SHOW_MS = 8000;
+const DIRECTOR_TICK_MS = 3000;
 const RAMPANT_MUTTER_MS = [90 * 1000, 200 * 1000];
 const XP_POP_MS = 1500;
 /** The built-in OM 300 course id; its deck lives in localStorage, not SQLite. */
@@ -399,6 +404,15 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     saveCompanionState(next);
   }, []);
 
+  /** Something happened that moves her feelings (see nova/mood.js); her lines follow the new tone. */
+  const feelIt = useCallback(
+    (event) => {
+      update((s) => ({ feelings: feel(s.feelings, event) }));
+      setVoiceTone(moodTone(stateRef.current?.feelings));
+    },
+    [update]
+  );
+
   const say = useCallback((text, opts = {}) => setBubble(text || opts.actions ? { text, ...opts } : null), []);
 
   const home = useCallback(() => {
@@ -570,9 +584,12 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         /* study history is a nicety for rampancy */
       }
       if (!alive) return;
+      next = { ...next, feelings: feel(next.feelings, "returned") };
+      if (dayPart() === "late") next.feelings = feel(next.feelings, "lateNight");
+      setVoiceTone(moodTone(next.feelings));
       stateRef.current = next;
       setCstate(next);
-      if (next !== s) saveCompanionState(next);
+      saveCompanionState(next);
     });
     const tick = window.setInterval(() => setNow(Date.now()), 60 * 1000);
     return () => {
@@ -1267,6 +1284,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       setMood("stern");
       if (use3dRef.current) playGesture("facepalm");
       refreshAnchor();
+      feelIt("clickSpam");
       say(line("clickSpam"));
       return;
     }
@@ -1279,7 +1297,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       setMenuLine(m === "sleep" ? null : line("clickHi"));
     }
     refreshAnchor();
-  }, [cancel, send, closeHelp, refreshAnchor, sfx, say, playGesture]);
+  }, [cancel, send, closeHelp, refreshAnchor, sfx, say, playGesture, feelIt]);
 
   useEffect(() => {
     if (!menuLine) return undefined;
@@ -2283,22 +2301,23 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     };
   }, [visibleNow, busy, send, playGesture, refreshAnchor, say]);
 
-  /* Due-card nudges: rare, polite, and they back off when dismissed. */
-  api.current.maybeNudge = async () => {
+  /** The course with the most due cards, while due-card nudges are allowed this session. */
+  const dueNow = () => {
     const cur = stateRef.current;
     const n = nudgeRef.current;
-    const now = Date.now();
-    if (!cur?.enabled || !cur.nudges || !cur.onboarded || document.hidden) return;
-    if (modeRef.current !== "idle" && modeRef.current !== "perch") return;
-    if (n.count >= NUDGE_MAX_PER_SESSION || now - n.mountedAt < NUDGE_FIRST_MS) return;
-    if (n.last && now - n.last < n.cooldown) return;
-    if (cur.quiet || !mayAct({ lastInput: lastInputRef.current, lastStudy: lastStudyRef.current, hidden: document.hidden, now })) return;
+    if (!cur.nudges || !cur.onboarded || n.count >= NUDGE_MAX_PER_SESSION || Date.now() - n.mountedAt < NUDGE_FIRST_MS) return null;
     const best = [...navRef.current.courses, builtinCourse(loadFlashcardDeck())]
-      .map((c) => ({ c, due: getDueCards(c.flashcards || []).length }))
-      .sort((a, b) => b.due - a.due)[0];
-    if (!best || best.due < 3) return;
+      .map((c) => ({ c, count: getDueCards(c.flashcards || []).length }))
+      .sort((a, b) => b.count - a.count)[0];
+    return best?.count ? best : null;
+  };
+
+  /* Due-card nudges (the Director's dueCards intent): rare, polite, and they back off when dismissed. */
+  api.current.nudgeDue = async (best) => {
+    const cur = stateRef.current;
+    const n = nudgeRef.current;
     n.count += 1;
-    n.last = now;
+    n.kind = "due";
     cancel();
     if (send("NUDGE") !== "nudge") return;
     const spot = document.querySelector('[data-tour-id="today-cards"]');
@@ -2319,7 +2338,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     refreshAnchor();
     n.answered = false;
     const course = best.c.id === BUILTIN_ID ? BUILTIN_NAME : shortCourse(best.c.courseCode || best.c.name) || best.c.name;
-    say(line(rampant ? "dueRampant" : "due", { count: best.due, course }), {
+    say(line(rampant ? "dueRampant" : "due", { count: best.count, course }), {
       sticky: true,
       nudge: true,
       actions: [
@@ -2328,6 +2347,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           primary: true,
           onClick: () => {
             n.answered = true;
+            feelIt("nudgeTaken");
             startQuiz(best.c.id);
           },
         },
@@ -2336,7 +2356,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           onClick: () => {
             n.answered = true;
             n.cooldown *= 2;
+            snooze("dueCards", n.cooldown);
             update((s) => ({ ignored: (s.ignored || 0) + 1 }));
+            feelIt("nudgeDismissed");
             send("CLOSE");
             setMood("neutral");
             say(line("dismissed"));
@@ -2346,10 +2368,41 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     });
   };
 
-  useEffect(() => {
-    const id = window.setInterval(() => void api.current.maybeNudge(), 30000);
-    return () => window.clearInterval(id);
-  }, []);
+  /* The Director's briefingOffer intent: a morning "want the rundown?" that plays the briefing scene. */
+  api.current.offerBriefing = () => {
+    const n = nudgeRef.current;
+    n.kind = "briefing";
+    n.answered = false;
+    cancel();
+    if (send("NUDGE") !== "nudge") return;
+    setMood("happy");
+    refreshAnchor();
+    say(line("briefingOffer"), {
+      sticky: true,
+      nudge: true,
+      actions: [
+        {
+          label: "BRIEF ME",
+          primary: true,
+          onClick: () => {
+            n.answered = true;
+            send("CLOSE");
+            setBubble(null);
+            api.current.playScene(sceneFrom(briefingScene, directorToday || {}));
+          },
+        },
+        {
+          label: "LATER",
+          onClick: () => {
+            n.answered = true;
+            send("CLOSE");
+            setMood("neutral");
+            setBubble(null);
+          },
+        },
+      ],
+    });
+  };
 
   useEffect(() => {
     if (mode !== "nudge") return undefined;
@@ -2357,8 +2410,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       if (modeRef.current !== "nudge") return;
       send("CLOSE");
       setMood("neutral");
-      if (!nudgeRef.current.answered) {
+      if (!nudgeRef.current.answered && nudgeRef.current.kind === "due") {
         update((s) => ({ ignored: (s.ignored || 0) + 1 }));
+        feelIt("nudgeIgnored");
         say(line("ignoredNudge"));
         playGesture("taunt");
       } else {
@@ -2366,7 +2420,69 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       }
     }, NUDGE_SHOW_MS);
     return () => window.clearTimeout(t);
-  }, [mode, send, update, say, playGesture]);
+  }, [mode, send, update, say, playGesture, feelIt]);
+
+  /* ---------- the Director: what she does on her own next (see src/nova/director.js) ---------- */
+
+  /** The gauge under the pointer and since when; hovering one long enough is a question. */
+  const hoverRef = useRef({ anchor: null, since: 0 });
+  useEffect(() => {
+    const onOver = (e) => {
+      const anchor = e.target.closest?.('[data-nova-anchor$=".gauge"]')?.dataset.novaAnchor || null;
+      if (anchor !== hoverRef.current.anchor) hoverRef.current = { anchor, since: Date.now() };
+    };
+    document.addEventListener("pointerover", onOver);
+    return () => document.removeEventListener("pointerover", onOver);
+  }, []);
+
+  api.current.directorTick = () => {
+    const cur = stateRef.current;
+    if (!cur?.enabled || !startedRef.current || !openerDoneRef.current) return;
+    const now = Date.now();
+    setVoiceTone(moodTone(cur.feelings, now));
+    const onToday = !!navRef.current.stageActive;
+    const lastInput = lastInputRef.current;
+    const lastStudy = lastStudyRef.current;
+    const idle = mayAct({ lastInput, lastStudy, now });
+    const hover = { anchor: hoverRef.current.anchor, ms: now - hoverRef.current.since };
+    const ctx = {
+      blocked: cur.quiet || document.hidden || !!syncRef.current || !AUTONOMOUS.has(modeRef.current),
+      typing: !maySpeak({ lastTyping: lastTypingRef.current, lastStudy, now }),
+      idle,
+      feelings: current(cur.feelings, now),
+      events: directorEvents,
+      onToday,
+      today: directorToday,
+      part: dayPart(),
+      hover,
+      gauge: onToday && hover.anchor ? directorToday?.courses?.find((c) => `course.${c.uuid}.gauge` === hover.anchor) || null : null,
+      due: idle ? dueNow() : null,
+    };
+    const it = choose(INTENTS, ctx, timing, now);
+    if (!it) return;
+    ran(it, now);
+    if (it.id === "dueCards") void api.current.nudgeDue(ctx.due);
+    else if (it.id === "briefingOffer") api.current.offerBriefing();
+    else if (it.id === "gradeMoved") {
+      const grade = directorEvents.find((e) => e.type === "grade");
+      if (!api.current.playScene(sceneFrom(it, { ...ctx, grade }))) return;
+      take("grade");
+      feelIt(grade.up ? "gradeUp" : "gradeDown");
+    } else {
+      if (it.id === "explainGauge") hoverRef.current = { anchor: null, since: now };
+      api.current.playScene(sceneFrom(it, ctx));
+    }
+  };
+
+  useEffect(() => {
+    const tick = () => api.current.directorTick();
+    const id = window.setInterval(tick, DIRECTOR_TICK_MS);
+    const off = onWake(tick);
+    return () => {
+      window.clearInterval(id);
+      off();
+    };
+  }, []);
 
   /* Drill cards and practice tests elsewhere in the app: XP, plus the odd comment. */
   useEffect(() => {
@@ -2388,6 +2504,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           r.known = 0;
         }
         awardXp([[d.correct ? "cardKnown" : "cardAgain", 1]], { announce: false });
+        feelIt(d.correct ? "cardRight" : "cardWrong");
         if (!canTalk) return;
         if (d.correct && r.known % 5 === 0) setMood("excited");
         else if (!d.correct && r.missed === 3) setMood("stern");
@@ -2395,6 +2512,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       }
       if (d.type === "test" && d.total) {
         const res = awardXp([["testCorrect", d.correct], ["testDone", 1]], { announce: canTalk });
+        feelIt("testDone");
         if (!canTalk || res?.spoke) return;
         const tier = finishKey(d.correct, d.total);
         setMood({ finishedGreat: "excited", finishedGood: "happy", finishedMeh: "neutral", finishedBad: "stern" }[tier]);
@@ -2409,7 +2527,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     };
     window.addEventListener(STUDY_EVENT, onStudy);
     return () => window.removeEventListener(STUDY_EVENT, onStudy);
-  }, [awardXp, say, sfx, flashReaction, send, playGesture]);
+  }, [awardXp, say, sfx, flashReaction, send, playGesture, feelIt]);
 
   /* Rampant: now and then she mutters and glitches while idle. */
   const rampantNow = !!cstate && isRampant(cstate, now);
