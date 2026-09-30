@@ -32,7 +32,7 @@ function EmptyState({ hasCourses, synced }) {
 
 export function TonightList({ items, hasCourses, synced, onRun, index = 0 }) {
   return (
-    <HudPanel className="sh-tonight" index={index} aria-label="Tonight" data-tour-id="today-tonight" data-perch>
+    <HudPanel className="sh-tonight" index={index} aria-label="Tonight" data-tour-id="today-tonight" data-nova-anchor="panel.tonight" data-perch>
       <header className="sh-panel-head">
         <div className="sh-panel-head-main">
           <h2 className="sh-hud-title sh-hud-title--lg">TONIGHT</h2>
@@ -51,7 +51,7 @@ export function TonightList({ items, hasCourses, synced, onRun, index = 0 }) {
           {items.map((item, i) => {
             const first = i === 0;
             return (
-              <li key={item.id} className={`sh-tonight-row${first ? " sh-tonight-row--first" : ""}`} data-brief-target={`tonight-${i}`} data-nova-drop={item.type === "EXAM_PREP" ? "exam" : "task"}>
+              <li key={item.id} className={`sh-tonight-row${first ? " sh-tonight-row--first" : ""}`} data-nova-anchor={`tonight.item.${i + 1}`} data-nova-drop={item.type === "EXAM_PREP" ? "exam" : "task"}>
                 <span className="sh-tonight-num">{String(i + 1).padStart(2, "0")}</span>
                 <div className="sh-tonight-main">
                   <div className="sh-tonight-title" title={item.title}>

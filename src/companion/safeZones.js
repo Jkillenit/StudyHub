@@ -388,10 +388,15 @@ export function findTarget(id) {
 
 /** Resolve once `[data-tour-id=id]` is on screen, or null after `timeout` ms. */
 export function waitForTarget(id, timeout = 3000) {
+  return waitFor(() => findTarget(id), timeout);
+}
+
+/** Resolve with `find()`'s first truthy result, polling every 100ms, or null after `timeout` ms. */
+export function waitFor(find, timeout = 3000) {
   return new Promise((resolve) => {
     const started = performance.now();
     const tick = () => {
-      const el = findTarget(id);
+      const el = find();
       if (el) return resolve(el);
       if (performance.now() - started > timeout) return resolve(null);
       window.setTimeout(tick, 100);

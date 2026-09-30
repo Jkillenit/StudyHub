@@ -41,7 +41,7 @@ function Gauge({ row, arriving, onOpen }) {
     <button
       type="button"
       className={`sh-gauge sh-gauge--${row.state}`}
-      data-brief-target={`gauge-${row.courseUuid}`}
+      data-nova-anchor={`course.${row.courseUuid}.gauge`}
       data-nova-drop="gauge"
       onClick={() => onOpen(row.courseUuid)}
       title={`${row.label}: open the what-if calculator`}
@@ -78,7 +78,7 @@ export function StandingGauges({ standing, arriving, onOpen, onMore, index = 0 }
   const { courses, more, uniformTarget, uniformLetter } = standing;
   const holdText = uniformLetter ? `hold a ${uniformLetter}` : "hold your target";
   return (
-    <HudPanel className="sh-standing" index={index} aria-label="Standing" data-tour-id="today-standing" data-perch>
+    <HudPanel className="sh-standing" index={index} aria-label="Standing" data-tour-id="today-standing" data-nova-anchor="panel.standing" data-perch>
       <header className="sh-panel-head">
         <h2 className="sh-hud-title">STANDING</h2>
         {courses.length ? (

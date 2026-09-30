@@ -106,7 +106,7 @@ export function BriefingPanel({ briefing, arriving, onStart, canStart, index = 0
   };
 
   return (
-    <HudPanel className="sh-brief" brackets index={index} aria-label="Briefing" data-perch>
+    <HudPanel className="sh-brief" brackets index={index} aria-label="Briefing" data-nova-anchor="panel.briefing" data-perch>
       <div className="sh-hud-label sh-hud-label--accent">BRIEFING</div>
       <p className="sh-brief-text" aria-live="polite">
         <span className="sh-visually-hidden">{briefing.text}</span>

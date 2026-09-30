@@ -56,7 +56,9 @@ import { NovaSprite } from "./NovaSprite.jsx";
 import { playSound } from "./novaSound.js";
 import { SpeechBubble } from "./SpeechBubble.jsx";
 import { RadialMenu } from "./RadialMenu.jsx";
-import { Spotlight } from "./Spotlight.jsx";
+import { PinNote, Spotlight } from "./Spotlight.jsx";
+import { createStage } from "../nova/stage.js";
+import { onScreen } from "../nova/anchors.js";
 import { HelpBubble } from "./HelpBubble.jsx";
 import { CompanionSettings } from "./CompanionSettings.jsx";
 import firstRun from "./tours/first-run.json";
@@ -202,7 +204,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const [anchor, setAnchor] = useState({ h: "left", v: "above" });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tour, setTour] = useState(null);
-  const [ring, setRing] = useState(null);
+  /** Highlights and pinned notes on page elements: `{ key, el, style, note }`. */
+  const [marks, setMarks] = useState([]);
+  const [, setMarkTick] = useState(0);
   const [help, setHelp] = useState(null);
   const [dragging, setDragging] = useState(false);
   const [glow, setGlow] = useState(1);
@@ -339,6 +343,14 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const startedRef = useRef(false);
   /** Latest-closure handlers for timers and global listeners. */
   const api = useRef({});
+  /** The Stage (see src/nova/stage.js). Scenes run in "brief" mode; leaving it aborts them. */
+  const stageRef = useRef(null);
+  if (!stageRef.current) {
+    const via = (k) => (...args) => api.current.stageDeps[k](...args);
+    const keys = ["stop", "walkTo", "lookAt", "pointAt", "mark", "clearMarks", "scrollTo", "openTab", "focus", "unfocus", "say", "line", "mood", "gesture"];
+    stageRef.current = createStage(Object.fromEntries(keys.map((k) => [k, via(k)])));
+  }
+  const focusedRef = useRef(null);
   const memory = useCompanionMemory({
     enabled: !!cstate?.enabled,
     onNews: (news) => api.current.onMemoryNews?.(news),
@@ -352,6 +364,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const send = useCallback((event) => {
     const next = transition(modeRef.current, event);
     if (next !== modeRef.current) {
+      if (modeRef.current === "brief") stageRef.current.abort();
       if (housedRef.current && !HOME_MODES.has(next)) api.current.leaveHome?.();
       /* A tour, quiz, help answer or nudge may have taken her elsewhere; the next input brings her back. */
       if (AUTONOMOUS.has(next) && ENGAGED_MODES.has(modeRef.current) && !housedRef.current) awayFromSpotRef.current = true;
@@ -362,6 +375,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   }, []);
 
   const force = useCallback((next) => {
+    if (modeRef.current === "brief" && next !== "brief") stageRef.current.abort();
     if (housedRef.current && !HOME_MODES.has(next)) api.current.leaveHome?.();
     modeRef.current = next;
     setMode(next);
@@ -709,7 +723,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       if (!def) return;
       setBubble(null);
       setHelp(null);
-      setRing(null);
+      setMarks([]);
       cancel();
       if (send("TOUR") !== "tour") return;
       const saved = stateRef.current?.tours?.[id];
@@ -750,6 +764,26 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     };
   }, [mode, jumpTo]);
 
+  /* Keep highlights and pinned notes on their elements through resizes and scrolling. */
+  const hasMarks = marks.length > 0;
+  useEffect(() => {
+    if (!hasMarks) return undefined;
+    let raf = 0;
+    const onChange = () => {
+      if (!raf) raf = requestAnimationFrame(() => {
+        raf = 0;
+        setMarkTick((n) => n + 1);
+      });
+    };
+    window.addEventListener("resize", onChange);
+    window.addEventListener("scroll", onChange, true);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onChange);
+      window.removeEventListener("scroll", onChange, true);
+    };
+  }, [hasMarks]);
+
   /* ---------- help ---------- */
 
   const startHelp = useCallback(() => {
@@ -763,7 +797,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   const closeHelp = useCallback(() => {
     setHelp(null);
-    setRing(null);
+    setMarks([]);
     send("CLOSE");
     setMood("neutral");
   }, [send]);
@@ -790,8 +824,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       setMood("point");
       pointAt(el.getBoundingClientRect());
       refreshAnchor();
-      setRing(rectOf(el.getBoundingClientRect()));
-      window.setTimeout(() => setRing(null), 2600);
+      setMarks([{ key: "help", el, style: null }]);
+      window.setTimeout(() => setMarks((list) => list.filter((m) => m.key !== "help")), 2600);
     },
     [ensureRoute, flyTo, setFacing, refreshAnchor, pointAt]
   );
@@ -824,7 +858,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       const deck = deckId && hasCards(deckId) ? deckId : hasCards(nav.activeCourseId) ? nav.activeCourseId : "all";
       setBubble(null);
       setHelp(null);
-      setRing(null);
+      setMarks([]);
       cancel();
       if (send("QUIZ") !== "quiz") return;
       quizRef.current = { sessionId: `quiz_${Date.now()}`, pending: new Map(), answered: 0, correct: 0, missStreak: 0 };
@@ -1995,20 +2029,77 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     setMood("point");
   };
 
-  api.current.briefBeat = async (target) => {
-    if (modeRef.current !== "brief") return;
-    const token = ++briefRef.current.token;
-    const el = document.querySelector(`[data-brief-target="${CSS.escape(target)}"]`);
-    const rect = el?.getBoundingClientRect();
-    if (!rect || rect.width < 4 || rect.bottom < 0 || rect.top > window.innerHeight) return;
+  const faceToward = (rect) => {
     const s = sizeRef.current;
-    const { p, plat } = briefSpot(el, rect, s);
-    const ok = await flyTo(p, { speed: ENGAGED_SPEED });
-    if (!ok || modeRef.current !== "brief" || briefRef.current.token !== token) return;
-    platRef.current = plat;
-    const now = el.getBoundingClientRect();
-    setFacing(p.x + s / 2 > now.left + now.width / 2 ? -1 : 1);
-    pointAt(now);
+    setFacing(posRef.current.x + s / 2 > rect.left + rect.width / 2 ? -1 : 1);
+  };
+
+  /* What the Stage does with her body and the page. Rebuilt every render so it sees fresh state. */
+  api.current.stageDeps = {
+    stop: cancel,
+    walkTo: async (el) => {
+      el.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+      await nextFrame();
+      const rect = el.getBoundingClientRect();
+      if (!onScreen(rect)) return false;
+      setBubble(null);
+      const s = sizeRef.current;
+      const { p, plat } = briefSpot(el, rect, s);
+      if (!(await flyTo(p, { speed: ENGAGED_SPEED }))) return false;
+      platRef.current = plat;
+      faceToward(el.getBoundingClientRect());
+      return true;
+    },
+    lookAt: (el) => (el ? glanceAtRect(el.getBoundingClientRect(), 2500) : setGlance({ x: 0, y: 0, ms: 2500 })),
+    pointAt: (el) => {
+      const rect = el.getBoundingClientRect();
+      if (!onScreen(rect)) return false;
+      faceToward(rect);
+      setMood("point");
+      pointAt(rect);
+    },
+    mark: (key, el, style, note) => setMarks((list) => [...list.filter((m) => m.key !== key), { key, el, style, note }]),
+    clearMarks: () => setMarks((list) => (list.length ? [] : list)),
+    scrollTo: async (el) => {
+      el.scrollIntoView?.({ block: "center", behavior: reducedRef.current ? "auto" : "smooth" });
+      await new Promise((r) => window.setTimeout(r, reducedRef.current ? 0 : 450));
+    },
+    openTab: ensureRoute,
+    focus: (el) => {
+      api.current.stageDeps.unfocus();
+      const panel = el.closest(".sh-arrive") || el;
+      panel.dataset.novaFocus = "";
+      document.body.dataset.novaFocusing = "";
+      focusedRef.current = panel;
+    },
+    unfocus: () => {
+      if (focusedRef.current) delete focusedRef.current.dataset.novaFocus;
+      focusedRef.current = null;
+      delete document.body.dataset.novaFocusing;
+    },
+    say: (text) => {
+      refreshAnchor();
+      say(text);
+    },
+    line,
+    mood: setMood,
+    gesture: (name) => playGesture(name),
+  };
+
+  api.current.briefBeat = (target) => {
+    if (modeRef.current !== "brief") return;
+    void stageRef.current.run(async (stage) => {
+      if (await stage.walkTo(target)) await stage.pointAt(target);
+    });
+  };
+
+  /** Run a Stage scene: she stops what she's doing, performs it, then heads back. Any input cuts it short. */
+  api.current.playScene = async (scene) => {
+    api.current.briefStart();
+    if (modeRef.current !== "brief") return false;
+    const done = await stageRef.current.run(scene);
+    api.current.briefEnd({ now: !done });
+    return done;
   };
 
   /** End of the briefing (or cut short by input): back to her spot, full size at home. */
@@ -2034,8 +2125,17 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       else if (d.phase === "beat") void api.current.briefBeat(d.target);
       else if (d.phase === "end") api.current.briefEnd();
     };
+    const onScene = (e) => {
+      if (typeof e.detail?.scene === "function") void api.current.playScene(e.detail.scene);
+    };
+    const stage = stageRef.current;
     window.addEventListener("studyhub-companion-brief", onBrief);
-    return () => window.removeEventListener("studyhub-companion-brief", onBrief);
+    window.addEventListener("studyhub-companion-scene", onScene);
+    return () => {
+      window.removeEventListener("studyhub-companion-brief", onBrief);
+      window.removeEventListener("studyhub-companion-scene", onScene);
+      stage.abort();
+    };
   }, []);
 
   /* ---------- sync: she opens a portal and pulls the data in; glitches on failure, static offline ---------- */
@@ -2592,7 +2692,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           setMood("happy");
         }}
         onBack={() => {
-          setRing(null);
+          setMarks([]);
           setHelp((h) => ({ ...h, answer: null }));
         }}
         onClose={closeHelp}
@@ -2637,7 +2737,13 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   return createPortal(
     <div className="sc-layer">
       {visible && mode === "tour" && tour ? <Spotlight rect={tour.rect} dim /> : null}
-      {visible && ring ? <Spotlight rect={ring} dim={false} /> : null}
+      {visible
+        ? marks.map((m) => {
+            if (!m.el.isConnected) return null;
+            const r = rectOf(m.el.getBoundingClientRect());
+            return m.style === "note" ? <PinNote key={m.key} rect={r} text={m.note} /> : <Spotlight key={m.key} rect={r} dim={false} tone={m.style} />;
+          })
+        : null}
       {dropTarget ? <Spotlight rect={dropTarget} dim={false} pad={4} /> : null}
       {dropMark ? <span className="nv-drop" style={{ left: dropMark.x, top: dropMark.y }} aria-hidden /> : null}
       {doodle ? (

@@ -21,7 +21,7 @@ export function WeekStrip({ week, onCalendar, index = 0 }) {
   const day = picking ? week.days.find((d) => d.key === picking) : null;
 
   return (
-    <HudPanel className="sh-week" index={index} aria-label="This week" data-tour-id="today-week" data-perch>
+    <HudPanel className="sh-week" index={index} aria-label="This week" data-tour-id="today-week" data-nova-anchor="panel.week" data-perch>
       <header className="sh-panel-head">
         <h2 className="sh-hud-title">THIS WEEK</h2>
         <button type="button" className="sh-link-btn" onClick={onCalendar}>

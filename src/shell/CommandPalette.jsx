@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { STUDY_CHAPTERS } from "../study/chapters.js";
 import { studySidebarPrefix } from "../study/chapterUiMeta.js";
 import { ensureUserCourse } from "../hub/userCourseModel.js";
+import { playScene } from "../nova/stage.js";
+import { stageDemo } from "../nova/scenes/stageDemo.js";
 
 function matches(query, primary, sub) {
   if (!query) return true;
@@ -326,6 +328,21 @@ export function CommandPalette({
         visible: shuffleVisible,
         run: () => onShuffleDeck(),
       },
+      ...(import.meta.env.DEV
+        ? [
+            {
+              key: "act-nova-stage-demo",
+              group: "actions",
+              icon: "✦",
+              primary: "Nova: Stage Demo",
+              sub: "DEV · walk, point, highlight, focus",
+              shortcut: null,
+              visible: true,
+              /* Delayed so the Enter or click that picked this row doesn't count as input and end the scene. */
+              run: () => window.setTimeout(() => playScene(stageDemo), 300),
+            },
+          ]
+        : []),
     ].filter((a) => a.visible);
 
     const q = query.trim();

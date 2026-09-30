@@ -6803,6 +6803,82 @@ button.sh-today-row-main:hover {
   }
 }
 
+/* Stage highlights: they stay until the scene clears them */
+.sc-spot--pulse {
+  animation-iteration-count: infinite;
+}
+.sc-spot--glow {
+  animation: none;
+  border-radius: var(--sh-radius-md);
+  box-shadow: 0 0 22px var(--sh-accent-glow), inset 0 0 12px var(--sh-accent-soft);
+}
+.sc-spot--underline {
+  animation: none;
+  border: 0;
+  border-bottom: 2px solid var(--sh-accent);
+}
+.sc-spot--warn,
+.sc-spot--danger {
+  --sc-spot-tone: var(--sh-warn);
+  border-color: var(--sc-spot-tone);
+  border-radius: var(--sh-radius-md);
+  animation: sc-ring-tone 1.1s ease-in-out infinite;
+}
+.sc-spot--danger {
+  --sc-spot-tone: var(--sh-danger);
+}
+@keyframes sc-ring-tone {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--sc-spot-tone) 50%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--sc-spot-tone) 0%, transparent);
+  }
+}
+
+/* Stage pinNote */
+.sc-pin {
+  position: fixed;
+  z-index: 1;
+  transform: translate(-50%, calc(-100% - 10px));
+  max-width: 220px;
+  padding: 6px 10px;
+  border: 1px solid var(--sh-accent-line);
+  border-radius: var(--sh-radius-sm);
+  background: var(--sh-panel-strong);
+  box-shadow: 0 0 14px var(--sh-accent-glow);
+  color: var(--sh-text);
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  animation: nv-fade-in 300ms ease-out;
+}
+
+/* Stage focusPanel: the focused panel comes forward, everything else steps back */
+[data-nova-focusing] .sh-arrive {
+  transition: opacity 320ms ease, transform 320ms ease, filter 320ms ease;
+}
+[data-nova-focusing] .sh-arrive:not([data-nova-focus]) {
+  opacity: 0.35;
+  filter: saturate(0.6);
+}
+[data-nova-focusing] [data-nova-focus] {
+  position: relative;
+  z-index: 2;
+  transform: scale(1.03);
+  box-shadow: var(--sh-shadow-panel), 0 0 32px var(--sh-accent-glow);
+}
+[data-motion="reduced"] [data-nova-focusing] [data-nova-focus] {
+  transform: none;
+}
+[data-motion="reduced"] .sc-spot--pulse,
+[data-motion="reduced"] .sc-spot--warn,
+[data-motion="reduced"] .sc-spot--danger {
+  animation: none;
+}
+
 /* Settings */
 .sc-settings {
   position: fixed;

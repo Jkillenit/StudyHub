@@ -66,7 +66,7 @@ const segText = (s) => (typeof s === "string" ? s : s.num);
 /**
  * { segments: (string | { num, tone })[], text, beats }. `beats` are the sentences Nova can walk
  * to while the briefing is read aloud: { from, to, target } with character offsets into `text`
- * and a `[data-brief-target]` value.
+ * and a `[data-nova-anchor]` name.
  */
 export function buildBriefing(view, { now = new Date(), dueText }) {
   const segments = [];
@@ -91,12 +91,12 @@ export function buildBriefing(view, { now = new Date(), dueText }) {
     push("Connect Blackboard and sync your courses, and I'll brief you here every day.");
   } else {
     const tonight = view.tonight || [];
-    push(taskSentence(tonight, dueText), tonight.length ? "tonight-0" : null);
+    push(taskSentence(tonight, dueText), tonight.length ? "tonight.item.1" : null);
     const overdue = view.overdue?.length || 0;
     push(overdueSentence(overdue), overdue ? "overdue" : null);
     const st = standingSegments(view.standing);
     const worst = view.standing?.courses?.[0];
-    push(st, worst?.state === "warn" && worst.courseUuid ? `gauge-${worst.courseUuid}` : null);
+    push(st, worst?.state === "warn" && worst.courseUuid ? `course.${worst.courseUuid}.gauge` : null);
   }
   const text = segments.map(segText).join("");
   return { segments, text, beats };

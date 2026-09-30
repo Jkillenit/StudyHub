@@ -106,7 +106,7 @@ describe("buildBriefing", () => {
     const items = [asg({ dueDate: at(0, 10, 0) }), asg({ dueDate: at(0, 10, 0) })];
     const view = buildTodayView({ now: NOW, courses: [course({ components: graded(77.9), assignments: items })] }, { now: NOW });
     const { text, beats } = buildBriefing(view, { now: new Date(NOW), dueText });
-    expect(beats.map((b) => b.target)).toEqual(["tonight-0", "gauge-c1"]);
+    expect(beats.map((b) => b.target)).toEqual(["tonight.item.1", "course.c1.gauge"]);
     expect(text.slice(beats[0].from, beats[0].to)).toMatch(/^Two MIS 430 items are due today/);
     expect(text.slice(beats[1].from, beats[1].to)).toMatch(/^MIS 430 is your pressure point/);
   });
