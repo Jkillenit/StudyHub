@@ -7742,6 +7742,160 @@ a:hover {
   gap: 16px;
 }
 
+/* Workspace slots: panels Nova moves between the main column (center) and the row under it (dock) */
+.sh-today2-right > .sh-standing,
+.sh-today2-right > .sh-week {
+  width: auto;
+  flex: 0 0 auto;
+}
+.sh-today2-row > .sh-tonight {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.sh-today2-empty {
+  margin: 48px 0 0;
+  text-align: center;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sh-text-3);
+}
+
+/* Nova's desk: filed panels as folders on a glowing desk edge */
+.sh-desk {
+  position: relative;
+  box-sizing: border-box;
+  padding: 14px 18px 0;
+  border-radius: var(--sh-radius-lg) var(--sh-radius-lg) 0 0;
+  background: linear-gradient(180deg, transparent, var(--sh-accent-soft));
+  animation: nv-fade-in 300ms ease-out;
+}
+.sh-desk-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sh-desk-count {
+  font-family: var(--sh-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--sh-text-3);
+}
+.sh-desk-back {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--sh-accent-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--sh-accent);
+  font-family: var(--sh-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 160ms ease, box-shadow 160ms ease;
+}
+.sh-desk-back:hover,
+.sh-desk-back:focus-visible {
+  background: var(--sh-accent-soft);
+  box-shadow: 0 0 12px var(--sh-accent-glow);
+  outline: none;
+}
+.sh-desk-surface {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 14px;
+  min-height: 84px;
+  margin-top: 12px;
+  padding: 4px 4px 12px;
+  border-bottom: 2px solid var(--sh-accent-line);
+  box-shadow: 0 10px 18px -14px var(--sh-accent-glow);
+}
+.sh-desk-empty {
+  align-self: center;
+  font-family: var(--sh-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sh-text-3);
+}
+.sh-desk-file {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sh-text-2);
+  cursor: pointer;
+  transform: rotate(var(--tilt, 0deg));
+  transform-origin: 50% 100%;
+  transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1), color 160ms ease;
+  animation: sh-desk-drop 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.sh-desk-tab {
+  max-width: 76px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px 8px 2px;
+  border: 1px solid var(--sh-border);
+  border-bottom: 0;
+  border-radius: var(--sh-radius-sm) var(--sh-radius-sm) 0 0;
+  background: var(--sh-panel-strong);
+  font-family: var(--sh-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+.sh-desk-sheet {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 52px;
+  border: 1px solid var(--sh-border);
+  border-radius: 0 var(--sh-radius-sm) var(--sh-radius-sm) var(--sh-radius-sm);
+  background: var(--sh-panel-strong);
+  box-shadow: 0 6px 14px -8px var(--sh-bg);
+  color: var(--sh-accent);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.sh-desk-file:hover,
+.sh-desk-file:focus-visible {
+  color: var(--sh-text);
+  transform: rotate(0deg) translateY(-6px);
+  outline: none;
+}
+.sh-desk-file:hover .sh-desk-tab,
+.sh-desk-file:hover .sh-desk-sheet,
+.sh-desk-file:focus-visible .sh-desk-tab,
+.sh-desk-file:focus-visible .sh-desk-sheet {
+  border-color: var(--sh-accent-line);
+}
+.sh-desk-file:hover .sh-desk-sheet,
+.sh-desk-file:focus-visible .sh-desk-sheet {
+  box-shadow: 0 0 18px var(--sh-accent-glow);
+}
+@keyframes sh-desk-drop {
+  from {
+    opacity: 0;
+    translate: 0 -14px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+[data-motion="reduced"] .sh-desk,
+[data-motion="reduced"] .sh-desk-file {
+  animation: none;
+  transition: none;
+}
+
 /* Companion stage */
 .sh-stage {
   flex: 1;

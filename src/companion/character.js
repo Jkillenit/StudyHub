@@ -24,6 +24,9 @@ export const character = {
     dropTask: ["On it. Let's knock this out.", "Good pick. Go get it.", "That one. Now. Go."],
     dropExam: ["Exam review. Let's make you dangerous.", "Review time. Focus up."],
     dropGauge: ["Let's see what you need.", "Running the numbers."],
+    arrangeBriefing: ["Briefing layout. Tonight up top, where you can't ignore it.", "Back to the usual. Tonight first, excuses later."],
+    arrangeGrades: ["Grades front and center. Brace yourself.", "Let's look at the damage. Standing goes up top."],
+    arrangeTidy: ["Filing everything. My desk, my rules.", "Tidying up. Don't touch anything."],
     correct: [
       "Correct. Keep that up and I might start blushing.",
       "Look at you. Smart is a damn good look on you.",

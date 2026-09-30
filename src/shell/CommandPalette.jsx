@@ -4,6 +4,8 @@ import { studySidebarPrefix } from "../study/chapterUiMeta.js";
 import { ensureUserCourse } from "../hub/userCourseModel.js";
 import { playScene } from "../nova/stage.js";
 import { stageDemo } from "../nova/scenes/stageDemo.js";
+import { arrangeWorkspace } from "../nova/scenes/arrange.js";
+import { useWorkspace, workspace } from "../nova/workspace.js";
 
 function matches(query, primary, sub) {
   if (!query) return true;
@@ -130,6 +132,8 @@ export function CommandPalette({
   useEffect(() => {
     setHighlightedIndex(0);
   }, [query]);
+
+  const { before: layoutBefore } = useWorkspace();
 
   const indexRows = useMemo(() => {
     const courseRows = [];
@@ -328,6 +332,34 @@ export function CommandPalette({
         visible: shuffleVisible,
         run: () => onShuffleDeck(),
       },
+      ...[
+        ["briefing", "Layout: Briefing", "Tonight up top, grades and week below"],
+        ["grades", "Layout: Grades", "Standing front and center"],
+        ["tidy", "Tidy Up", "Nova files every panel on her desk"],
+      ].map(([name, primary, sub]) => ({
+        key: `act-layout-${name}`,
+        group: "actions",
+        icon: "▦",
+        primary,
+        sub,
+        shortcut: null,
+        visible: true,
+        /* Delayed so the Enter or click that picked this row doesn't count as input and end her scene. */
+        run: () => {
+          onGoToHub("today");
+          window.setTimeout(() => arrangeWorkspace(name), 300);
+        },
+      })),
+      {
+        key: "act-layout-back",
+        group: "actions",
+        icon: "▦",
+        primary: "Put It Back",
+        sub: "Undo Nova's last rearrange",
+        shortcut: null,
+        visible: !!layoutBefore,
+        run: () => workspace.putBack(),
+      },
       ...(import.meta.env.DEV
         ? [
             {
@@ -387,6 +419,7 @@ export function CommandPalette({
     onMarkChapterReviewed,
     onShuffleDeck,
     builtinActiveChapter,
+    layoutBefore,
   ]);
 
   const flatRows = indexRows.flat;

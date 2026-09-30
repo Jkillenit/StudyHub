@@ -57,7 +57,10 @@ import { playSound } from "./novaSound.js";
 import { SpeechBubble } from "./SpeechBubble.jsx";
 import { RadialMenu } from "./RadialMenu.jsx";
 import { PinNote, Spotlight } from "./Spotlight.jsx";
-import { createStage } from "../nova/stage.js";
+import { createStage, playScene } from "../nova/stage.js";
+import { useWorkspace, workspace } from "../nova/workspace.js";
+import { arrangeWorkspace } from "../nova/scenes/arrange.js";
+import { stageDemo } from "../nova/scenes/stageDemo.js";
 import { onScreen } from "../nova/anchors.js";
 import { HelpBubble } from "./HelpBubble.jsx";
 import { CompanionSettings } from "./CompanionSettings.jsx";
@@ -228,6 +231,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   /** What a drop would start (a Today task, exam or gauge), ringed while she's held over it. */
   const [dropTarget, setDropTarget] = useState(null);
   const [menuLine, setMenuLine] = useState(null);
+  /** Which ring of her click menu is showing: the main options or the Rearrange layouts. */
+  const [menuPage, setMenuPage] = useState("main");
+  useWorkspace();
   const clicksRef = useRef([]);
   const spamUntilRef = useRef(0);
   const [burst, setBurst] = useState(0);
@@ -347,7 +353,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const stageRef = useRef(null);
   if (!stageRef.current) {
     const via = (k) => (...args) => api.current.stageDeps[k](...args);
-    const keys = ["stop", "walkTo", "lookAt", "pointAt", "mark", "clearMarks", "scrollTo", "openTab", "focus", "unfocus", "say", "line", "mood", "gesture"];
+    const keys = ["stop", "walkTo", "lookAt", "pointAt", "mark", "clearMarks", "scrollTo", "openTab", "focus", "unfocus", "say", "line", "mood", "gesture", "layout", "place", "remember", "inUse"];
     stageRef.current = createStage(Object.fromEntries(keys.map((k) => [k, via(k)])));
   }
   const focusedRef = useRef(null);
@@ -2084,6 +2090,15 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     line,
     mood: setMood,
     gesture: (name) => playGesture(name),
+    layout: () => workspace.get().layout,
+    place: workspace.place,
+    remember: workspace.remember,
+    /* Using a panel = typing in it or having one of its popovers open. Hover and focus alone don't count (focus lingers after clicks). */
+    inUse: (el) => {
+      const a = document.activeElement;
+      const typing = el.contains(a) && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
+      return typing || !!el.querySelector('[aria-expanded="true"]');
+    },
   };
 
   api.current.briefBeat = (target) => {
@@ -2093,13 +2108,12 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     });
   };
 
-  /** Run a Stage scene: she stops what she's doing, performs it, then heads back. Any input cuts it short. */
-  api.current.playScene = async (scene) => {
+  /** Run a Stage scene: she stops what she's doing, performs it, then heads back. Any input cuts it short. False if she can't start. */
+  api.current.playScene = (scene) => {
     api.current.briefStart();
     if (modeRef.current !== "brief") return false;
-    const done = await stageRef.current.run(scene);
-    api.current.briefEnd({ now: !done });
-    return done;
+    void stageRef.current.run(scene).then((done) => api.current.briefEnd({ now: !done }));
+    return true;
   };
 
   /** End of the briefing (or cut short by input): back to her spot, full size at home. */
@@ -2126,7 +2140,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       else if (d.phase === "end") api.current.briefEnd();
     };
     const onScene = (e) => {
-      if (typeof e.detail?.scene === "function") void api.current.playScene(e.detail.scene);
+      const d = e.detail;
+      if (typeof d?.scene === "function") d.handled = api.current.playScene(d.scene);
     };
     const stage = stageRef.current;
     window.addEventListener("studyhub-companion-brief", onBrief);
@@ -2716,8 +2731,21 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     );
   }
 
-  const menuItems = [
+  if (mode !== "menu" && menuPage !== "main") setMenuPage("main");
+  const pickLayout = (fn) => () => {
+    send("CLOSE");
+    fn();
+  };
+  const layoutItems = [
+    { id: "l-briefing", label: "BRIEFING", icon: "▦", onClick: pickLayout(() => arrangeWorkspace("briefing")) },
+    { id: "l-grades", label: "GRADES", icon: "◔", onClick: pickLayout(() => arrangeWorkspace("grades")) },
+    { id: "l-tidy", label: "TIDY UP", icon: "▤", onClick: pickLayout(() => arrangeWorkspace("tidy")) },
+    ...(workspace.get().before ? [{ id: "l-back", label: "PUT IT BACK", icon: "↺", onClick: pickLayout(workspace.putBack) }] : []),
+    { id: "l-menu", label: "BACK", icon: "‹", onClick: () => setMenuPage("main") },
+  ];
+  const mainItems = [
     { id: "quiz", label: "QUIZ ME", icon: "✦", onClick: () => startQuiz() },
+    { id: "layout", label: "REARRANGE", icon: "▦", onClick: () => setMenuPage("layout") },
     { id: "tour", label: "SHOW ME AROUND", icon: "◎", onClick: contextualTour },
     { id: "help", label: "HOW DO I…?", icon: "?", onClick: startHelp },
     {
@@ -2732,7 +2760,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       },
     },
     { id: "hide", label: "HIDE FOR NOW", icon: "–", onClick: hideForNow },
+    ...(import.meta.env.DEV ? [{ id: "stage-demo", label: "STAGE DEMO", icon: "⚙", onClick: pickLayout(() => playScene(stageDemo)) }] : []),
   ];
+  const menuItems = menuPage === "layout" ? layoutItems : mainItems;
 
   return createPortal(
     <div className="sc-layer">
@@ -2874,6 +2904,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         ) : null}
         {visible && mode === "menu" ? (
           <RadialMenu
+            key={menuPage}
             items={menuItems}
             center={center}
             size={size}

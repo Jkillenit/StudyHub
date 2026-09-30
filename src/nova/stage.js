@@ -1,4 +1,5 @@
 import { waitForAnchor } from "./anchors.js";
+import { LAYOUTS, canPlace, movesTo } from "./workspace.js";
 
 /**
  * The Stage: the one interface Nova uses to touch the workspace. Scenes, the briefing walk and
@@ -27,6 +28,8 @@ export const HIGHLIGHT_STYLES = ["pulse", "glow", "underline", "warn", "danger"]
 export const sayMs = (text) => 700 + String(text).length * 40;
 
 const WAIT_INPUT_MS = 30 * 1000;
+/** Matches the panel move animation on Today. */
+const MOVE_MS = 450;
 
 export function createStage(deps) {
   const find = deps.find || ((name) => waitForAnchor(name, 1500));
@@ -64,6 +67,25 @@ export function createStage(deps) {
 
   /** Resolve an anchor name to its element, or null (skips the action). */
   const el = async (anchor) => (current ? find(anchor) : null);
+
+  /**
+   * She walks to the panel (or her desk, if it's filed there), grabs it, and it moves to `slot`.
+   * Never touches a panel the user is using.
+   */
+  const carry = async (id, slot) => {
+    const r = current;
+    if (!canPlace(id, slot)) return false;
+    const from = deps.layout()[id];
+    if (from === slot) return true;
+    const anchor = from === "desk" ? "desk" : `panel.${id}`;
+    const e = await el(anchor);
+    const busy = () => from !== "desk" && e && deps.inUse(e);
+    if (busy()) return false;
+    if (e && (await stage.walkTo(anchor))) await stage.pointAt(anchor);
+    if (current !== r || busy()) return false;
+    deps.place(id, slot);
+    await sleep(MOVE_MS);
+  };
 
   const stage = {
     /** Run a scene `(stage) => Promise`. Resolves true if it finished, false if it was aborted. */
@@ -143,6 +165,25 @@ export function createStage(deps) {
 
     unfocus: act(async () => deps.unfocus()),
 
+    /** Bring a panel off her desk into `slot` (its usual one by default). */
+    openPanel: act(async (id, slot = LAYOUTS.briefing[id]) => (deps.layout()[id] === "desk" ? carry(id, slot) : true)),
+
+    closePanel: act(async (id) => carry(id, "desk")),
+
+    movePanel: act(async (id, slot) => carry(id, slot)),
+
+    /** Rearrange into a named layout, one panel at a time. "Put it back" restores the layout from before. */
+    arrange: act(async (name) => {
+      const r = current;
+      const to = LAYOUTS[name];
+      if (!to) return false;
+      deps.remember();
+      for (const m of movesTo(deps.layout(), to)) {
+        await carry(m.id, m.slot);
+        if (current !== r) return false;
+      }
+    }),
+
     /** A line key from the character library, or literal text when there's no such key. */
     say: act(async (keyOrText, vars = {}) => {
       const text = deps.line(keyOrText, vars) || keyOrText;
@@ -166,5 +207,12 @@ export function createStage(deps) {
   return stage;
 }
 
-/** Ask Nova to perform a scene `(stage) => Promise`. CompanionLayer listens and runs it on its Stage. */
-export const playScene = (scene) => window.dispatchEvent(new CustomEvent("studyhub-companion-scene", { detail: { scene } }));
+/**
+ * Ask Nova to perform a scene `(stage) => Promise`. CompanionLayer listens and runs it on its Stage.
+ * False when she can't right now (hidden, quiet, or busy with a quiz, tour or menu).
+ */
+export function playScene(scene) {
+  const detail = { scene, handled: false };
+  window.dispatchEvent(new CustomEvent("studyhub-companion-scene", { detail }));
+  return detail.handled;
+}
