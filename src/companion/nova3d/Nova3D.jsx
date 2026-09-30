@@ -100,7 +100,6 @@ export default function Nova3D({
       }}
       aria-hidden
     >
-      <span className="nv-base" />
       <canvas ref={canvasRef} className="nv-3d-canvas" />
     </span>
   );

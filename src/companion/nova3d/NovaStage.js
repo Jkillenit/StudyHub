@@ -8,6 +8,9 @@ const FRAME_MS = 1000 / 30;
 /** Frame height as a multiple of the model's height; the headroom fits raised arms. */
 const FRAME_SCALE = 1.14;
 const FADE = 0.35;
+/** Render above screen resolution so fine detail (hair, circuit lines) stays crisp; the canvas is small. */
+const SUPERSAMPLE = 1.5;
+const SUPERSAMPLE_MAX = 3;
 /** Clips that loop as a base layer; everything else plays once and returns to the base. */
 const LOOPING = new Set(["idle", "walk", "talk", "sit", "fall", "look", "bored"]);
 /** Bases that keep her hands clasped behind her back. */
@@ -264,6 +267,10 @@ export class NovaStage {
       const color = [];
       const depth = [];
       for (const m of src) {
+        if (m.map) {
+          m.map.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+          m.map.needsUpdate = true;
+        }
         if (!colorMats.has(m)) {
           const outline = !!m.isOutline;
           const layered = !!m.transparent && !m.alphaTest;
@@ -324,8 +331,7 @@ export class NovaStage {
 
   setSize(px) {
     this.sizePx = px;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    this.renderer.setPixelRatio(dpr);
+    this.renderer.setPixelRatio(Math.min(SUPERSAMPLE_MAX, (window.devicePixelRatio || 1) * SUPERSAMPLE));
     this.renderer.setSize(px, px, false);
   }
 

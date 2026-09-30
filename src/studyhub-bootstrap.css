@@ -6023,11 +6023,6 @@ button.sh-today-row-main:hover {
   filter: var(--nv-tint) brightness(calc(0.85 + var(--nv-glow) * 0.3))
     drop-shadow(0 0 5px color-mix(in srgb, var(--sh-cyan) 45%, transparent));
 }
-.nv-3d .nv-base {
-  left: 34%;
-  right: 34%;
-  bottom: -5px;
-}
 .nv-prism .nv-3d-canvas {
   animation: nv-prism 9s linear infinite;
 }
