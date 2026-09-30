@@ -29,8 +29,6 @@ const SUPERSAMPLE_MAX = 3;
 const LOOPING = new Set(["idle", "walk", "talk", "sit", "fall", "lieProp", "lieBack", "lieBelly", "lieSide"]);
 /** Lying poses (single-frame clips, body along the x axis, head toward screen left). */
 const LIE_CLIPS = { prop: "lieProp", back: "lieBack", belly: "lieBelly", side: "lieSide" };
-/** Lying poses she can still look around from; the others keep the head still. */
-const LIE_LOOKS = new Set(["prop", "belly"]);
 const LIE_EXTENT_BONES = ["head", "hips", "leftHand", "rightHand", "leftFoot", "rightFoot", "leftToes", "rightToes"];
 /** Bases that keep her hands clasped behind her back. */
 const ARMS_BACK_BASES = new Set(["idle", "walk"]);
@@ -566,6 +564,10 @@ export class NovaStage {
       this.actions[name] = action;
     }
     this.mixer.addEventListener("finished", (e) => this.onFinished(e.action));
+    this.animPose = Object.keys(clipData.clips.idle.bones)
+      .map((name) => vrm.humanoid.getNormalizedBoneNode(name))
+      .filter(Boolean)
+      .map((node) => ({ node, q: node.quaternion.clone() }));
     this.captureRest();
     this.buildProps();
 
@@ -811,7 +813,14 @@ export class NovaStage {
       const natural = clipData.clips.walk.travel * this.hipsHeight * pxPerUnit;
       walk.timeScale = THREE.MathUtils.clamp((s.speed || 90) / natural, 0.5, 1.8);
     }
+    /*
+     * The mixer only writes a bone when its animated value changes, so on a still pose (the
+     * single-frame lying clips) last frame's procedural bends would stay and pile up. Start
+     * every frame from the clean animated pose.
+     */
+    for (const b of this.animPose) b.node.quaternion.copy(b.q);
     this.mixer.update(dt);
+    for (const b of this.animPose) b.q.copy(b.node.quaternion);
 
     const talking = s.talkUntil > now;
     const lying = this.base?.startsWith("lie") ? s.lie : null;
@@ -1018,8 +1027,7 @@ export class NovaStage {
     const g = this.gaze;
 
     /* Head: only turns for what the eyes can't cover, and trails them on a soft spring. */
-    const lieOk = !this.lying || LIE_LOOKS.has(this.lying);
-    const free = lieOk && s.gait !== "walk" && !s.asleep && s.seat !== "cold" && !this.oneShot && !this.proc;
+    const free = !this.lying && s.gait !== "walk" && !s.asleep && s.seat !== "cold" && !this.oneShot && !this.proc;
     const beyondEyes = (a) => Math.sign(a) * Math.max(0, Math.abs(a) - EYE_RANGE);
     const yawToGaze = Math.atan2(g.x - headPos.x, g.z - headPos.z) - this.yaw;
     const pitchToGaze = -Math.atan2(g.y - headPos.y, Math.hypot(g.x - headPos.x, g.z - headPos.z));
