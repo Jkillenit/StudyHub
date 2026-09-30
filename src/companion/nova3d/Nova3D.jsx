@@ -89,7 +89,7 @@ export default function Nova3D({
   }, [glitch]);
 
   useEffect(() => {
-    if (gesture?.name) void stageRef.current?.play(gesture.name, { idle: !!gesture.idle });
+    if (gesture?.name) void stageRef.current?.play(gesture.name, { idle: !!gesture.idle, at: gesture.at || null });
   }, [gesture]);
 
   const g = Math.max(0, Math.min(5, glow));

@@ -65,6 +65,45 @@ const PROC = {
     },
     face: (t) => ({ blink: 0.85 * bump(t, 0.5, 3.0), aa: 0.3 * bump(t, 0.9, 2.6) }),
   },
+  /** Point at `at` (screen px from her chest, y down); the free hand stays behind her back. */
+  point: {
+    duration: 2.8,
+    arms: (t, p) => {
+      const at = p.at || { x: 1, y: 0 };
+      const d = dir(at.x, -at.y, Math.hypot(at.x, at.y) * 0.35);
+      const lift = (v) => dir(v.x, v.y + 0.12, v.z);
+      const reach = [d, d, lift(d)];
+      return at.x >= 0
+        ? { left: reach, right: [mirror(ARMS_BACK.upper), mirror(ARMS_BACK.lower), mirror(ARMS_BACK.hand)] }
+        : { left: [ARMS_BACK.upper, ARMS_BACK.lower, ARMS_BACK.hand], right: reach };
+    },
+    body: (t, p) => {
+      const side = (p.at?.x ?? 1) >= 0 ? 1 : -1;
+      return { chest: [0, side * 0.12, side * 0.05], head: [0.04, side * 0.2, 0] };
+    },
+    face: () => ({ happy: 0.3 }),
+  },
+  /** Right hand to her forehead, head down, a slow disappointed shake. */
+  facepalm: {
+    duration: 2.6,
+    arms: () => ({
+      left: [ARMS_BACK.upper, ARMS_BACK.lower, ARMS_BACK.hand],
+      right: [dir(-0.3, -0.3, 0.9), dir(0.55, 0.82, 0.15), dir(0.45, 0.8, -0.35)],
+    }),
+    body: (t) => {
+      const shake = Math.sin(smooth(0.6, 2.2, t) * Math.PI * 4) * 0.12;
+      return { spine: [0.06, 0, 0], neck: [0.2, shake * 0.5, 0], head: [0.28, shake, 0] };
+    },
+    face: (t) => ({ blink: 0.9 * bump(t, 0.3, 2.3), angry: 0.35, sad: 0.3 }),
+  },
+  wink: {
+    duration: 1.2,
+    body: (t) => ({ head: [0, 0, 0.14 * bump(t, 0.1, 1.1, 0.25)] }),
+    face: (t) => {
+      const w = bump(t, 0.05, 1.15, 0.2);
+      return { calm: w, blinkLeft: bump(t, 0.2, 0.9, 0.15), ih: 0.3 * w };
+    },
+  },
   /** A yawn she can do sitting down: head back, mouth wide, no arms. */
   sitYawn: {
     duration: 3.2,
@@ -472,12 +511,12 @@ export class NovaStage {
    * One-shot gesture (yawn, wave, kiss, land, or a procedural one like stretch). Resolves
    * when it hands back to the base. `idle` gestures give way as soon as she starts talking.
    */
-  play(name, { idle = false } = {}) {
+  play(name, { idle = false, at = null } = {}) {
     if (!this.mixer) return Promise.resolve(false);
     if (PROC[name]) {
       this.cancelGesture();
       return new Promise((resolve) => {
-        this.proc = { name, def: PROC[name], t: 0, idle, resolve };
+        this.proc = { name, def: PROC[name], t: 0, idle, at, resolve };
       });
     }
     const action = this.actions[name];
@@ -560,7 +599,7 @@ export class NovaStage {
     this.mixer.update(dt);
 
     const talking = s.talkUntil > now;
-    const seated = !!(s.seat || s.asleep) && !s.held && !s.gait;
+    const seated = !!(s.seat || s.asleep) && !s.held && !s.gait && !this.oneShot;
     const cold = seated && !s.asleep && s.seat === "cold";
     let targetYaw = s.facing * 0.28;
     if (s.gait === "walk") targetYaw = s.facing * (Math.PI / 2 - 0.3);
@@ -602,8 +641,8 @@ export class NovaStage {
       const p = this.proc;
       p.t += dt;
       const w = this.procWeight();
-      if (p.def.arms) this.applyArmPose(p.def.arms(p.t), w);
-      if (p.def.body) for (const [bone, angles] of Object.entries(p.def.body(p.t))) this.bend(bone, angles, w);
+      if (p.def.arms) this.applyArmPose(p.def.arms(p.t, p), w);
+      if (p.def.body) for (const [bone, angles] of Object.entries(p.def.body(p.t, p))) this.bend(bone, angles, w);
       overlay = p.def.face?.(p.t) || null;
       if (p.t >= p.def.duration) this.finishProc(true);
     } else if (this.oneShot && CLIP_FACE[this.oneShot.name]) {
@@ -703,11 +742,12 @@ export class NovaStage {
     if (!em) return;
     const target = MOOD_FACE[s.rampant ? "stern" : s.mood] || {};
     const o = overlay || {};
+    const keep = 1 - (o.calm || 0);
     for (const k of FACE_KEYS) {
       const cur = this.face[k] || 0;
       const next = cur + ((target[k] || 0) - cur) * Math.min(1, dt * 6);
       this.face[k] = next;
-      if (em.getExpression(k)) em.setValue(k, Math.max(next, o[k] || 0));
+      if (em.getExpression(k)) em.setValue(k, Math.max(next * keep, o[k] || 0));
     }
     const m = this.mouth;
     if (talking && now > m.next) {
@@ -735,6 +775,7 @@ export class NovaStage {
       }
     }
     em.setValue("blink", Math.max(blink, o.blink || 0));
+    if (em.getExpression("blinkLeft")) em.setValue("blinkLeft", o.blinkLeft || 0);
   }
 
   render() {

@@ -57,6 +57,8 @@ const DAY_HELLO_DELAY_MS = 2500;
 /** Dangling swing: radians of tilt per px/s of cursor speed, and the tilt limit. */
 const SWING_PER_PX = 0.0007;
 const SWING_MAX = 0.75;
+/** Away from the window at least this long and she waves when you come back. */
+const RETURN_AWAY_MS = 10 * 60 * 1000;
 /** Chance she sits down after perching on a card, and the delay before she does. */
 const SIT_CHANCE = 0.6;
 const SIT_DELAY_MS = [900, 2400];
@@ -151,11 +153,20 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     walker: use3d,
   });
   const lastGestureAtRef = useRef(Date.now());
-  const playGesture = useCallback((name, { idle = false } = {}) => {
+  const playGesture = useCallback((name, { idle = false, at = null } = {}) => {
     gestureIdRef.current += 1;
     lastGestureAtRef.current = Date.now();
-    setGesture({ name, id: gestureIdRef.current, idle });
+    setGesture({ name, id: gestureIdRef.current, idle, at });
   }, []);
+  /** Point at a DOM rect: the offset from her chest to its center, in screen px. */
+  const pointAt = useCallback(
+    (rect) => {
+      const s = sizeRef.current;
+      const p = posRef.current;
+      playGesture("point", { at: { x: rect.left + rect.width / 2 - (p.x + s / 2), y: rect.top + rect.height / 2 - (p.y + s * 0.3) } });
+    },
+    [playGesture, posRef]
+  );
 
   const size = Math.round((use3d ? SIZE_3D : character.size) * (cstate?.scale || 1));
   const sizeRef = useRef(size);
@@ -264,12 +275,13 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       } else if (announce && leveledUp) {
         setMood("excited");
         sfx("streak");
+        playGesture("kiss");
         say(line(unlocked ? "levelUnlock" : "levelUp", { level, tint: unlocked?.toLowerCase() }));
         spoke = true;
       }
       return { xpGained, level, leveledUp, unlocked, daily, spoke };
     },
-    [update, pushPop, say, sfx]
+    [update, pushPop, say, sfx, playGesture]
   );
 
   /* ---------- load + first appearance ---------- */
@@ -433,6 +445,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
       if (rect) setFacing(p.x + s / 2 > rect.left + rect.width / 2 ? -1 : 1);
       setMood("point");
+      if (el) pointAt(el.getBoundingClientRect());
       let h = p.side === "left" ? "left" : p.side === "right" ? "right" : p.x + s / 2 > window.innerWidth / 2 ? "left" : "right";
       const need = BUBBLE_W + 12;
       if (h === "right" && window.innerWidth - (p.x + s) < need && p.x >= need) h = "left";
@@ -447,7 +460,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       }
       setTour((prev) => (prev ? { ...prev, ready: true } : prev));
     },
-    [endTour, ensureRoute, flyTo, setFacing, update]
+    [endTour, ensureRoute, flyTo, setFacing, update, pointAt]
   );
 
   const startTour = useCallback(
@@ -535,11 +548,12 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       if (!ok || modeRef.current !== "help") return;
       setFacing(p.x + s / 2 > rect.left + rect.width / 2 ? -1 : 1);
       setMood("point");
+      pointAt(el.getBoundingClientRect());
       refreshAnchor();
       setRing(rectOf(el.getBoundingClientRect()));
       window.setTimeout(() => setRing(null), 2600);
     },
-    [ensureRoute, flyTo, setFacing, refreshAnchor]
+    [ensureRoute, flyTo, setFacing, refreshAnchor, pointAt]
   );
 
   /* ---------- menu actions ---------- */
@@ -626,10 +640,13 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         sfx(streak >= 3 ? "streak" : "correct");
         if (partial) say(line("partial"));
         else say(line(streak >= 3 ? "correctStreak" : "correct", { streak }));
+        if (streak > 0 && streak % 5 === 0) playGesture("kiss");
+        else if (streak === 3) playGesture("wink");
       } else if (isFailing(run)) {
         setMood("stern");
         flashReaction("glitch");
         sfx("glitch");
+        if (run.missStreak >= 2) playGesture("facepalm");
         const streakLine = run.missStreak >= 3 && Math.random() < 0.5;
         say(line(streakLine ? "wrongHarshStreak" : "wrongHarsh", { misses: run.missStreak }));
       } else {
@@ -640,7 +657,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         say(text.length > 32 ? line("wrongLong") : line("wrong", { answer: text }));
       }
     },
-    [flashReaction, say, sfx]
+    [flashReaction, say, sfx, playGesture]
   );
 
   /** Called once per run: XP, high score, session log, and fresh SM-2 fields back into course state. */
@@ -698,7 +715,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       if (tier === "finishedBad") {
         flashReaction("glitch");
         sfx("glitch");
+        playGesture("facepalm");
       } else {
+        if (tier === "finishedGreat" || (award.leveledUp && !wasRampant)) playGesture("kiss");
         sfx(tier === "finishedGreat" ? "streak" : "correct");
       }
       if (wasRampant && summary.answered) {
@@ -717,7 +736,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         newHighScore,
       };
     },
-    [update, onUpdateCourse, say, flashReaction, sfx, awardXp]
+    [update, onUpdateCourse, say, flashReaction, sfx, awardXp, playGesture]
   );
 
   const closeQuiz = useCallback(() => {
@@ -1118,6 +1137,43 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     return () => window.clearInterval(id);
   }, [cancel, send]);
 
+  /* Back after a while away from the window: she wakes up and waves. */
+  useEffect(() => {
+    if (!visibleNow) return undefined;
+    let awayAt = 0;
+    const leave = () => {
+      if (!awayAt) awayAt = Date.now();
+    };
+    const back = () => {
+      if (document.hidden || !awayAt) return;
+      const away = Date.now() - awayAt;
+      awayAt = 0;
+      const m = modeRef.current;
+      if (away < RETURN_AWAY_MS || !(AUTONOMOUS.has(m) || m === "sleep") || busy() || dragRef.current) return;
+      if (m === "sleep") send("WAKE");
+      lastActivityRef.current = Date.now();
+      window.setTimeout(() => {
+        const mm = modeRef.current;
+        if (!AUTONOMOUS.has(mm) || busy()) return;
+        playGesture("wave");
+        if (!bubbleRef.current) {
+          setMood("happy");
+          refreshAnchor();
+          say(line("welcomeBack"));
+        }
+      }, 600);
+    };
+    const onVis = () => (document.hidden ? leave() : back());
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("blur", leave);
+    window.addEventListener("focus", back);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("blur", leave);
+      window.removeEventListener("focus", back);
+    };
+  }, [visibleNow, busy, send, playGesture, refreshAnchor, say]);
+
   /* Due-card nudges: rare, polite, and they back off when dismissed. */
   api.current.maybeNudge = async () => {
     const cur = stateRef.current;
@@ -1194,12 +1250,13 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       if (!nudgeRef.current.answered) {
         update((s) => ({ ignored: (s.ignored || 0) + 1 }));
         say(line("ignoredNudge"));
+        playGesture("taunt");
       } else {
         setBubble(null);
       }
     }, NUDGE_SHOW_MS);
     return () => window.clearTimeout(t);
-  }, [mode, send, update, say]);
+  }, [mode, send, update, say, playGesture]);
 
   /* Drill cards and practice tests elsewhere in the app: XP, plus the odd comment. */
   useEffect(() => {
@@ -1227,11 +1284,13 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           flashReaction("bounce");
           sfx("streak");
           say(line("drillStreak", { streak: r.known }));
+          playGesture("wink");
         } else if (!d.correct && r.missed === 3) {
           setMood("stern");
           flashReaction("glitch");
           sfx("glitch");
           say(line("drillHarsh"));
+          playGesture("facepalm");
         }
         return;
       }
@@ -1240,13 +1299,18 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         if (!canTalk || res?.spoke) return;
         const tier = finishKey(d.correct, d.total);
         setMood({ finishedGreat: "excited", finishedGood: "happy", finishedMeh: "neutral", finishedBad: "stern" }[tier]);
-        if (tier === "finishedBad") flashReaction("glitch");
+        if (tier === "finishedBad") {
+          flashReaction("glitch");
+          playGesture("facepalm");
+        } else if (tier === "finishedGreat") {
+          playGesture("kiss");
+        }
         say(line(tier, { correct: d.correct, total: d.total }));
       }
     };
     window.addEventListener(STUDY_EVENT, onStudy);
     return () => window.removeEventListener(STUDY_EVENT, onStudy);
-  }, [awardXp, say, sfx, flashReaction, send]);
+  }, [awardXp, say, sfx, flashReaction, send, playGesture]);
 
   /* Rampant: now and then she mutters and glitches while idle. */
   const rampantNow = !!cstate && isRampant(cstate, now);

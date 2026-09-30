@@ -69,10 +69,11 @@ shared study materials, past grade distributions, and professor reviews.
   - ✓ C.6b Edge sitting (playful leg swing when doing well, crossed and cold when failing),
     sleeping seated on her platform, and a real grab: she dangles from the cursor, swings,
     kicks, and drops onto whatever is below when released.
-  - C.6c Event gestures: kiss/wink on streaks and level-ups, facepalm when failing, pointing
-    at tour/help targets, taunt/foot tap when ignored, wave on return, leaning on panel sides.
+  - ✓ C.6c Event gestures: kiss/wink on streaks and level-ups, facepalm when failing, pointing
+    at tour/help targets, taunt when ignored, wave on return. Leaning on panel sides moves to C.7.
   - C.6d Rampant: glitch collapse and re-form, jittery idles.
-- ○ C.7 Context staging: on top of the quiz panel, standing on tour targets, bubble follows her head.
+- ○ C.7 Context staging: on top of the quiz panel, standing on tour targets, bubble follows her head,
+  leaning on panel sides.
 - ○ C.8 Settings and robustness: 3D / portrait switch, animation intensity, context-loss
   recovery, packaged-build check. Model stays full quality (no texture downscaling).
 - ○ C.9 Claude brain once an API key is set: Haiku help with `point_to`, fuzzy typed grading,
