@@ -1,13 +1,17 @@
 # Study Hub — Cursor Rules
-# Electron + React desktop app: the student-side replacement for Blackboard.
+# Electron + React desktop app: connect Blackboard once, Today tells you what matters.
 # Read this file and docs/PROJECT_BRIEF.md before every response.
 
 ## IDENTITY
-Study Hub mirrors a student's Blackboard courses (files, announcements,
-assignments, their own grades) and wraps them in built-in study tools:
-notes, glossary, flashcards with SM-2, practice tests, grade calculator.
-An optional cloud "Commons" adds shared student-authored study materials,
-anonymous past grade distributions, and short professor reviews.
+"Connect Blackboard once. Every day Study Hub tells you what matters and
+gets you ready for it." The Blackboard mirror (files, announcements,
+assignments, the student's own grades) is the engine; Today is the product:
+a ranked daily plan (assignments, exam prep, grade risk, needed score) with
+one action per item. Built-in study tools get the student ready: notes,
+glossary, exam-aware SM-2 flashcards, practice tests, grade calculator, and
+Nova, the 3D companion who runs review sessions.
+An optional cloud "Commons" (shared study materials, grade distributions,
+professor reviews) is deferred until alpha usage justifies it.
 It is a native desktop window via Electron, NOT a web app.
 
 ## ARCHITECTURE: LOCAL-FIRST + OPTIONAL COMMONS
@@ -39,10 +43,12 @@ electron/
 
 src/
  app/StudyHubApp.jsx   Root app, course state, routing
- features/             Feature modules (import, dashboard, calendar,
+ features/             Feature modules (today, import, dashboard, calendar,
                        practice, web, commons UI)
+ features/today/       Priority engine (pure, unit-tested) + Today screen
  hub/                  User course view (UserCourseApp + components/)
  study/                OM 300 built-in course, FlashcardDeck, sm2.js
+ companion/            Nova 3D companion, quiz panel, tours, XP
  pptx/ ai/ syllabus/   Import pipelines
  db/courseStore.js     Data access layer (renderer's only DB entry point)
  commons/              Commons client
@@ -139,6 +145,9 @@ Every code change must:
 - Bullet 2"
 
 ## CURRENT STATUS
-See docs/ROADMAP.md. Phase 0 ✓ (stabilize + data layer) → 1 Blackboard
-mirror ✓ → 2 study suite ✓ → 3 web guides → 4 Commons → 5 grade insights
-→ 6 professor reviews → 7 alpha release.
+See docs/ROADMAP.md. Shipped: Phase 0, Mirror v1, Study suite v1, Nova C.1–C.6c.
+Plan (Today-first pivot, 2026-09): 1 Mirror + Today (priority engine, ranked
+Today, needed score) → 2 Exam prep (exam-aware SM-2, exam_modules, Nova
+sessions) → 3 Alpha (onboarding, backup, auto-update, 20–30 users) → Later,
+gated on alpha: web guides, Commons, grade insights, professor reviews.
+Haiku may rephrase, never compute numbers.

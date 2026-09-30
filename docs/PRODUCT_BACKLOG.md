@@ -38,48 +38,44 @@ Tags: `local-first` (no API/cloud), `AI-optional`, `AI-required`, `cloud` (Commo
 | SG-001 | Study guide per exam scope: focus list, terms, outline, formulas, notes; print + Markdown copy (Phase 2) |
 | EST-002 | Exam time estimate (per-exam scope, own pace), Exam Prep strip on Today (Phase 2) |
 
-## Phase 1 — Blackboard Mirror (remaining)
+## Phase 1 — Mirror + Today
 
 | ID | Feature | Impact | Diff | Est. | Tags |
 |----|---------|--------|------|------|------|
+| TODAY-001 | Priority engine: ASSIGNMENT / EXAM_PREP / GRADE_RISK, score = urgency × weight × risk, per-course target grade, unit tests | 5 | 2 | 2 d | `local-first` |
+| TODAY-002 | Ranked Today: top 5 with one-line reason + one action, empty states | 5 | 2 | 2 d | `local-first` `UI` |
+| TODAY-003 | Needed score on next major item and final; badge on Today; feeds risk | 5 | 2 | 1 d | `local-first` |
 | CAL-002 | Upcoming-assignments widget in course context panel | 4 | 1 | 0.5 d | `local-first` |
 | CAL-003 | Syllabus date extraction into calendar | 4 | 2 | 2 d | `local-first` `AI-optional` |
 
-## Phase 2 — Study suite (remaining)
+## Phase 2 — Exam prep
 
 | ID | Feature | Impact | Diff | Est. | Tags |
 |----|---------|--------|------|------|------|
+| EXAM-001 | Exam-aware SM-2 cap, final-48h coverage, exam ready % | 5 | 3 | 2 d | `local-first` |
+| EXAM-002 | `exam_modules` join table, syllabus parse, module picker fallback | 4 | 2 | 1.5 d | `local-first` |
+| EXAM-003 | Nova runs the exam session: template opening line (Haiku may rephrase), 10–20 cards, end summary | 5 | 3 | 3 d | `local-first` `AI-optional` |
 | FR-001 | Formula practice generators (EOQ, SPC, …) | 5 | 4 | 3–6 wk | `local-first` |
 
-## Phase 3 — Web study guides
+## Phase 3 — Alpha
+
+| ID | Feature | Impact | Diff | Est. | Tags |
+|----|---------|--------|------|------|------|
+| REL-003 | First-run onboarding (connect BB → first sync → Today) | 5 | 2 | 2 d | `UI` |
+| REL-002 | DB backup / export / restore | 5 | 2 | 1 d | `local-first` |
+| REL-001 | Auto-update via GitHub Releases | 4 | 2 | 1 d | `Electron` |
+| REL-004 | Windows code signing | 3 | 2 | TBD | `Electron` |
+
+## Later — gated on alpha usage
 
 | ID | Feature | Impact | Diff | Est. | Tags |
 |----|---------|--------|------|------|------|
 | WEB-001 | Find study materials panel; Claude web search in main process; save link / import as cards | 4 | 3 | 1 wk | `AI-optional` |
-
-## Phase 4 — Commons
-
-| ID | Feature | Impact | Diff | Est. | Tags |
-|----|---------|--------|------|------|------|
 | COM-001 | Supabase project, `.edu` auth, RLS, canonical course catalog | 5 | 4 | 1 wk | `cloud` |
 | COM-002 | Publish / browse / clone decks and study guides with provenance | 5 | 3 | 1 wk | `cloud` |
 | COM-003 | Voting, reporting, moderation queue, content filters | 4 | 3 | 1 wk | `cloud` |
-
-## Phase 5–6 — Insights and reviews
-
-| ID | Feature | Impact | Diff | Est. | Tags |
-|----|---------|--------|------|------|------|
 | GRD-INS-001 | Anonymous grade distributions per course/instructor/term (≥5 reports) | 5 | 3 | 1 wk | `cloud` |
 | PROF-001 | Professor mini-reviews: structured ratings + ≤280 chars, 1 per student per course-term | 4 | 3 | 1 wk | `cloud` |
-
-## Phase 7 — Release
-
-| ID | Feature | Impact | Diff | Est. | Tags |
-|----|---------|--------|------|------|------|
-| REL-001 | Auto-update via GitHub Releases | 4 | 2 | 1 d | `Electron` |
-| REL-002 | DB backup / export / restore | 5 | 2 | 1 d | `local-first` |
-| REL-003 | First-run onboarding (connect BB → optional Commons) | 4 | 2 | 2 d | `UI` |
-| REL-004 | Windows code signing | 3 | 2 | TBD | `Electron` |
 
 ## Parked
 

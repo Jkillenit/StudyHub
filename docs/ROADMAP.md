@@ -1,8 +1,7 @@
 # Study Hub — Roadmap
 
-Study Hub is the **student-side replacement for Blackboard**: it mirrors each course from
-Blackboard, wraps it in built-in study tools, and adds an optional cloud Commons for
-shared study materials, past grade distributions, and professor reviews.
+**Connect Blackboard once. Every day Study Hub tells you what matters and gets you ready for it.**
+The Blackboard mirror is the engine; Today is the product.
 
 - Vision, architecture, data model, guardrails: [`PROJECT_BRIEF.md`](./PROJECT_BRIEF.md)
 - Rated feature IDs: [`PRODUCT_BACKLOG.md`](./PRODUCT_BACKLOG.md)
@@ -12,15 +11,18 @@ shared study materials, past grade distributions, and professor reviews.
 ## Principles
 
 - **Local-first**: personal data stays in local SQLite; works offline and without an account.
-- **Commons is opt-in**: only items a student explicitly publishes leave the machine.
-- **AI enhances, never replaces**: every feature works without an API key.
-- **Integrity by design**: student-authored content only in Commons; anonymous grade data
-  with a ≥5 report threshold; Blackboard access is read-only for the student's own data.
+- **Today decides, the student acts**: every ranked item carries a one-line reason and one action.
+- **AI enhances, never replaces**: every feature works without an API key. Haiku may rephrase,
+  never compute numbers.
+- **Integrity by design**: Blackboard access is read-only for the student's own data. Commons
+  guardrails in the brief still apply when it ships.
 - **Stable data before features**: no phase ships on top of a data layer that loses work.
 
 ---
 
-## Phase 0 — Stabilize and redesign the data layer ✓ *(done)*
+## Shipped
+
+### Phase 0 — Stabilize and redesign the data layer ✓
 
 | Work | Detail |
 |------|--------|
@@ -30,26 +32,76 @@ shared study materials, past grade distributions, and professor reviews.
 | Security | API key main-process only via `safeStorage`; Haiku enhancement over IPC; BB bridge only on `*.blackboard.com`; material paths only from native dialogs. |
 | Structure | Import/course logic split out of `StudyHubApp`/`UserCourseApp` into `src/features/`; app-level error boundary; debug logging removed. |
 
-**Exit criteria**: edit a course, restart, SM-2 progress and grade entries survive; `npm run build` passes.
-
-## Phase 1 — Blackboard Mirror *(the "better Blackboard" core)* ✓ *(done; CAL-002/003 carried)*
+### Mirror v1 ✓ *(CAL-002/003 carried)*
 
 - Course sweep from the embedded window: content tree, announcements, assignments with due
   dates, the student's own gradebook — via Blackboard REST as the logged-in user.
 - Local tables `announcements`, `assignments`, `bb_items`; incremental sync.
-- **Today dashboard** on the hub: due soon, new announcements, cards due, grade changes.
-- **Calendar**: month/week of assignments across courses (BB + syllabus + manual).
+- Today dashboard v1: due soon, new announcements, cards due, grade changes.
+- Calendar: month/week of assignments across courses (BB + syllabus + manual).
 - Blackboard grades flow into the grade calculator.
 
-## Phase 2 — Unified study suite ✓ *(done; FR-001 formula generators carried)*
+### Study suite v1 ✓ *(FR-001 formula generators carried)*
 
 - SM-2 filtered drill modes (due, weak, module), deck editor, session history + streak.
-- **Practice tests** generated locally from definitions/glossary (multiple choice + typed),
-  optional Haiku variants.
-- **Study guide generator** per exam scope (modules + weak cards).
-- **Exam time estimate** from mastery data and calendar exam dates.
+- Practice tests generated locally from definitions/glossary, optional Haiku variants.
+- Study guide generator per exam scope (modules + weak cards).
+- Exam time estimate from mastery data and calendar exam dates.
 
-## Companion — Nova *(spec: `docs/companion-spec.md`)*
+---
+
+## Phase 1 — Mirror + Today
+
+- **1.1 Priority engine** (TODAY-001): pure module `src/features/today/priority.js`, fed by
+  `courseStore`. Item types ASSIGNMENT (due ≤ 14 days or overdue), EXAM_PREP (exam ≤ 14 days),
+  GRADE_RISK (current < target). Score = urgency × weight × risk; constants in one config
+  object; unit tests (vitest). Per-course `target_grade` (default 80) via migration.
+  Quizzes get their own assignment kind so they don't count as exams.
+- **1.2 Ranked Today** (TODAY-002): top 5 items with course, title, date, one-line reason and
+  one action (Blackboard deep link / review session / grade calculator). Empty states for
+  not synced and nothing due. Today stays the default landing view; existing views remain in
+  the sidebar and command palette.
+- **1.3 Needed score** (TODAY-003): grade calculator computes the score needed on the next
+  major item and on the final to hold the target; badge on Today; feeds risk.
+
+**Exit criteria**: a fresh sync lands on a sensible ranked list; changing a target reorders it.
+
+## Phase 2 — Exam prep
+
+- **2.1 Exam-aware SM-2** (EXAM-001): optional cap in `sm2.js` so cards linked to an upcoming
+  exam get intervals ≤ days until exam − 1; every card reviewed at least once in the final
+  48 h; normal SM-2 after the exam. Exam ready % = share of the exam's cards with latest
+  rating ≥ 3.
+- **2.2 Exam ↔ module linking** (EXAM-002): `exam_modules` join table (existing study-guide
+  scopes migrated in); parse from syllabus where possible, module picker fallback.
+- **2.3 Nova runs the session** (EXAM-003): opening line from a local template built from DB
+  facts (Haiku may rephrase); 10–20 exam cards, due first; logged to `study_sessions`; end
+  summary with cards done, exam ready % change, suggested next session.
+- Practice tests scoped to an exam (reuses PT-001).
+
+**Exit criteria**: exam prep on Today launches a Nova session with exam-scoped cards.
+
+## Phase 3 — Alpha
+
+- First-run onboarding: connect Blackboard → first sync → land on Today (REL-003).
+- DB backup / export / restore (REL-002).
+- Auto-update via GitHub Releases (REL-001); code signing if a certificate is available (REL-004).
+- Alpha with 20–30 UA students; measure daily Today opens and sessions started.
+
+## Later — gated on alpha usage
+
+Specs and guardrails in the brief are unchanged; each ships only if alpha usage justifies it.
+
+- **Web study-guide finder**: per course/module search via Claude web-search tool (main
+  process), no-key fallback to a prepared search link; save as link or import as cards.
+- **Commons**: Supabase, verified `.edu` auth, RLS, canonical course catalog; publish /
+  browse / clone / vote on student-authored decks and guides; report + moderation queue.
+- **Grade insights**: opt-in anonymous distributions per course/instructor/term, ≥5 reports.
+- **Professor mini-reviews**: structured ratings + ≤280 chars, one per student per course-term.
+
+---
+
+## Companion — Nova *(spec: `docs/companion-spec.md`, parallel track)*
 
 - ✓ C.1 Sprite, settings, movement/state machine, radial menu, spotlight tours, local FAQ help.
 - ✓ C.2 Flashcard quiz (4 modes, SM-2 grading, XP/levels), due-card nudges.
@@ -80,54 +132,23 @@ shared study materials, past grade distributions, and professor reviews.
   generated distractors, rate limit + canned fallback.
 - ○ C.10 Assessment-mode auto-hide, more tours (blackboard-sync, calendar), polish.
 
-## Phase 3 — Web study-guide finder
-
-- "Find study materials" panel per course/module; queries from course code + key terms.
-- Search via Claude web-search tool (main process) with graceful no-key fallback to a
-  prepared search link.
-- Save a result as a link, or import its text through the existing classifier → cards.
-
-## Phase 4 — Commons backend and accounts
-
-- Supabase: auth restricted to verified `.edu` domains, row-level security.
-- Canonical course catalog: `course_code + term + instructor`.
-- Publish / browse / clone / vote on decks and study guides; report + moderation queue.
-- Client in `src/commons/` with an offline publish queue; inert until configured.
-
-## Phase 5 — Grade insights
-
-- End-of-semester opt-in to share final/exam grades anonymously.
-- Distributions per course/instructor/term, shown only at ≥5 reports.
-
-## Phase 6 — Professor mini-reviews
-
-- Structured ratings (clarity, workload, exam difficulty, fairness) + ≤280-char text,
-  one per verified student per course-term, filtered and reportable.
-
-## Phase 7 — Packaging and alpha
-
-- Auto-update via GitHub Releases, code signing, DB backup/export/restore, first-run
-  onboarding (connect Blackboard → optionally join Commons), alpha to a small UA cohort.
-
 ---
 
 ## Dependency graph
 
 ```
-Phase 0 ─▶ Phase 1 ─▶ Phase 2 ─▶ Phase 3
-   │                     │
-   └────────▶ Phase 4 ───┼─▶ Phase 5
-                         └─▶ Phase 6
-Phase 0..6 ─▶ Phase 7
+Shipped ─▶ Phase 1 (Today) ─▶ Phase 2 (Exam prep) ─▶ Phase 3 (Alpha) ─▶ Later (gated)
+                                   ▲
+Nova C.x ──────────────────────────┘  (session runner in 2.3)
 ```
 
 ---
 
-## Later / parked
+## Parked
 
 - OCR for scanned PDFs (D1)
 - Blackboard institutional REST / LTI (D2)
 - Ink / stylus sketches per chapter
 - Cross-device sync of personal data (only after Commons is proven)
 
-*Last updated: 2026-09 — pivot to student-side Blackboard replacement.*
+*Last updated: 2026-09 — Today-first pivot; Commons deferred.*

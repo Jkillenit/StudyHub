@@ -7,12 +7,17 @@ Read this first. `ROADMAP.md` holds the phased plan; `PRODUCT_BACKLOG.md` holds 
 
 ## 1. Vision
 
-**Study Hub is the student-side replacement for Blackboard.** It mirrors every course a
-student has in Blackboard (files, announcements, assignments, due dates, their own grades)
-and wraps it in built-in study tools — notes, glossary, flashcards with spaced repetition,
-practice tests, a grade calculator — plus an optional community layer ("Commons") where
-students share study materials, see past grade distributions, and read short professor
-reviews.
+**Connect Blackboard once. Every day Study Hub tells you what matters and gets you ready for it.**
+
+Study Hub reads a student's Blackboard courses (files, announcements, assignments, due
+dates, their own grades) and turns them into a ranked daily plan on **Today**: what is due,
+which exam is coming, which course is slipping below target, and the score needed to hold
+it. Each item has one action: open it in Blackboard, start an exam review session, or open
+the grade calculator. The built-in study tools do the getting-ready part (see §5 Study).
+
+The Blackboard mirror is the engine; Today is the product. A community layer ("Commons")
+for shared study materials, grade distributions, and professor reviews is deferred until
+alpha usage justifies it.
 
 What it is **not**: a replacement for Blackboard itself. Submissions, official quizzes and
 official grades stay in Blackboard. Study Hub reads them and becomes the place students go
@@ -55,7 +60,7 @@ Personal data never leaves the machine unless the student explicitly publishes a
 - **Editor**: TipTap 3
 - **Styling**: Bootstrap reset + custom `--sh-*` tokens in `src/studyhub-bootstrap.css`
 - **AI**: Claude Haiku (`claude-haiku-4-5-20251001`) via main-process IPC, optional
-- **Cloud (Phase 4+)**: Supabase (Postgres + auth + RLS + edge functions)
+- **Cloud (Later, gated on alpha)**: Supabase (Postgres + auth + RLS + edge functions)
 
 ### Process boundaries
 
@@ -85,13 +90,15 @@ electron/
 src/
   app/StudyHubApp.jsx           Root: course list, routing, import orchestration
   features/                     Feature modules split out of the god-components
+  features/today/               Priority engine (pure) + Today screen
   hub/                          User course view (sidebar, content area, grades)
   study/                        OM 300 built-in course + flashcard deck + sm2.js
+  companion/                    Nova: 3D companion, quiz panel, tours, XP
   pptx/, ai/, syllabus/         Import pipelines
   db/courseStore.js             Renderer data-access layer (only way to touch the DB)
-  commons/                      Commons client (Phase 4)
+  commons/                      Commons client (Later)
   shell/                        Command palette, tiling chrome
-supabase/                       Commons schema + RLS + edge functions (Phase 4)
+supabase/                       Commons schema + RLS + edge functions (Later)
 ```
 
 ---
@@ -115,6 +122,18 @@ Rules:
 
 ## 5. Feature status
 
+### Study
+
+- **Flashcards + SM-2**: drill modes (due, weak, module), deck editor, session history.
+  Exam-aware: cards in an upcoming exam's scope have intervals capped before the exam date.
+- **Practice tests**: generated locally from definitions and glossary; optional Haiku variants.
+- **Study guides and exam estimate**: per exam scope, from modules and weak cards.
+- **Grade calculator**: syllabus weights + Blackboard scores, what-if, needed score for target.
+- **Nova (3D companion)**: VRoid model with a hologram shader (portrait fallback), tours and
+  help, flashcard quiz with SM-2 grading, XP and streaks. Nova runs exam review sessions:
+  the opening line comes from a local template built from DB facts; Haiku may rephrase it
+  but never computes numbers. Spec: `docs/companion-spec.md`.
+
 | Area | Status |
 |------|--------|
 | Electron shell, command palette, OM 300 course | Done |
@@ -123,14 +142,13 @@ Rules:
 | Flashcards + SM-2 + session summary | Done (Phase 0 fixed persistence) |
 | Grade calculator + syllabus weights | Done |
 | Blackboard embedded window, single-file import | Done |
-| Blackboard mirror (sweep, announcements, assignments, grades) | Phase 1 |
-| Today dashboard + calendar | Phase 1 |
-| Practice tests, study guide generator, exam estimate | Phase 2 |
-| Web study-guide finder | Phase 3 |
-| Commons: accounts, shared decks/guides | Phase 4 |
-| Grade insights (anonymous distributions) | Phase 5 |
-| Professor mini-reviews | Phase 6 |
-| Auto-update, backup/export, onboarding, alpha | Phase 7 |
+| Blackboard mirror, calendar, Today dashboard v1 | Done |
+| Practice tests, study guide generator, exam estimate | Done |
+| Nova companion C.1–C.6c | Done |
+| Priority engine, ranked Today, needed score | Phase 1 |
+| Exam-aware SM-2, exam ready %, Nova review sessions | Phase 2 |
+| Onboarding, backup/export, auto-update, alpha (20–30 users) | Phase 3 |
+| Web guides, Commons, grade insights, professor reviews | Later (gated on alpha) |
 
 ---
 
@@ -162,10 +180,11 @@ Rules:
 | 2026-09 | API key moves to main process only, encrypted with safeStorage |
 | 2026-09 | Commons auth restricted to verified `.edu` domains (configurable) |
 | 2026-09 | Grade distributions require ≥5 reports per bucket |
+| 2026-09 | Today becomes the core product: a ranked daily plan built from the mirror. Commons, grade insights, and professor reviews deferred until alpha usage justifies them |
 
 ## 8. Open questions
 
 - Is public UA grade-distribution data available (public records)? Prefer it over self-reports.
-- Web search provider for Phase 3: Claude web-search tool vs Brave Search API.
-- Code-signing certificate for Windows release (Phase 7).
+- Web search provider for the web guide finder: Claude web-search tool vs Brave Search API.
+- Code-signing certificate for Windows release (Phase 3 alpha).
 - Moderation staffing model for Commons (report queue + auto-filters to start).
