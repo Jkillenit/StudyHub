@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildTodayView, dueText, letterFor, tonightReason } from "./todayView.js";
-import { buildBriefing } from "./briefing.js";
+import { briefingContext, buildBriefing } from "./briefing.js";
 
 const NOW = new Date(2026, 8, 30, 0, 12).toISOString();
 const at = (dayOffset, hour = 23, min = 59) => new Date(2026, 8, 30 + dayOffset, hour, min).toISOString();
@@ -102,13 +102,15 @@ describe("buildBriefing", () => {
     expect(segments).toContainEqual({ num: "77.9", tone: "warn" });
   });
 
-  it("marks what each sentence is about, for Nova to walk to", () => {
-    const items = [asg({ dueDate: at(0, 10, 0) }), asg({ dueDate: at(0, 10, 0) })];
+  it("gives Nova's briefing scene only real facts", () => {
+    const items = [asg({ dueDate: at(0, 10, 0) })];
     const view = buildTodayView({ now: NOW, courses: [course({ components: graded(77.9), assignments: items })] }, { now: NOW });
-    const { text, beats } = buildBriefing(view, { now: new Date(NOW), dueText });
-    expect(beats.map((b) => b.target)).toEqual(["tonight.item.1", "course.c1.gauge"]);
-    expect(text.slice(beats[0].from, beats[0].to)).toMatch(/^Two MIS 430 items are due today/);
-    expect(text.slice(beats[1].from, beats[1].to)).toMatch(/^MIS 430 is your pressure point/);
+    const ctx = briefingContext(view, { now: new Date(NOW), dueText });
+    expect(ctx.task).toMatchObject({ course: "MIS 430" });
+    expect(ctx.task.when).toMatch(/^due .* today$/);
+    expect(ctx.risk).toMatchObject({ uuid: "c1", course: "MIS 430", current: "77.9", letter: "B" });
+    expect(ctx.overdue).toBe(null);
+    expect(ctx.onTrack).toBe(false);
   });
 
   it("works with no courses and no API key", () => {

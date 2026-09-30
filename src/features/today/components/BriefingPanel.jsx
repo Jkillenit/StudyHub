@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useTyping } from "../useArrival.js";
 import { ArrowIcon, HudPanel } from "./HudPanel.jsx";
+import { playScene } from "../../../nova/stage.js";
+import { sceneFrom } from "../../../nova/scenePlayer.js";
+import briefingScene from "../../../nova/scenes/briefing.json";
 
 const TYPE_MS = 10;
 const SPEAK_MS_PER_CHAR = 65;
+const CUT_GRACE_MS = 1000;
 
 const speechAvailable = () => typeof window !== "undefined" && "speechSynthesis" in window;
 
@@ -29,80 +33,64 @@ function Segments({ segments, limit }) {
   return out;
 }
 
-const brief = (detail) => window.dispatchEvent(new CustomEvent("studyhub-companion-brief", { detail }));
+const talk = (ms) => window.dispatchEvent(new CustomEvent("studyhub-companion-talk", { detail: { ms } }));
 
-export function BriefingPanel({ briefing, arriving, onStart, canStart, index = 0 }) {
+/**
+ * "Play briefing": Nova performs the briefing scene, walking to each thing and saying it aloud.
+ * When she can't (hidden, quiet, busy), the panel text is just read out.
+ */
+export function BriefingPanel({ briefing, context, arriving, onStart, canStart, index = 0 }) {
   const [speaking, setSpeaking] = useState(false);
+  const speakingRef = useRef(false);
+  /* Any click or key ends her scene before this button's click lands; a click right after that means "stop", not "play again". */
+  const cutAtRef = useRef(0);
   const total = briefing.text.length;
   const typed = useTyping(total, arriving, TYPE_MS);
-  const walkRef = useRef(null);
 
-  const stopWalk = () => {
-    const w = walkRef.current;
-    if (!w) return;
-    walkRef.current = null;
-    w.timers.forEach((t) => window.clearTimeout(t));
-    brief({ phase: "end" });
+  const setPlaying = (on) => {
+    speakingRef.current = on;
+    setSpeaking(on);
   };
 
   useEffect(
     () => () => {
-      if (speechAvailable()) window.speechSynthesis.cancel();
-      stopWalk();
+      if (speakingRef.current && speechAvailable()) window.speechSynthesis.cancel();
     },
     []
   );
 
+  const readAloud = () => {
+    const u = new SpeechSynthesisUtterance(briefing.text);
+    u.onend = u.onerror = () => {
+      setPlaying(false);
+      talk(0);
+    };
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+    setPlaying(true);
+    talk(briefing.text.length * SPEAK_MS_PER_CHAR);
+  };
+
   const toggleSpeech = () => {
     if (!speechAvailable()) return;
-    const synth = window.speechSynthesis;
-    if (speaking) {
-      synth.cancel();
-      setSpeaking(false);
-      stopWalk();
-      window.dispatchEvent(new CustomEvent("studyhub-companion-talk", { detail: { ms: 0 } }));
+    if (speakingRef.current || performance.now() - cutAtRef.current < CUT_GRACE_MS) {
+      cutAtRef.current = 0;
+      window.speechSynthesis.cancel();
+      setPlaying(false);
+      talk(0);
       return;
     }
-    const u = new SpeechSynthesisUtterance(briefing.text);
-    u.rate = 1;
-    /*
-     * Nova walks to each thing as the voice reaches it. Word boundaries give the exact spot;
-     * voices that don't report them fall back to an estimate from the speaking pace.
-     */
-    const beats = briefing.beats || [];
-    const walk = { next: 0, heard: false, timers: [] };
-    const reach = (charIndex) => {
-      while (walk.next < beats.length && charIndex >= beats[walk.next].from) {
-        brief({ phase: "beat", target: beats[walk.next].target });
-        walk.next += 1;
+    const scene = sceneFrom(briefingScene, { ...context, speak: true });
+    const handled = playScene(async (stage) => {
+      setPlaying(true);
+      try {
+        await scene(stage);
+      } finally {
+        if (!stage.running) cutAtRef.current = performance.now();
+        setPlaying(false);
       }
-    };
-    u.onboundary = (e) => {
-      if (walkRef.current !== walk) return;
-      walk.heard = true;
-      reach(e.charIndex);
-    };
-    u.onstart = () => {
-      if (walkRef.current !== walk) return;
-      walk.timers = beats.map((b) =>
-        window.setTimeout(() => {
-          if (walkRef.current === walk && !walk.heard) reach(b.from);
-        }, b.from * SPEAK_MS_PER_CHAR)
-      );
-    };
-    const done = () => {
-      setSpeaking(false);
-      if (walkRef.current === walk) stopWalk();
-    };
-    u.onend = done;
-    u.onerror = done;
-    synth.cancel();
-    stopWalk();
-    walkRef.current = walk;
-    if (beats.length) brief({ phase: "start" });
-    synth.speak(u);
-    setSpeaking(true);
-    window.dispatchEvent(new CustomEvent("studyhub-companion-talk", { detail: { ms: briefing.text.length * SPEAK_MS_PER_CHAR } }));
+    });
+    if (!handled) readAloud();
   };
 
   return (
@@ -120,7 +108,12 @@ export function BriefingPanel({ briefing, arriving, onStart, canStart, index = 0
           <ArrowIcon size={16} />
         </button>
         {speechAvailable() ? (
-          <button type="button" className="sh-btn-outline sh-btn-lg" onClick={toggleSpeech} aria-pressed={speaking}>
+          <button
+            type="button"
+            className="sh-btn-outline sh-btn-lg"
+            onClick={toggleSpeech}
+            aria-pressed={speaking}
+          >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M11 5L6 9H3v6h3l5 4z" />
               {speaking ? (

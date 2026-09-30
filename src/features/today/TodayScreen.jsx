@@ -3,7 +3,7 @@ import { courseStore } from "../../db/courseStore.js";
 import { openInBlackboard } from "../mirror/openInBlackboard.js";
 import { PANELS, inSlot, lastRects, useWorkspace } from "../../nova/workspace.js";
 import { openCourseView } from "./courseView.js";
-import { buildBriefing } from "./briefing.js";
+import { briefingContext, buildBriefing } from "./briefing.js";
 import { dueText } from "./todayView.js";
 import { useTodayModel } from "./useTodayModel.js";
 import { useArrival } from "./useArrival.js";
@@ -45,6 +45,7 @@ export function TodayScreen({ refreshKey = 0, onOpenCourse, onNavigate }) {
   const { layout, before } = useWorkspace();
 
   const briefing = useMemo(() => (view ? buildBriefing(view, { now: new Date(), dueText }) : { segments: [], text: "" }), [view]);
+  const briefingFacts = useMemo(() => (view ? briefingContext(view, { now: new Date(), dueText }) : null), [view]);
 
   const run = useCallback(
     (action) => {
@@ -70,7 +71,7 @@ export function TodayScreen({ refreshKey = 0, onOpenCourse, onNavigate }) {
   if (!loaded || !view) return <section className="sh-today2" aria-label="Today" aria-busy="true" />;
 
   const panels = {
-    briefing: <BriefingPanel briefing={briefing} arriving={arriving} canStart={view.tonight.length > 0} onStart={() => run(view.tonight[0]?.action)} index={1} />,
+    briefing: <BriefingPanel briefing={briefing} context={briefingFacts} arriving={arriving} canStart={view.tonight.length > 0} onStart={() => run(view.tonight[0]?.action)} index={1} />,
     tonight: <TonightList items={view.tonight} hasCourses={view.hasCourses} synced={view.synced} onRun={run} index={2} />,
     standing: (
       <StandingGauges

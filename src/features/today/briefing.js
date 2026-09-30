@@ -64,40 +64,42 @@ function standingSegments(standing) {
 const segText = (s) => (typeof s === "string" ? s : s.num);
 
 /**
- * { segments: (string | { num, tone })[], text, beats }. `beats` are the sentences Nova can walk
- * to while the briefing is read aloud: { from, to, target } with character offsets into `text`
- * and a `[data-nova-anchor]` name.
+ * Facts for Nova's spoken briefing scene (scenes/briefing.json), all from the Today view.
+ * Anything missing is null so the scene skips that part.
  */
+export function briefingContext(view, { now = new Date(), dueText }) {
+  const next = view?.tonight?.[0];
+  const rows = view?.standing?.courses || [];
+  const worst = rows[0];
+  const risk = worst?.state === "warn" && worst.courseUuid ? worst : null;
+  return {
+    greeting: greeting(now),
+    hasCourses: !!view?.hasCourses,
+    task: next
+      ? { title: next.title, course: next.courseLabel, when: lowerFirst(dueText(next.dueDate, next.daysUntil, next.type === ITEM_TYPES.EXAM_PREP)) || null }
+      : null,
+    overdue: view?.overdue?.length ? { count: view.overdue.length } : null,
+    risk: risk ? { uuid: risk.courseUuid, course: risk.label, current: formatPct(risk.current), gap: formatPct(risk.gap), letter: risk.targetLetter } : null,
+    onTrack: !risk && rows.some((r) => r.state === "ok"),
+  };
+}
+
+/** { segments: (string | { num, tone })[], text }: the panel's written briefing. */
 export function buildBriefing(view, { now = new Date(), dueText }) {
   const segments = [];
-  const beats = [];
-  let length = 0;
-  const push = (parts, target = null) => {
+  const push = (parts) => {
     const list = (Array.isArray(parts) ? parts : [parts]).filter(Boolean);
     if (!list.length) return;
-    if (segments.length) {
-      segments.push(" ");
-      length += 1;
-    }
-    const from = length;
-    for (const p of list) {
-      segments.push(p);
-      length += segText(p).length;
-    }
-    if (target) beats.push({ from, to: length, target });
+    if (segments.length) segments.push(" ");
+    segments.push(...list);
   };
   push(greeting(now));
   if (!view?.hasCourses) {
     push("Connect Blackboard and sync your courses, and I'll brief you here every day.");
   } else {
-    const tonight = view.tonight || [];
-    push(taskSentence(tonight, dueText), tonight.length ? "tonight.item.1" : null);
-    const overdue = view.overdue?.length || 0;
-    push(overdueSentence(overdue), overdue ? "overdue" : null);
-    const st = standingSegments(view.standing);
-    const worst = view.standing?.courses?.[0];
-    push(st, worst?.state === "warn" && worst.courseUuid ? `course.${worst.courseUuid}.gauge` : null);
+    push(taskSentence(view.tonight || [], dueText));
+    push(overdueSentence(view.overdue?.length || 0));
+    push(standingSegments(view.standing));
   }
-  const text = segments.map(segText).join("");
-  return { segments, text, beats };
+  return { segments, text: segments.map(segText).join("") };
 }

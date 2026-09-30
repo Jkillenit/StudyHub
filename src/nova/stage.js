@@ -28,6 +28,11 @@ export const HIGHLIGHT_STYLES = ["pulse", "glow", "underline", "warn", "danger"]
 export const sayMs = (text) => 700 + String(text).length * 40;
 
 const WAIT_INPUT_MS = 30 * 1000;
+/** Everything a scene can ask her to do. */
+export const ACTIONS = [
+  "walkTo", "lookAt", "pointAt", "highlight", "clearHighlights", "pinNote", "scrollTo", "openTab",
+  "focusPanel", "unfocus", "openPanel", "closePanel", "movePanel", "arrange", "say", "emote", "wait",
+];
 /** Matches the panel move animation on Today. */
 const MOVE_MS = 450;
 
@@ -88,13 +93,20 @@ export function createStage(deps) {
   };
 
   const stage = {
-    /** Run a scene `(stage) => Promise`. Resolves true if it finished, false if it was aborted. */
+    /**
+     * Run a scene `(stage) => Promise`. Resolves true if it finished, false if it was aborted.
+     * The scene gets a copy of the Stage bound to this run, so once it's aborted it can't act
+     * inside whatever runs next.
+     */
     async run(scene) {
       stage.abort();
       const r = { aborted: false };
       current = r;
+      const bound = { find: (anchor) => (current === r ? el(anchor) : Promise.resolve(null)) };
+      for (const k of ACTIONS) bound[k] = (...args) => (current === r ? stage[k](...args) : Promise.resolve(false));
+      Object.defineProperty(bound, "running", { get: () => current === r });
       try {
-        await scene(stage);
+        await scene(bound);
       } finally {
         if (current === r) {
           current = null;
@@ -185,10 +197,12 @@ export function createStage(deps) {
     }),
 
     /** A line key from the character library, or literal text when there's no such key. */
-    say: act(async (keyOrText, vars = {}) => {
+    /** `speak` also reads it aloud; she moves on once the voice finishes (capped, in case it never reports back). */
+    say: act(async (keyOrText, vars = {}, { speak = false } = {}) => {
       const text = deps.line(keyOrText, vars) || keyOrText;
-      deps.say(text);
-      await sleep(sayMs(text));
+      const spoken = deps.say(text, { speak });
+      const ms = sayMs(text);
+      await (spoken ? Promise.race([Promise.all([spoken, sleep(ms)]), sleep(ms * 3)]) : sleep(ms));
     }),
 
     emote: act(async (name) => {

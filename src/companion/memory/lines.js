@@ -4,12 +4,11 @@
  * used this week she skips that trigger and moves to the next thing she knows.
  */
 import { hourLabel, known } from "./derive.js";
+import { pick, voiceLevel } from "../../nova/voice.js";
 
 export const LINE_REPEAT_MS = 7 * 86400000;
 export const ABSENT_DAYS = 3;
 export const LATE_SLEEP_HOURS = [2, 5];
-const MAX_CHARS = 140;
-
 export const MEMORY_LINES = {
   introName: ["Well, hello there. I'm Nova. First things first: what should I call you?"],
   askName: ["Quick one before we start. What should I call you?", "Before anything else: what do I call you?"],
@@ -109,25 +108,13 @@ export const MEMORY_LINES = {
 /** Stable id for a variant, stored in companion_said. */
 export const lineId = (trigger, index) => `${trigger}#${index}`;
 
-function fill(text, vars) {
-  return text.replace(/\{(\w+)\}/g, (_, k) => String(vars[k]));
-}
-
-function hasVars(text, vars) {
-  return [...text.matchAll(/\{(\w+)\}/g)].every(([, k]) => vars[k] != null && vars[k] !== "");
-}
-
 /**
- * { id, text } for a variant not said within the repeat window whose placeholders are all
- * known, or null. `recent` is a Set of line ids said in the window.
+ * { id, trigger, text } for a variant not said within the repeat window whose placeholders are all
+ * known, at the current language level, or null. `recent` is a Set of line ids said in the window.
  */
 export function pickLine(trigger, vars = {}, { recent = new Set(), random = Math.random } = {}) {
-  const pool = MEMORY_LINES[trigger] || [];
-  const open = pool.map((text, i) => ({ id: lineId(trigger, i), text })).filter((v) => !recent.has(v.id) && hasVars(v.text, vars));
-  if (!open.length) return null;
-  const pick = open[Math.floor(random() * open.length)];
-  const text = fill(pick.text, vars);
-  return { id: pick.id, trigger, text: text.length > MAX_CHARS ? `${text.slice(0, MAX_CHARS - 1)}…` : text };
+  const got = pick(MEMORY_LINES, trigger, vars, { level: voiceLevel(), recent, random, strict: true });
+  return got && { ...got, trigger };
 }
 
 /** Hours with the small hours rolled onto the evening before (1am = 25). */

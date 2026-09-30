@@ -1,0 +1,46 @@
+{
+  "id": "briefing.today",
+  "priority": "proactive",
+  "cooldown": "20h",
+  "steps": [
+    { "do": "say", "line": "briefing.opener" },
+    {
+      "if": "hasCourses",
+      "then": [
+        {
+          "if": "task",
+          "then": [
+            { "do": "openPanel", "panel": "tonight" },
+            { "do": "walkTo", "anchor": "tonight.item.1" },
+            { "do": "pointAt", "anchor": "tonight.item.1" },
+            { "do": "highlight", "anchor": "tonight.item.1", "style": "glow" },
+            { "do": "say", "line": "briefing.task" }
+          ],
+          "else": [{ "do": "say", "line": "briefing.clear" }]
+        },
+        {
+          "if": "overdue",
+          "then": [
+            { "do": "walkTo", "anchor": "overdue" },
+            { "do": "highlight", "anchor": "overdue", "style": "danger" },
+            { "do": "say", "line": "briefing.overdue" }
+          ]
+        },
+        {
+          "if": "risk",
+          "then": [
+            { "do": "openPanel", "panel": "standing" },
+            { "do": "walkTo", "anchor": "course.{risk.uuid}.gauge" },
+            { "do": "pointAt", "anchor": "course.{risk.uuid}.gauge" },
+            { "do": "highlight", "anchor": "course.{risk.uuid}.gauge", "style": "warn" },
+            { "do": "say", "line": "briefing.risk" }
+          ],
+          "else": [{ "if": "onTrack", "then": [{ "do": "say", "line": "briefing.onTrack" }] }]
+        },
+        { "do": "lookAt", "target": "user" },
+        { "do": "say", "line": "briefing.closer" }
+      ],
+      "else": [{ "do": "say", "line": "briefing.noCourses" }]
+    }
+  ]
+}

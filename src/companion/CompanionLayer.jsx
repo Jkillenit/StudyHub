@@ -62,6 +62,7 @@ import { useWorkspace, workspace } from "../nova/workspace.js";
 import { arrangeWorkspace } from "../nova/scenes/arrange.js";
 import { stageDemo } from "../nova/scenes/stageDemo.js";
 import { onScreen } from "../nova/anchors.js";
+import { setVoiceLevel } from "../nova/voice.js";
 import { HelpBubble } from "./HelpBubble.jsx";
 import { CompanionSettings } from "./CompanionSettings.jsx";
 import firstRun from "./tours/first-run.json";
@@ -357,6 +358,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     stageRef.current = createStage(Object.fromEntries(keys.map((k) => [k, via(k)])));
   }
   const focusedRef = useRef(null);
+  /** The utterance a scene is speaking aloud, so aborting the scene can silence it. */
+  const speakingRef = useRef(null);
   const memory = useCompanionMemory({
     enabled: !!cstate?.enabled,
     onNews: (news) => api.current.onMemoryNews?.(news),
@@ -2042,7 +2045,10 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   /* What the Stage does with her body and the page. Rebuilt every render so it sees fresh state. */
   api.current.stageDeps = {
-    stop: cancel,
+    stop: () => {
+      cancel();
+      if (speakingRef.current) window.speechSynthesis.cancel();
+    },
     walkTo: async (el) => {
       el.scrollIntoView?.({ block: "nearest", inline: "nearest" });
       await nextFrame();
@@ -2083,9 +2089,22 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       focusedRef.current = null;
       delete document.body.dataset.novaFocusing;
     },
-    say: (text) => {
+    say: (text, { speak = false } = {}) => {
       refreshAnchor();
       say(text);
+      if (!speak || !("speechSynthesis" in window)) return undefined;
+      return new Promise((resolve) => {
+        const u = new SpeechSynthesisUtterance(text);
+        u.onstart = () => setTalkUntil(performance.now() + 60 * 1000);
+        u.onend = u.onerror = () => {
+          if (speakingRef.current === u) speakingRef.current = null;
+          setTalkUntil(0);
+          resolve();
+        };
+        speakingRef.current = u;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(u);
+      });
     },
     line,
     mood: setMood,
@@ -2099,13 +2118,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       const typing = el.contains(a) && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
       return typing || !!el.querySelector('[aria-expanded="true"]');
     },
-  };
-
-  api.current.briefBeat = (target) => {
-    if (modeRef.current !== "brief") return;
-    void stageRef.current.run(async (stage) => {
-      if (await stage.walkTo(target)) await stage.pointAt(target);
-    });
   };
 
   /** Run a Stage scene: she stops what she's doing, performs it, then heads back. Any input cuts it short. False if she can't start. */
@@ -2133,21 +2145,17 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   };
 
   useEffect(() => {
-    const onBrief = (e) => {
-      const d = e.detail || {};
-      if (d.phase === "start") api.current.briefStart();
-      else if (d.phase === "beat") void api.current.briefBeat(d.target);
-      else if (d.phase === "end") api.current.briefEnd();
-    };
+    void window.studyHub?.desktop?.get?.().then((d) => setVoiceLevel(d?.settings?.level));
+  }, []);
+
+  useEffect(() => {
     const onScene = (e) => {
       const d = e.detail;
       if (typeof d?.scene === "function") d.handled = api.current.playScene(d.scene);
     };
     const stage = stageRef.current;
-    window.addEventListener("studyhub-companion-brief", onBrief);
     window.addEventListener("studyhub-companion-scene", onScene);
     return () => {
-      window.removeEventListener("studyhub-companion-brief", onBrief);
       window.removeEventListener("studyhub-companion-scene", onScene);
       stage.abort();
     };

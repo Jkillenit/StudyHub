@@ -1,4 +1,9 @@
-/** Everything that makes Nova "Nova". Swap this file to change the companion's voice. */
+import { pick, voiceLevel } from "../nova/voice.js";
+
+/**
+ * Everything that makes Nova "Nova". Swap this file to change the companion's voice.
+ * Lines that curse only play at Salty/Unfiltered; every key needs at least one clean variant.
+ */
 export const character = {
   name: "Nova",
   species: "hologram",
@@ -8,8 +13,12 @@ export const character = {
   lines: {
     firstLaunch: [
       "Well, hello there. I'm Nova. I run this place; you just get the credit. Want the tour, or do you like figuring shit out the hard way?",
+      "Well, hello there. I'm Nova. I run this place; you just get the credit. Want the tour, or do you like doing things the hard way?",
     ],
-    tourOffer: ["So, {name}. I run this place; you just get the credit. Want the tour, or do you like figuring shit out the hard way?"],
+    tourOffer: [
+      "So, {name}. I run this place; you just get the credit. Want the tour, or do you like figuring shit out the hard way?",
+      "So, {name}. I run this place; you just get the credit. Want the tour, or do you like doing things the hard way?",
+    ],
     tourOfferAnon: ["Mysterious. I like it. I run this place; you just get the credit. Want the tour, or the hard way?"],
     idleClick: [
       "Miss me already? Quiz, tour, or did you just want to look? Go ahead. I'll allow it.",
@@ -27,6 +36,37 @@ export const character = {
     arrangeBriefing: ["Briefing layout. Tonight up top, where you can't ignore it.", "Back to the usual. Tonight first, excuses later."],
     arrangeGrades: ["Grades front and center. Brace yourself.", "Let's look at the damage. Standing goes up top."],
     arrangeTidy: ["Filing everything. My desk, my rules.", "Tidying up. Don't touch anything."],
+    "briefing.opener": [
+      "{greeting} Here's the sitrep.",
+      "{greeting} Briefing time. Try to keep up.",
+      "{greeting} Let's see what we're dealing with.",
+      "{greeting} Short version, because I know you.",
+    ],
+    "briefing.task": [
+      "First objective: {task.title} for {task.course}, {task.when}.",
+      "Top of the list: {task.title} in {task.course}, {task.when}.",
+      "{task.title} for {task.course} is priority one.",
+      "Start with {task.title} for {task.course}. Seriously. Start with it.",
+      "{task.title} for {task.course}, {task.when}. Knock it out, then complain all you damn want.",
+    ],
+    "briefing.clear": [
+      "Nothing due in the next two weeks. Suspicious, but I'll take it.",
+      "Your list is empty. Get ahead on cards while it lasts.",
+      "No deadlines. Enjoy it. Quietly. With flashcards.",
+    ],
+    "briefing.overdue": [
+      "Overdue: {overdue.count}. If you turned them in, mark them. If not, we have a problem.",
+      "{overdue.count} overdue. Mark what's in, then we deal with the rest.",
+      "{overdue.count} overdue. If you turned them in, tell me. If you didn't... well, shit.",
+    ],
+    "briefing.risk": [
+      "{risk.course} is your pressure point: {risk.current}%, {risk.gap} points under a {risk.letter}.",
+      "{risk.course} sits at {risk.current}%. That's {risk.gap} below a {risk.letter}. Fixable.",
+      "{risk.course}: {risk.current}%, {risk.gap} under the {risk.letter}. Not a disaster. Yet. Hell, we can fix it.",
+    ],
+    "briefing.onTrack": ["Every graded course is on target. Don't get comfortable.", "Grades are on target across the board. I'm almost impressed."],
+    "briefing.closer": ["That's the sitrep. Your move.", "Briefing over. Go be productive.", "That's it. I'll be here, judging supportively.", "Done. Now go do the thing."],
+    "briefing.noCourses": ["Connect Blackboard and sync your courses, and I'll brief you here every day.", "No courses yet. Sync Blackboard and I'll have plenty to say."],
     correct: [
       "Correct. Keep that up and I might start blushing.",
       "Look at you. Smart is a damn good look on you.",
@@ -142,7 +182,10 @@ export const character = {
     partial: ["I'll give you that one. Watch the spelling next time, you animal."],
     hint: ["Starts with \"{first}\". Half points, but I won't judge. Much."],
     noCards: ["No flashcards yet. Import some slides and I'll have something to grill you on."],
-    dunno: ["No clue on that one yet. Give me an API key and I can answer damn near anything about the app."],
+    dunno: [
+      "No clue on that one yet. Give me an API key and I can answer damn near anything about the app.",
+      "No clue on that one yet. Give me an API key and I can answer almost anything about the app.",
+    ],
     levelUp: [
       "Level {level}. Keep this up and I'll have to start taking you seriously.",
       "Level {level}. Look who's growing up. I'm almost proud. Almost.",
@@ -230,12 +273,18 @@ If you don't know something about the app, say so and suggest the tour.
 Only reference UI elements from the provided UI manifest, by id.`,
 };
 
-/** Pick a line, fill {placeholders}, and keep it bubble-sized. */
+/** Lines said this session, oldest first; she avoids repeating them until they age out. */
+const RECENT_MAX = 60;
+const recent = new Set();
+
+/** Pick a line at the current language level, fill {placeholders}, avoid recent repeats. "" for an unknown key. */
 export function line(key, vars = {}) {
-  const pool = character.lines[key] || [""];
-  const raw = pool[Math.floor(Math.random() * pool.length)];
-  const out = raw.replace(/\{(\w+)\}/g, (_, k) => (vars[k] ?? "").toString());
-  return out.length > character.maxBubbleChars ? `${out.slice(0, character.maxBubbleChars - 1)}…` : out;
+  const got = pick(character.lines, key, vars, { level: voiceLevel(), recent });
+  if (!got) return "";
+  recent.delete(got.id);
+  recent.add(got.id);
+  if (recent.size > RECENT_MAX) recent.delete(recent.values().next().value);
+  return got.text;
 }
 
 /** Finish-line tier by accuracy. */

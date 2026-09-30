@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { TINTS, MOVEMENT_LEVELS, SIZES, XP_AWARDS, levelProgress, unlockedTints } from "./companionStore.js";
+import { setVoiceLevel, voiceLevel } from "../nova/voice.js";
 
 function Segmented({ label, value, options, onChange }) {
   return (
@@ -59,6 +60,25 @@ const NOTIFY = [
   ["due", "DUE IN 30 MINUTES", null],
 ];
 
+/** How much Nova swears, in the app and on the desktop. Stored with the desktop settings, where both read it. */
+function LanguageRow() {
+  const bridge = window.studyHub?.desktop;
+  const [value, setValue] = useState(voiceLevel);
+  useEffect(() => {
+    let alive = true;
+    bridge?.get().then((d) => alive && d?.settings?.level && setValue(d.settings.level));
+    return () => {
+      alive = false;
+    };
+  }, [bridge]);
+  const change = (v) => {
+    setValue(v);
+    setVoiceLevel(v);
+    void bridge?.set({ level: v });
+  };
+  return <Segmented label="LANGUAGE" value={value} options={LANGUAGE} onChange={change} />;
+}
+
 /** Desktop Nova: off by default; she lives on the desktop outside the app window. */
 function DesktopSection() {
   const bridge = window.studyHub?.desktop;
@@ -92,7 +112,6 @@ function DesktopSection() {
         <>
           {why ? <p className="sc-set-hint">{why}</p> : null}
           <Segmented label="DESKTOP SIZE" value={s.size} options={DESKTOP_SIZES} onChange={(v) => save({ size: v })} />
-          <Segmented label="LANGUAGE" value={s.level} options={LANGUAGE} onChange={(v) => save({ level: v })} />
           <Toggle
             label="HIDE DURING MEETINGS"
             hint="Zoom, Teams, Meet, Webex, Discord and screen shares. Fullscreen apps and slideshows always hide her."
@@ -189,6 +208,7 @@ export function CompanionSettings({ state, onChange, onClose, onResetTours, onRe
         checked={state.nudges}
         onChange={(v) => onChange({ nudges: v })}
       />
+      <LanguageRow />
       <Toggle label="SOUND" hint="Hologram chirps and glitches" checked={!!state.sound} onChange={(v) => onChange({ sound: v })} />
       <Segmented
         label="SIZE"
