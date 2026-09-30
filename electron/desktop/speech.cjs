@@ -12,18 +12,32 @@ function bubbleMs(text, buttons) {
   return Math.min(9000, Math.max(4000, 2500 + text.length * 55));
 }
 
-/** Variants for a line id at a language level ("normal" is the fallback). */
-function variants(lines, id, level) {
+/** Cleaner levels a line may fall back to; never toward saltier. */
+const FALLBACK = { unfiltered: ["unfiltered", "salty", "clean"], salty: ["salty", "clean"], clean: ["clean"] };
+
+/**
+ * Variants for a line id. Plain arrays are safe at every level. Objects hold per-level lists
+ * ({ clean, salty, unfiltered }, legacy "normal" = salty) and an optional `serious` list, used
+ * when serious mode applies; without one, serious mode falls back to the clean wording.
+ */
+function variants(lines, id, level, serious = false) {
   const entry = lines?.[id];
   if (Array.isArray(entry)) return entry;
-  if (entry && typeof entry === "object") return entry[level] || entry.normal || [];
+  if (!entry || typeof entry !== "object") return [];
+  if (serious && entry.serious?.length) return entry.serious;
+  for (const l of FALLBACK[serious ? "clean" : level] || FALLBACK.salty) {
+    const list = entry[l] || (l === "salty" ? entry.normal : null);
+    if (list?.length) return list;
+  }
   return [];
 }
 
 function fill(text, vars) {
   let out = text;
-  if (!vars.name) out = out.replace(/,?\s*\{name\}/g, "");
-  return out.replace(/\{(\w+)\}/g, (_, k) => (vars[k] == null ? "" : String(vars[k]))).trim();
+  const leading = !vars.name && /^\{name\}/.test(out);
+  if (!vars.name) out = out.replace(/^\{name\}[,.!]?\s*/, "").replace(/,?\s*\{name\}/g, "");
+  out = out.replace(/\{(\w+)\}/g, (_, k) => (vars[k] == null ? "" : String(vars[k]))).trim();
+  return leading ? out.charAt(0).toUpperCase() + out.slice(1) : out;
 }
 
 /**
@@ -35,25 +49,39 @@ function fill(text, vars) {
  * @param deps.level () => string
  * @param deps.markSaid (lineId) => void
  * @param deps.busy () => boolean   a notification bubble is up (other notifications wait their turn)
+ * @param deps.serious (lineId) => boolean   serious mode for this line (pack list, 2 AM)
  */
-function createSpeech({ lines, show, isHidden, companion, name, level, markSaid = () => {}, busy = () => false, now = Date.now, random = Math.random }) {
+function createSpeech({
+  lines,
+  show,
+  isHidden,
+  companion,
+  name,
+  level,
+  markSaid = () => {},
+  busy = () => false,
+  serious = () => false,
+  now = Date.now,
+  random = Math.random,
+}) {
   const events = new EventEmitter();
   const last = new Map();
   let lastUnprompted = 0;
   let queue = [];
   let seq = 0;
 
-  function pick(lineId) {
-    const list = variants(lines, lineId, level());
+  function pick(lineId, grave) {
+    const list = variants(lines, lineId, level(), grave);
     if (!list.length) return null;
+    const key = `${lineId}|${grave ? "s" : level()}`;
     let i = Math.floor(random() * list.length);
-    if (list.length > 1 && i === last.get(lineId)) i = (i + 1) % list.length;
-    last.set(lineId, i);
+    if (list.length > 1 && i === last.get(key)) i = (i + 1) % list.length;
+    last.set(key, i);
     return list[i];
   }
 
   function deliver(item) {
-    const raw = pick(item.lineId);
+    const raw = pick(item.lineId, !!item.serious || serious(item.lineId));
     if (!raw) return false;
     const text = fill(raw, { name: name(), ...(item.vars || {}) });
     const bubble = { ...(item.extra || {}), id: ++seq, lineId: item.lineId, text, buttons: item.buttons || null };
@@ -71,6 +99,7 @@ function createSpeech({ lines, show, isHidden, companion, name, level, markSaid 
    * @param item.buttons [{ id, label }] shown under the line
    * @param item.extra fields merged into the bubble (pose, prop, data)
    * @param item.expiresAt drop it from the queue after this time
+   * @param item.serious jokes off for this line (bad grade, big drop)
    * @returns "shown" | "queued" | "dropped"
    */
   function say(item) {

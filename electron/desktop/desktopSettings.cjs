@@ -7,7 +7,7 @@ const { getDb } = require("../database.cjs");
 
 const KEY = "desktop";
 const SIZES = new Set(["sm", "md", "lg"]);
-const LEVELS = new Set(["clean", "normal"]);
+const LEVELS = new Set(["clean", "salty", "unfiltered"]);
 
 const DEFAULTS = Object.freeze({
   enabled: false,
@@ -17,8 +17,8 @@ const DEFAULTS = Object.freeze({
   closeToTrayExplained: false,
   /** ISO timestamp; she stays hidden until then ("Hide for 1 hour" / "Hide until tomorrow"). */
   hiddenUntil: null,
-  /** Placeholder until language levels ship in the main companion settings. */
-  level: "normal",
+  /** Clean / Salty / Unfiltered. Moves to the main companion settings with the shared voice system. */
+  level: "salty",
   /** Which Blackboard news she brings to the desktop. */
   notify: Object.freeze({ grades: true, announcements: true, assignments: true, due: true }),
   /** Set by Disconnect so a cleared session isn't reported as "Blackboard logged me out". */
@@ -42,6 +42,7 @@ function sanitize(raw) {
   const n = out.notify && typeof out.notify === "object" ? out.notify : {};
   out.notify = Object.fromEntries(Object.keys(DEFAULTS.notify).map((k) => [k, n[k] !== false]));
   if (!SIZES.has(out.size)) out.size = DEFAULTS.size;
+  if (out.level === "normal") out.level = "salty";
   if (!LEVELS.has(out.level)) out.level = DEFAULTS.level;
   if (out.hiddenUntil && !Number.isFinite(Date.parse(out.hiddenUntil))) out.hiddenUntil = null;
   return out;

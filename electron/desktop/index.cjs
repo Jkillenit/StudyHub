@@ -14,6 +14,7 @@ const { createNova } = require("./novaState.cjs");
 const { createSpeech } = require("./speech.cjs");
 const { createTray } = require("./tray.cjs");
 const { createBbWatcher } = require("./bbWatcher.cjs");
+const { shortCourse } = require("./courseName.cjs");
 const { getDb } = require("../database.cjs");
 
 const PACK_ID = "nova";
@@ -53,10 +54,15 @@ const num = (v) => String(Math.round(Number(v) * 10) / 10);
 function courseInfo(uuid) {
   try {
     const c = getDb().prepare("SELECT name, course_code, target_grade FROM courses WHERE uuid = ?").get(uuid);
-    return c ? { label: clip(c.course_code || c.name, 30), target: Number.isFinite(c.target_grade) ? c.target_grade : 80 } : null;
+    return c ? { label: clip(shortCourse(c.course_code || c.name), 30), target: Number.isFinite(c.target_grade) ? c.target_grade : 80 } : null;
   } catch {
     return null;
   }
+}
+
+/** Past 2 AM: jokes off (NOVA_VOICE serious mode). */
+function lateNight(d = new Date()) {
+  return d.getHours() >= 2 && d.getHours() < 5;
 }
 
 function formatDue(iso) {
@@ -194,14 +200,17 @@ function registerDesktop({ getMainWindow, showMainWindow }) {
   function revealGrade(g) {
     const pct = g.pointsPossible ? (g.score / g.pointsPossible) * 100 : null;
     const score = g.pointsPossible ? `${num(g.score)}/${num(g.pointsPossible)}` : num(g.score);
+    const drop = g.changed && Number.isFinite(g.prevScore) ? (g.prevScore - g.score) * (g.pointsPossible ? 100 / g.pointsPossible : 1) : 0;
     let lineId = "desktop.gradePlain";
     if (pct != null) lineId = pct >= g.target ? "desktop.gradeGood" : pct >= g.target - 5 ? "desktop.gradeOk" : "desktop.gradeLow";
+    if (drop > 5) lineId = "desktop.gradeDropped";
     nova.clearBubble();
     speech.say({
       lineId,
       priority: 3,
+      serious: drop > 5 || (pct != null && pct < 60),
       vars: { ...g.vars, score },
-      buttons: [{ id: "grades", label: lineId === "desktop.gradeLow" ? "Show me" : "See grades" }],
+      buttons: [{ id: "grades", label: lineId === "desktop.gradeLow" || lineId === "desktop.gradeDropped" ? "Show me" : "See grades" }],
       extra: { pose: lineId === "desktop.gradeGood" ? "celebrate" : undefined, data: { action: "grades", courseUuid: g.courseUuid } },
     });
   }
@@ -290,6 +299,7 @@ function registerDesktop({ getMainWindow, showMainWindow }) {
       level: () => settings.get().level,
       markSaid,
       busy: () => !!nova?.bubble()?.data,
+      serious: (lineId) => (pack.serious || []).includes(lineId) || lateNight(),
     });
     watcher = createHideWatcher({
       probe: () => ({ snap: snapshot(), displays: displays() }),

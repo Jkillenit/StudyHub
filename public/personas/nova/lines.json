@@ -1,97 +1,95 @@
 {
-  "desktop.arrive": [
-    "Out of the box. Nice view out here.",
-    "Desktop mode. I'll keep to the edges, promise.",
-    "Hi, {name}. I'll be down here if you need me."
-  ],
-  "desktop.return": [
-    "Back. Did I miss anything?",
-    "And I'm back.",
-    "Okay, coast is clear. Hi again."
-  ],
-  "desktop.click": [
-    "What's up, {name}?",
-    "You rang?",
-    "Need something, or just checking I'm real?",
-    "Still here. Still watching the clock for you."
-  ],
+  "desktop.arrive": {
+    "clean": [
+      "Out of the box. Nice view out here.",
+      "Desktop mode. I'll keep to the edges. Mostly.",
+      "Hi, {name}. I'll be down here, judging quietly."
+    ],
+    "salty": [
+      "Out of the box. Hell of a view.",
+      "Desktop mode. I'll keep to the edges. Mostly.",
+      "Hi, {name}. I'll be down here, judging quietly."
+    ],
+    "serious": ["I'm here. It's late, so I'll keep it quiet."]
+  },
+  "desktop.return": {
+    "clean": ["And I'm back.", "Coast is clear. Did I miss anything?", "Respawned."],
+    "salty": ["And I'm back.", "Coast is clear. Did I miss a damn thing?", "Respawned."],
+    "serious": ["Back. It's late. Ten minutes, then bed?"]
+  },
+  "desktop.click": {
+    "clean": [
+      "What's up, {name}?",
+      "You rang?",
+      "Checking I'm real? I am. Unfortunately for both of us.",
+      "Don't worry, I'm not going to ask if you're writing a letter. I have standards."
+    ],
+    "salty": [
+      "What's up, {name}?",
+      "You rang?",
+      "Checking I'm real? I am. Unfortunately for both of us.",
+      "I'm not a stress ball. Well, not officially."
+    ],
+    "unfiltered": [
+      "What's up, {name}?",
+      "You rang?",
+      "Poke me one more time. See what happens.",
+      "I'm not a stress ball. What the hell do you want?"
+    ],
+    "serious": ["Real talk. It's past 2. Wrap it up and get some sleep. I'll still be here."]
+  },
   "desktop.hideHour": {
-    "normal": ["Fine. One hour. I'll be counting.", "An hour off. Don't do anything I wouldn't do."],
-    "clean": ["Okay, see you in an hour.", "One hour. I'll be around."]
+    "clean": ["One hour. I'll be counting.", "An hour off. Don't do anything I wouldn't do."],
+    "salty": ["Fine. One hour. I'll be counting.", "An hour off. Don't do anything stupid as hell."]
   },
-  "desktop.hideTomorrow": [
-    "Night off. See you tomorrow.",
-    "Got it. Tomorrow, then."
-  ],
-  "desktop.enterApp": [
-    "Heading inside.",
-    "Meet you in there."
-  ],
-  "desktop.leaveApp": [
-    "I'll wait out here.",
-    "Back to my spot."
-  ],
+  "desktop.hideTomorrow": ["Night off. See you tomorrow.", "Got it. Tomorrow, then.", "Logging off. Try to miss me."],
+  "desktop.enterApp": ["Heading inside.", "Meet you in there."],
+  "desktop.leaveApp": ["I'll wait out here.", "Back to my spot."],
   "desktop.dropped": {
-    "normal": ["Rude. But fine.", "Hey! Warn a girl first.", "Okay, okay, I'm down."],
-    "clean": ["Whoa. Okay, I'm down.", "Landed. All good."]
+    "clean": ["Graceful.", "I stuck the landing. You saw that.", "Warn a girl first."],
+    "salty": ["Graceful.", "I stuck the landing. You saw that.", "Damn. Warn a girl first."],
+    "unfiltered": ["Graceful.", "I stuck the landing. You saw that.", "Shit. Warn a girl first."]
   },
-  "desktop.picked": [
-    "Where are we going?",
-    "Put me down somewhere nice.",
-    "Whoa, heights."
-  ],
-  "desktop.idle": [
-    "Taskbar's comfy, for the record.",
-    "Just stretching my legs.",
-    "Quiet in here today."
-  ],
+  "desktop.picked": {
+    "clean": ["Hey. Put me down.", "Where are we going?", "This is a hate crime against software."],
+    "salty": ["Hey. Put me down.", "Where the hell are we going?", "This is a hate crime against software."]
+  },
+  "desktop.idle": ["Taskbar's comfy, for the record.", "Loading screen tip: studying works better if you study.", "I don't sleep. I idle. Big difference."],
   "desktop.trayNotice": [
     "Study Hub is still running in the tray so I can keep an eye on Blackboard. Quit from the tray icon to close it all the way."
   ],
   "desktop.gradeEnvelope": [
-    "Something came in from {course}. Want to open it?",
     "Mail from {course}. It's a grade.",
-    "{course} posted a grade. Ready?"
+    "{course} posted a grade. Ready?",
+    "Something came in from {course}. Want to open it?"
   ],
-  "desktop.gradeChanged": [
-    "{course} changed a grade. Want to see?",
-    "A grade in {course} got updated."
-  ],
+  "desktop.gradeChanged": ["{course} changed a grade. Want to see?", "A grade in {course} got updated."],
   "desktop.gradeGood": {
-    "normal": ["{item}: {score}. Look at you, {name}.", "{score} on {item}. Told you.", "{item}, {score}. That's above your target. Nice."],
-    "clean": ["{item}: {score}. Nice work, {name}.", "{score} on {item}. Above your target."]
+    "clean": ["{item}: {score}. On purpose? Look at you.", "{score} on {item}. I'd say I'm proud, but it'd go straight to your head.", "{item}, {score}. Above target. Clean."],
+    "salty": ["{item}: {score}. On purpose? Look at you.", "{score} on {item}. Damn. I'd say I'm proud, but it'd go straight to your head.", "{item}, {score}. Above target. Clean."],
+    "unfiltered": ["{item}: {score}. On purpose? Look at you.", "{score} on {item}. Hell yes.", "{item}, {score}. Who the hell are you and what did you do with my operator?"]
   },
-  "desktop.gradeOk": [
-    "{item}: {score}. Right around your target.",
-    "{score} on {item}. Close to where you want to be."
-  ],
-  "desktop.gradeLow": [
-    "{item}: {score}. Below your target. Want to look at where it went?",
-    "{score} on {item}. Not what we wanted. Let's look at it."
-  ],
-  "desktop.gradePlain": [
-    "{item}: {score}.",
-    "{course} graded {item}: {score}."
-  ],
-  "desktop.announcement": [
-    "{course} posted an announcement.",
-    "New from {course}."
-  ],
-  "desktop.assignment": [
-    "New assignment in {course}: {item}. I'm just the messenger.",
-    "{course} added {item}. Don't shoot the messenger."
-  ],
-  "desktop.dueChanged": [
-    "{item} in {course} moved to {due}.",
-    "Heads up, {item} is now due {due}."
-  ],
-  "desktop.due30": [
-    "{item} is due in 30 minutes.",
-    "Knock knock. {item}, 30 minutes.",
-    "{name}, {item} closes in half an hour."
-  ],
-  "desktop.bbExpired": [
-    "Blackboard logged me out. Sign in again so I can keep checking?",
-    "My Blackboard session expired. Mind logging back in?"
-  ]
+  "desktop.gradeOk": ["{item}: {score}. Right around your target.", "{score} on {item}. Close to where we want it."],
+  "desktop.gradeLow": {
+    "serious": ["Hey. {item} came back {score}. That one stings. Let's look at what it takes to get back.", "{item}: {score}. Below where we want it. Here's what it takes to recover."]
+  },
+  "desktop.gradeDropped": {
+    "serious": ["{course} changed {item} to {score}. That's a real drop. Let's look at it.", "{item} went down to {score}. Let's see what it does to your standing."]
+  },
+  "desktop.gradePlain": ["{item}: {score}.", "{course} graded {item}: {score}."],
+  "desktop.announcement": ["{course} posted an announcement.", "New from {course}.", "UAV online. {course} just said something."],
+  "desktop.assignment": {
+    "clean": ["New assignment in {course}: {item}. I'm just the messenger.", "{course} added {item}. Don't shoot the messenger."],
+    "salty": ["New assignment in {course}: {item}. I'm just the messenger.", "{course} added {item}. Oh good, my favorite."],
+    "unfiltered": ["New assignment in {course}: {item}. I'm just the messenger.", "{course} added {item}. Well, shit."]
+  },
+  "desktop.dueChanged": ["{item} in {course} moved to {due}.", "Heads up, {item} is now due {due}."],
+  "desktop.due30": {
+    "clean": ["Knock knock. {item}, 30 minutes.", "{item} is due in 30 minutes.", "{name}, {item} closes in half an hour."],
+    "salty": ["Knock knock. {item}, 30 minutes.", "{item} is due in 30 minutes. Move your ass.", "{name}, {item} closes in half an hour."]
+  },
+  "desktop.bbExpired": {
+    "clean": ["Blackboard logged me out. Sign in again so I can keep checking?", "My Blackboard session expired. Mind logging back in?"],
+    "salty": ["Blackboard logged me out. Sign in again so I can keep checking?", "Blackboard kicked me out again. Pain in the ass. Log back in?"]
+  }
 }

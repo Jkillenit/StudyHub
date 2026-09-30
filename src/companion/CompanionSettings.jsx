@@ -35,6 +35,11 @@ function Toggle({ label, checked, onChange, hint }) {
   );
 }
 
+const LANGUAGE = [
+  { value: "clean", label: "CLEAN" },
+  { value: "salty", label: "SALTY" },
+  { value: "unfiltered", label: "UNFILTERED" },
+];
 const DESKTOP_SIZES = [
   { value: "sm", label: "S" },
   { value: "md", label: "M" },
@@ -87,6 +92,7 @@ function DesktopSection() {
         <>
           {why ? <p className="sc-set-hint">{why}</p> : null}
           <Segmented label="DESKTOP SIZE" value={s.size} options={DESKTOP_SIZES} onChange={(v) => save({ size: v })} />
+          <Segmented label="LANGUAGE" value={s.level} options={LANGUAGE} onChange={(v) => save({ level: v })} />
           <Toggle
             label="HIDE DURING MEETINGS"
             hint="Zoom, Teams, Meet, Webex, Discord and screen shares. Fullscreen apps and slideshows always hide her."

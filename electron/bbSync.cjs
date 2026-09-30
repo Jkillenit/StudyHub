@@ -245,6 +245,17 @@ function gradeScore(g) {
   return null;
 }
 
+/**
+ * True when the student's own grade row shows a submission: a score, "needs grading", or an attempt.
+ * ponytail: heuristic over the grade shapes we already fetch; read the attempts endpoint if Blackboard hides these.
+ */
+function gradeSubmitted(g) {
+  if (!g) return false;
+  if (gradeScore(g) != null) return true;
+  if (/needs\s*grading/i.test(String(g.status || g.gradeStatus || ""))) return true;
+  return [g.attemptsCount, g.attemptCount, g.pendingAttemptsCount, g.totalAttempts].some((n) => Number(n) > 0) || !!g.lastAttemptId;
+}
+
 function gradeColumnId(g) {
   return g?.columnId || g?.gradebookColumnId || g?.column?.id || null;
 }
@@ -322,6 +333,7 @@ async function collectGradebook(bbCourseId) {
         kind: assignmentKind(name),
         pointsPossible: Number(c.score?.possible) || null,
         score: gradeScore(grade),
+        submitted: gradeSubmitted(grade),
         url: `${BB_ORIGIN}/ultra/courses/${bbCourseId}/grades`,
       };
     });
@@ -482,4 +494,5 @@ module.exports = {
   resetUserCache,
   setPageFetcher,
   getCourseInfo,
+  gradeSubmitted,
 };

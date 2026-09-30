@@ -84,12 +84,13 @@ function applyBbSync(db, courseUuid, payload) {
     });
 
     const asgStmt = db.prepare(`
-      INSERT INTO assignments (uuid, course_id, bb_id, title, due_date, kind, url, points_possible, score, source, updated_at)
-      VALUES (@uuid, @courseId, @bbId, @title, @dueDate, @kind, @url, @points, @score, 'blackboard', datetime('now'))
+      INSERT INTO assignments (uuid, course_id, bb_id, title, due_date, kind, url, points_possible, score, submitted, source, updated_at)
+      VALUES (@uuid, @courseId, @bbId, @title, @dueDate, @kind, @url, @points, @score, @submitted, 'blackboard', datetime('now'))
       ON CONFLICT(course_id, bb_id) WHERE bb_id IS NOT NULL DO UPDATE SET
         title = excluded.title, due_date = excluded.due_date, kind = excluded.kind, url = excluded.url,
         points_possible = excluded.points_possible,
         score = COALESCE(excluded.score, assignments.score),
+        submitted = MAX(excluded.submitted, assignments.submitted),
         updated_at = excluded.updated_at
     `);
     (payload?.assignments || []).forEach((a) => {
@@ -104,6 +105,7 @@ function applyBbSync(db, courseUuid, payload) {
         url: a.url || null,
         points: Number.isFinite(a.pointsPossible) ? a.pointsPossible : null,
         score: Number.isFinite(a.score) ? a.score : null,
+        submitted: a.submitted ? 1 : 0,
       });
       counts.assignments += 1;
     });
@@ -167,7 +169,7 @@ function todayData(db, courseUuid = null) {
   `);
   const assignmentStmt = db.prepare(`
     SELECT uuid, bb_id, component_id, title, kind, due_date, completed, score, points_possible, url, source
-    FROM assignments WHERE course_id = ? AND completed = 0 AND due_date IS NOT NULL AND due_date >= ?
+    FROM assignments WHERE course_id = ? AND completed = 0 AND submitted = 0 AND due_date IS NOT NULL AND due_date >= ?
     ORDER BY due_date ASC
   `);
   const countStmt = db.prepare("SELECT component_id, bb_id, title FROM assignments WHERE course_id = ?");

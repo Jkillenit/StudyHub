@@ -287,6 +287,13 @@ const MIGRATIONS = [
       `);
     },
   },
+  {
+    version: 11,
+    up(dbRef) {
+      // Set only by Blackboard sync; kept apart from the student's own `completed` tick.
+      addColumn(dbRef, "assignments", "submitted", "INTEGER NOT NULL DEFAULT 0");
+    },
+  },
 ];
 
 function runMigrations(dbRef) {

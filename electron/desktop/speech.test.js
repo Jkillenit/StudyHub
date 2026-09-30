@@ -7,7 +7,10 @@ const lines = {
   hi: ["Hi, {name}."],
   chat: ["one", "two"],
   grade: ["New grade in {course}."],
-  levels: { normal: ["Damn."], clean: ["Darn."] },
+  levels: { salty: ["Damn."], clean: ["Darn."], unfiltered: ["Shit."] },
+  saltyOnly: { salty: ["Hell yes."] },
+  legacy: { normal: ["Damn."], clean: ["Darn."] },
+  low: { salty: ["Well, damn."], serious: ["That one stung."] },
 };
 
 function setup(over = {}) {
@@ -39,6 +42,7 @@ describe("fill", () => {
   it("drops the name cleanly when unknown", () => {
     expect(fill("Hi, {name}.", {})).toBe("Hi.");
     expect(fill("Hi, {name}.", { name: "Sam" })).toBe("Hi, Sam.");
+    expect(fill("{name}, {item} closes soon.", { item: "hw 4" })).toBe("Hw 4 closes soon.");
   });
 });
 
@@ -99,13 +103,26 @@ describe("speech", () => {
     expect(shown).toEqual(["one", "two"]);
   });
 
-  it("picks the language level with normal as fallback", () => {
-    expect(setup({ level: () => "clean" }).s.say({ lineId: "levels" })).toBe("shown");
-    const a = setup({ level: () => "clean" });
+  it("picks the language level and only falls back toward cleaner", () => {
+    const said = (level, lineId) => {
+      const t = setup({ level: () => level });
+      t.s.say({ lineId });
+      return t.shown[0];
+    };
+    expect(said("clean", "levels")).toBe("Darn.");
+    expect(said("salty", "levels")).toBe("Damn.");
+    expect(said("unfiltered", "levels")).toBe("Shit.");
+    expect(said("unfiltered", "saltyOnly")).toBe("Hell yes.");
+    expect(said("clean", "saltyOnly")).toBeUndefined();
+    expect(said("salty", "legacy")).toBe("Damn.");
+    expect(said("bogus", "levels")).toBe("Damn.");
+  });
+
+  it("serious mode uses the serious variant, else the clean one", () => {
+    const a = setup({ level: () => "unfiltered", serious: (id) => id === "low" });
+    a.s.say({ lineId: "low" });
     a.s.say({ lineId: "levels" });
-    expect(a.shown).toEqual(["Darn."]);
-    const b = setup({ level: () => "spicy" });
-    b.s.say({ lineId: "levels" });
-    expect(b.shown).toEqual(["Damn."]);
+    a.s.say({ lineId: "levels", serious: true });
+    expect(a.shown).toEqual(["That one stung.", "Shit.", "Darn."]);
   });
 });

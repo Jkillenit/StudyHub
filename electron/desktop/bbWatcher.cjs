@@ -48,6 +48,7 @@ function diffCourse({ courseUuid, payload, known, seeded, now = Date.now() }) {
       score: g.score,
       pointsPossible: g.pointsPossible || null,
       changed: had != null,
+      prevScore: had != null ? Number(had) : null,
     }));
   }
   for (const a of payload.assignments || []) {
@@ -162,7 +163,8 @@ function createBbWatcher({ db, check, onEvents, onChecked = () => {}, onSession 
       const rows = db()
         .prepare(
           `SELECT a.uuid, a.title, a.due_date, c.uuid AS course_uuid FROM assignments a JOIN courses c ON c.id = a.course_id
-           WHERE COALESCE(a.completed, 0) = 0 AND a.due_date IS NOT NULL AND a.due_date BETWEEN ? AND ?`
+           WHERE COALESCE(a.completed, 0) = 0 AND COALESCE(a.submitted, 0) = 0 AND a.score IS NULL
+             AND a.due_date IS NOT NULL AND a.due_date BETWEEN ? AND ?`
         )
         .all(new Date(Date.now() - 86400000).toISOString().slice(0, 10), new Date(Date.now() + 2 * 86400000).toISOString());
       const found = dueSoon(rows, knownLike("due30:%"));
