@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { currentGrade, hasScore, neededAverage, remainingWeight } from "./gradeMath.js";
+import { currentGrade, hasScore, neededAverage, neededOnItem, remainingWeight } from "./gradeMath.js";
 
 const comps = [
   { weight: 0.2, score: 90 },
@@ -23,6 +23,13 @@ describe("gradeMath", () => {
 
   it("sums open weight", () => {
     expect(remainingWeight(comps)).toBeCloseTo(0.5);
+  });
+
+  it("computes the score needed on one item", () => {
+    expect(neededOnItem(76, 80, 0.3)).toBeCloseTo(89.33, 1);
+    expect(neededOnItem(85, 80, 0.25)).toBeCloseTo(65);
+    expect(neededOnItem(null, 80, 0.3)).toBe(80);
+    expect(neededOnItem(76, 80, 0)).toBeNull();
   });
 
   it("computes the average needed on remaining work", () => {

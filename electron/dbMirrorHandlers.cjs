@@ -148,13 +148,13 @@ const TODAY_LOOKBACK_DAYS = 30;
  * points / items each holds, for an item's share of the final grade), open assignments mapped to a
  * component, and flashcards due. The engine itself is pure and runs in the renderer.
  */
-function todayData(db) {
+function todayData(db, courseUuid = null) {
   const courses = db
     .prepare(`
       SELECT id, uuid, name, course_code, bb_course_id, target_grade FROM courses
-      WHERE type = 'user' ORDER BY name COLLATE NOCASE ASC
+      WHERE type = 'user' ${courseUuid ? "AND uuid = ?" : ""} ORDER BY name COLLATE NOCASE ASC
     `)
-    .all();
+    .all(...(courseUuid ? [courseUuid] : []));
   const since = new Date(Date.now() - TODAY_LOOKBACK_DAYS * 86400000).toISOString();
   const today = localDate(0);
   const componentStmt = db.prepare(`
@@ -446,7 +446,7 @@ function registerMirrorHandlers() {
     return { upcoming, announcements, dueCards, recentGrades, stats: sessionStats(db, null) };
   });
 
-  ipcMain.handle("db:today:get", () => todayData(db));
+  ipcMain.handle("db:today:get", (_, args) => todayData(db, args?.courseUuid ? String(args.courseUuid) : null));
 
   /** Not an edit to the course itself, so updated_at (course list order) is left alone. */
   ipcMain.handle("db:courses:setTargetGrade", (_, { courseUuid, targetGrade }) => {

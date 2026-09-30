@@ -277,9 +277,15 @@ export const courseStore = {
     }
   },
 
-  /** Input for the Today priority engine: { now, synced, courses: [...] }. */
-  async loadTodayData() {
-    return (await db?.today?.get?.()) || { now: new Date().toISOString(), synced: false, courses: [] };
+  /** Input for the Today priority engine: { now, synced, courses: [...] }, optionally one course only. */
+  async loadTodayData(courseUuid = null) {
+    return (
+      (await db?.today?.get?.(courseUuid ? { courseUuid } : undefined)) || {
+        now: new Date().toISOString(),
+        synced: false,
+        courses: [],
+      }
+    );
   },
 
   async getTargetGrade(courseUuid) {

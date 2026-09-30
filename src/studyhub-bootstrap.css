@@ -5355,8 +5355,6 @@ button.sh-today-row-main:hover {
   color: var(--sh-text-secondary);
 }
 .sh-rank-action {
-  flex-shrink: 0;
-  align-self: center;
   white-space: nowrap;
 }
 .sh-rank-empty {
@@ -5368,6 +5366,69 @@ button.sh-today-row-main:hover {
 .sh-today-tag--risk {
   color: var(--sh-red);
   border-color: var(--sh-red);
+}
+.sh-rank-side {
+  flex-shrink: 0;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.sh-need-badge {
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  padding: 1px 6px;
+  border: 1px solid var(--sh-border);
+  white-space: nowrap;
+}
+.sh-need-badge--ok {
+  color: var(--sh-green);
+  border-color: var(--sh-green-dim);
+}
+.sh-need-badge--stretch {
+  color: var(--sh-cyan);
+  border-color: var(--sh-cyan);
+}
+.sh-need-badge--hard {
+  color: var(--sh-amber);
+  border-color: var(--sh-amber);
+}
+.sh-need-badge--out {
+  color: var(--sh-red);
+  border-color: var(--sh-red);
+}
+
+/* Grade calculator: hold your target */
+.sh-hold-target {
+  background: var(--sh-surface);
+  border: 1px solid var(--sh-border);
+  padding: 12px 14px;
+}
+.sh-hold-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--sh-border);
+}
+.sh-hold-row:first-of-type {
+  border-top: none;
+}
+.sh-hold-name {
+  font-size: 13px;
+  color: var(--sh-text-primary);
+  min-width: 0;
+}
+.sh-hold-sub {
+  display: block;
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sh-text-dim);
 }
 
 /* Study guide */

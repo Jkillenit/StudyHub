@@ -5,6 +5,7 @@ import {
   courseStanding,
   daysUntil,
   itemShare,
+  neededScores,
   rankToday,
   riskFactor,
   urgency,
@@ -75,11 +76,89 @@ describe("risk", () => {
     expect(riskFactor(courseStanding(above))).toBe(1);
   });
 
-  it("grows with the gap and is capped", () => {
+  it("uses the gap when nothing is open, and is capped", () => {
     const under = course({ components: [{ uuid: "x", weight: 1, score: 70 }] });
-    expect(riskFactor(courseStanding(under))).toBeCloseTo(1.5);
+    expect(riskFactor(courseStanding(under))).toBeCloseTo(1 + 10 * PRIORITY_CONFIG.riskPerPoint);
     const deep = course({ components: [{ uuid: "x", weight: 1, score: 10 }] });
     expect(riskFactor(courseStanding(deep))).toBe(PRIORITY_CONFIG.maxRisk);
+  });
+});
+
+describe("needed score feeds risk", () => {
+  it("rises late in the term at the same gap", () => {
+    const early = course({ components: [{ uuid: "a", weight: 0.2, score: 75 }, { uuid: "b", weight: 0.8, score: null }] });
+    const late = course({ components: [{ uuid: "a", weight: 0.8, score: 75 }, { uuid: "b", weight: 0.2, score: null }] });
+    expect(courseStanding(early).gap).toBeCloseTo(courseStanding(late).gap);
+    expect(riskFactor(courseStanding(late))).toBeGreaterThan(riskFactor(courseStanding(early)));
+  });
+
+  it("normalizes weights that don't sum to 100%", () => {
+    const partial = course({ components: [{ uuid: "a", weight: 0.3, score: 70 }, { uuid: "b", weight: 0.6, score: null }] });
+    expect(courseStanding(partial).neededAvg).toBeCloseTo((80 - 70 / 3) / (2 / 3));
+  });
+});
+
+describe("neededScores", () => {
+  const components = [
+    { uuid: "hw", name: "Homework", category: "homework", weight: 0.3, score: 76, pointsTotal: 0, itemCount: 0 },
+    { uuid: "mid", name: "Midterm", category: "exam", weight: 0.3, score: null, pointsTotal: 0, itemCount: 0 },
+    { uuid: "fin", name: "Final Exam", category: "exam", weight: 0.4, score: null, pointsTotal: 0, itemCount: 0 },
+  ];
+
+  it("finds the next major item and the final", () => {
+    const c = course({
+      components,
+      assignments: [
+        asg({ title: "HW 5", componentUuid: "hw", dueDate: inDays(1) }),
+        asg({ title: "Midterm", kind: "exam", componentUuid: "mid", dueDate: inDays(5) }),
+        asg({ title: "Final Exam", kind: "exam", componentUuid: "fin", dueDate: inDays(40) }),
+      ],
+    });
+    const n = neededScores(c, { now: NOW });
+    expect(n.current).toBeCloseTo(76);
+    expect(n.next.title).toBe("Midterm");
+    expect(n.next.needed).toBeCloseTo(76 + 4 / 0.3);
+    expect(n.final.title).toBe("Final Exam");
+    expect(n.final.needed).toBeCloseTo(86);
+  });
+
+  it("falls back to a final component with no dated assignment", () => {
+    const n = neededScores(course({ components }), { now: NOW });
+    expect(n.next).toBeNull();
+    expect(n.final).toMatchObject({ uuid: null, title: "Final Exam" });
+    expect(n.final.needed).toBeCloseTo(86);
+  });
+
+  it("doesn't project from a guessed weight or from no scores", () => {
+    const guessed = neededScores(course({ components, assignments: [asg({ kind: "exam", title: "Exam 2", dueDate: inDays(3) })] }), { now: NOW });
+    expect(guessed.next.title).toBe("Exam 2");
+    expect(guessed.next.needed).toBeNull();
+
+    const unscored = components.map((c) => ({ ...c, score: null }));
+    expect(neededScores(course({ components: unscored }), { now: NOW }).final.needed).toBeNull();
+  });
+
+  it("puts the needed score on the Today item and the grade-risk reason", () => {
+    const c = course({
+      components,
+      assignments: [asg({ title: "Midterm", kind: "exam", componentUuid: "mid", dueDate: inDays(5) })],
+    });
+    const items = rank([c]);
+    const exam = items.find((i) => i.type === ITEM_TYPES.EXAM_PREP);
+    expect(exam.needed).toBeCloseTo(89.33, 1);
+    expect(exam.reason).toContain("need 89.3% to hold 80%");
+    const risk = items.find((i) => i.type === ITEM_TYPES.GRADE_RISK);
+    expect(risk.reason).toContain("need 89.3% on Midterm");
+  });
+
+  it("flags an unreachable target", () => {
+    const c = course({
+      targetGrade: 95,
+      components: [{ uuid: "a", name: "Work", weight: 0.9, score: 80 }, { uuid: "b", name: "Last", weight: 0.1, score: null }],
+    });
+    const risk = rank([c]).find((i) => i.type === ITEM_TYPES.GRADE_RISK);
+    expect(risk.reason).toContain("out of reach");
+    expect(risk.needed).toBeGreaterThan(100);
   });
 });
 

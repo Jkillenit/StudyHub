@@ -6,6 +6,7 @@ import { KindTag } from "../dashboard/KindTag.jsx";
 import { openInBlackboard } from "../mirror/openInBlackboard.js";
 import { ITEM_TYPES, PRIORITY_CONFIG, rankToday } from "./priority.js";
 import { openCourseView } from "./courseView.js";
+import { NeedBadge } from "./NeedBadge.jsx";
 
 const RELOAD_EVENTS = ["studyhub-mirror-changed", "studyhub-bb-synced", "studyhub-target-changed"];
 
@@ -89,9 +90,12 @@ export function RankedToday({ onOpenCourse, refreshKey = 0 }) {
                 </span>
                 <span className="sh-rank-reason">{item.reason}</span>
               </div>
-              <button type="button" className="sh-btn-ghost sh-btn-xs sh-rank-action" onClick={() => run(item.action)}>
-                {item.action.label} →
-              </button>
+              <div className="sh-rank-side">
+                <NeedBadge needed={item.needed} title="Score needed to hold your target grade" />
+                <button type="button" className="sh-btn-ghost sh-btn-xs sh-rank-action" onClick={() => run(item.action)}>
+                  {item.action.label} →
+                </button>
+              </div>
             </li>
           ))}
         </ol>

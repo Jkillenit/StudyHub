@@ -20,6 +20,16 @@ export function remainingWeight(components) {
   return (components || []).filter((c) => !hasScore(c)).reduce((sum, c) => sum + weightOf(c), 0);
 }
 
+/**
+ * Score needed on one item worth `share` (0..1) of the final grade to finish at `target`, assuming the
+ * rest of the open work lands at the current grade. With no scores yet, that is the target itself.
+ */
+export function neededOnItem(current, target, share) {
+  if (!(share > 0)) return null;
+  if (current == null) return target;
+  return current + (target - current) / share;
+}
+
 /** Average needed across unscored components to finish at `target`, or null when nothing is left. */
 export function neededAverage(components, target) {
   const list = components || [];

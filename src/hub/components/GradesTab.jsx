@@ -3,6 +3,9 @@ import { parseSyllabus } from "../../syllabus/syllabusParser";
 import { courseStore } from "../../db/courseStore.js";
 import InlineEdit from "./InlineEdit";
 import { currentGrade as weightedGrade, hasScore, neededAverage } from "../../features/grades/gradeMath.js";
+import { neededScores } from "../../features/today/priority.js";
+import { NeedBadge } from "../../features/today/NeedBadge.jsx";
+import { dueLabel } from "../../features/dashboard/dateLabels.js";
 
 const SCORE_SAVE_DEBOUNCE_MS = 600;
 const keyOf = (c, i) => c.uuid || (c.id != null ? `id${c.id}` : `new${i}`);
@@ -167,6 +170,42 @@ function HypotheticalEngine({ components, gradingScale, target }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function HoldTargetRow({ label, entry }) {
+  const sub = [label, entry.dueDate ? dueLabel(entry.dueDate) : null, `worth ${Math.round(entry.share * 1000) / 10}%`]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <div className="sh-hold-row">
+      <span className="sh-hold-name">
+        {entry.title}
+        <span className="sh-hold-sub">{sub}</span>
+      </span>
+      {entry.needed != null ? (
+        <NeedBadge needed={entry.needed} />
+      ) : (
+        <span className="sh-hold-sub">MATCH TO A COMPONENT</span>
+      )}
+    </div>
+  );
+}
+
+/** Score needed on the next major item and on the final to hold the target (same math as Today). */
+function HoldTarget({ snapshot, components, target }) {
+  if (!snapshot) return null;
+  const extra = new Map((snapshot.components || []).map((c) => [c.uuid, c]));
+  const live = components.map((c) => ({ ...extra.get(c.uuid), ...c, score: hasScore(c) ? Number(c.score) : null }));
+  const needs = neededScores({ ...snapshot, components: live, targetGrade: target });
+  if (needs.current == null || (!needs.next && !needs.final)) return null;
+  const sameItem = needs.next && needs.final && needs.next.uuid && needs.next.uuid === needs.final.uuid;
+  return (
+    <div className="sh-hold-target">
+      <div className="sh-section-label">HOLD YOUR {target}% TARGET</div>
+      {needs.next && !sameItem ? <HoldTargetRow label="NEXT MAJOR" entry={needs.next} /> : null}
+      {needs.final ? <HoldTargetRow label={sameItem ? "NEXT MAJOR · FINAL" : "FINAL"} entry={needs.final} /> : null}
     </div>
   );
 }
@@ -503,6 +542,7 @@ export default function GradesTab({ course, onComponentsChange }) {
   const [gradingScale, setGradingScale] = useState(null);
   const [bbItems, setBbItems] = useState([]);
   const [target, setTarget] = useState(80);
+  const [snapshot, setSnapshot] = useState(null);
   const componentsRef = useRef(components);
   const bbItemsRef = useRef(bbItems);
   const scoreTimersRef = useRef(new Map());
@@ -520,13 +560,15 @@ export default function GradesTab({ course, onComponentsChange }) {
       window.studyHub?.db?.grades?.getGradingScale(courseUuid),
       window.studyHub?.db?.bb?.getGradeItems?.(courseUuid),
       courseStore.getTargetGrade(courseUuid),
+      courseStore.loadTodayData(courseUuid),
     ])
-      .then(([rows, scale, items, targetGrade]) => {
+      .then(([rows, scale, items, targetGrade, today]) => {
         if (cancelled) return;
         setComponents(Array.isArray(rows) ? rows : []);
         setGradingScale(scale || null);
         setBbItems(Array.isArray(items) ? items : []);
         setTarget(targetGrade);
+        setSnapshot(today?.courses?.[0] || null);
       })
       .catch(() => setStatus("Could not load grades"))
       .finally(() => {
@@ -751,6 +793,7 @@ export default function GradesTab({ course, onComponentsChange }) {
         </button>
       </div>
       <GradeScaleDisplay scale={gradingScale} currentGrade={currentGrade} />
+      <HoldTarget snapshot={snapshot} components={components} target={target} />
       <HypotheticalEngine components={components} gradingScale={gradingScale} target={target} />
       <WhatIfSimulator components={components} />
       <GradeDropCalculator components={components} />
