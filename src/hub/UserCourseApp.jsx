@@ -126,6 +126,8 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, courseSh
       if (d?.courseId !== course.id) return;
       takePendingCourseView(course.id);
       if (d?.item === "qz-deck") {
+        if (d.moduleId && (courseRef.current?.modules || []).some((m) => m.id === d.moduleId)) selectModule(d.moduleId);
+        if (d.deckMode) setSourceFilter(d.deckMode);
         setActiveItem("qz-deck");
         setMainTab("content");
         return;

@@ -6170,6 +6170,10 @@ button.sh-today-row-main:hover {
   opacity: 0.55;
   animation: none;
 }
+/* Late at night she dims a little. */
+.sc-scout--late .sc-bob {
+  filter: brightness(0.8) saturate(0.85);
+}
 .sc-scout--asleep .nv-sweep {
   animation-duration: 9s;
 }
@@ -6450,6 +6454,21 @@ button.sh-today-row-main:hover {
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 10px;
+}
+.sc-name-form {
+  margin-top: 10px;
+}
+.sc-name-input {
+  width: 100%;
+  background: var(--sh-panel-solid);
+  border: 1px solid var(--sh-border);
+  color: var(--sh-text);
+  font-size: 13px;
+  padding: 6px 8px;
+  outline: none;
+}
+.sc-name-input:focus {
+  border-color: var(--sh-accent-line);
 }
 .sc-bubble-btn {
   position: relative;
@@ -7956,6 +7975,76 @@ a:hover {
   border-color: var(--sh-accent-line);
 }
 
+button.sh-week-day {
+  font: inherit;
+  background: transparent;
+  cursor: pointer;
+  transition: border-color var(--sh-dur-fast, 0.15s) ease, background var(--sh-dur-fast, 0.15s) ease;
+}
+
+button.sh-week-day:hover,
+.sh-week-day--picking {
+  border-color: var(--sh-border-strong);
+}
+
+button.sh-week-day:focus-visible {
+  outline: 2px solid var(--sh-accent-line);
+  outline-offset: 1px;
+}
+
+.sh-week-day--blocked {
+  background: repeating-linear-gradient(135deg, var(--sh-warn-soft) 0 6px, transparent 6px 12px);
+  border-color: var(--sh-warn-line);
+}
+
+.sh-week-day--blocked .sh-week-num {
+  color: var(--sh-text-3);
+}
+
+.sh-week-off {
+  font-family: var(--sh-font-hud);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--sh-warn-text);
+}
+
+.sh-week-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.sh-week-block-label {
+  font-family: var(--sh-font-hud);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--sh-text-3);
+  margin-right: 4px;
+}
+
+.sh-week-block-btn {
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: var(--sh-radius-sm);
+  border: 1px solid var(--sh-border);
+  background: transparent;
+  color: var(--sh-text-2);
+  cursor: pointer;
+}
+
+.sh-week-block-btn:hover {
+  border-color: var(--sh-warn-line);
+  color: var(--sh-warn-text);
+}
+
+.sh-week-block-btn--clear:hover {
+  border-color: var(--sh-accent-line);
+  color: var(--sh-accent);
+}
+
 .sh-week-dow {
   font-family: var(--sh-font-hud);
   font-size: 11px;
@@ -8443,6 +8532,105 @@ a:hover {
 
 .sh-settings-action:hover {
   border-color: var(--sh-border-strong);
+}
+
+.sh-settings-action + .sh-settings-action {
+  margin-top: 8px;
+}
+
+/* What Nova knows */
+.sh-memory {
+  display: flex;
+  flex-direction: column;
+  max-height: min(70vh, 560px);
+  padding-bottom: 10px;
+}
+
+.sh-memory-back {
+  align-self: flex-start;
+  margin-top: 0;
+}
+
+.sh-memory-intro {
+  margin: 8px 0 12px;
+}
+
+.sh-memory-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.sh-memory-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--sh-border);
+}
+
+.sh-memory-item:first-child {
+  border-top: none;
+}
+
+.sh-memory-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--sh-text);
+}
+
+.sh-memory-item--muted .sh-memory-text {
+  color: var(--sh-text-3);
+}
+
+.sh-memory-item--muted .sh-settings-link {
+  margin-top: 0;
+  flex-shrink: 0;
+}
+
+.sh-memory-del {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  padding: 0 4px;
+  font-size: 16px;
+  line-height: 1.3;
+  color: var(--sh-text-3);
+  cursor: pointer;
+}
+
+.sh-memory-del:hover,
+.sh-memory-del:focus-visible {
+  color: var(--sh-danger-text);
+}
+
+.sh-memory-empty {
+  font-size: 13px;
+  color: var(--sh-text-2);
+}
+
+.sh-memory-muted-label {
+  margin: 14px 0 4px;
+}
+
+.sh-memory-forget {
+  margin-top: 14px;
+  padding: 8px 12px;
+  border: 1px solid var(--sh-danger-line);
+  border-radius: var(--sh-radius-sm);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sh-danger-text);
+  cursor: pointer;
+}
+
+.sh-memory-forget:hover,
+.sh-memory-forget--confirm {
+  background: var(--sh-danger-soft);
 }
 
 .sh-settings-status {

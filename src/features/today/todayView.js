@@ -61,6 +61,7 @@ export function tonightReason(item) {
   if (item.shareKnown) parts.push(shareText(item.share));
   if (item.needed != null) parts.push(item.needed > 100 ? "target out of reach" : `need ${formatPct(Math.max(0, item.needed))}%`);
   if (item.examReady != null) parts.push(`${item.examReady}% exam ready`);
+  if (item.blockedBefore > 0) parts.push(`moved up: ${item.blockedBefore} blocked day${item.blockedBefore === 1 ? "" : "s"}`);
   return parts.filter(Boolean);
 }
 
@@ -80,8 +81,9 @@ function startOfDay(d) {
  *   states:   { [courseUuid]: "warn" | "ok" | "none" },
  * }
  */
-export function buildTodayView(data, { now, scales = {}, config = PRIORITY_CONFIG } = {}) {
+export function buildTodayView(data, { now, scales = {}, config = PRIORITY_CONFIG, blockedDays = [] } = {}) {
   const at = now ?? data?.now ?? new Date().toISOString();
+  const blockedSet = new Set(blockedDays);
   const courses = data?.courses || [];
   const byUuid = new Map(courses.map((c) => [c.uuid, c]));
 
@@ -105,7 +107,7 @@ export function buildTodayView(data, { now, scales = {}, config = PRIORITY_CONFI
   );
   const targets = [...new Set(standingRows.map((r) => r.target))];
 
-  const tonight = rankToday(data, { config, now: at })
+  const tonight = rankToday(data, { config, now: at, blockedDays })
     .filter((it) => it.type !== ITEM_TYPES.GRADE_RISK && (it.daysUntil == null || it.daysUntil >= 0))
     .slice(0, TONIGHT_MAX)
     .map((it) => {
@@ -132,8 +134,11 @@ export function buildTodayView(data, { now, scales = {}, config = PRIORITY_CONFI
   const today0 = startOfDay(at);
   const days = Array.from({ length: WEEK_DAYS }, (_, i) => {
     const d = new Date(today0.getTime() + i * DAY_MS + 12 * 3600000);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     return {
       offset: i,
+      key,
+      blocked: blockedSet.has(key),
       isToday: i === 0,
       weekday: d.toLocaleDateString([], { weekday: "short" }).toUpperCase(),
       dayNum: d.getDate(),

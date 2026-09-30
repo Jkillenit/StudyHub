@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { IDLE_START_MS, SESSION_QUIET_MS, idleFor, inSession, isAtSpot, mayAct, msUntilIdle, nextCheckMs } from "./attention.js";
+import {
+  IDLE_START_MS,
+  SESSION_QUIET_MS,
+  TYPING_HOLD_MS,
+  idleFor,
+  inSession,
+  isAtSpot,
+  mayAct,
+  maySpeak,
+  msUntilIdle,
+  nextCheckMs,
+} from "./attention.js";
 
 const NOW = 1_000_000;
 
@@ -34,6 +45,14 @@ describe("idle gate", () => {
     expect(nextCheckMs({ lastInput: NOW - 4_000, now: NOW })).toBe(6_000);
     expect(nextCheckMs({ lastInput: NOW - 60_000, lastStudy: NOW - 5_000, now: NOW })).toBe(40_000);
     expect(nextCheckMs({ lastInput: NOW - 60_000, now: NOW })).toBe(2000);
+  });
+
+  it("holds memory lines while typing, mid-session or in quiet mode, but not for reduced motion", () => {
+    expect(maySpeak({ lastTyping: NOW - 1_000, now: NOW })).toBe(false);
+    expect(maySpeak({ lastTyping: NOW - TYPING_HOLD_MS, now: NOW })).toBe(true);
+    expect(maySpeak({ lastStudy: NOW - 5_000, now: NOW })).toBe(false);
+    expect(maySpeak({ quiet: true, now: NOW })).toBe(false);
+    expect(maySpeak({ now: NOW })).toBe(true);
   });
 
   it("treats a few px from the spot as at the spot", () => {

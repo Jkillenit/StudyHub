@@ -54,9 +54,9 @@ function parseJson(text) {
   }
 }
 
-async function callMessages(apiKey, { model, system, userContent, maxTokens = 4096, tools }) {
+async function callMessages(apiKey, { model, system, userContent, maxTokens = 4096, tools, timeoutMs = REQUEST_MS }) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -188,7 +188,24 @@ async function searchStudyMaterials(apiKey, { query }) {
     }));
 }
 
+const REPHRASE_SYSTEM = `You are Nova, a sarcastic, warm, loyal holographic study companion. Rewrite the line you are given in your own voice.
+Rules: keep every number, name, course code, chapter and assignment title exactly as written. Add no new facts, numbers, dates or events. Never guilt-trip.
+One or two short sentences, at most 140 characters. Reply with only the rewritten line, no quotes.`;
+
+/** One Nova line rewritten for tone. The caller verifies that no fact changed. */
+async function rephraseCompanionLine(apiKey, { text }) {
+  const out = await callMessages(apiKey, {
+    model: ENHANCE_MODEL,
+    system: REPHRASE_SYSTEM,
+    userContent: String(text || "").slice(0, 300),
+    maxTokens: 120,
+    timeoutMs: 4000,
+  });
+  return out.replace(/^["'\s]+|["'\s]+$/g, "").split("\n")[0].slice(0, 200);
+}
+
 module.exports = {
+  rephraseCompanionLine,
   generateFlashcards,
   enhanceContent,
   generatePracticeQuestions,

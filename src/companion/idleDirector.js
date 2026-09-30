@@ -16,9 +16,12 @@ export function dayPart(date = new Date()) {
   return "day";
 }
 
-export function idleGap(movement, random = Math.random) {
+/** She fidgets less late at night. */
+export const LATE_GAP_SCALE = 1.8;
+
+export function idleGap(movement, random = Math.random, part = "day") {
   const [a, b] = IDLE_GAP_MS;
-  return (a + random() * (b - a)) * (IDLE_GAP_SCALE[movement] ?? 1);
+  return (a + random() * (b - a)) * (IDLE_GAP_SCALE[movement] ?? 1) * (part === "late" ? LATE_GAP_SCALE : 1);
 }
 
 /** Weighted pick; yawns follow the clock, boredom follows neglect, never the same twice running. */

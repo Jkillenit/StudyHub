@@ -3,6 +3,7 @@ import { buildQuestionPool, poolForModules } from "./questionPool.js";
 import { QUESTION_TYPES, buildTest, buildTestWithAi, gradeTyped, retakeQuestions } from "./practiceTest.js";
 import { hasApiKey } from "../../ai/apiKeyUtils.js";
 import { emitStudyEvent } from "../../companion/studyEvents.js";
+import { courseStore } from "../../db/courseStore.js";
 
 const COUNTS = [10, 20, 30];
 
@@ -360,7 +361,14 @@ export function PracticeTestView({ course }) {
   useEffect(() => {
     if (!finished || !questions.length) return;
     const correct = results.filter((r) => r?.correct).length;
-    void window.studyHub?.db?.sessions?.log?.({
+    let run = 0;
+    let bestCombo = 0;
+    for (const r of results) {
+      run = r?.correct ? run + 1 : 0;
+      bestCombo = Math.max(bestCombo, run);
+    }
+    void courseStore.logStudySession({
+      bestCombo,
       courseUuid,
       kind: "test",
       startedAt: startedRef.current,

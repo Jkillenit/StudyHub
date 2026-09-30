@@ -49,6 +49,8 @@ export function defaultState() {
     movement: "normal",
     /** Quiet mode: docked, no wandering or idle life, still answers when clicked. */
     quiet: false,
+    /** She asks what to call the student once; the answer lives in companion_memory. */
+    askedName: false,
     nudges: true,
     scale: 1,
     accessory: "auto",

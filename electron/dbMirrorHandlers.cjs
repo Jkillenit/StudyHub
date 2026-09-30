@@ -496,9 +496,10 @@ function registerMirrorHandlers() {
     const reviewed = Math.max(0, Number(s?.reviewed) || 0);
     if (!reviewed) return { success: true, skipped: true };
     db.prepare(`
-      INSERT INTO study_sessions (uuid, course_id, kind, started_at, ended_at, cards_reviewed, correct, incorrect)
-      VALUES (@uuid, @courseId, @kind, @startedAt, @endedAt, @reviewed, @correct, @incorrect)
+      INSERT INTO study_sessions (uuid, course_id, kind, started_at, ended_at, cards_reviewed, correct, incorrect, best_combo)
+      VALUES (@uuid, @courseId, @kind, @startedAt, @endedAt, @reviewed, @correct, @incorrect, @bestCombo)
     `).run({
+      bestCombo: Number.isFinite(Number(s.bestCombo)) && Number(s.bestCombo) > 0 ? Math.round(Number(s.bestCombo)) : null,
       uuid: s.uuid || newUuid("ses"),
       courseId,
       kind: s.kind || "drill",
@@ -519,7 +520,7 @@ function registerMirrorHandlers() {
     const limit = Math.min(Math.max(Number(args?.limit) || 20, 1), 200);
     return db
       .prepare(`
-        SELECT uuid, kind, started_at, ended_at, cards_reviewed, correct, incorrect
+        SELECT uuid, kind, started_at, ended_at, cards_reviewed, correct, incorrect, best_combo
         FROM study_sessions ${courseId ? "WHERE course_id = ?" : ""}
         ORDER BY started_at DESC LIMIT ?
       `)

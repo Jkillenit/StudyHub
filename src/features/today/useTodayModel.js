@@ -1,17 +1,26 @@
 import { useCallback, useEffect, useState } from "react";
 import { courseStore } from "../../db/courseStore.js";
+import { memoryMap } from "../../companion/memory/derive.js";
+import { blockedFromMemory } from "./blocked.js";
 import { buildTodayView } from "./todayView.js";
 
-const RELOAD_EVENTS = ["studyhub-mirror-changed", "studyhub-bb-synced", "studyhub-target-changed", "studyhub-exam-scope-changed"];
+const RELOAD_EVENTS = [
+  "studyhub-mirror-changed",
+  "studyhub-bb-synced",
+  "studyhub-target-changed",
+  "studyhub-exam-scope-changed",
+  "studyhub-companion-memory-changed",
+];
 
-/** Loads the Today snapshot and grading scales, and keeps the view fresh when mirror data changes. */
+/** Loads the Today snapshot, grading scales and blocked days, and keeps the view fresh when they change. */
 export function useTodayModel(refreshKey = 0) {
   const [state, setState] = useState({ loaded: false, view: null });
 
   const load = useCallback(async () => {
-    const data = await courseStore.loadTodayData();
+    const [data, memory] = await Promise.all([courseStore.loadTodayData(), courseStore.companionMemory()]);
     const pairs = await Promise.all((data.courses || []).map(async (c) => [c.uuid, await courseStore.getGradingScale(c.uuid)]));
-    setState({ loaded: true, view: buildTodayView(data, { scales: Object.fromEntries(pairs) }) });
+    const blockedDays = blockedFromMemory(memoryMap(memory));
+    setState({ loaded: true, view: buildTodayView(data, { scales: Object.fromEntries(pairs), blockedDays }) });
   }, []);
 
   useEffect(() => {

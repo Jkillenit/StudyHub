@@ -8,6 +8,7 @@ import { emitStudyEvent } from "../../companion/studyEvents.js";
 import { SEED_FLASHCARDS } from "./seedCards.js";
 import { filterDeck } from "./deckModes.js";
 import { useCourseExams } from "../../features/study/useCourseExams.js";
+import { courseStore } from "../../db/courseStore.js";
 
 const FLIP_GUARD_MS = 200;
 
@@ -161,6 +162,10 @@ function CardEditor({ initialFront = "", initialBack = "", title, onSave, onCanc
   );
 }
 
+function newSession() {
+  return { id: `session_${Date.now()}`, startedAt: new Date().toISOString(), know: 0, again: 0, combo: 0, bestCombo: 0, logged: false };
+}
+
 /**
  * Two storage modes:
  *  - user course (onSaveCards given): cards come from props, SM-2 goes to SQLite via db.mastery,
@@ -198,7 +203,8 @@ export default function FlashcardDeck({
   const lastFlipRef = useRef(0);
   const ratingRef = useRef(false);
   const cardsRef = useRef(null);
-  const sessionRef = useRef({ id: `session_${Date.now()}`, startedAt: new Date().toISOString(), know: 0, again: 0, logged: false });
+  const sessionRef = useRef(null);
+  if (!sessionRef.current) sessionRef.current = newSession();
   cardsRef.current = cards;
 
   useEffect(() => {
@@ -221,7 +227,7 @@ export default function FlashcardDeck({
     const reviewed = s.know + s.again;
     if (s.logged || !reviewed) return;
     s.logged = true;
-    void window.studyHub?.db?.sessions?.log?.({
+    void courseStore.logStudySession({
       courseUuid: isUserDeck ? courseId : null,
       kind: "drill",
       startedAt: s.startedAt,
@@ -229,12 +235,13 @@ export default function FlashcardDeck({
       reviewed,
       correct: s.know,
       incorrect: s.again,
+      bestCombo: s.bestCombo,
     });
   }, [courseId, isUserDeck]);
 
   const resetSession = useCallback(() => {
     logSession();
-    sessionRef.current = { id: `session_${Date.now()}`, startedAt: new Date().toISOString(), know: 0, again: 0, logged: false };
+    sessionRef.current = newSession();
     setSessionKnow(0);
     setSessionAgain(0);
     setReviewAgainIds([]);
@@ -455,11 +462,15 @@ export default function FlashcardDeck({
         );
         commitCards(next);
         emitStudyEvent({ type: "card", correct: grade >= 3 });
+        const s = sessionRef.current;
         if (grade >= 3) {
-          sessionRef.current.know += 1;
+          s.know += 1;
+          s.combo += 1;
+          s.bestCombo = Math.max(s.bestCombo, s.combo);
           setSessionKnow((c) => c + 1);
         } else {
-          sessionRef.current.again += 1;
+          s.again += 1;
+          s.combo = 0;
           setSessionAgain((c) => c + 1);
           setReviewAgainIds((ids) => (ids.includes(key) ? ids : [...ids, key]));
         }

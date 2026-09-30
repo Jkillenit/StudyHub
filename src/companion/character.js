@@ -9,6 +9,8 @@ export const character = {
     firstLaunch: [
       "Well, hello there. I'm Nova. I run this place; you just get the credit. Want the tour, or do you like figuring shit out the hard way?",
     ],
+    tourOffer: ["So, {name}. I run this place; you just get the credit. Want the tour, or do you like figuring shit out the hard way?"],
+    tourOfferAnon: ["Mysterious. I like it. I run this place; you just get the credit. Want the tour, or the hard way?"],
     idleClick: [
       "Miss me already? Quiz, tour, or did you just want to look? Go ahead. I'll allow it.",
       "You rang? I'm all yours. Within reason. Mostly.",

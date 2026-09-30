@@ -337,6 +337,68 @@ export const courseStore = {
     return res || { success: false, count: 0 };
   },
 
+  /** Logs a finished study session and tells listeners (Nova's memory) once it's written. */
+  async logStudySession(session) {
+    try {
+      const res = await db?.sessions?.log?.(session);
+      if (res?.success && !res.skipped) window.dispatchEvent(new CustomEvent("studyhub-session-logged"));
+      return res || { success: false };
+    } catch {
+      return { success: false };
+    }
+  },
+
+  /* ---------- Nova's memory (local only, never sent to Commons) ---------- */
+
+  async companionMemory() {
+    try {
+      return (await db?.companion?.memory?.()) || [];
+    } catch {
+      return [];
+    }
+  },
+
+  /** entries: [{ key, value, source }]. Muted facts are left alone unless source is 'told'. */
+  async companionRemember(entries, { notify = false } = {}) {
+    const list = (Array.isArray(entries) ? entries : [entries]).filter(Boolean);
+    if (!list.length) return { success: true };
+    const res = await db?.companion?.rememberMany?.(list);
+    if (notify) window.dispatchEvent(new CustomEvent("studyhub-companion-memory-changed"));
+    return res || { success: false };
+  },
+
+  async companionMute(key, muted = true) {
+    const res = await db?.companion?.mute?.({ key, muted });
+    window.dispatchEvent(new CustomEvent("studyhub-companion-memory-changed"));
+    return res || { success: false };
+  },
+
+  async companionForget() {
+    const res = await db?.companion?.forget?.();
+    window.dispatchEvent(new CustomEvent("studyhub-companion-memory-changed"));
+    return res || { success: false };
+  },
+
+  async companionSaidSince(since) {
+    try {
+      return (await db?.companion?.saidSince?.(since)) || [];
+    } catch {
+      return [];
+    }
+  },
+
+  async companionMarkSaid(lineId) {
+    return db?.companion?.markSaid?.(lineId);
+  },
+
+  async companionStudyFacts(since = null) {
+    try {
+      return (await db?.companion?.studyFacts?.({ since })) || null;
+    } catch {
+      return null;
+    }
+  },
+
   async saveGradeComponents(courseUuid, components) {
     return db.grades.saveComponents({
       courseUuid,

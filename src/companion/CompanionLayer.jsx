@@ -16,6 +16,7 @@ import {
 import { getDueCards, localDateString } from "../study/sm2.js";
 import { loadFlashcardDeck, persistFlashcardDeck } from "../study/flashcards/flashcardPersistence.js";
 import { shortCourse } from "../features/dashboard/courseLabel.js";
+import { courseStore } from "../db/courseStore.js";
 import { cardKey, runAwards } from "./lightRun.js";
 import { STUDY_EVENT } from "./studyEvents.js";
 import { BORED_AFTER_MS, clockLabel, dayPart, idleGap, pickIdleGesture, sleepAfterMs } from "./idleDirector.js";
@@ -37,7 +38,13 @@ import {
   waitForTarget,
 } from "./safeZones.js";
 import { useCompanionMotion } from "./useCompanionMotion.js";
-import { isAtSpot, mayAct, nextCheckMs } from "./attention.js";
+import { isAtSpot, mayAct, maySpeak, nextCheckMs } from "./attention.js";
+import { useCompanionMemory } from "./memory/useCompanionMemory.js";
+import { maybeRephrase } from "./memory/rephrase.js";
+import { MEMORY_LINES, pickLine } from "./memory/lines.js";
+import { NameForm } from "./NameForm.jsx";
+import { openCourseView } from "../features/today/courseView.js";
+import { blockedWhen } from "../features/today/blocked.js";
 import { NovaSprite } from "./NovaSprite.jsx";
 import { playSound } from "./novaSound.js";
 import { SpeechBubble } from "./SpeechBubble.jsx";
@@ -237,6 +244,10 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const lastInputRef = useRef(Date.now());
   /** Last flashcard answered anywhere in the app; mid-session she stays still and silent. */
   const lastStudyRef = useRef(0);
+  /** Last key or scroll: she holds her memory lines while the user is typing or reading. */
+  const lastTypingRef = useRef(0);
+  /** Mid-visit news waits until the launch line (or first-launch hello) is out of the way. */
+  const openerDoneRef = useRef(false);
   /** She has wandered off her spot and should go back on the next input. */
   const awayFromSpotRef = useRef(false);
   const returningRef = useRef(false);
@@ -260,6 +271,10 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const startedRef = useRef(false);
   /** Latest-closure handlers for timers and global listeners. */
   const api = useRef({});
+  const memory = useCompanionMemory({
+    enabled: !!cstate?.enabled,
+    onNews: (news) => api.current.onMemoryNews?.(news),
+  });
   const quizRef = useRef({ sessionId: null, pending: new Map(), answered: 0, correct: 0, missStreak: 0 });
   const nudgeRef = useRef({ mountedAt: Date.now(), last: 0, cooldown: NUDGE_COOLDOWN_MS, count: 0 });
   const reactTimerRef = useRef(0);
@@ -483,16 +498,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         force("idle");
         if (!houseAt()) jumpTo(home());
         sfx("appear");
-        const part = dayPart();
-        const chance = part === "late" ? 0.7 : part === "morning" ? 0.4 : 0;
-        if (Math.random() < chance) {
-          window.setTimeout(() => {
-            if (modeRef.current !== "idle" || busy()) return;
-            setMood("happy");
-            refreshAnchor();
-            say(line(part === "late" ? "lateHello" : "morningHello", { time: clockLabel() }));
-          }, DAY_HELLO_DELAY_MS);
-        }
+        window.setTimeout(() => void api.current.sayOpener?.(), DAY_HELLO_DELAY_MS);
         return;
       }
       force("idle");
@@ -858,7 +864,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       const logUuids = [...new Set(summary.courseUuids.map((u) => (u === BUILTIN_ID ? null : u)))];
       for (const courseUuid of logUuids.length ? logUuids : [null]) {
         if (!summary.answered) break;
-        void window.studyHub?.db?.sessions?.log?.({
+        void courseStore.logStudySession({
           courseUuid,
           kind: "quiz",
           startedAt: summary.startedAt,
@@ -866,6 +872,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           reviewed: summary.answered,
           correct: summary.correct,
           incorrect: summary.answered - summary.correct,
+          bestCombo: summary.best,
         });
       }
 
@@ -929,8 +936,49 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     startTour(inUserCourse ? "course-tools" : "first-run");
   }, [startTour]);
 
+  /** Asks once what to call them. `intro` is her first-launch hello; `after` runs once they answer or skip. */
+  api.current.askName = ({ intro = false, after = null } = {}) => {
+    update({ askedName: true });
+    const ask = intro ? { text: MEMORY_LINES.introName[0] } : pickLine("askName", {});
+    const done = () => {
+      if (after) after();
+      else setBubble(null);
+    };
+    setMood("happy");
+    refreshAnchor();
+    say(ask.text, {
+      sticky: true,
+      form: (
+        <NameForm
+          onSave={(name) => {
+            void memory.remember("name", { name });
+            const saved = pickLine("nameSaved", { name });
+            if (after) {
+              say(saved.text, { sticky: true });
+              window.setTimeout(done, 1800);
+            } else {
+              say(saved.text);
+            }
+          }}
+          onSkip={done}
+        />
+      ),
+    });
+  };
+
   api.current.greet = () => {
-    say(line("firstLaunch"), {
+    openerDoneRef.current = true;
+    if (!memory.fact("name")) {
+      api.current.askName({ intro: true, after: () => api.current.offerTour({ introduced: true }) });
+      return;
+    }
+    api.current.offerTour();
+  };
+
+  api.current.offerTour = ({ introduced = false } = {}) => {
+    const name = memory.fact("name")?.name;
+    const text = name ? line("tourOffer", { name }) : line(introduced ? "tourOfferAnon" : "firstLaunch");
+    say(text, {
       sticky: true,
       actions: [
         { label: "TAKE THE TOUR", primary: true, autoFocus: true, onClick: () => startTour("first-run") },
@@ -954,6 +1002,141 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       ],
     });
   };
+
+  /* ---------- what she remembers ---------- */
+
+  /** On screen, on her own time, nothing else being said, and the student isn't typing or mid-session. */
+  const canSpeak = () => {
+    const cur = stateRef.current;
+    return (
+      !!cur?.enabled &&
+      AUTONOMOUS.has(modeRef.current) &&
+      !busy() &&
+      !dragRef.current &&
+      !bubbleRef.current &&
+      maySpeak({ lastTyping: lastTypingRef.current, lastStudy: lastStudyRef.current, quiet: !!cur.quiet, hidden: document.hidden })
+    );
+  };
+
+  const waitToSpeak = async (maxMs) => {
+    const until = Date.now() + maxMs;
+    while (!canSpeak()) {
+      if (Date.now() > until || stateRef.current?.quiet) return false;
+      await new Promise((r) => window.setTimeout(r, 500));
+    }
+    return true;
+  };
+
+  /** Says a picked memory line (optionally rephrased by Claude), and records it so it won't repeat this week. */
+  api.current.speakMemory = async (pick, { actions = null, celebrate = false, waitMs = 6000 } = {}) => {
+    if (!pick?.line) return false;
+    const text = await maybeRephrase(pick.line.text, pick.vars);
+    if (!(await waitToSpeak(waitMs))) return false;
+    memory.markSaid(pick.line);
+    setMood(celebrate ? "excited" : "happy");
+    if (celebrate) {
+      sfx("streak");
+      playGesture("kiss");
+    }
+    refreshAnchor();
+    say(text, actions ? { actions } : {});
+    return true;
+  };
+
+  const memoryActions = (pick) => {
+    const nav = navRef.current;
+    const close = { label: "NOT NOW", onClick: () => setBubble(null) };
+    if (pick.action === "quick5") {
+      return [{ label: "5 CARDS", primary: true, onClick: () => startQuiz() }, { label: "GOING TO BED", onClick: () => setBubble(null) }];
+    }
+    if (pick.action === "weakDrill") {
+      const course = nav.courses.find((c) => c.id === pick.vars.courseUuid || c.uuid === pick.vars.courseUuid);
+      if (!course || !nav.onOpenCourse) return null;
+      return [
+        {
+          label: "DRILL IT",
+          primary: true,
+          onClick: () => {
+            setBubble(null);
+            openCourseView(nav.onOpenCourse, course.id, { item: "qz-deck", moduleId: pick.vars.moduleUuid, deckMode: "module" });
+          },
+        },
+        close,
+      ];
+    }
+    return null;
+  };
+
+  /** The launch line: the most personal thing she knows, within a few seconds of opening. */
+  api.current.sayOpener = async () => {
+    try {
+      await api.current.openWithMemory();
+    } finally {
+      openerDoneRef.current = true;
+    }
+  };
+  api.current.openWithMemory = async () => {
+    const cur = stateRef.current;
+    if (!cur?.enabled || cur.quiet || !cur.onboarded) return;
+    await memory.ready();
+    if (!stateRef.current?.askedName && !memory.fact("name")) {
+      if (await waitToSpeak(6000)) api.current.askName();
+      return;
+    }
+    const pick = await memory.opener({ timeLabel: clockLabel() }).catch(() => null);
+    if (!pick) {
+      const part = dayPart();
+      const chance = part === "late" ? 0.7 : part === "morning" ? 0.4 : 0;
+      if (Math.random() < chance && canSpeak()) {
+        setMood("happy");
+        refreshAnchor();
+        say(line(part === "late" ? "lateHello" : "morningHello", { time: clockLabel() }));
+      }
+      return;
+    }
+    const ok = await api.current.speakMemory(pick, { actions: memoryActions(pick), celebrate: !!pick.celebrate });
+    if (!ok) return;
+    if (pick.memoryKey) memory.patchFact(pick.memoryKey, pick.celebrate ? { celebrated: true } : { said: true });
+    if (pick.then) {
+      const follow = await memory.lineFor(pick.then.trigger, pick.then.vars);
+      if (follow) await api.current.speakMemory({ line: follow, vars: pick.then.vars }, { waitMs: 20000 });
+    }
+  };
+
+  /* Something changed mid-visit (a comeback, a milestone): say it once she's free, or save it for next time. */
+  api.current.onMemoryNews = async (news) => {
+    if (!openerDoneRef.current || stateRef.current?.quiet) return;
+    const item = news.find((n) => n.type === "milestone") || news.find((n) => n.type === "comeback");
+    if (!item) return;
+    const trigger = item.type === "milestone" ? `milestone.${item.id}` : "comeback";
+    const memoryKey = item.type === "milestone" ? `milestone:${item.id}` : `comeback:${item.courseUuid}`;
+    const picked = await memory.lineFor(trigger, item);
+    if (!picked) return;
+    const ok = await api.current.speakMemory({ line: picked, vars: item }, { celebrate: item.type === "milestone", waitMs: 120000 });
+    if (ok) memory.patchFact(memoryKey, item.type === "milestone" ? { celebrated: true } : { said: true });
+  };
+
+  /* Blocked days: she says what she moved, or that she'll plan around them. */
+  useEffect(() => {
+    const onBlocked = async (e) => {
+      if (!stateRef.current?.enabled || stateRef.current?.quiet) return;
+      const note = await memory.replanFor();
+      const picked = note
+        ? await memory.lineFor("blockedReplan", note)
+        : await memory.lineFor("blockedMarked", { when: blockedWhen(e.detail?.days || []) });
+      if (picked) void api.current.speakMemory({ line: picked, vars: note || {} }, { waitMs: 8000 });
+    };
+    const onForgot = () => {
+      if (!stateRef.current?.enabled || stateRef.current?.quiet) return;
+      void api.current.speakMemory({ line: pickLine("forgot", {}), vars: {} }, { waitMs: 8000 });
+    };
+    window.addEventListener("studyhub-companion-blocked", onBlocked);
+    window.addEventListener("studyhub-companion-forgot", onForgot);
+    return () => {
+      window.removeEventListener("studyhub-companion-blocked", onBlocked);
+      window.removeEventListener("studyhub-companion-forgot", onForgot);
+    };
+  }, [memory]);
 
   /* ---------- clicking & dragging Nova ---------- */
 
@@ -1313,7 +1496,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const bodyReady = use3d && body === "ready";
   useEffect(() => {
     if (!bodyReady || !visibleNow) return undefined;
-    let due = Date.now() + idleGap(stateRef.current?.movement);
+    let due = Date.now() + idleGap(stateRef.current?.movement, Math.random, dayPart());
     let last = null;
     const id = window.setInterval(() => {
       const now = Date.now();
@@ -1324,7 +1507,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       const name = seatRef.current ? "sitYawn" : pickIdleGesture({ part, bored: now - lastActivityRef.current > BORED_AFTER_MS, last });
       last = name;
       playGesture(name, { idle: true });
-      due = now + idleGap(stateRef.current?.movement);
+      due = now + idleGap(stateRef.current?.movement, Math.random, part);
       if ((name === "yawn" || name === "sitYawn") && part === "late" && now - lastLateQuipRef.current > LATE_QUIP_COOLDOWN_MS) {
         lastLateQuipRef.current = now;
         window.setTimeout(() => {
@@ -1636,6 +1819,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       const now = Date.now();
       lastActivityRef.current = now;
       lastInputRef.current = now;
+      if (e?.type === "keydown" || e?.type === "wheel") lastTypingRef.current = now;
       if (e?.target && nodeRef.current?.contains(e.target)) return;
       if (modeRef.current === "sleep" && !awayFromSpotRef.current) send("WAKE");
       api.current.backToSpot?.();
@@ -1904,7 +2088,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   } else if (visible && bubble && !flying && mode !== "menu") {
     const tone = showRampant ? "rampant" : mood === "stern" ? "harsh" : mood === "excited" ? "warm" : null;
     bubbleNode = (
-      <SpeechBubble text={bubble.text} title={bubble.title} actions={bubble.actions} h={anchor.h} v={anchor.v} tone={tone} />
+      <SpeechBubble text={bubble.text} title={bubble.title} actions={bubble.actions} h={anchor.h} v={anchor.v} tone={tone}>
+        {bubble.form || null}
+      </SpeechBubble>
     );
   }
 
@@ -1945,6 +2131,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           use3d ? "sc-scout--3d" : "",
           use3d && body === "loading" ? "sc-scout--loading" : "",
           housed ? "sc-scout--home" : "",
+          dayPart(new Date(now)) === "late" ? "sc-scout--late" : "",
         ]
           .filter(Boolean)
           .join(" ")}

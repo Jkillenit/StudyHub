@@ -54,6 +54,21 @@ export function daysUntil(date, now) {
   return dayIndex(date) - dayIndex(now);
 }
 
+function localDayKey(now, offset) {
+  const d = new Date(now);
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() + offset);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Blocked days (YYYY-MM-DD) from today up to, not including, the due day. */
+export function blockedBefore(days, now, blocked) {
+  if (!blocked?.size || days == null || days <= 0) return 0;
+  let n = 0;
+  for (let i = 0; i < days; i += 1) if (blocked.has(localDayKey(now, i))) n += 1;
+  return n;
+}
+
 export function urgency(days, config = PRIORITY_CONFIG) {
   if (days < 0) return config.overdueUrgency;
   return 1 / (1 + days / config.urgencyHalfDays);
@@ -186,10 +201,12 @@ function neededFor(a, needs) {
   return null;
 }
 
-function assignmentItem(a, course, needs, days, config) {
+/** `blocked` days before the due date don't count as working time, so the item ranks as if due sooner. */
+function assignmentItem(a, course, needs, days, config, blocked = 0) {
   const isExam = a.kind === "exam";
   const { share, known } = itemShare(a, course, config);
-  const score = urgency(days, config) * share ** config.weightExponent * riskFactor(needs, config);
+  const workDays = days < 0 ? days : Math.max(0, days - blocked);
+  const score = urgency(workDays, config) * share ** config.weightExponent * riskFactor(needs, config);
   const needed = neededFor(a, needs);
   const parts = [whenPhrase(days, isExam)];
   if (known) parts.push(`worth ${sharePct(share)}% of grade`);
@@ -216,6 +233,7 @@ function assignmentItem(a, course, needs, days, config) {
     shareKnown: known,
     needed,
     examReady: isExam && a.examCards?.total ? a.examCards.ready : null,
+    blockedBefore: blocked,
     score,
     reason: parts.join(" · "),
     action,
@@ -261,9 +279,13 @@ function gradeRiskItem(course, needs, config) {
   };
 }
 
-/** All candidate items, highest score first. Slice to config.topN for the Today list. */
-export function rankToday(data, { config = PRIORITY_CONFIG, now } = {}) {
+/**
+ * All candidate items, highest score first. Slice to config.topN for the Today list.
+ * `blockedDays`: YYYY-MM-DD days the student marked unavailable.
+ */
+export function rankToday(data, { config = PRIORITY_CONFIG, now, blockedDays = null } = {}) {
   const at = now ?? data?.now ?? new Date().toISOString();
+  const blocked = blockedDays ? new Set(blockedDays) : null;
   const items = [];
   for (const course of data?.courses || []) {
     const needs = neededScores(course, { config, now: at });
@@ -272,7 +294,7 @@ export function rankToday(data, { config = PRIORITY_CONFIG, now } = {}) {
       const days = daysUntil(a.dueDate, at);
       if (days == null || days > config.horizonDays) continue;
       if (a.kind === "exam" ? days < 0 : days < -config.overdueWindowDays) continue;
-      items.push(assignmentItem(a, course, needs, days, config));
+      items.push(assignmentItem(a, course, needs, days, config, blockedBefore(days, at, blocked)));
     }
     const risk = gradeRiskItem(course, needs, config);
     if (risk) items.push(risk);

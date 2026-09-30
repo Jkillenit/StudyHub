@@ -85,6 +85,8 @@ contextBridge.exposeInMainWorld("studyHub", {
     practice: (payload) => ipcRenderer.invoke("studyhub:ai-practice", payload),
     /** @returns {Promise<{ ok: boolean, results?: Array<{title,url,summary,kind}>, error?: string }>} */
     webSearch: (payload) => ipcRenderer.invoke("studyhub:ai-web-search", payload),
+    /** @returns {Promise<{ ok: boolean, text?: string, error?: string }>} */
+    companionRephrase: (payload) => ipcRenderer.invoke("studyhub:ai-companion-rephrase", payload),
   },
 
   openExternal: (url) => ipcRenderer.invoke("studyhub:open-external", url),
@@ -266,6 +268,16 @@ contextBridge.exposeInMainWorld("studyHub", {
       log: (data) => ipcRenderer.invoke("db:sessions:log", data),
       stats: (courseUuid) => ipcRenderer.invoke("db:sessions:stats", courseUuid),
       history: (args) => ipcRenderer.invoke("db:sessions:history", args),
+    },
+    companion: {
+      memory: () => ipcRenderer.invoke("db:companion:memory:getAll"),
+      remember: (entry) => ipcRenderer.invoke("db:companion:memory:set", entry),
+      rememberMany: (entries) => ipcRenderer.invoke("db:companion:memory:setMany", entries),
+      mute: (data) => ipcRenderer.invoke("db:companion:memory:mute", data),
+      forget: () => ipcRenderer.invoke("db:companion:memory:forget"),
+      saidSince: (since) => ipcRenderer.invoke("db:companion:said:recent", since),
+      markSaid: (lineId) => ipcRenderer.invoke("db:companion:said:mark", lineId),
+      studyFacts: (args) => ipcRenderer.invoke("db:companion:studyFacts", args),
     },
     web: {
       getByCourse: (courseUuid) => ipcRenderer.invoke("db:web:getByCourse", courseUuid),

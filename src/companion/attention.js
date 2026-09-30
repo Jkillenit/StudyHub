@@ -35,6 +35,19 @@ export function mayAct({ lastInput, lastStudy = 0, quiet = false, reduced = fals
   return idleFor(lastInput, now) >= IDLE_START_MS;
 }
 
+/** Keys or scrolling this recent mean the student is typing or reading. */
+export const TYPING_HOLD_MS = 2500;
+
+/**
+ * May she say something she remembers (an opener, a milestone)? Talking is fine under reduced
+ * motion, but never in quiet mode, mid-session, or while the student is typing or scrolling.
+ */
+export function maySpeak({ lastTyping = 0, lastStudy = 0, quiet = false, hidden = false, now = Date.now() }) {
+  if (quiet || hidden) return false;
+  if (inSession(lastStudy, now)) return false;
+  return now - (lastTyping || 0) >= TYPING_HOLD_MS;
+}
+
 /** How long to wait before checking `mayAct` again (never less than `min`). */
 export function nextCheckMs({ lastInput, lastStudy = 0, now = Date.now(), min = 2000 }) {
   const untilIdle = msUntilIdle(lastInput, now);

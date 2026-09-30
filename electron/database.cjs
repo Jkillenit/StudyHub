@@ -225,6 +225,29 @@ const MIGRATIONS = [
       dbRef.exec("DELETE FROM settings WHERE key LIKE 'studyGuide.scope.%'");
     },
   },
+  {
+    version: 8,
+    up(dbRef) {
+      // companion_memory: what Nova remembers about the student. Local only, never synced.
+      // muted = the student deleted this fact; she stops tracking and mentioning it.
+      // companion_said: when each line was last said, so lines don't repeat within a week.
+      addColumn(dbRef, "study_sessions", "best_combo", "INTEGER");
+      dbRef.exec(`
+        CREATE TABLE IF NOT EXISTS companion_memory (
+          uuid TEXT NOT NULL UNIQUE,
+          key TEXT PRIMARY KEY,
+          value TEXT,
+          source TEXT NOT NULL DEFAULT 'derived',
+          muted INTEGER NOT NULL DEFAULT 0,
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS companion_said (
+          line_id TEXT PRIMARY KEY,
+          said_at TEXT NOT NULL
+        );
+      `);
+    },
+  },
 ];
 
 function runMigrations(dbRef) {

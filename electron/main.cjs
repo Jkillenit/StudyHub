@@ -17,9 +17,11 @@ const {
   enhanceContent,
   generatePracticeQuestions,
   searchStudyMaterials,
+  rephraseCompanionLine,
 } = require("./anthropicClient.cjs");
 const { registerDbHandlers } = require("./dbHandlers.cjs");
 const { registerMirrorHandlers } = require("./dbMirrorHandlers.cjs");
+const { registerCompanionHandlers } = require("./companionHandlers.cjs");
 const { registerBlackboardHandlers } = require("./blackboardWindow.cjs");
 const { registerMaintenanceHandlers } = require("./maintenance.cjs");
 
@@ -508,6 +510,16 @@ ipcMain.handle("studyhub:ai-web-search", async (_evt, payload) => {
   }
 });
 
+ipcMain.handle("studyhub:ai-companion-rephrase", async (_evt, payload) => {
+  const key = requireKey();
+  if (!key) return { ok: false, error: "no-key" };
+  try {
+    return { ok: true, text: await rephraseCompanionLine(key, { text: String(payload?.text || "") }) };
+  } catch (e) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+});
+
 ipcMain.handle("studyhub:open-external", async (_evt, url) => {
   const value = String(url || "");
   if (!/^https:\/\//i.test(value)) return { ok: false, error: "Only https links can be opened." };
@@ -639,6 +651,7 @@ app.whenReady().then(() => {
   loadAllowlist();
   registerDbHandlers();
   registerMirrorHandlers();
+  registerCompanionHandlers();
   registerMaintenanceHandlers(() => mainWindow);
   createWindow();
   registerBlackboardHandlers(() => mainWindow, { allowPaths, extractBufferText });

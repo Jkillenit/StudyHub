@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useShell } from "./ShellContext.jsx";
 import { setMotionPref, useMotionPref, useReducedMotion } from "./motion.js";
+import { NovaMemoryView } from "../companion/NovaMemoryView.jsx";
 
 /** Nova's quiet mode lives in her own state; the layer broadcasts changes. */
 function useNovaQuiet() {
@@ -21,6 +22,11 @@ export function SettingsPanel({ open, onClose }) {
   const pref = useMotionPref();
   const reduced = useReducedMotion();
   const quiet = useNovaQuiet();
+  const [view, setView] = useState("main");
+
+  useEffect(() => {
+    if (!open) setView("main");
+  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -44,6 +50,20 @@ export function SettingsPanel({ open, onClose }) {
     onClose();
     window.dispatchEvent(new CustomEvent(event));
   };
+
+  if (view === "memory") {
+    return (
+      <div ref={ref} className="sh-settings" role="dialog" aria-label="What Nova knows" data-sprite-avoid>
+        <header className="sh-settings-head">
+          <span className="sh-hud-label">WHAT NOVA KNOWS</span>
+          <button type="button" className="sh-settings-close" onClick={onClose} aria-label="Close settings">
+            ×
+          </button>
+        </header>
+        <NovaMemoryView onBack={() => setView("main")} />
+      </div>
+    );
+  }
 
   return (
     <div ref={ref} className="sh-settings" role="dialog" aria-label="Settings" data-sprite-avoid>
@@ -86,6 +106,10 @@ export function SettingsPanel({ open, onClose }) {
             onChange={(e) => window.dispatchEvent(new CustomEvent("studyhub-companion-quiet", { detail: { quiet: e.target.checked } }))}
           />
         </label>
+        <button type="button" className="sh-settings-action" onClick={() => setView("memory")}>
+          What Nova knows
+          <span aria-hidden>›</span>
+        </button>
         <button type="button" className="sh-settings-action" onClick={() => openOther("studyhub-scout-settings")}>
           Nova settings
           <span aria-hidden>›</span>
