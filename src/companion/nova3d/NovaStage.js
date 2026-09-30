@@ -132,7 +132,21 @@ const PROC = {
     },
     face: (t) => ({ aa: 0.95 * bump(t, 0.6, 2.6, 0.5), blink: 0.8 * bump(t, 0.7, 2.5, 0.4) }),
   },
+  /** Woken with a jolt: arms flare, head snaps back, eyes wide. Fast in, slower out. */
+  startle: {
+    duration: 1.3,
+    ramp: [0.1, 0.7],
+    arms: () => bothArms(dir(0.6, -0.55, 0.45), dir(0.4, -0.05, 0.9), dir(0.3, 0.25, 0.9)),
+    body: (t) => {
+      const j = bump(t, 0, 1.1, 0.12);
+      return { spine: [-0.08 * j, 0, 0], chest: [-0.1 * j, 0, 0], head: [-0.16 * j, 0, 0.05 * j] };
+    },
+    face: (t) => ({ Surprised: 0.85 * bump(t, 0, 1.2, 0.1), oh: 0.5 * bump(t, 0.05, 0.9, 0.1) }),
+  },
 };
+
+/** Holding a deck in front of her chest, forearms forward, hands close together. */
+const CARDS_ARMS = bothArms(dir(0.2, -0.85, 0.35), dir(-0.45, 0.2, 0.87), dir(-0.35, 0.3, 0.88));
 
 /**
  * Held by the cursor: legs hang and kick, arms flail out, alternating sides. Same
@@ -317,7 +331,15 @@ export class NovaStage {
     this.root = new THREE.Group();
     this.scene.add(this.root);
     this.clock = new THREE.Clock(false);
-    this.state = { gait: null, speed: 90, facing: 1, mood: "neutral", talkUntil: 0, rampant: false, glow: 1, asleep: false, attend: false, held: false, seat: null, lie: null, still: false, energy: 1, glitchUntil: 0, visible: true };
+    this.state = { gait: null, speed: 90, facing: 1, mood: "neutral", talkUntil: 0, rampant: false, glow: 1, asleep: false, attend: false, held: false, seat: null, lie: null, still: false, energy: 1, glitchUntil: 0, visible: true, activity: null, drowsy: false };
+    this.forced = null;
+    this.focusWorld = null;
+    this.penRef = null;
+    this.drawAt = { x: 1, y: 0 };
+    this.drawW = 0;
+    this.cardsW = 0;
+    this.bookW = 0;
+    this.deckW = 0;
     this.legSwing = createLegSwing();
     this.gaze = new THREE.Vector3(0, 1, 2.5);
     this.headVel = { yaw: 0, pitch: 0 };
@@ -365,6 +387,142 @@ export class NovaStage {
   refreshColors() {
     this.uniforms.uColor.value.copy(cssColor(this.state.rampant ? "--sh-danger" : "--sh-accent", "--sh-accent"));
     this.uniforms.uHot.value.copy(cssColor("--sh-text", "--sh-accent"));
+    for (const set of Object.values(this.propMats || {})) {
+      set.fill.color.copy(this.uniforms.uColor.value);
+      set.dim.color.copy(this.uniforms.uColor.value);
+      set.line.color.copy(this.uniforms.uHot.value);
+    }
+  }
+
+  /**
+   * Hologram props: an open book (read lying on her stomach) and a small deck of cards
+   * (shuffled and fanned while she sits). Placed in world space every frame from her bones.
+   */
+  buildProps() {
+    const H = this.height;
+    const mats = () => {
+      const common = { transparent: true, blending: THREE.AdditiveBlending, depthWrite: false };
+      return {
+        fill: new THREE.MeshBasicMaterial({ ...common, color: this.uniforms.uColor.value, opacity: 0.3, side: THREE.DoubleSide }),
+        line: new THREE.LineBasicMaterial({ ...common, color: this.uniforms.uHot.value, opacity: 0.85 }),
+        dim: new THREE.LineBasicMaterial({ ...common, color: this.uniforms.uColor.value, opacity: 0.6 }),
+      };
+    };
+    this.propMats = { book: mats(), deck: mats() };
+    this.propGeos = [];
+    const keep = (g) => {
+      this.propGeos.push(g);
+      return g;
+    };
+
+    const pw = H * 0.085;
+    const ph = H * 0.12;
+    const pageGeo = keep(new THREE.PlaneGeometry(pw, ph).translate(pw / 2, 0, 0));
+    const pageEdges = keep(new THREE.EdgesGeometry(pageGeo));
+    const rows = [];
+    for (let i = 0; i < 6; i += 1) {
+      const y = ph * (0.32 - i * 0.12);
+      rows.push(pw * 0.15, y, 0, pw * (i === 5 ? 0.55 : 0.85), y, 0);
+    }
+    const textGeo = keep(new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(rows, 3)));
+    const m = this.propMats.book;
+    const page = () => {
+      const g = new THREE.Group();
+      g.add(new THREE.Mesh(pageGeo, m.fill), new THREE.LineSegments(pageEdges, m.line), new THREE.LineSegments(textGeo, m.dim));
+      return g;
+    };
+    this.bookOpen = 0.28;
+    const book = new THREE.Group();
+    const left = page();
+    left.rotation.y = Math.PI - this.bookOpen;
+    const right = page();
+    right.rotation.y = this.bookOpen;
+    this.bookFlip = page();
+    book.add(left, right, this.bookFlip);
+
+    const cw = H * 0.045;
+    const ch = H * 0.064;
+    const cardGeo = keep(new THREE.PlaneGeometry(cw, ch).translate(0, ch / 2, 0));
+    const cardEdges = keep(new THREE.EdgesGeometry(cardGeo));
+    const d = this.propMats.deck;
+    const deck = new THREE.Group();
+    this.deckCards = Array.from({ length: 7 }, () => {
+      const g = new THREE.Group();
+      g.add(new THREE.Mesh(cardGeo, d.fill), new THREE.LineSegments(cardEdges, d.line));
+      deck.add(g);
+      return g;
+    });
+
+    this.props = new THREE.Group();
+    this.props.add(book, deck);
+    this.book = book;
+    this.deck = deck;
+    book.visible = false;
+    deck.visible = false;
+    this.scene.add(this.props);
+  }
+
+  placeProps(dt) {
+    const s = this.state;
+    const ease = (cur, want, rate) => cur + (want - cur) * Math.min(1, dt * rate);
+    this.bookW = ease(this.bookW, s.activity === "read" && this.lying === "belly" && this.lieW > 0.6 ? 1 : 0, 3);
+    this.deckW = ease(this.deckW, s.activity === "cards" && this.cardsW > 0.6 ? 1 : 0, 3);
+    this.focusWorld = null;
+    const h = this.vrm.humanoid;
+    const at = (name) => h.getNormalizedBoneNode(name)?.getWorldPosition(new THREE.Vector3());
+    const setOpacity = (set, w) => {
+      set.fill.opacity = 0.3 * w;
+      set.line.opacity = 0.85 * w;
+      set.dim.opacity = 0.6 * w;
+    };
+
+    this.book.visible = this.bookW > 0.01;
+    if (this.book.visible) {
+      setOpacity(this.propMats.book, this.bookW);
+      const head = at("head");
+      const lh = at("leftHand") || head;
+      const rh = at("rightHand") || head;
+      const x = Math.min(head.x, lh.x, rh.x) - this.height * 0.07;
+      const y = Math.max(this.rest.floorY + this.height * 0.03, Math.min(lh.y, rh.y));
+      this.book.position.set(x, y, head.z + 0.05);
+      this.book.rotation.set(-0.7, 0, 0);
+      const cyc = this.t % 5.5;
+      const f = smooth(4.4, 5.3, cyc);
+      this.bookFlip.rotation.y = this.bookOpen + (Math.PI - 2 * this.bookOpen) * f;
+      this.bookFlip.visible = f > 0.001 && f < 0.999;
+      this.focusWorld = this.book.position.clone();
+    }
+
+    this.deck.visible = this.deckW > 0.01;
+    if (this.deck.visible) {
+      setOpacity(this.propMats.deck, this.deckW);
+      const lh = at("leftHand");
+      const rh = at("rightHand");
+      if (lh && rh) {
+        const mid = lh.add(rh).multiplyScalar(0.5);
+        this.deck.position.set(mid.x, mid.y - this.height * 0.01, mid.z + 0.03);
+      }
+      const t = this.t % 6.6;
+      const fan = smooth(3.2, 3.8, t) * (1 - smooth(5.8, 6.4, t));
+      const shuffle = 1 - smooth(2.8, 3.3, t);
+      const n = this.deckCards.length;
+      this.deckCards.forEach((card, i) => {
+        const ph = this.t * 5 + i * 0.9;
+        card.position.set(Math.sin(ph) * this.height * 0.025 * shuffle, Math.abs(Math.cos(ph)) * this.height * 0.008 * shuffle, i * 0.002);
+        card.rotation.z = (i - (n - 1) / 2) * 0.2 * fan + Math.sin(ph) * 0.15 * shuffle;
+      });
+      this.focusWorld = this.deck.position.clone();
+    }
+  }
+
+  /** Pen position for drawing, read every frame: a ref holding `{ x, y }` in viewport px, or null. */
+  setPen(ref) {
+    this.penRef = ref;
+  }
+
+  /** Look at a point (px from the canvas center) for `ms`, cursor or not. */
+  glanceAt(dx, dy, ms = 2500) {
+    this.forced = { x: dx, y: dy, until: performance.now() + ms };
   }
 
   async load() {
@@ -409,6 +567,7 @@ export class NovaStage {
     }
     this.mixer.addEventListener("finished", (e) => this.onFinished(e.action));
     this.captureRest();
+    this.buildProps();
 
     this.lookTarget = new THREE.Object3D();
     this.scene.add(this.lookTarget);
@@ -564,6 +723,10 @@ export class NovaStage {
    */
   play(name, { idle = false, at = null } = {}) {
     if (!this.mixer) return Promise.resolve(false);
+    if (name === "cancel") {
+      this.cancelGesture();
+      return Promise.resolve(false);
+    }
     if (PROC[name]) {
       this.cancelGesture();
       return new Promise((resolve) => {
@@ -590,7 +753,8 @@ export class NovaStage {
   /** Procedural gesture weight: eases in and out at the ends. */
   procWeight() {
     const p = this.proc;
-    return smooth(0, 0.55, p.t) * (1 - smooth(p.def.duration - 0.6, p.def.duration, p.t));
+    const [rin, rout] = p.def.ramp || [0.55, 0.6];
+    return smooth(0, rin, p.t) * (1 - smooth(p.def.duration - rout, p.def.duration, p.t));
   }
 
   /** Additive local rotation (VRM 1.0 axes) on a normalized bone. */
@@ -667,8 +831,11 @@ export class NovaStage {
     const ease = (cur, want, rate) => cur + (want - cur) * Math.min(1, dt * rate);
     this.heldW = ease(this.heldW, s.held ? 1 : 0, 8);
     this.seatW = ease(this.seatW, seated ? 1 : 0, 4);
-    this.playW = ease(this.playW, seated && !s.asleep && s.seat === "playful" ? 1 : 0, 4);
+    this.playW = ease(this.playW, seated && !s.asleep && (s.seat === "playful" || s.seat === "cards") ? 1 : 0, 4);
+    this.cardsW = ease(this.cardsW, seated && !s.asleep && s.seat === "cards" ? 1 : 0, 4);
     this.lieW = ease(this.lieW, lying ? 1 : 0, 4);
+    const pen = s.activity === "draw" && !lying && !seated && !s.gait ? this.penRef?.current : null;
+    this.drawW = ease(this.drawW, pen ? 1 : 0, 6);
 
     const wantBack = !this.oneShot && !s.held && ARMS_BACK_BASES.has(this.base) ? 1 : 0;
     this.armsBack += (wantBack - this.armsBack) * Math.min(1, dt * 5);
@@ -682,8 +849,15 @@ export class NovaStage {
     if (this.playW > 0.01) {
       this.applyArmPose(SEAT_PLAYFUL.arms, this.playW);
       this.applyLegPose({ left: seatLeg(swing.left, swing.cross, 1), right: seatLeg(swing.right, swing.cross, -1) }, this.playW);
-      if (!s.still) this.bend("head", [0, 0, Math.sin(this.t * 1.3) * 0.08], this.playW);
+      if (!s.still) this.bend("head", [0, 0, Math.sin(this.t * 1.3) * 0.08], this.playW * (1 - this.cardsW));
     }
+    if (this.cardsW > 0.01) this.applyArmPose(CARDS_ARMS, this.cardsW);
+    if (pen) {
+      const r = this.canvas.getBoundingClientRect();
+      this.drawAt = { x: pen.x - (r.left + r.width / 2), y: pen.y - (r.top + r.height * 0.3) };
+      this.forced = { x: pen.x - (r.left + r.width / 2), y: pen.y - (r.top + r.height / 2), until: now + 400 };
+    }
+    if (this.drawW > 0.01) this.applyArmPose(PROC.point.arms(0, { at: this.drawAt }), this.drawW);
     if (cold) this.bend("head", [0.06, s.facing * 0.45, 0], this.seatW);
     if (seated && s.asleep) {
       this.bend("neck", [0.3, 0, 0.1], this.seatW);
@@ -691,6 +865,7 @@ export class NovaStage {
     }
     this.lying = lying;
     if (lying && !s.still) this.lieLife(lying, s.asleep);
+    if (lying && s.drowsy && !s.asleep) this.bend("head", [0.14 * this.nod(), 0, 0], this.lieW);
     this.placeSeat();
     this.centerLie(lying, dt);
 
@@ -714,10 +889,16 @@ export class NovaStage {
     const glitching = s.rampant ? (Math.sin(now / 900) > 0.93 ? 1 : 0.15) : 0;
     this.uniforms.uGlitch.value = Math.max(glitching, s.glitchUntil > now ? 1 : 0);
     this.uniforms.uGlow.value = s.glow;
-    this.uniforms.uFade.value += ((s.asleep ? 0.6 : 1) - this.uniforms.uFade.value) * Math.min(1, dt * 3);
+    this.uniforms.uFade.value += ((s.asleep ? 0.6 : s.drowsy ? 0.8 : 1) - this.uniforms.uFade.value) * Math.min(1, dt * 3);
 
     this.vrm.update(dt);
+    this.placeProps(dt);
     this.render();
+  }
+
+  /** Drowsy: 0 most of the time, easing up to 1 as her head drops and her eyes close, every few seconds. */
+  nod() {
+    return Math.pow(Math.max(0, Math.sin(this.t * 0.7)), 4);
   }
 
   /**
@@ -773,7 +954,7 @@ export class NovaStage {
         hi = Math.max(hi, x);
       }
       if (Number.isFinite(lo)) {
-        const headPad = this.height * 0.06;
+        const headPad = this.height * (this.state.activity === "read" ? 0.2 : 0.06);
         want = -((lo - headPad + hi) / 2);
       }
     }
@@ -822,12 +1003,15 @@ export class NovaStage {
     const ppu = this.sizePx / this.frameH;
     const headPos = head.getWorldPosition(new THREE.Vector3());
     const cy = (this.camera.top + this.camera.bottom) / 2;
-    const l = this.look;
-    const glancing = l.at && performance.now() - l.at < GLANCE_MS && Math.hypot(l.x, l.y) < GLANCE_RADIUS;
-    const onCursor = glancing || (s.attend && l.at);
-    const want = onCursor
-      ? new THREE.Vector3(l.x / ppu, cy - l.y / ppu, 2.5)
-      : new THREE.Vector3(headPos.x + Math.sin(this.yaw) * 2.5, headPos.y, Math.cos(this.yaw) * 2.5);
+    const now = performance.now();
+    const forced = this.forced && now < this.forced.until ? this.forced : null;
+    const l = forced ? { ...forced, at: now } : this.look;
+    const glancing = l.at && now - l.at < GLANCE_MS && (forced || Math.hypot(l.x, l.y) < GLANCE_RADIUS);
+    const onCursor = !!this.focusWorld || glancing || (s.attend && l.at);
+    let want;
+    if (this.focusWorld) want = this.focusWorld.clone();
+    else if (onCursor) want = new THREE.Vector3(l.x / ppu, cy - l.y / ppu, 2.5);
+    else want = new THREE.Vector3(headPos.x + Math.sin(this.yaw) * 2.5, headPos.y, Math.cos(this.yaw) * 2.5);
     /* Eyes: the gaze point catches the cursor quickly and eases back to neutral slowly. */
     this.gaze.lerp(want, 1 - Math.exp(-(onCursor ? GAZE_CATCH : GAZE_RELEASE) * dt));
     this.lookTarget.position.copy(this.gaze);
@@ -878,6 +1062,8 @@ export class NovaStage {
     let blink = 0;
     if (s.asleep) {
       blink = 1;
+    } else if (s.drowsy) {
+      blink = 0.45 + 0.5 * this.nod();
     } else {
       b.next -= dt;
       if (b.next <= 0 && b.t < 0) b.t = 0;
@@ -897,8 +1083,11 @@ export class NovaStage {
   render() {
     const r = this.renderer;
     r.clear();
+    const props = this.props?.visible;
+    if (this.props) this.props.visible = false;
     for (const m of this.meshes) m.mesh.material = m.depth;
     r.render(this.scene, this.camera);
+    if (this.props) this.props.visible = props;
     for (const m of this.meshes) m.mesh.material = m.color;
     r.render(this.scene, this.camera);
   }
@@ -912,6 +1101,8 @@ export class NovaStage {
     for (const m of this.meshes || []) {
       for (const mat of [m.color, m.depth].flat()) mat.dispose();
     }
+    for (const g of this.propGeos || []) g.dispose();
+    for (const set of Object.values(this.propMats || {})) for (const mat of Object.values(set)) mat.dispose();
     this.renderer.dispose();
   }
 }

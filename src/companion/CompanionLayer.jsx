@@ -19,13 +19,19 @@ import { shortCourse } from "../features/dashboard/courseLabel.js";
 import { courseStore } from "../db/courseStore.js";
 import { cardKey, runAwards } from "./lightRun.js";
 import { STUDY_EVENT } from "./studyEvents.js";
-import { BORED_AFTER_MS, clockLabel, dayPart, idleGap, pickIdleGesture, sleepAfterMs } from "./idleDirector.js";
+import { BORED_AFTER_MS, clockLabel, dayPart, idleGap, pickIdleGesture } from "./idleDirector.js";
+import { WAKE_DENIAL_CHANCE, dueStage, mayPeek, pickProp } from "./idleStages.js";
+import { buildDoodle, doodleBox, layoutDoodle, pickDoodle } from "./doodles.js";
+import { DoodleTrail } from "./DoodleTrail.jsx";
 import { QuizPanel } from "./QuizPanel.jsx";
 import { transition, AUTONOMOUS } from "./machine.js";
 import {
   clampPoint,
   coversContent,
   defaultHome,
+  findDoodleSpot,
+  findPeekSpot,
+  findTarget,
   groundPlatform,
   livePlatform,
   pickStroll,
@@ -105,7 +111,13 @@ const HOME_AWAY_STOPS = [2, 4];
 const HOME_RETURN_DELAY_MS = 600;
 const GROW_MS = 420;
 /** Modes she can hold while standing big in her home window; anything else walks her out at normal size. */
-const HOME_MODES = new Set(["idle", "menu", "sleep", "nudge", "perch"]);
+const HOME_MODES = new Set(["idle", "menu", "sleep", "nudge", "perch", "play"]);
+/** Idle stages the portrait sprite can't do (no arms, no props). */
+const SPRITE_SKIP = new Set(["fidget", "prop"]);
+/** Temporary menu item: runs each idle stage on demand. */
+const IDLE_TESTS = ["fidget", "doodle", "read", "cards", "peek", "doze"];
+const READ_MS = [35 * 1000, 60 * 1000];
+const DROWSY_MS = 16 * 1000;
 /** Modes that can take her away from her spot on purpose. */
 const ENGAGED_MODES = new Set(["tour", "help", "quiz", "nudge", "greet"]);
 
@@ -187,6 +199,23 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const [seat, setSeat] = useState(null);
   const seatRef = useRef(null);
   seatRef.current = seat;
+  /* Idle life: the running activity (`{ kind, aborted, test }`), what ran this idle stretch, and what the body shows. */
+  const activityRef = useRef(null);
+  const stagesDoneRef = useRef(new Set());
+  const lastPeekRef = useRef(0);
+  const [activity, setActivity] = useState(null);
+  const [idleLie, setIdleLie] = useState(null);
+  const [drowsy, setDrowsy] = useState(false);
+  const [glance, setGlance] = useState(null);
+  const [doodle, setDoodle] = useState(null);
+  const penRef = useRef(null);
+  const doodleIdRef = useRef(0);
+  const doodleDrawnRef = useRef(null);
+  const lastDoodleRef = useRef(null);
+  const peekClipRef = useRef(null);
+  /** The input that woke her, so the "I wasn't asleep" line only follows a mouse or touch. */
+  const wokeByRef = useRef(null);
+  const [idleTest, setIdleTest] = useState(0);
   const lastTierRef = useRef(null);
   const bubbleRef = useRef(null);
   bubbleRef.current = bubble;
@@ -379,7 +408,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
    */
   api.current.backToSpot = () => {
     const m = modeRef.current;
-    if (!awayFromSpotRef.current || returningRef.current || dragRef.current) return;
+    if (!awayFromSpotRef.current || returningRef.current || dragRef.current || activityRef.current) return;
     if (!(AUTONOMOUS.has(m) || m === "sleep")) return;
     returningRef.current = true;
     cancel();
@@ -1526,8 +1555,21 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   useEffect(() => {
     const prev = prevModeRef.current;
     prevModeRef.current = mode;
-    if (bodyReady && prev === "sleep" && mode === "idle") playGesture("stretch", { idle: true });
-  }, [mode, bodyReady, playGesture]);
+    if (prev !== "sleep" || mode === "sleep") return;
+    const by = wokeByRef.current;
+    wokeByRef.current = null;
+    if (bodyReady && (mode === "idle" || mode === "wander")) playGesture("startle");
+    if (!by || by === "keydown" || by === "wheel" || Math.random() >= WAKE_DENIAL_CHANCE) return;
+    window.setTimeout(async () => {
+      if (!AUTONOMOUS.has(modeRef.current) || bubbleRef.current || stateRef.current?.quiet) return;
+      const pick = await memory.lineFor("wakeDenial", {});
+      if (!pick || bubbleRef.current) return;
+      memory.markSaid(pick);
+      setMood("stern");
+      refreshAnchor();
+      say(pick.text);
+    }, 1100);
+  }, [mode, bodyReady, playGesture, memory, refreshAnchor, say]);
   useEffect(() => {
     if (!use3d || !visibleNow) return undefined;
     let raf = 0;
@@ -1598,23 +1640,244 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     if (!visibleNow) return undefined;
     const id = window.setInterval(() => {
       const m = modeRef.current;
-      if (!awayFromSpotRef.current || busy() || dragRef.current || !(AUTONOMOUS.has(m) || m === "sleep")) return;
+      if (!awayFromSpotRef.current || activityRef.current || busy() || dragRef.current || !(AUTONOMOUS.has(m) || m === "sleep")) return;
       if (coversContent(posRef.current, sizeRef.current, { standing: use3dRef.current })) api.current.backToSpot?.();
     }, 1500);
     return () => window.clearInterval(id);
   }, [visibleNow, busy, posRef]);
 
+  /* ---------- idle life: staged by how long the student has been idle ---------- */
+
+  const bodyReadyRef = useRef(false);
+  bodyReadyRef.current = bodyReady;
+  const threeD = () => use3dRef.current && bodyReadyRef.current;
+
+  /** Resolves true after `ms` if the activity is still running, false once input cut it short. */
+  const hold = (ms, tk) =>
+    new Promise((resolve) => window.setTimeout(() => resolve(!tk.aborted && activityRef.current === tk), ms));
+
+  /** Put the body back to normal. `fast` (input) snaps the doodle out instead of letting it fade. */
+  const clearActivityVisuals = (fast) => {
+    setActivity(null);
+    setIdleLie(null);
+    setDrowsy(false);
+    setSeat((s) => (s === "cards" ? null : s));
+    penRef.current = null;
+    doodleDrawnRef.current?.();
+    doodleDrawnRef.current = null;
+    if (fast) setDoodle((d) => (d ? { ...d, abort: true } : null));
+    peekClipRef.current?.();
+    peekClipRef.current = null;
+  };
+
+  /** Any input ends idle life: she drops what she's doing and the layer walks her back. */
+  api.current.endActivity = ({ pointerMove = false } = {}) => {
+    const tk = activityRef.current;
+    if (!tk || (pointerMove && tk.test)) return;
+    tk.aborted = true;
+    activityRef.current = null;
+    clearActivityVisuals(true);
+    if (tk.moving) cancel();
+    if (use3dRef.current) playGesture("cancel", { idle: true });
+    if (modeRef.current === "play") send("DONE");
+  };
+
   useEffect(() => {
-    const id = window.setInterval(() => {
-      if (document.hidden || stateRef.current?.quiet || reducedRef.current) return;
-      if (AUTONOMOUS.has(modeRef.current) && Date.now() - lastActivityRef.current > sleepAfterMs(dayPart())) {
-        cancel();
-        setBubble(null);
-        send("SLEEP");
+    if (mode !== "play" && activityRef.current) api.current.endActivity();
+  }, [mode]);
+
+  api.current.runStage = async (kind, { test = false } = {}) => {
+    if (activityRef.current) return;
+    const tk = { kind, aborted: false, test, moving: false };
+    activityRef.current = tk;
+    if (send("PLAY") !== "play") {
+      activityRef.current = null;
+      return;
+    }
+    setBubble(null);
+    let after = "DONE";
+    try {
+      after = (await api.current.stages[kind]?.(tk)) || "DONE";
+    } catch {
+      after = "DONE";
+    }
+    if (activityRef.current !== tk) return;
+    activityRef.current = null;
+    clearActivityVisuals(false);
+    if (modeRef.current === "play") send(after);
+  };
+
+  /** Point her eyes at a DOM rect for `ms`. */
+  const glanceAtRect = (rect, ms) => {
+    const s = sizeRef.current;
+    const p = posRef.current;
+    setGlance({ x: rect.left + rect.width / 2 - (p.x + s / 2), y: rect.top + rect.height / 2 - (p.y + s / 2), ms });
+  };
+
+  /** Hide the part of her that overlaps `el`, every frame, so she looks like she's behind it. */
+  const clipBehind = (el) => {
+    const node = nodeRef.current;
+    let raf = 0;
+    const step = () => {
+      raf = requestAnimationFrame(step);
+      if (!node) return;
+      const r = el.isConnected ? el.getBoundingClientRect() : null;
+      const s = sizeRef.current;
+      const p = posRef.current;
+      const x1 = r ? Math.max(0, r.left - p.x) : 0;
+      const x2 = r ? Math.min(s, r.right - p.x) : 0;
+      const y1 = r ? Math.max(0, r.top - p.y) : 0;
+      const y2 = r ? Math.min(s, r.bottom - p.y) : 0;
+      node.style.clipPath = x2 > x1 && y2 > y1 ? `path(evenodd, "M0 0H${s}V${s}H0Z M${x1} ${y1}H${x2}V${y2}H${x1}Z")` : "";
+    };
+    step();
+    return () => {
+      cancelAnimationFrame(raf);
+      if (node) node.style.clipPath = "";
+    };
+  };
+
+  api.current.stages = {
+    /* 30s: looks around, stretches, glances at the Tonight panel. */
+    fidget: async (tk) => {
+      playGesture("look", { idle: true });
+      if (!(await hold(5500, tk))) return;
+      playGesture("stretch", { idle: true });
+      if (!(await hold(3600, tk))) return;
+      const tonight = findTarget("today-tonight");
+      if (!tonight) return;
+      glanceAtRect(tonight.getBoundingClientRect(), 2600);
+      await hold(2800, tk);
+    },
+
+    /* 60s: a light-trail doodle on open grid space beside her. */
+    doodle: async (tk) => {
+      const pick = pickDoodle({ memory: memory.snapshot(), now: new Date(), last: lastDoodleRef.current });
+      const built = buildDoodle(pick);
+      const s = sizeRef.current;
+      const box = doodleBox(built, s);
+      const spot = findDoodleSpot(posRef.current, s, { ...box, prefer: facing });
+      if (!spot) return;
+      lastDoodleRef.current = pick.id;
+      setFacing(spot.side);
+      if (!(await hold(400, tk))) return;
+      const drawn = new Promise((resolve) => {
+        doodleDrawnRef.current = resolve;
+      });
+      if (threeD()) setActivity("draw");
+      doodleIdRef.current += 1;
+      setDoodle({ id: doodleIdRef.current, strokes: layoutDoodle(built, spot.rect), color: built.color, abort: false });
+      await drawn;
+      if (tk.aborted) return;
+      setActivity(null);
+      setMood("happy");
+      if (threeD() && Math.random() < 0.4) playGesture("wink", { idle: true });
+      await hold(2600, tk);
+      setMood("neutral");
+    },
+
+    /* 2 min: reads a hologram book on her stomach, or sits on an edge and shuffles a deck. */
+    prop: async (tk) => {
+      const canSit = !housedRef.current && !!platRef.current?.el && seatClear(posRef.current, sizeRef.current);
+      return api.current.stages[pickProp({ canSit })](tk);
+    },
+    read: async (tk) => {
+      setIdleLie("belly");
+      if (!(await hold(1200, tk))) return;
+      setActivity("read");
+      if (!(await hold(rand(READ_MS), tk))) return;
+      setActivity(null);
+      await hold(700, tk);
+    },
+    cards: async (tk) => {
+      if (!(await hold(60, tk))) return;
+      setSeat("cards");
+      if (!(await hold(800, tk))) return;
+      setActivity("cards");
+      if (!(await hold(rand(READ_MS), tk))) return;
+      setActivity(null);
+      await hold(700, tk);
+    },
+
+    /* 5 min: yawns, lies down propped on an elbow, eyes drooping, then dozes off. */
+    doze: async (tk) => {
+      if (threeD()) {
+        playGesture("yawn", { idle: true });
+        if (!(await hold(4600, tk))) return;
+        playGesture("cancel", { idle: true });
+        setIdleLie("prop");
+        setDrowsy(true);
+        if (!(await hold(DROWSY_MS, tk))) return;
       }
-    }, 10000);
+      return "SLEEP";
+    },
+
+    /* Once in a while: hides behind a panel, peeks out, walks back. */
+    peek: async (tk) => {
+      const s = sizeRef.current;
+      const start = { ...posRef.current };
+      const spot = findPeekSpot(start, s, platRef.current);
+      if (!spot) return;
+      const wasAway = awayFromSpotRef.current;
+      awayFromSpotRef.current = true;
+      peekClipRef.current = clipBehind(spot.el);
+      const speed = (MOVE[stateRef.current?.movement] || MOVE.normal).speed;
+      tk.moving = true;
+      const there = await flyTo({ x: spot.x, y: spot.y }, { speed, walk: true });
+      tk.moving = false;
+      if (!there || tk.aborted) return;
+      setFacing(spot.outward);
+      if (!(await hold(900, tk))) return;
+      playGesture("lean", { idle: true });
+      if (!(await hold(2600, tk))) return;
+      if (Math.random() < 0.5) {
+        playGesture("wink", { idle: true });
+        if (!(await hold(1400, tk))) return;
+      }
+      tk.moving = true;
+      const back = await flyTo(start, { speed, walk: true });
+      tk.moving = false;
+      if (back && !tk.aborted) awayFromSpotRef.current = wasAway;
+    },
+  };
+
+  api.current.idleTick = () => {
+    if (activityRef.current) return;
+    const m = modeRef.current;
+    if ((m !== "idle" && m !== "perch") || busy() || dragRef.current || bubbleRef.current || returningRef.current) return;
+    if (!canAct()) return;
+    const now = Date.now();
+    const idleMs = now - lastInputRef.current;
+    const body3d = threeD();
+    const stage = dueStage(idleMs, stagesDoneRef.current, { part: dayPart(), skip: body3d ? null : SPRITE_SKIP });
+    if (stage) {
+      stagesDoneRef.current.add(stage);
+      void api.current.runStage(stage);
+      return;
+    }
+    if (body3d && !housedRef.current && mayPeek({ idleMs, lastPeek: lastPeekRef.current, now })) {
+      lastPeekRef.current = now;
+      void api.current.runStage("peek");
+    }
+  };
+
+  useEffect(() => {
+    if (!visibleNow || quiet || reduced) {
+      api.current.endActivity?.();
+      return undefined;
+    }
+    const id = window.setInterval(() => api.current.idleTick?.(), 1000);
     return () => window.clearInterval(id);
-  }, [cancel, send]);
+  }, [visibleNow, quiet, reduced]);
+
+  /** Temporary, for checking idle life: run the next stage now. Pointer moves don't cut it short. */
+  const idleStageTest = () => {
+    const kind = IDLE_TESTS[idleTest % IDLE_TESTS.length];
+    setIdleTest((i) => i + 1);
+    setBubble(null);
+    send("CLOSE");
+    window.setTimeout(() => void api.current.runStage(kind, { test: true }), 300);
+  };
 
   /* Back after a while away from the window: she wakes up and waves. */
   useEffect(() => {
@@ -1819,8 +2082,11 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       const now = Date.now();
       lastActivityRef.current = now;
       lastInputRef.current = now;
+      stagesDoneRef.current = new Set();
       if (e?.type === "keydown" || e?.type === "wheel") lastTypingRef.current = now;
+      api.current.endActivity?.({ pointerMove: e?.type === "pointermove" });
       if (e?.target && nodeRef.current?.contains(e.target)) return;
+      if (modeRef.current === "sleep") wokeByRef.current = e?.type || "keydown";
       if (modeRef.current === "sleep" && !awayFromSpotRef.current) send("WAKE");
       api.current.backToSpot?.();
     };
@@ -2110,6 +2376,12 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       },
     },
     ...(use3d && body === "ready" ? [{ id: "sit", label: "SIT (TEST)", icon: "▾", onClick: sitTest }] : []),
+    {
+      id: "idle-stage",
+      label: `IDLE: ${IDLE_TESTS[idleTest % IDLE_TESTS.length].toUpperCase()} (TEST)`,
+      icon: "✎",
+      onClick: idleStageTest,
+    },
     { id: "hide", label: "HIDE FOR NOW", icon: "–", onClick: hideForNow },
   ];
 
@@ -2118,6 +2390,17 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       {visible && mode === "tour" && tour ? <Spotlight rect={tour.rect} dim /> : null}
       {visible && ring ? <Spotlight rect={ring} dim={false} /> : null}
       {dropMark ? <span className="nv-drop" style={{ left: dropMark.x, top: dropMark.y }} aria-hidden /> : null}
+      {doodle ? (
+        <DoodleTrail
+          doodle={doodle}
+          penRef={penRef}
+          onDrawn={() => {
+            doodleDrawnRef.current?.();
+            doodleDrawnRef.current = null;
+          }}
+          onGone={() => setDoodle((d) => (d?.id === doodle.id ? null : d))}
+        />
+      ) : null}
       <div
         ref={nodeRef}
         className={[
@@ -2167,8 +2450,12 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
                     asleep={mode === "sleep"}
                     attend={ATTEND_MODES.has(mode)}
                     held={dragging}
-                    seat={mode === "perch" ? seat : null}
-                    lie={mode === "sleep" ? "side" : null}
+                    seat={mode === "perch" || mode === "play" ? seat : null}
+                    lie={mode === "sleep" ? "side" : mode === "play" ? idleLie : null}
+                    activity={mode === "play" ? activity : null}
+                    drowsy={mode === "play" && drowsy}
+                    pen={penRef}
+                    glance={glance}
                     still={reduced}
                     energy={legEnergy}
                     glitch={react === "glitch" || react === "droop"}

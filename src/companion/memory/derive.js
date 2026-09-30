@@ -110,6 +110,22 @@ export function topics(rows) {
   return { weak: pct(weak), strong: pct(strong) };
 }
 
+/** The course with the most sessions in the window, once there are TOP_COURSE_MIN of them. */
+export const TOP_COURSE_MIN = 3;
+export function topCourse(sessions) {
+  const counts = new Map();
+  for (const s of sessions || []) {
+    const course = s.course_uuid ? courseName(s) : "OM 300";
+    if (!course) continue;
+    const key = s.course_uuid || "builtin";
+    const cur = counts.get(key) || { courseUuid: s.course_uuid || null, course, sessions: 0 };
+    cur.sessions += 1;
+    counts.set(key, cur);
+  }
+  const top = [...counts.values()].sort((a, b) => b.sessions - a.sessions)[0];
+  return top && top.sessions >= TOP_COURSE_MIN ? top : null;
+}
+
 function lastSession(sessions) {
   const s = sessions[0];
   if (!s) return null;
@@ -149,6 +165,7 @@ export function deriveMemory({ facts, today, memory = {}, now = new Date() }) {
 
   put("streak", facts?.days?.length ? streaks(facts.days, now) : null);
   put("last_session", lastSession(sessions));
+  put("top_course", topCourse(sessions));
 
   const below = [];
   for (const course of today?.courses || []) {

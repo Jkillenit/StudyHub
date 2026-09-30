@@ -5,9 +5,11 @@
 const ENGAGE = { TOUR: "tour", HELP: "help", QUIZ: "quiz", HIDE: "hidden" };
 
 const TABLE = {
-  idle: { WANDER: "wander", PERCH: "perch", CLICK: "menu", NUDGE: "nudge", SLEEP: "sleep", GREET: "greet", DROP: "idle", ...ENGAGE },
+  idle: { WANDER: "wander", PERCH: "perch", PLAY: "play", CLICK: "menu", NUDGE: "nudge", SLEEP: "sleep", GREET: "greet", DROP: "idle", ...ENGAGE },
   wander: { ARRIVE: "idle", PERCH: "perch", CLICK: "menu", NUDGE: "nudge", SLEEP: "sleep", GREET: "greet", DROP: "idle", ...ENGAGE },
-  perch: { DONE: "idle", WANDER: "wander", CLICK: "menu", NUDGE: "nudge", SLEEP: "sleep", DROP: "idle", ...ENGAGE },
+  perch: { DONE: "idle", WANDER: "wander", PLAY: "play", CLICK: "menu", NUDGE: "nudge", SLEEP: "sleep", DROP: "idle", ...ENGAGE },
+  /* Idle life: doodling, reading, shuffling cards, dozing off, peeking out from behind a panel. */
+  play: { DONE: "idle", WANDER: "wander", SLEEP: "sleep", CLICK: "menu", NUDGE: "nudge", GREET: "greet", DROP: "idle", ...ENGAGE },
   sleep: { WAKE: "idle", CLICK: "menu", DROP: "idle", ...ENGAGE },
   menu: { CLOSE: "idle", CLICK: "idle", ...ENGAGE },
   greet: { CLOSE: "idle", ...ENGAGE },
@@ -25,5 +27,5 @@ export function transition(mode, event) {
   return TABLE[mode]?.[event] || mode;
 }
 
-/** Modes where Nova acts on her own (wanders, perches, sleeps, nudges). */
-export const AUTONOMOUS = new Set(["idle", "wander", "perch"]);
+/** Modes where Nova acts on her own (wanders, perches, plays, sleeps, nudges). */
+export const AUTONOMOUS = new Set(["idle", "wander", "perch", "play"]);

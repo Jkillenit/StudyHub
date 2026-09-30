@@ -31,6 +31,16 @@ export function blockedFromMemory(memory, now = new Date()) {
     .sort();
 }
 
+/** Game day keys (`gameday:YYYY-MM-DD`), today onward. A tag only: ranking ignores them. */
+export function gameDaysFromMemory(memory, now = new Date()) {
+  const today = dayKey(now);
+  return Object.entries(memory || {})
+    .filter(([key, m]) => key.startsWith("gameday:") && !m.muted && m.value)
+    .map(([key]) => key.slice(8))
+    .filter((day) => day >= today)
+    .sort();
+}
+
 /** "Saturday", "Saturday and Sunday", "Friday, Saturday and Sunday". */
 export function blockedWhen(keys) {
   const names = keys.map((k) => fromKey(k).toLocaleDateString([], { weekday: "long" }));

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { courseStore } from "../../db/courseStore.js";
 import { memoryMap } from "../../companion/memory/derive.js";
-import { blockedFromMemory } from "./blocked.js";
+import { blockedFromMemory, gameDaysFromMemory } from "./blocked.js";
 import { buildTodayView } from "./todayView.js";
 
 const RELOAD_EVENTS = [
@@ -19,8 +19,10 @@ export function useTodayModel(refreshKey = 0) {
   const load = useCallback(async () => {
     const [data, memory] = await Promise.all([courseStore.loadTodayData(), courseStore.companionMemory()]);
     const pairs = await Promise.all((data.courses || []).map(async (c) => [c.uuid, await courseStore.getGradingScale(c.uuid)]));
-    const blockedDays = blockedFromMemory(memoryMap(memory));
-    setState({ loaded: true, view: buildTodayView(data, { scales: Object.fromEntries(pairs), blockedDays }) });
+    const map = memoryMap(memory);
+    const blockedDays = blockedFromMemory(map);
+    const gameDays = gameDaysFromMemory(map);
+    setState({ loaded: true, view: buildTodayView(data, { scales: Object.fromEntries(pairs), blockedDays, gameDays }) });
   }, []);
 
   useEffect(() => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveMemory, hourLabel, memoryMap, sessionMinutes, streaks, studyTimes, topics } from "./derive.js";
+import { deriveMemory, hourLabel, memoryMap, sessionMinutes, streaks, studyTimes, topCourse, topics } from "./derive.js";
 
 const at = (day, h, m = 0) => new Date(2026, 8, day, h, m).toISOString();
 const session = (day, h, minutes = 20, extra = {}) => ({
@@ -8,6 +8,15 @@ const session = (day, h, minutes = 20, extra = {}) => ({
   cards_reviewed: 10,
   correct: 8,
   ...extra,
+});
+
+describe("topCourse", () => {
+  it("names the most-studied course once there are three sessions", () => {
+    const cs = { course_uuid: "c1", course_code: "CS 101" };
+    expect(topCourse([session(1, 20, 20, cs), session(2, 20, 20, cs)])).toBeNull();
+    const top = topCourse([session(1, 20, 20, cs), session(2, 20, 20, cs), session(3, 20, 20, cs), session(4, 20)]);
+    expect(top).toMatchObject({ courseUuid: "c1", sessions: 3 });
+  });
 });
 
 describe("studyTimes", () => {

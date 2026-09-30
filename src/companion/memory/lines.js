@@ -98,6 +98,12 @@ export const MEMORY_LINES = {
     "Streak's at {days}. Keep feeding it.",
   ],
   forgot: ["Done. Clean slate. I don't remember a thing.", "Wiped. We're strangers again. Hi."],
+  wakeDenial: [
+    "I wasn't asleep.",
+    "I wasn't asleep. I was resting my eyes.",
+    "Wasn't sleeping. Thinking. With my eyes closed.",
+    "I'm up. I was up. Totally up.",
+  ],
 };
 
 /** Stable id for a variant, stored in companion_said. */

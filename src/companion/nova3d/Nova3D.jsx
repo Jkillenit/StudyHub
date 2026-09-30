@@ -7,7 +7,9 @@ const GLITCH_MS = 520;
  * React shell around NovaStage. Lazy-loaded (three.js + the model are a separate chunk).
  * Calls `onFail` when WebGL or the model can't load so the layer can fall back to the
  * portrait sprite. `gesture` is `{ name, id, idle }`; each new id plays that gesture once
- * (idle ones give way when she starts talking). `attend` turns her to face the user; `held` means she is dangling from the cursor; `seat` ("playful" | "cold") sits her on the platform edge; `lie` ("prop" | "back" | "belly" | "side") lays her down. `still` (reduced motion) turns off the leg swing and breathing; `energy` scales the leg swing pace.
+ * (idle ones give way when she starts talking). `attend` turns her to face the user; `held` means she is dangling from the cursor; `seat` ("playful" | "cold" | "cards") sits her on the platform edge; `lie` ("prop" | "back" | "belly" | "side") lays her down. `still` (reduced motion) turns off the leg swing and breathing; `energy` scales the leg swing pace.
+ * Idle life: `activity` ("draw" | "read" | "cards") shows her hologram props or points her arm at the
+ * pen in `pen` (a ref of viewport px); `drowsy` droops her eyes; each new `glance` `{ x, y, ms }` turns her gaze.
  */
 export default function Nova3D({
   size,
@@ -29,6 +31,10 @@ export default function Nova3D({
   tint,
   visible = true,
   gesture = null,
+  activity = null,
+  drowsy = false,
+  pen = null,
+  glance = null,
   onReady,
   onFail,
 }) {
@@ -36,6 +42,8 @@ export default function Nova3D({
   const stageRef = useRef(null);
   const cbRef = useRef({ onReady, onFail });
   cbRef.current = { onReady, onFail };
+  const penRef = useRef(pen);
+  penRef.current = pen;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -51,6 +59,7 @@ export default function Nova3D({
       return undefined;
     }
     stageRef.current = stage;
+    stage.setPen(penRef.current);
     let alive = true;
     stage
       .load()
@@ -89,8 +98,16 @@ export default function Nova3D({
   }, [size]);
 
   useEffect(() => {
-    stageRef.current?.set({ facing, gait, speed, mood, talkUntil, rampant, glow, asleep, attend, held, seat, lie, still, energy, visible });
-  }, [facing, gait, speed, mood, talkUntil, rampant, glow, asleep, attend, held, seat, lie, still, energy, visible]);
+    stageRef.current?.set({ facing, gait, speed, mood, talkUntil, rampant, glow, asleep, attend, held, seat, lie, still, energy, visible, activity, drowsy });
+  }, [facing, gait, speed, mood, talkUntil, rampant, glow, asleep, attend, held, seat, lie, still, energy, visible, activity, drowsy]);
+
+  useEffect(() => {
+    stageRef.current?.setPen(pen);
+  }, [pen]);
+
+  useEffect(() => {
+    if (glance) stageRef.current?.glanceAt(glance.x, glance.y, glance.ms);
+  }, [glance]);
 
   useEffect(() => {
     if (glitch) stageRef.current?.set({ glitchUntil: performance.now() + GLITCH_MS });

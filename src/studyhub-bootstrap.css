@@ -41,6 +41,9 @@
   --sh-danger-chip-text: #F3D6DA;
   --sh-danger-chip-meta: #D8A3AA;
   --sh-danger-link: #FFB3BA;
+  /* Alabama crimson, for game-day tags and Nova's game-day doodle. */
+  --sh-crimson: #C8102E;
+  --sh-crimson-glow: #FF3355;
 
   /* type */
   --sh-font-body: "Manrope", system-ui, sans-serif;
@@ -5762,6 +5765,14 @@ button.sh-today-row-main:hover {
   pointer-events: none;
   z-index: 9000;
 }
+/* Nova's light-trail doodles, under her and her bubbles. */
+.sc-doodle {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+}
 .sc-scout {
   position: absolute;
   left: 0;
@@ -8043,6 +8054,24 @@ button.sh-week-day:focus-visible {
 .sh-week-block-btn--clear:hover {
   border-color: var(--sh-accent-line);
   color: var(--sh-accent);
+}
+
+.sh-week-block-btn--game {
+  margin-left: auto;
+}
+
+.sh-week-block-btn--game:hover,
+.sh-week-block-btn--game.is-on {
+  border-color: var(--sh-crimson);
+  color: var(--sh-crimson-glow);
+}
+
+.sh-week-game {
+  font-family: var(--sh-font-hud);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--sh-crimson-glow);
 }
 
 .sh-week-dow {

@@ -288,6 +288,75 @@ export function pickStroll(size, pos, current, { sameOnly = false } = {}) {
   return ok[Math.floor(Math.random() * ok.length)];
 }
 
+/* ---------- idle life: open grid space to doodle on, a panel edge to peek from ---------- */
+
+const PANEL_SELECTOR = ".sh-panel, .sh-hub-block, [data-perch]";
+
+/**
+ * Open grid space beside her, at arm's reach around chest height, for a `w` x `h` doodle.
+ * Never over panels, text or controls (her home window counts as open). Prefers the side
+ * she faces. Returns { rect, side } or null.
+ */
+export function findDoodleSpot(pos, size, { w, h, prefer = 1 }) {
+  const rects = contentRects();
+  const chestY = pos.y + size * 0.32;
+  const reach = size * 0.12;
+  const minY = TITLEBAR_H + 8;
+  const sides = prefer < 0 ? [-1, 1] : [1, -1];
+  for (const side of sides) {
+    for (const lift of [0, -0.25, 0.25]) {
+      const left = side > 0 ? pos.x + size * 0.62 + reach : pos.x + size * 0.38 - reach - w;
+      const top = chestY - h / 2 + lift * h;
+      if (left < EDGE || top < minY || left + w > window.innerWidth - EDGE || top + h > window.innerHeight - EDGE) continue;
+      const box = { x: left, y: top, w, h };
+      if (rects.some((r) => overlaps(box, r, 10))) continue;
+      return { rect: { left, top, width: w, height: h }, side };
+    }
+  }
+  return null;
+}
+
+/**
+ * A panel she can hide behind: one that covers most of her height where she stands, with
+ * the near edge along her current platform. She stands just inside the edge and peeks out
+ * toward open space (`outward`). Returns { x, y, el, outward } or null.
+ */
+export function findPeekSpot(pos, size, current, { maxDist = 420 } = {}) {
+  const plat = livePlatform(current, size) || platformAt(pos, size) || groundPlatform();
+  const feet = pos.y + size;
+  const top = pos.y + size * 0.12;
+  const bottom = feet - size * 0.05;
+  const cx = pos.x + size / 2;
+  const options = [];
+  for (const el of document.querySelectorAll(PANEL_SELECTOR)) {
+    if (el.closest(NOT_CONTENT)) continue;
+    const r = visibleRect(el);
+    if (!r || r.width < size * 0.6) continue;
+    if (Math.min(r.bottom, bottom) - Math.max(r.top, top) < (bottom - top) * 0.6) continue;
+    const outward = cx < r.left ? -1 : cx > r.right ? 1 : 0;
+    if (!outward) continue;
+    const edge = outward < 0 ? r.left : r.right;
+    const x = edge - outward * size * 0.1;
+    if (x < plat.left || x > plat.right || Math.abs(x - cx) < 40 || Math.abs(x - cx) > maxDist) continue;
+    options.push({ el, x: x - size / 2, y: feet - size, outward });
+  }
+  if (!options.length) return null;
+  const all = [...document.querySelectorAll(CONTENT_SELECTOR)];
+  for (const o of options.sort(() => Math.random() - 0.5)) {
+    const rects = all
+      .filter((el) => el !== o.el && !o.el.contains(el) && !el.contains(o.el) && !el.closest(NOT_CONTENT))
+      .map(visibleRect)
+      .filter((r) => r && r.top < feet - 2);
+    const steps = Math.max(1, Math.ceil(Math.abs(o.x - pos.x) / (size * 0.3)));
+    let clear = true;
+    for (let i = 1; i <= steps && clear; i += 1) {
+      if (coversContent({ x: pos.x + ((o.x - pos.x) * i) / steps, y: o.y }, size, { rects })) clear = false;
+    }
+    if (clear) return o;
+  }
+  return null;
+}
+
 export function findTarget(id) {
   if (!id) return null;
   const el = document.querySelector(`[data-tour-id="${id}"]`);

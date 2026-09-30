@@ -81,9 +81,10 @@ function startOfDay(d) {
  *   states:   { [courseUuid]: "warn" | "ok" | "none" },
  * }
  */
-export function buildTodayView(data, { now, scales = {}, config = PRIORITY_CONFIG, blockedDays = [] } = {}) {
+export function buildTodayView(data, { now, scales = {}, config = PRIORITY_CONFIG, blockedDays = [], gameDays = [] } = {}) {
   const at = now ?? data?.now ?? new Date().toISOString();
   const blockedSet = new Set(blockedDays);
+  const gameSet = new Set(gameDays);
   const courses = data?.courses || [];
   const byUuid = new Map(courses.map((c) => [c.uuid, c]));
 
@@ -139,6 +140,7 @@ export function buildTodayView(data, { now, scales = {}, config = PRIORITY_CONFI
       offset: i,
       key,
       blocked: blockedSet.has(key),
+      gameday: gameSet.has(key),
       isToday: i === 0,
       weekday: d.toLocaleDateString([], { weekday: "short" }).toUpperCase(),
       dayNum: d.getDate(),

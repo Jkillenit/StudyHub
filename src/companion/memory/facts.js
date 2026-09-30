@@ -27,6 +27,8 @@ export function factGroup(key) {
   if (key === "below_target" || key.startsWith("standing:") || key.startsWith("comeback:")) return { id: "grades", label: "Grades" };
   if (key.startsWith("milestone:")) return { id: "milestones", label: "Milestones" };
   if (key.startsWith("blocked:")) return { id: "blocked", label: `Blocked day ${dayDate(key.slice(8))}` };
+  if (key.startsWith("gameday:")) return { id: "blocked", label: `Game day ${dayDate(key.slice(8))}` };
+  if (key === "top_course") return { id: "habits", label: "Most-studied course" };
   if (key === "last_seen") return { id: "habits", label: "Last visit" };
   return { id: "other", label: key };
 }
@@ -53,6 +55,8 @@ export function describeFact(key, value) {
     }
     case "below_target":
       return `Below target: ${value.courses.map((c) => `${c.course} (${c.current}% vs ${c.target}%)`).join(", ")}.`;
+    case "top_course":
+      return `You've studied ${value.course} the most lately (${value.sessions} sessions).`;
     case "last_seen":
       return `You last opened Study Hub ${shortDate(value)}.`;
     default:
@@ -62,6 +66,7 @@ export function describeFact(key, value) {
   if (key.startsWith("comeback:")) return `${value.course} climbed back over your ${value.target}% target on ${shortDate(value.at)}.`;
   if (key.startsWith("milestone:")) return MILESTONES[key.slice(10)]?.(value) || null;
   if (key.startsWith("blocked:")) return `${dayDate(key.slice(8))} is blocked${value.reason ? ` (${value.reason})` : ""}.`;
+  if (key.startsWith("gameday:")) return `${dayDate(key.slice(8))} is a game day.`;
   return null;
 }
 

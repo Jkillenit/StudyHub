@@ -12,6 +12,10 @@ async function setBlocked(day, reason) {
   if (reason) window.dispatchEvent(new CustomEvent("studyhub-companion-blocked", { detail: { days: [day.key], reason } }));
 }
 
+function setGameDay(day, on) {
+  return courseStore.companionRemember([{ key: `gameday:${day.key}`, value: on ? { date: day.key } : null, source: "told" }], { notify: true });
+}
+
 export function WeekStrip({ week, onCalendar, index = 0 }) {
   const [picking, setPicking] = useState(null);
   const day = picking ? week.days.find((d) => d.key === picking) : null;
@@ -33,11 +37,12 @@ export function WeekStrip({ week, onCalendar, index = 0 }) {
               "sh-week-day",
               d.isToday ? "sh-week-day--today" : "",
               d.blocked ? "sh-week-day--blocked" : "",
+              d.gameday ? "sh-week-day--gameday" : "",
               picking === d.key ? "sh-week-day--picking" : "",
             ]
               .filter(Boolean)
               .join(" ")}
-            aria-label={`${d.weekday} ${d.dayNum}: ${d.dots.length} due${d.blocked ? ", blocked" : ""}. Mark as blocked`}
+            aria-label={`${d.weekday} ${d.dayNum}: ${d.dots.length} due${d.blocked ? ", blocked" : ""}${d.gameday ? ", game day" : ""}. Mark this day`}
             aria-expanded={picking === d.key}
             title={d.blocked ? "Blocked. Click to change" : "Busy this day? Click to block it"}
             onClick={() => setPicking((k) => (k === d.key ? null : d.key))}
@@ -46,6 +51,7 @@ export function WeekStrip({ week, onCalendar, index = 0 }) {
             <span className="sh-week-num">{d.dayNum}</span>
             <span className="sh-week-dots">
               {d.blocked ? <span className="sh-week-off">OFF</span> : null}
+              {d.gameday ? <span className="sh-week-game" title="Game day">A</span> : null}
               {d.dots.slice(0, MAX_DOTS).map((dot) => (
                 <span key={dot.uuid} className={`sh-week-dot sh-week-dot--${dot.state === "warn" ? "warn" : "accent"}`} title={dot.title} />
               ))}
@@ -55,9 +61,9 @@ export function WeekStrip({ week, onCalendar, index = 0 }) {
         ))}
       </div>
       {day ? (
-        <div className="sh-week-block" role="group" aria-label={`Block ${day.weekday} ${day.dayNum}`}>
+        <div className="sh-week-block" role="group" aria-label={`Mark ${day.weekday} ${day.dayNum}`}>
           <span className="sh-week-block-label">
-            {day.blocked ? "BLOCKED" : "BLOCK"} {day.weekday} {day.dayNum}
+            {day.blocked ? "BLOCKED" : "MARK"} {day.weekday} {day.dayNum}
           </span>
           {BLOCK_REASONS.map((r) => (
             <button
@@ -84,6 +90,17 @@ export function WeekStrip({ week, onCalendar, index = 0 }) {
               Unblock
             </button>
           ) : null}
+          <button
+            type="button"
+            className={`sh-week-block-btn sh-week-block-btn--game${day.gameday ? " is-on" : ""}`}
+            aria-pressed={day.gameday}
+            onClick={() => {
+              setPicking(null);
+              void setGameDay(day, !day.gameday);
+            }}
+          >
+            Game day
+          </button>
         </div>
       ) : null}
       {week.later.length ? (

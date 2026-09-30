@@ -49,7 +49,7 @@ export function useCompanionMemory({ enabled, onNews }) {
     const now = new Date();
     const { entries, news } = deriveMemory({ facts, today, memory, now });
     const stale = Object.keys(memory)
-      .filter((k) => k.startsWith("blocked:") && k.slice(8) < dayKey(now) && memory[k].value)
+      .filter((k) => (k.startsWith("blocked:") || k.startsWith("gameday:")) && k.slice(8) < dayKey(now) && memory[k].value)
       .map((key) => ({ key, value: null, source: "told" }));
     await courseStore.companionRemember([...entries, ...stale]);
     const next = { ...memory };
@@ -158,8 +158,10 @@ export function useCompanionMemory({ enabled, onNews }) {
   }, []);
 
   const ready = useCallback(() => readyRef.current, []);
+  /** The whole memory map as of the last load (muted rows included, flagged). */
+  const snapshot = useCallback(() => memoryRef.current, []);
   return useMemo(
-    () => ({ opener, lineFor, markSaid, patchFact, remember, fact, replanFor, ready }),
-    [opener, lineFor, markSaid, patchFact, remember, fact, replanFor, ready]
+    () => ({ opener, lineFor, markSaid, patchFact, remember, fact, replanFor, ready, snapshot }),
+    [opener, lineFor, markSaid, patchFact, remember, fact, replanFor, ready, snapshot]
   );
 }
