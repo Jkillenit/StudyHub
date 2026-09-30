@@ -61,26 +61,43 @@ function standingSegments(standing) {
   return [];
 }
 
-/** { segments: (string | { num, tone })[], text } */
+const segText = (s) => (typeof s === "string" ? s : s.num);
+
+/**
+ * { segments: (string | { num, tone })[], text, beats }. `beats` are the sentences Nova can walk
+ * to while the briefing is read aloud: { from, to, target } with character offsets into `text`
+ * and a `[data-brief-target]` value.
+ */
 export function buildBriefing(view, { now = new Date(), dueText }) {
   const segments = [];
-  const push = (s) => {
-    if (!s) return;
-    if (segments.length) segments.push(" ");
-    segments.push(s);
+  const beats = [];
+  let length = 0;
+  const push = (parts, target = null) => {
+    const list = (Array.isArray(parts) ? parts : [parts]).filter(Boolean);
+    if (!list.length) return;
+    if (segments.length) {
+      segments.push(" ");
+      length += 1;
+    }
+    const from = length;
+    for (const p of list) {
+      segments.push(p);
+      length += segText(p).length;
+    }
+    if (target) beats.push({ from, to: length, target });
   };
   push(greeting(now));
   if (!view?.hasCourses) {
     push("Connect Blackboard and sync your courses, and I'll brief you here every day.");
   } else {
-    push(taskSentence(view.tonight || [], dueText));
-    push(overdueSentence(view.overdue?.length || 0));
+    const tonight = view.tonight || [];
+    push(taskSentence(tonight, dueText), tonight.length ? "tonight-0" : null);
+    const overdue = view.overdue?.length || 0;
+    push(overdueSentence(overdue), overdue ? "overdue" : null);
     const st = standingSegments(view.standing);
-    if (st.length) {
-      segments.push(" ");
-      segments.push(...st);
-    }
+    const worst = view.standing?.courses?.[0];
+    push(st, worst?.state === "warn" && worst.courseUuid ? `gauge-${worst.courseUuid}` : null);
   }
-  const text = segments.map((s) => (typeof s === "string" ? s : s.num)).join("");
-  return { segments, text };
+  const text = segments.map(segText).join("");
+  return { segments, text, beats };
 }

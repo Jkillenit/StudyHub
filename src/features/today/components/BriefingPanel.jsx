@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTyping } from "../useArrival.js";
 import { ArrowIcon, HudPanel } from "./HudPanel.jsx";
 
@@ -29,12 +29,29 @@ function Segments({ segments, limit }) {
   return out;
 }
 
+const brief = (detail) => window.dispatchEvent(new CustomEvent("studyhub-companion-brief", { detail }));
+
 export function BriefingPanel({ briefing, arriving, onStart, canStart, index = 0 }) {
   const [speaking, setSpeaking] = useState(false);
   const total = briefing.text.length;
   const typed = useTyping(total, arriving, TYPE_MS);
+  const walkRef = useRef(null);
 
-  useEffect(() => () => speechAvailable() && window.speechSynthesis.cancel(), []);
+  const stopWalk = () => {
+    const w = walkRef.current;
+    if (!w) return;
+    walkRef.current = null;
+    w.timers.forEach((t) => window.clearTimeout(t));
+    brief({ phase: "end" });
+  };
+
+  useEffect(
+    () => () => {
+      if (speechAvailable()) window.speechSynthesis.cancel();
+      stopWalk();
+    },
+    []
+  );
 
   const toggleSpeech = () => {
     if (!speechAvailable()) return;
@@ -42,14 +59,47 @@ export function BriefingPanel({ briefing, arriving, onStart, canStart, index = 0
     if (speaking) {
       synth.cancel();
       setSpeaking(false);
+      stopWalk();
       window.dispatchEvent(new CustomEvent("studyhub-companion-talk", { detail: { ms: 0 } }));
       return;
     }
     const u = new SpeechSynthesisUtterance(briefing.text);
     u.rate = 1;
-    u.onend = () => setSpeaking(false);
-    u.onerror = () => setSpeaking(false);
+    /*
+     * Nova walks to each thing as the voice reaches it. Word boundaries give the exact spot;
+     * voices that don't report them fall back to an estimate from the speaking pace.
+     */
+    const beats = briefing.beats || [];
+    const walk = { next: 0, heard: false, timers: [] };
+    const reach = (charIndex) => {
+      while (walk.next < beats.length && charIndex >= beats[walk.next].from) {
+        brief({ phase: "beat", target: beats[walk.next].target });
+        walk.next += 1;
+      }
+    };
+    u.onboundary = (e) => {
+      if (walkRef.current !== walk) return;
+      walk.heard = true;
+      reach(e.charIndex);
+    };
+    u.onstart = () => {
+      if (walkRef.current !== walk) return;
+      walk.timers = beats.map((b) =>
+        window.setTimeout(() => {
+          if (walkRef.current === walk && !walk.heard) reach(b.from);
+        }, b.from * SPEAK_MS_PER_CHAR)
+      );
+    };
+    const done = () => {
+      setSpeaking(false);
+      if (walkRef.current === walk) stopWalk();
+    };
+    u.onend = done;
+    u.onerror = done;
     synth.cancel();
+    stopWalk();
+    walkRef.current = walk;
+    if (beats.length) brief({ phase: "start" });
     synth.speak(u);
     setSpeaking(true);
     window.dispatchEvent(new CustomEvent("studyhub-companion-talk", { detail: { ms: briefing.text.length * SPEAK_MS_PER_CHAR } }));

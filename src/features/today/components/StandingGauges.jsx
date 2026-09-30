@@ -41,6 +41,7 @@ function Gauge({ row, arriving, onOpen }) {
     <button
       type="button"
       className={`sh-gauge sh-gauge--${row.state}`}
+      data-brief-target={`gauge-${row.courseUuid}`}
       onClick={() => onOpen(row.courseUuid)}
       title={`${row.label}: open the what-if calculator`}
     >

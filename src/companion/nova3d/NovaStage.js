@@ -329,7 +329,7 @@ export class NovaStage {
     this.root = new THREE.Group();
     this.scene.add(this.root);
     this.clock = new THREE.Clock(false);
-    this.state = { gait: null, speed: 90, facing: 1, mood: "neutral", talkUntil: 0, rampant: false, glow: 1, asleep: false, attend: false, held: false, seat: null, lie: null, still: false, energy: 1, glitchUntil: 0, visible: true, activity: null, drowsy: false };
+    this.state = { gait: null, speed: 90, facing: 1, mood: "neutral", talkUntil: 0, rampant: false, glow: 1, asleep: false, attend: false, held: false, seat: null, lie: null, still: false, energy: 1, glitchUntil: 0, visible: true, activity: null, drowsy: false, staticNoise: false };
     this.forced = null;
     this.focusWorld = null;
     this.penRef = null;
@@ -867,6 +867,8 @@ export class NovaStage {
       this.forced = { x: pen.x - (r.left + r.width / 2), y: pen.y - (r.top + r.height / 2), until: now + 400 };
     }
     if (this.drawW > 0.01) this.applyArmPose(PROC.point.arms(0, { at: this.drawAt }), this.drawW);
+    this.pullW = ease(this.pullW || 0, s.activity === "pull" && !lying && !seated && !s.gait ? 1 : 0, 5);
+    if (this.pullW > 0.01) this.applyArmPose(this.pullPose(s.facing), this.pullW);
     if (cold) this.bend("head", [0.06, s.facing * 0.45, 0], this.seatW);
     if (seated && s.asleep) {
       this.bend("neck", [0.3, 0, 0.1], this.seatW);
@@ -895,7 +897,8 @@ export class NovaStage {
     this.applyHeadLook(dt, s);
     this.applyFace(dt, now, s, talking, overlay);
 
-    const glitching = s.rampant ? (Math.sin(now / 900) > 0.93 ? 1 : 0.15) : 0;
+    let glitching = s.rampant ? (Math.sin(now / 900) > 0.93 ? 1 : 0.15) : 0;
+    if (s.staticNoise) glitching = Math.max(glitching, Math.sin(now / 700) > 0.97 ? 0.5 : 0.07);
     this.uniforms.uGlitch.value = Math.max(glitching, s.glitchUntil > now ? 1 : 0);
     this.uniforms.uGlow.value = s.glow;
     this.uniforms.uFade.value += ((s.asleep ? 0.6 : s.drowsy ? 0.8 : 1) - this.uniforms.uFade.value) * Math.min(1, dt * 3);
@@ -903,6 +906,19 @@ export class NovaStage {
     this.vrm.update(dt);
     this.placeProps(dt);
     this.render();
+  }
+
+  /** Syncing: both hands reach toward the portal on her facing side and draw the data in, hand over hand. */
+  pullPose(facing) {
+    const f = facing < 0 ? -1 : 1;
+    const arm = (phase) => {
+      const k = (1 + Math.sin(this.t * 3.2 + phase)) / 2;
+      const reach = dir(f * 0.8, 0.12, 0.55);
+      const drawn = dir(f * 0.3, -0.25, 0.9);
+      const lower = reach.clone().lerp(drawn, k).normalize();
+      return [reach.clone().lerp(drawn, k * 0.4).normalize(), lower, lower];
+    };
+    return { left: arm(0), right: arm(Math.PI) };
   }
 
   /** Drowsy: 0 most of the time, easing up to 1 as her head drops and her eyes close, every few seconds. */

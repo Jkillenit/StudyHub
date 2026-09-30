@@ -34,6 +34,7 @@ import {
   findTarget,
   groundPlatform,
   livePlatform,
+  pickRestEdge,
   pickStroll,
   pickWaypoint,
   platformAt,
@@ -114,12 +115,16 @@ const GROW_MS = 420;
 const HOME_MODES = new Set(["idle", "menu", "sleep", "nudge", "perch", "play"]);
 /** Idle stages the portrait sprite can't do (no arms, no props). */
 const SPRITE_SKIP = new Set(["fidget", "prop"]);
-/** Temporary menu item: runs each idle stage on demand. */
-const IDLE_TESTS = ["fidget", "doodle", "read", "cards", "peek", "doze"];
 const READ_MS = [35 * 1000, 60 * 1000];
+/** Sync portal: how long it lingers after the result, and when to give up on a sync that went quiet. */
+/** Resting: how often a wander turns into sitting on the nearest panel edge, and for how long. */
+const REST_CHANCE = 0.7;
+const REST_MS = [30 * 1000, 60 * 1000];
+const SYNC_CLOSE_MS = 700;
+const SYNC_STALE_MS = 60 * 1000;
 const DROWSY_MS = 16 * 1000;
 /** Modes that can take her away from her spot on purpose. */
-const ENGAGED_MODES = new Set(["tour", "help", "quiz", "nudge", "greet"]);
+const ENGAGED_MODES = new Set(["tour", "help", "quiz", "nudge", "greet", "brief"]);
 
 const rand = ([a, b]) => a + Math.random() * (b - a);
 const randInt = ([a, b]) => Math.floor(a + Math.random() * (b - a + 1));
@@ -199,7 +204,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const [seat, setSeat] = useState(null);
   const seatRef = useRef(null);
   seatRef.current = seat;
-  /* Idle life: the running activity (`{ kind, aborted, test }`), what ran this idle stretch, and what the body shows. */
+  /* Idle life: the running activity (`{ kind, aborted, moving }`), what ran this idle stretch, and what the body shows. */
   const activityRef = useRef(null);
   const stagesDoneRef = useRef(new Set());
   const lastPeekRef = useRef(0);
@@ -215,7 +220,10 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const peekClipRef = useRef(null);
   /** The input that woke her, so the "I wasn't asleep" line only follows a mouse or touch. */
   const wokeByRef = useRef(null);
-  const [idleTest, setIdleTest] = useState(0);
+  /** Blackboard sync in progress: `{ phase: "open" | "ok" | "fail", step }`, drawn as a portal beside her. */
+  const [sync, setSync] = useState(null);
+  const syncRef = useRef(null);
+  const [offline, setOffline] = useState(() => typeof navigator !== "undefined" && navigator.onLine === false);
   const lastTierRef = useRef(null);
   const bubbleRef = useRef(null);
   bubbleRef.current = bubble;
@@ -759,15 +767,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   /* ---------- menu actions ---------- */
 
-  /** Temporary, for checking the leg swing: sit down where she stands for a minute. */
+  /** A deliberate sit (resting on a panel edge) holds until this time. */
   const sitHoldRef = useRef(0);
-  const sitTest = useCallback(() => {
-    setBubble(null);
-    send("CLOSE");
-    if (send("PERCH") !== "perch") return;
-    sitHoldRef.current = Date.now() + 60 * 1000;
-    setSeat("playful");
-  }, [send]);
 
   const hideForNow = useCallback(() => {
     setBubble(null);
@@ -1352,7 +1353,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     };
     const tick = async () => {
       if (!alive) return;
-      if (!canAct()) {
+      if (!canAct() || syncRef.current) {
         schedule(nextCheckMs({ lastInput: lastInputRef.current, lastStudy: lastStudyRef.current }) + rand([500, 4000]));
         return;
       }
@@ -1367,6 +1368,24 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       } else if (navRef.current.stageActive && ++awayRef.current.stops > awayRef.current.goal) {
         const res = await api.current.goHome({ speed: cfg.speed });
         if (res !== null || !alive) return;
+      }
+      if (use3d && Math.random() < REST_CHANCE) {
+        const s = sizeRef.current;
+        const rest = pickRestEdge(s, posRef.current);
+        if (rest) {
+          const here = rest.plat.el === platRef.current?.el && Math.abs(rest.x - posRef.current.x) < 12;
+          if (!here) {
+            send("WANDER");
+            const ok = await flyTo(rest, { speed: cfg.speed, walk: rest.plat.el === platRef.current?.el });
+            if (!ok || modeRef.current !== "wander") return;
+          }
+          platRef.current = rest.plat;
+          if (send("PERCH") !== "perch") return;
+          sitHoldRef.current = Date.now() + rand(REST_MS);
+          const slipping = isRampant(stateRef.current) || lastTierRef.current === "finishedBad" || lastTierRef.current === "finishedMeh";
+          setSeat(slipping ? "cold" : "playful");
+          return;
+        }
       }
       if (use3d) {
         const step = pickStroll(sizeRef.current, posRef.current, platRef.current);
@@ -1531,7 +1550,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       const now = Date.now();
       if (now < Math.max(due, lastGestureAtRef.current + 8000)) return;
       const m = modeRef.current;
-      if (!canAct() || (m !== "idle" && m !== "perch") || busy() || bubbleRef.current || dragRef.current) return;
+      if (!canAct() || (m !== "idle" && m !== "perch") || busy() || bubbleRef.current || dragRef.current || syncRef.current) return;
       const part = dayPart();
       const name = seatRef.current ? "sitYawn" : pickIdleGesture({ part, bored: now - lastActivityRef.current > BORED_AFTER_MS, last });
       last = name;
@@ -1671,9 +1690,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   };
 
   /** Any input ends idle life: she drops what she's doing and the layer walks her back. */
-  api.current.endActivity = ({ pointerMove = false } = {}) => {
+  api.current.endActivity = () => {
     const tk = activityRef.current;
-    if (!tk || (pointerMove && tk.test)) return;
+    if (!tk) return;
     tk.aborted = true;
     activityRef.current = null;
     clearActivityVisuals(true);
@@ -1686,9 +1705,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     if (mode !== "play" && activityRef.current) api.current.endActivity();
   }, [mode]);
 
-  api.current.runStage = async (kind, { test = false } = {}) => {
+  api.current.runStage = async (kind) => {
     if (activityRef.current) return;
-    const tk = { kind, aborted: false, test, moving: false };
+    const tk = { kind, aborted: false, moving: false };
     activityRef.current = tk;
     if (send("PLAY") !== "play") {
       activityRef.current = null;
@@ -1842,7 +1861,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   };
 
   api.current.idleTick = () => {
-    if (activityRef.current) return;
+    if (activityRef.current || syncRef.current) return;
     const m = modeRef.current;
     if ((m !== "idle" && m !== "perch") || busy() || dragRef.current || bubbleRef.current || returningRef.current) return;
     if (!canAct()) return;
@@ -1870,14 +1889,160 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     return () => window.clearInterval(id);
   }, [visibleNow, quiet, reduced]);
 
-  /** Temporary, for checking idle life: run the next stage now. Pointer moves don't cut it short. */
-  const idleStageTest = () => {
-    const kind = IDLE_TESTS[idleTest % IDLE_TESTS.length];
-    setIdleTest((i) => i + 1);
-    setBubble(null);
-    send("CLOSE");
-    window.setTimeout(() => void api.current.runStage(kind, { test: true }), 300);
+  /* ---------- the spoken briefing: she walks to what she's talking about ---------- */
+
+  const briefRef = useRef({ token: 0 });
+
+  /** Where to stand for a briefing target: on its panel's top edge above it, else beside it. */
+  const briefSpot = (el, rect, s) => {
+    const panel = el.closest("[data-perch]");
+    const plat = panel ? livePlatform({ el: panel }, s) : null;
+    const cx = rect.left + rect.width / 2;
+    if (plat) {
+      for (const dx of [-0.45, 0.45, 0]) {
+        const p = standOn(plat, cx + dx * s, s);
+        if (!coversContent(p, s)) return { p, plat };
+      }
+    }
+    return { p: pointBeside(rect, s, "left"), plat: null };
   };
+
+  api.current.briefStart = () => {
+    const m = modeRef.current;
+    if (!stateRef.current?.enabled || stateRef.current?.quiet || !(AUTONOMOUS.has(m) || m === "sleep")) return;
+    cancel();
+    setBubble(null);
+    if (send("BRIEF") !== "brief") return;
+    briefRef.current.token += 1;
+    setMood("point");
+  };
+
+  api.current.briefBeat = async (target) => {
+    if (modeRef.current !== "brief") return;
+    const token = ++briefRef.current.token;
+    const el = document.querySelector(`[data-brief-target="${CSS.escape(target)}"]`);
+    const rect = el?.getBoundingClientRect();
+    if (!rect || rect.width < 4 || rect.bottom < 0 || rect.top > window.innerHeight) return;
+    const s = sizeRef.current;
+    const { p, plat } = briefSpot(el, rect, s);
+    const ok = await flyTo(p, { speed: ENGAGED_SPEED });
+    if (!ok || modeRef.current !== "brief" || briefRef.current.token !== token) return;
+    platRef.current = plat;
+    const now = el.getBoundingClientRect();
+    setFacing(p.x + s / 2 > now.left + now.width / 2 ? -1 : 1);
+    pointAt(now);
+  };
+
+  /** End of the briefing (or cut short by input): back to her spot, full size at home. */
+  api.current.briefEnd = ({ now = false } = {}) => {
+    if (modeRef.current !== "brief") return;
+    const token = ++briefRef.current.token;
+    const finish = () => {
+      if (modeRef.current !== "brief" || briefRef.current.token !== token) return;
+      cancel();
+      send("END");
+      setMood("neutral");
+      awayFromSpotRef.current = true;
+      api.current.backToSpot?.();
+    };
+    if (now) finish();
+    else window.setTimeout(finish, 1200);
+  };
+
+  useEffect(() => {
+    const onBrief = (e) => {
+      const d = e.detail || {};
+      if (d.phase === "start") api.current.briefStart();
+      else if (d.phase === "beat") void api.current.briefBeat(d.target);
+      else if (d.phase === "end") api.current.briefEnd();
+    };
+    window.addEventListener("studyhub-companion-brief", onBrief);
+    return () => window.removeEventListener("studyhub-companion-brief", onBrief);
+  }, []);
+
+  /* ---------- sync: she opens a portal and pulls the data in; glitches on failure, static offline ---------- */
+
+  useEffect(() => {
+    const bb = window.studyHub?.blackboard;
+    if (!bb?.onSyncProgress || !bb?.onSyncComplete) return undefined;
+    let closeTimer = 0;
+    let staleTimer = 0;
+    const courseLabel = (uuid) => {
+      const c = navRef.current.courses.find((x) => x.uuid === uuid || x.id === uuid);
+      return shortCourse(c?.courseCode || c?.code || c?.name) || c?.name || "that course";
+    };
+    const close = (ms) => {
+      window.clearTimeout(closeTimer);
+      closeTimer = window.setTimeout(() => {
+        syncRef.current = null;
+        setSync(null);
+      }, ms);
+    };
+    const offProgress = bb.onSyncProgress((p) => {
+      const cur = stateRef.current;
+      const m = modeRef.current;
+      if (!cur?.enabled || cur.quiet || !(AUTONOMOUS.has(m) || m === "sleep")) return;
+      if (!syncRef.current) {
+        api.current.endActivity?.();
+        if (modeRef.current === "sleep") send("WAKE");
+        setBubble(null);
+      }
+      window.clearTimeout(closeTimer);
+      window.clearTimeout(staleTimer);
+      staleTimer = window.setTimeout(() => close(0), SYNC_STALE_MS);
+      syncRef.current = { phase: "open", step: p?.step || null };
+      setSync(syncRef.current);
+      setMood("thinking");
+    });
+    const offComplete = bb.onSyncComplete((res) => {
+      window.clearTimeout(staleTimer);
+      if (!syncRef.current) return;
+      if (res?.ok) {
+        syncRef.current = { phase: "ok" };
+        setSync(syncRef.current);
+        setMood("happy");
+        close(SYNC_CLOSE_MS);
+        return;
+      }
+      syncRef.current = { phase: "fail" };
+      setSync(syncRef.current);
+      flashReaction("glitch");
+      sfx("glitch");
+      setMood("stern");
+      close(SYNC_CLOSE_MS + 300);
+      const error = String(res?.error || "").trim();
+      const course = courseLabel(res?.courseUuid);
+      if (stateRef.current?.quiet) return;
+      refreshAnchor();
+      if (error === "not-logged-in") say(line("syncFailLogin", { course }));
+      else if (error) say(line("syncFail", { course, error: error.replace(/\.$/, "") }));
+    });
+    return () => {
+      offProgress?.();
+      offComplete?.();
+      window.clearTimeout(closeTimer);
+      window.clearTimeout(staleTimer);
+    };
+  }, [send, flashReaction, sfx, refreshAnchor, say]);
+
+  useEffect(() => {
+    const onOffline = () => {
+      setOffline(true);
+      const m = modeRef.current;
+      if (stateRef.current?.enabled && !stateRef.current?.quiet && AUTONOMOUS.has(m) && !bubbleRef.current) {
+        refreshAnchor();
+        say(line("offline"));
+      }
+    };
+    const onOnline = () => setOffline(false);
+    window.addEventListener("offline", onOffline);
+    window.addEventListener("online", onOnline);
+    return () => {
+      window.removeEventListener("offline", onOffline);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [refreshAnchor, say]);
+
 
   /* Back after a while away from the window: she wakes up and waves. */
   useEffect(() => {
@@ -2084,7 +2249,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       lastInputRef.current = now;
       stagesDoneRef.current = new Set();
       if (e?.type === "keydown" || e?.type === "wheel") lastTypingRef.current = now;
-      api.current.endActivity?.({ pointerMove: e?.type === "pointermove" });
+      api.current.endActivity?.();
+      if (modeRef.current === "brief" && e?.type !== "pointermove") api.current.briefEnd?.({ now: true });
       if (e?.target && nodeRef.current?.contains(e.target)) return;
       if (modeRef.current === "sleep") wokeByRef.current = e?.type || "keydown";
       if (modeRef.current === "sleep" && !awayFromSpotRef.current) send("WAKE");
@@ -2375,13 +2541,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         say(line(quiet ? "quietOff" : "quietOn"));
       },
     },
-    ...(use3d && body === "ready" ? [{ id: "sit", label: "SIT (TEST)", icon: "▾", onClick: sitTest }] : []),
-    {
-      id: "idle-stage",
-      label: `IDLE: ${IDLE_TESTS[idleTest % IDLE_TESTS.length].toUpperCase()} (TEST)`,
-      icon: "✎",
-      onClick: idleStageTest,
-    },
     { id: "hide", label: "HIDE FOR NOW", icon: "–", onClick: hideForNow },
   ];
 
@@ -2452,8 +2611,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
                     held={dragging}
                     seat={mode === "perch" || mode === "play" ? seat : null}
                     lie={mode === "sleep" ? "side" : mode === "play" ? idleLie : null}
-                    activity={mode === "play" ? activity : null}
+                    activity={mode === "play" ? activity : sync?.phase === "open" ? "pull" : null}
                     drowsy={mode === "play" && drowsy}
+                    staticNoise={offline}
                     pen={penRef}
                     glance={glance}
                     still={reduced}
@@ -2491,6 +2651,16 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
               </span>
             ))
           : null}
+        {visible && sync ? (
+          <span className={`sc-portal sc-portal--${sync.phase} sc-portal--${facing < 0 ? "left" : "right"}`} aria-hidden>
+            <span className="sc-portal-ring" />
+            <span className="sc-portal-core" />
+            {sync.phase === "open"
+              ? [0, 1, 2, 3, 4].map((i) => <i key={i} className="sc-portal-bit" style={{ "--d": `${i * 0.18}s` }} />)
+              : null}
+          </span>
+        ) : null}
+        {visible && offline ? <span className="sc-static" aria-hidden /> : null}
         {visible && mode === "sleep" ? (
           <span className="sc-zzz mono" aria-hidden>
             <i>z</i>

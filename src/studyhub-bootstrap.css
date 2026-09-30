@@ -6188,6 +6188,144 @@ button.sh-today-row-main:hover {
 .sc-scout--asleep .nv-sweep {
   animation-duration: 9s;
 }
+/* Sync portal: a small ring beside her hands; bits of light stream from it into her. */
+.sc-portal {
+  --dir: -1;
+  position: absolute;
+  top: 34%;
+  left: 74%;
+  width: 26%;
+  aspect-ratio: 1;
+  pointer-events: none;
+  animation: sc-portal-open 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.sc-portal--left {
+  --dir: 1;
+  left: auto;
+  right: 74%;
+}
+.sc-portal-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px dashed var(--sh-accent);
+  box-shadow: 0 0 14px var(--sh-accent-glow), inset 0 0 10px var(--sh-accent-glow);
+  animation: sc-portal-spin 2.4s linear infinite;
+}
+.sc-portal-core {
+  position: absolute;
+  inset: 22%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--sh-accent-glow), transparent 70%);
+}
+.sc-portal-bit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: var(--sh-accent);
+  box-shadow: 0 0 6px var(--sh-accent);
+  animation: sc-portal-bit 0.9s ease-in infinite;
+  animation-delay: var(--d);
+  opacity: 0;
+}
+.sc-portal--ok {
+  animation: sc-portal-close 0.6s ease-out forwards;
+}
+.sc-portal--ok .sc-portal-core {
+  background: radial-gradient(circle, var(--sh-accent), transparent 70%);
+}
+.sc-portal--fail .sc-portal-ring {
+  border-color: var(--sh-danger);
+  box-shadow: 0 0 14px var(--sh-danger-line);
+  animation: sc-portal-flicker 0.12s steps(2) infinite;
+}
+.sc-portal--fail {
+  animation: sc-portal-close 0.9s ease-in forwards;
+}
+@keyframes sc-portal-open {
+  from {
+    transform: scale(0.1);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes sc-portal-close {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  30% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+@keyframes sc-portal-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes sc-portal-bit {
+  0% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(calc(var(--dir) * 180%)) scale(0.4);
+  }
+}
+@keyframes sc-portal-flicker {
+  50% {
+    opacity: 0.2;
+  }
+}
+/* Offline: faint static over her. */
+.sc-static {
+  position: absolute;
+  inset: 10% 25% 4%;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, var(--sh-accent-glow) 0 1px, transparent 1px 4px);
+  opacity: 0.18;
+  mix-blend-mode: screen;
+  animation: sc-static 0.4s steps(3) infinite;
+}
+@keyframes sc-static {
+  0% {
+    transform: translateY(0);
+    opacity: 0.12;
+  }
+  50% {
+    transform: translateY(2px);
+    opacity: 0.22;
+  }
+  100% {
+    transform: translateY(-1px);
+    opacity: 0.15;
+  }
+}
+.sc-scout--still .sc-portal,
+.sc-scout--still .sc-portal-ring,
+.sc-scout--still .sc-portal-bit,
+.sc-scout--still .sc-static {
+  animation: none;
+}
+.sc-scout--still .sc-portal-bit {
+  display: none;
+}
 .sc-zzz {
   position: absolute;
   right: -10px;

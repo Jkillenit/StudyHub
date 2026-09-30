@@ -288,6 +288,28 @@ export function pickStroll(size, pos, current, { sameOnly = false } = {}) {
   return ok[Math.floor(Math.random() * ok.length)];
 }
 
+/**
+ * The nearest panel edge she can sit on to rest: headroom above (livePlatform), nothing covered
+ * where she'd stand, and no text or controls where her legs hang. Returns a stand point with
+ * its `plat` and whether it's a level `walk` from here, or null.
+ */
+export function pickRestEdge(size, pos) {
+  const cx = feetX(pos, size);
+  const feet = pos.y + size;
+  const spots = [];
+  for (const plat of platforms(size)) {
+    if (!plat.el) continue;
+    const x = Math.min(plat.right - size * 0.3, Math.max(plat.left + size * 0.3, cx));
+    const p = standOn(plat, x, size);
+    spots.push({ ...p, plat, walk: Math.abs(plat.top - feet) < 6, dist: Math.hypot(p.x - pos.x, p.y - pos.y) });
+  }
+  spots.sort((a, b) => a.dist - b.dist);
+  for (const s of spots) {
+    if (!coversContent(s, size) && seatClear(s, size)) return s;
+  }
+  return null;
+}
+
 /* ---------- idle life: open grid space to doodle on, a panel edge to peek from ---------- */
 
 const PANEL_SELECTOR = ".sh-panel, .sh-hub-block, [data-perch]";

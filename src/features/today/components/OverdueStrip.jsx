@@ -31,7 +31,7 @@ export function OverdueStrip({ items, onMarkSubmitted, onOpen, index = 0 }) {
   const extra = items.length - CHIPS_SHOWN;
 
   return (
-    <div ref={ref} className="sh-overdue sh-arrive" style={{ "--i": index }} role="region" aria-label="Overdue">
+    <div ref={ref} className="sh-overdue sh-arrive" style={{ "--i": index }} role="region" aria-label="Overdue" data-brief-target="overdue">
       <span className="sh-overdue-label">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
           <circle cx="12" cy="12" r="9" />

@@ -89,6 +89,16 @@ export const character = {
       "{count} cards. {course}. Still. They're not going anywhere. Neither am I.",
       "{course}. {count} cards. I've counted them four thousand fucking times.",
     ],
+    syncFail: [
+      "Sync broke on {course}. Blackboard said: {error}.",
+      "{course} didn't come through. Blackboard says {error}.",
+      "Couldn't pull {course}. The error was: {error}.",
+    ],
+    syncFailLogin: [
+      "Blackboard logged you out. Sign back in and I'll pull {course} again.",
+      "Your Blackboard session expired. Log in and I'll try {course} again.",
+    ],
+    offline: ["We're offline. I'll keep what we have.", "No connection. Everything local still works."],
     quietOn: [
       "Quiet mode. I'll stay right here. Click if you need me.",
       "Going still. You won't even know I'm here. Mostly.",
