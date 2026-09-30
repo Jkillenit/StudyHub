@@ -15,6 +15,29 @@ export const TINTS = [
   { id: "prism", label: "Prism", level: 10, filter: "hue-rotate(0deg)" },
 ];
 
+/** Every way to earn XP. `study: false` awards don't count as studying for rampancy. */
+export const XP_AWARDS = {
+  simCorrect: { xp: 10, label: "Training Sim · correct answer" },
+  simWrong: { xp: 2, label: "Training Sim · missed answer" },
+  simRun: { xp: 25, label: "Training Sim · finish a run" },
+  simPerfect: { xp: 50, label: "Training Sim · perfect run (5+ cards)" },
+  cardKnown: { xp: 5, label: "Flashcard drill · knew it" },
+  cardAgain: { xp: 2, label: "Flashcard drill · again" },
+  testCorrect: { xp: 8, label: "Practice test · correct answer" },
+  testDone: { xp: 30, label: "Practice test · finish" },
+  tour: { xp: 50, label: "Finish a tour (first time)", study: false },
+  daily: { xp: 20, label: "First study of the day" },
+};
+
+/** Sum a list of [awardId, count] pairs. */
+export function xpFor(parts) {
+  return parts.reduce((sum, [id, count]) => sum + (XP_AWARDS[id]?.xp || 0) * Math.max(0, count || 0), 0);
+}
+
+export function isStudyAward(parts) {
+  return parts.some(([id, count]) => count > 0 && XP_AWARDS[id] && XP_AWARDS[id].study !== false);
+}
+
 export const DAY_MS = 24 * 60 * 60 * 1000;
 export const RAMPANT_AFTER_DAYS = 3;
 export const RAMPANT_AFTER_IGNORES = 3;
@@ -39,6 +62,7 @@ export function defaultState() {
     sound: false,
     firstSeenAt: new Date().toISOString(),
     lastStudyAt: null,
+    lastDailyOn: null,
     ignored: 0,
   };
 }

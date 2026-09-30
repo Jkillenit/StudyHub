@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { TINTS, MOVEMENT_LEVELS, SIZES, levelProgress, unlockedTints } from "./companionStore.js";
+import { TINTS, MOVEMENT_LEVELS, SIZES, XP_AWARDS, levelProgress, unlockedTints } from "./companionStore.js";
 
 function Segmented({ label, value, options, onChange }) {
   return (
@@ -71,6 +71,17 @@ export function CompanionSettings({ state, onChange, onClose, onResetTours, onRe
         </div>
         <span className="mono sc-settings-xp">{span ? `${into}/${span} XP` : "MAX"}</span>
       </div>
+      <details className="sc-set-earn">
+        <summary className="mono">HOW TO EARN XP</summary>
+        <ul>
+          {Object.entries(XP_AWARDS).map(([id, a]) => (
+            <li key={id}>
+              <span>{a.label}</span>
+              <span className="mono">+{a.xp}</span>
+            </li>
+          ))}
+        </ul>
+      </details>
 
       <Toggle label="SHOW NOVA" checked={state.enabled} onChange={(v) => onChange({ enabled: v })} />
       <Segmented

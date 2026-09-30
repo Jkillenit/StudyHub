@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import pkg from "../../package.json";
+
+const SplashNova = lazy(() => import("../companion/SplashNova.jsx"));
 
 const STEPS = [
   [0, "INITIALIZING"],
@@ -40,6 +42,9 @@ export function SplashScreen({ ready, leaving, courseCount = 0 }) {
         </div>
         <div className="sh-splash-step">{step}</div>
       </div>
+      <Suspense fallback={null}>
+        <SplashNova />
+      </Suspense>
       <div className="sh-splash-foot">LOCAL-FIRST · v{pkg.version}</div>
     </div>
   );

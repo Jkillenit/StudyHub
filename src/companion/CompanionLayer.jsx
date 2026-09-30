@@ -1,10 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { character, line, finishKey, isFailing } from "./character.js";
-import { loadCompanionState, saveCompanionState, resolveTint, levelForXp, unlockedTints, isRampant } from "./companionStore.js";
-import { getDueCards } from "../study/sm2.js";
+import {
+  loadCompanionState,
+  saveCompanionState,
+  resolveTint,
+  levelForXp,
+  unlockedTints,
+  isRampant,
+  xpFor,
+  isStudyAward,
+  XP_AWARDS,
+} from "./companionStore.js";
+import { getDueCards, localDateString } from "../study/sm2.js";
+import { loadFlashcardDeck, persistFlashcardDeck } from "../study/flashcards/flashcardPersistence.js";
 import { shortCourse } from "../features/dashboard/courseLabel.js";
-import { cardKey, xpForRun } from "./lightRun.js";
+import { cardKey, runAwards } from "./lightRun.js";
+import { STUDY_EVENT } from "./studyEvents.js";
 import { QuizPanel } from "./QuizPanel.jsx";
 import { transition, AUTONOMOUS } from "./machine.js";
 import { clampPoint, defaultHome, pickWaypoint, pointBeside, waitForTarget } from "./safeZones.js";
@@ -36,7 +48,12 @@ const NUDGE_COOLDOWN_MS = 10 * 60 * 1000;
 const NUDGE_MAX_PER_SESSION = 4;
 const NUDGE_SHOW_MS = 8000;
 const RAMPANT_MUTTER_MS = [90 * 1000, 200 * 1000];
-const STUDY_RUN_MIN = 3;
+const XP_POP_MS = 1500;
+/** The built-in OM 300 course id; its deck lives in localStorage, not SQLite. */
+const BUILTIN_ID = "builtin";
+const BUILTIN_NAME = "OM 300";
+
+const builtinCourse = (flashcards) => ({ id: BUILTIN_ID, uuid: BUILTIN_ID, name: BUILTIN_NAME, flashcards });
 
 const rand = ([a, b]) => a + Math.random() * (b - a);
 const rectOf = (r) => ({ left: r.left, top: r.top, width: r.width, height: r.height });
@@ -67,6 +84,10 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const [react, setReact] = useState(null);
   const [quizDeck, setQuizDeck] = useState("all");
   const [now, setNow] = useState(Date.now);
+  const [builtinCards, setBuiltinCards] = useState(loadFlashcardDeck);
+  const [pops, setPops] = useState([]);
+  const popIdRef = useRef(0);
+  const drillRef = useRef({ known: 0, missed: 0 });
 
   const nodeRef = useRef(null);
   const reduced = useMemo(prefersReducedMotion, []);
@@ -80,8 +101,12 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const sizeRef = useRef(size);
   sizeRef.current = size;
 
+  const quizCourses = useMemo(
+    () => (builtinCards.length ? [...courses, builtinCourse(builtinCards)] : courses),
+    [courses, builtinCards]
+  );
   const navRef = useRef({});
-  navRef.current = { courses, activeCourseId, onHub, onGoHub, onOpenCourse };
+  navRef.current = { courses, quizCourses, activeCourseId, onHub, onGoHub, onOpenCourse };
 
   const lastActivityRef = useRef(Date.now());
   const lastInputRef = useRef(0);
@@ -136,6 +161,54 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       v: p.y > 280 ? "above" : "below",
     });
   }, [posRef]);
+
+  const pushPop = useCallback((text) => {
+    popIdRef.current += 1;
+    const id = popIdRef.current;
+    setPops((list) => [...list.slice(-2), { id, text }]);
+    window.setTimeout(() => setPops((list) => list.filter((p) => p.id !== id)), XP_POP_MS);
+  }, []);
+
+  /**
+   * The one place XP is granted. Adds the daily bonus to the first study award of the day,
+   * counts studying against rampancy, and (when `announce`) lets Nova react to level-ups.
+   */
+  const awardXp = useCallback(
+    (parts, { announce = true } = {}) => {
+      const cur = stateRef.current;
+      if (!cur) return null;
+      const today = localDateString();
+      const studied = isStudyAward(parts);
+      const daily = studied && cur.lastDailyOn !== today;
+      const all = daily ? [...parts, ["daily", 1]] : parts;
+      const xpGained = xpFor(all);
+      if (!xpGained) return null;
+      const before = levelForXp(cur.xp || 0);
+      const level = levelForXp((cur.xp || 0) + xpGained);
+      const prev = new Set(unlockedTints(cur.xp || 0).map((t) => t.id));
+      const unlocked = unlockedTints((cur.xp || 0) + xpGained).find((t) => !prev.has(t.id))?.label || null;
+      const wasRampant = isRampant(cur);
+      update((s) => ({
+        xp: (s.xp || 0) + xpGained,
+        ...(studied ? { lastStudyAt: new Date().toISOString(), lastDailyOn: today, ignored: 0 } : {}),
+      }));
+      if (cur.enabled) pushPop(`+${xpGained} XP`);
+      const leveledUp = level > before;
+      let spoke = false;
+      if (announce && studied && wasRampant) {
+        setMood("happy");
+        say(line("rampantRecover"));
+        spoke = true;
+      } else if (announce && leveledUp) {
+        setMood("excited");
+        sfx("streak");
+        say(line(unlocked ? "levelUnlock" : "levelUp", { level, tint: unlocked?.toLowerCase() }));
+        spoke = true;
+      }
+      return { xpGained, level, leveledUp, unlocked, daily, spoke };
+    },
+    [update, pushPop, say, sfx]
+  );
 
   /* ---------- load + first appearance ---------- */
 
@@ -216,6 +289,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       t.cleanup?.();
       tourRef.current = null;
       setTour(null);
+      const firstFinish = completed && !stateRef.current?.tours?.[t.id]?.done;
       update((s) => ({
         onboarded: true,
         tours: { ...s.tours, [t.id]: { step: 0, done: completed || !!s.tours[t.id]?.done } },
@@ -223,8 +297,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       send("END");
       setMood(completed ? "happy" : "neutral");
       say(line(completed ? "tourDone" : "tourSkip"));
+      if (firstFinish) awardXp([["tour", 1]]);
     },
-    [update, send, say]
+    [update, send, say, awardXp]
   );
 
   const goStep = useCallback(
@@ -399,7 +474,10 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const startQuiz = useCallback(
     async (deckId) => {
       const nav = navRef.current;
-      const hasCards = (id) => nav.courses.some((c) => c.id === id && (c.flashcards || []).length);
+      const fresh = loadFlashcardDeck();
+      setBuiltinCards(fresh);
+      const pool = [...nav.courses, builtinCourse(fresh)];
+      const hasCards = (id) => pool.some((c) => c.id === id && (c.flashcards || []).length);
       const deck = deckId && hasCards(deckId) ? deckId : hasCards(nav.activeCourseId) ? nav.activeCourseId : "all";
       setBubble(null);
       setHelp(null);
@@ -430,15 +508,17 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   const onQuizAnswer = useCallback(
     ({ card, grade, fields, correct, partial, streak, answer }) => {
-      void window.studyHub?.db?.mastery?.update?.({
-        flashcardUuid: cardKey(card),
-        grade,
-        easeFactor: fields.easeFactor,
-        intervalDays: fields.intervalDays,
-        repetitions: fields.repetitions,
-        nextReview: fields.next_review,
-        sessionId: quizRef.current.sessionId,
-      });
+      if (card.courseId !== BUILTIN_ID) {
+        void window.studyHub?.db?.mastery?.update?.({
+          flashcardUuid: cardKey(card),
+          grade,
+          easeFactor: fields.easeFactor,
+          intervalDays: fields.intervalDays,
+          repetitions: fields.repetitions,
+          nextReview: fields.next_review,
+          sessionId: quizRef.current.sessionId,
+        });
+      }
       const pending = quizRef.current.pending;
       if (!pending.has(card.courseId)) pending.set(card.courseId, new Map());
       pending.get(card.courseId).set(cardKey(card), fields);
@@ -481,25 +561,23 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const onQuizFinish = useCallback(
     (summary) => {
       const cur = stateRef.current;
-      const xpGained = xpForRun(summary);
-      const before = levelForXp(cur.xp || 0);
-      const xp = (cur.xp || 0) + xpGained;
-      const level = levelForXp(xp);
-      const prevUnlocks = new Set(unlockedTints(cur.xp || 0).map((t) => t.id));
-      const unlocked = unlockedTints(xp).find((t) => !prevUnlocks.has(t.id))?.label || null;
       const prevBest = cur.highScores?.[summary.deckId] || 0;
       const newHighScore = summary.mode === "streak" && summary.score > prevBest;
       const wasRampant = isRampant(cur);
-      const studied = summary.answered >= STUDY_RUN_MIN;
+      const award = awardXp(runAwards(summary), { announce: false }) || {
+        xpGained: 0,
+        level: levelForXp(cur.xp || 0),
+        leveledUp: false,
+        unlocked: null,
+      };
       update((s) => ({
-        xp,
         runs: (s.runs || 0) + 1,
         highScores: newHighScore ? { ...s.highScores, [summary.deckId]: summary.score } : s.highScores,
-        ...(studied ? { lastStudyAt: new Date().toISOString(), ignored: 0 } : {}),
       }));
 
       const endedAt = new Date().toISOString();
-      for (const courseUuid of summary.courseUuids.length ? summary.courseUuids : [null]) {
+      const logUuids = [...new Set(summary.courseUuids.map((u) => (u === BUILTIN_ID ? null : u)))];
+      for (const courseUuid of logUuids.length ? logUuids : [null]) {
         if (!summary.answered) break;
         void window.studyHub?.db?.sessions?.log?.({
           courseUuid,
@@ -513,8 +591,15 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       }
 
       const pending = quizRef.current.pending;
-      quizRef.current = { sessionId: `quiz_${Date.now()}`, pending: new Map() };
+      quizRef.current = { ...quizRef.current, sessionId: `quiz_${Date.now()}`, pending: new Map() };
       for (const [courseId, updates] of pending) {
+        if (courseId === BUILTIN_ID) {
+          const next = loadFlashcardDeck().map((c) => (updates.has(cardKey(c)) ? { ...c, ...updates.get(cardKey(c)) } : c));
+          persistFlashcardDeck(next);
+          setBuiltinCards(next);
+          window.dispatchEvent(new CustomEvent("studyhub-flashcards-updated"));
+          continue;
+        }
         void onUpdateCourse?.(courseId, (course) => ({
           ...course,
           flashcards: (course.flashcards || []).map((c) => (updates.has(cardKey(c)) ? { ...c, ...updates.get(cardKey(c)) } : c)),
@@ -529,17 +614,23 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       } else {
         sfx(tier === "finishedGreat" ? "streak" : "correct");
       }
-      if (wasRampant && studied) {
+      if (wasRampant && summary.answered) {
         setMood("happy");
         say(line("rampantRecover"));
-      } else if (level > before && tier !== "finishedBad") {
-        say(line(unlocked ? "levelUnlock" : "levelUp", { level, tint: unlocked?.toLowerCase() }));
+      } else if (award.leveledUp && tier !== "finishedBad") {
+        say(line(award.unlocked ? "levelUnlock" : "levelUp", { level: award.level, tint: award.unlocked?.toLowerCase() }));
       } else {
         say(line(tier, { correct: summary.correct, total: summary.answered }));
       }
-      return { xpGained, level, leveledUp: level > before, unlocked: unlocked ? `${unlocked} projection` : null, newHighScore };
+      return {
+        xpGained: award.xpGained,
+        level: award.level,
+        leveledUp: award.leveledUp,
+        unlocked: award.unlocked ? `${award.unlocked} projection` : null,
+        newHighScore,
+      };
     },
-    [update, onUpdateCourse, say, flashReaction, sfx]
+    [update, onUpdateCourse, say, flashReaction, sfx, awardXp]
   );
 
   const closeQuiz = useCallback(() => {
@@ -719,7 +810,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     if (n.count >= NUDGE_MAX_PER_SESSION || now - n.mountedAt < NUDGE_FIRST_MS) return;
     if (n.last && now - n.last < n.cooldown) return;
     if (now - lastInputRef.current < TYPING_PAUSE_MS) return;
-    const best = navRef.current.courses
+    const best = [...navRef.current.courses, builtinCourse(loadFlashcardDeck())]
       .map((c) => ({ c, due: getDueCards(c.flashcards || []).length }))
       .sort((a, b) => b.due - a.due)[0];
     if (!best || best.due < 3) return;
@@ -743,7 +834,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     }
     refreshAnchor();
     n.answered = false;
-    const course = shortCourse(best.c.courseCode || best.c.name) || best.c.name;
+    const course = best.c.id === BUILTIN_ID ? BUILTIN_NAME : shortCourse(best.c.courseCode || best.c.name) || best.c.name;
     say(line(rampant ? "dueRampant" : "due", { count: best.due, course }), {
       sticky: true,
       nudge: true,
@@ -791,6 +882,53 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     }, NUDGE_SHOW_MS);
     return () => window.clearTimeout(t);
   }, [mode, send, update, say]);
+
+  /* Drill cards and practice tests elsewhere in the app: XP, plus the odd comment. */
+  useEffect(() => {
+    const onStudy = (e) => {
+      const d = e.detail || {};
+      const m = modeRef.current;
+      const canTalk = !!stateRef.current?.enabled && (AUTONOMOUS.has(m) || m === "sleep");
+      if (canTalk && m === "sleep") send("WAKE");
+      if (d.type === "card") {
+        const r = drillRef.current;
+        if (d.correct) {
+          r.known += 1;
+          r.missed = 0;
+        } else {
+          r.missed += 1;
+          r.known = 0;
+        }
+        const res = awardXp([[d.correct ? "cardKnown" : "cardAgain", 1]], { announce: canTalk });
+        if (!canTalk || res?.spoke) return;
+        if (res?.daily) {
+          setMood("happy");
+          say(line("dailyBonus", { xp: XP_AWARDS.daily.xp }));
+        } else if (d.correct && r.known % 5 === 0) {
+          setMood("excited");
+          flashReaction("bounce");
+          sfx("streak");
+          say(line("drillStreak", { streak: r.known }));
+        } else if (!d.correct && r.missed === 3) {
+          setMood("stern");
+          flashReaction("glitch");
+          sfx("glitch");
+          say(line("drillHarsh"));
+        }
+        return;
+      }
+      if (d.type === "test" && d.total) {
+        const res = awardXp([["testCorrect", d.correct], ["testDone", 1]], { announce: canTalk });
+        if (!canTalk || res?.spoke) return;
+        const tier = finishKey(d.correct, d.total);
+        setMood({ finishedGreat: "excited", finishedGood: "happy", finishedMeh: "neutral", finishedBad: "stern" }[tier]);
+        if (tier === "finishedBad") flashReaction("glitch");
+        say(line(tier, { correct: d.correct, total: d.total }));
+      }
+    };
+    window.addEventListener(STUDY_EVENT, onStudy);
+    return () => window.removeEventListener(STUDY_EVENT, onStudy);
+  }, [awardXp, say, sfx, flashReaction, send]);
 
   /* Rampant: now and then she mutters and glitches while idle. */
   const rampantNow = !!cstate && isRampant(cstate, now);
@@ -1052,7 +1190,10 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       />
     );
   } else if (visible && bubble && !flying && mode !== "menu") {
-    bubbleNode = <SpeechBubble text={bubble.text} title={bubble.title} actions={bubble.actions} h={anchor.h} v={anchor.v} />;
+    const tone = showRampant ? "rampant" : mood === "stern" ? "harsh" : mood === "excited" ? "warm" : null;
+    bubbleNode = (
+      <SpeechBubble text={bubble.text} title={bubble.title} actions={bubble.actions} h={anchor.h} v={anchor.v} tone={tone} />
+    );
   }
 
   const menuItems = [
@@ -1108,6 +1249,13 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
             </span>
           </span>
         </button>
+        {visible
+          ? pops.map((p) => (
+              <span key={p.id} className="sc-xp-pop mono" aria-hidden>
+                {p.text}
+              </span>
+            ))
+          : null}
         {visible && mode === "sleep" ? (
           <span className="sc-zzz mono" aria-hidden>
             <i>z</i>
@@ -1143,7 +1291,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       </div>
       {visible && mode === "quiz" ? (
         <QuizPanel
-          courses={courses}
+          courses={quizCourses}
           initialDeck={quizDeck}
           highScores={cstate.highScores}
           onAnswer={onQuizAnswer}

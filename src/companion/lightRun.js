@@ -169,9 +169,15 @@ export function reviewCard(card, grade) {
   };
 }
 
-export function xpForRun({ score, answered }) {
-  if (!answered) return 0;
-  return Math.round(score / 10) + 10;
+/** XP award parts for a finished run (see XP_AWARDS). */
+export function runAwards({ correct, answered }) {
+  if (!answered) return [];
+  return [
+    ["simCorrect", correct],
+    ["simWrong", answered - correct],
+    ["simRun", 1],
+    ["simPerfect", answered >= 5 && correct === answered ? 1 : 0],
+  ];
 }
 
 /** Earliest next review among the cards touched this run, as a friendly label. */

@@ -4,6 +4,7 @@ import { useDelayedSkeletonVisible } from "../../hooks/useDelayedSkeletonVisible
 import { useFlashcardDeckContext } from "./FlashcardDeckContext.jsx";
 import { daysUntilReview, getDueCards, localDateString, sm2 } from "../sm2.js";
 import { loadFlashcardDeck, persistFlashcardDeck, resetFlashcardDeckToSeed } from "./flashcardPersistence.js";
+import { emitStudyEvent } from "../../companion/studyEvents.js";
 import { SEED_FLASHCARDS } from "./seedCards.js";
 import { filterDeck } from "./deckModes.js";
 
@@ -447,6 +448,7 @@ export default function FlashcardDeck({
             : c
         );
         commitCards(next);
+        emitStudyEvent({ type: "card", correct: grade >= 3 });
         if (grade >= 3) {
           sessionRef.current.know += 1;
           setSessionKnow((c) => c + 1);

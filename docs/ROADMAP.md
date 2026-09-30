@@ -55,7 +55,8 @@ shared study materials, past grade distributions, and professor reviews.
 - ✓ C.2 Flashcard quiz (4 modes, SM-2 grading, XP/levels), due-card nudges.
 - ✓ C.3 Nova redesign: hologram portraits (runtime light-keyed), teleport moves, sarcastic/loyal
   voice (flirty on streaks, harsh when failing), rampancy after neglect, synthesized sound, tints.
-- ○ C.4 Hologram bubbles, OM 300 built-in deck support, app-wide XP awards, splash cameo.
+- ✓ C.4 Hologram comm-panel bubbles (typewriter, tone tints), OM 300 built-in deck in the sim,
+  app-wide XP table (sim, drill, practice tests, tours, daily bonus) with pops, splash cameo.
 - ○ C.5 Claude brain once an API key is set: Haiku help with `point_to`, fuzzy typed grading,
   generated distractors, rate limit + canned fallback.
 - ○ C.6 Assessment-mode auto-hide, more tours (blackboard-sync, calendar), polish.

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildQuestionPool, poolForModules } from "./questionPool.js";
 import { QUESTION_TYPES, buildTest, buildTestWithAi, gradeTyped, retakeQuestions } from "./practiceTest.js";
 import { hasApiKey } from "../../ai/apiKeyUtils.js";
+import { emitStudyEvent } from "../../companion/studyEvents.js";
 
 const COUNTS = [10, 20, 30];
 
@@ -368,6 +369,7 @@ export function PracticeTestView({ course }) {
       correct,
       incorrect: questions.length - correct,
     });
+    emitStudyEvent({ type: "test", correct, total: questions.length });
   }, [finished]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
