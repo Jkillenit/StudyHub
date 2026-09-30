@@ -8,7 +8,8 @@ export default defineConfig({
   plugins: [react()],
   build: {
     rollupOptions: {
-      external: ["better-sqlite3", "officeparser"],
+      input: { main: "index.html", overlay: "overlay.html" },
+      external: ["better-sqlite3", "officeparser", "koffi"],
       output: {
         manualChunks(id) {
           if (

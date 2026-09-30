@@ -179,6 +179,17 @@ contextBridge.exposeInMainWorld("studyHub", {
     onSyncComplete: (callback) => subscribe("bb:sync-complete", callback),
   },
 
+  /** Desktop Nova (overlay, tray). Settings writes are honored only from this window. */
+  desktop: {
+    get: () => ipcRenderer.invoke("desktop:getSettings"),
+    set: (patch) => ipcRenderer.invoke("desktop:setSettings", patch),
+    hide: (kind) => ipcRenderer.invoke("desktop:hide", { for: kind }),
+    show: () => ipcRenderer.invoke("desktop:show"),
+    onState: (callback) => subscribe("nova:state", callback),
+    onOpenSettings: (callback) => subscribe("desktop:open-settings", callback),
+    onNavigate: (callback) => subscribe("desktop:navigate", callback),
+    onBbChecked: (callback) => subscribe("desktop:bb-checked", callback),
+  },
   db: {
     courses: {
       getAll: () => ipcRenderer.invoke("db:courses:getAll"),

@@ -24,6 +24,14 @@ const { registerMirrorHandlers } = require("./dbMirrorHandlers.cjs");
 const { registerCompanionHandlers } = require("./companionHandlers.cjs");
 const { registerBlackboardHandlers } = require("./blackboardWindow.cjs");
 const { registerMaintenanceHandlers } = require("./maintenance.cjs");
+const { registerDesktop } = require("./desktop/index.cjs");
+
+/** The app lives in the tray; a second launch just brings the existing window forward. */
+if (!app.requestSingleInstanceLock()) {
+  app.exit(0);
+}
+const startHidden = process.argv.includes("--hidden");
+let desktop = null;
 
 /**
  * Files the user explicitly chose via a native dialog or import. Persisted in userData so
@@ -641,7 +649,10 @@ function createWindow() {
     }
   });
 
-  win.once("ready-to-show", () => win.show());
+  win.once("ready-to-show", () => {
+    if (!startHidden) win.show();
+  });
+  desktop?.attachMainWindow(win);
 
   const indexHtml = path.join(__dirname, "..", "dist", "index.html");
   win.loadFile(indexHtml);
@@ -653,11 +664,25 @@ app.whenReady().then(() => {
   registerMirrorHandlers();
   registerCompanionHandlers();
   registerMaintenanceHandlers(() => mainWindow);
+  desktop = registerDesktop({ getMainWindow: () => mainWindow, showMainWindow });
   createWindow();
-  registerBlackboardHandlers(() => mainWindow, { allowPaths, extractBufferText });
+  desktop.attachBlackboard(
+    registerBlackboardHandlers(() => mainWindow, { allowPaths, extractBufferText, onDisconnect: () => desktop?.bbDisconnected() })
+  );
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) createWindow();
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+app.on("second-instance", () => {
+  if (app.isReady()) showMainWindow();
 });
 
 app.on("window-all-closed", () => {

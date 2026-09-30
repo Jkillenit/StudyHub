@@ -1,0 +1,181 @@
+{
+  "fps": 15,
+  "frameW": 240,
+  "frameH": 240,
+  "anchor": {
+    "x": 0.5,
+    "y": 0.99
+  },
+  "frameScale": 1.14,
+  "walkSpeed": 90,
+  "clips": {
+    "idle": {
+      "file": "idle.png",
+      "frames": 90,
+      "cols": 12,
+      "loop": true,
+      "anchorY": 0.99
+    },
+    "walk": {
+      "file": "walk.png",
+      "frames": 18,
+      "cols": 12,
+      "loop": true,
+      "anchorY": 0.99
+    },
+    "talk": {
+      "file": "talk.png",
+      "frames": 89,
+      "cols": 12,
+      "loop": true,
+      "anchorY": 0.99
+    },
+    "sit": {
+      "file": "sit.png",
+      "frames": 30,
+      "cols": 12,
+      "loop": true,
+      "anchorY": 0.72
+    },
+    "legSwing": {
+      "file": "legSwing.png",
+      "frames": 45,
+      "cols": 12,
+      "loop": true,
+      "anchorY": 0.72
+    },
+    "sitCold": {
+      "file": "sitCold.png",
+      "frames": 30,
+      "cols": 12,
+      "loop": true,
+      "anchorY": 0.72
+    },
+    "doze": {
+      "file": "doze.png",
+      "frames": 60,
+      "cols": 12,
+      "loop": true,
+      "anchorY": 0.72
+    },
+    "lieSide": {
+      "file": "lieSide.png",
+      "frames": 60,
+      "cols": 12,
+      "loop": true,
+      "anchorY": 0.99
+    },
+    "lieBelly": {
+      "file": "lieBelly.png",
+      "frames": 45,
+      "cols": 12,
+      "loop": true,
+      "anchorY": 0.99
+    },
+    "fall": {
+      "file": "fall.png",
+      "frames": 11,
+      "cols": 11,
+      "loop": true,
+      "anchorY": 0.99
+    },
+    "held": {
+      "file": "held.png",
+      "frames": 30,
+      "cols": 12,
+      "loop": true,
+      "anchorY": 0.99
+    },
+    "wave": {
+      "file": "wave.png",
+      "frames": 48,
+      "cols": 12,
+      "loop": false,
+      "anchorY": 0.99
+    },
+    "yawn": {
+      "file": "yawn.png",
+      "frames": 90,
+      "cols": 12,
+      "loop": false,
+      "anchorY": 0.99
+    },
+    "kiss": {
+      "file": "kiss.png",
+      "frames": 69,
+      "cols": 12,
+      "loop": false,
+      "anchorY": 0.99
+    },
+    "taunt": {
+      "file": "taunt.png",
+      "frames": 43,
+      "cols": 12,
+      "loop": false,
+      "anchorY": 0.99
+    },
+    "look": {
+      "file": "look.png",
+      "frames": 90,
+      "cols": 12,
+      "loop": false,
+      "anchorY": 0.99
+    },
+    "bored": {
+      "file": "bored.png",
+      "frames": 90,
+      "cols": 12,
+      "loop": false,
+      "anchorY": 0.99
+    },
+    "land": {
+      "file": "land.png",
+      "frames": 17,
+      "cols": 12,
+      "loop": false,
+      "anchorY": 0.99
+    },
+    "lean": {
+      "file": "lean.png",
+      "frames": 29,
+      "cols": 12,
+      "loop": false,
+      "anchorY": 0.99
+    },
+    "stretch": {
+      "file": "stretch.png",
+      "frames": 51,
+      "cols": 12,
+      "loop": false,
+      "anchorY": 0.99
+    },
+    "facepalm": {
+      "file": "facepalm.png",
+      "frames": 39,
+      "cols": 12,
+      "loop": false,
+      "anchorY": 0.99
+    },
+    "wink": {
+      "file": "wink.png",
+      "frames": 18,
+      "cols": 12,
+      "loop": false,
+      "anchorY": 0.99
+    },
+    "startle": {
+      "file": "startle.png",
+      "frames": 20,
+      "cols": 12,
+      "loop": false,
+      "anchorY": 0.99
+    },
+    "point": {
+      "file": "point.png",
+      "frames": 42,
+      "cols": 12,
+      "loop": false,
+      "anchorY": 0.99
+    }
+  }
+}

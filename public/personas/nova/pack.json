@@ -1,0 +1,32 @@
+{
+  "id": "nova",
+  "name": "Nova",
+  "sprites": "sprites/frames.json",
+  "lines": "lines.json",
+  "heights": { "sm": 90, "md": 120, "lg": 150 },
+  "states": {
+    "stand": "idle",
+    "walk": "walk",
+    "talk": "talk",
+    "sit": "sit",
+    "sitHappy": "legSwing",
+    "sitCold": "sitCold",
+    "doze": "doze",
+    "dozeFloor": "lieSide",
+    "fall": "fall",
+    "land": "land",
+    "held": "held",
+    "wave": "wave",
+    "yawn": "yawn",
+    "stretch": "stretch",
+    "look": "look",
+    "bored": "bored",
+    "point": "point",
+    "celebrate": "taunt",
+    "tapGlass": "talk",
+    "footTap": "bored",
+    "dustOff": "look",
+    "holdEnvelope": "idle",
+    "holdSign": "idle"
+  }
+}

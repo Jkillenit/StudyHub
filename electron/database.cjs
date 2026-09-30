@@ -248,6 +248,20 @@ const MIGRATIONS = [
       `);
     },
   },
+  {
+    version: 9,
+    up(dbRef) {
+      // What Desktop Nova has already announced ("grade:<courseId>:<bbId>" -> score, etc.), so a
+      // background check or a manual sync never repeats a notification.
+      dbRef.exec(`
+        CREATE TABLE IF NOT EXISTS desktop_announced (
+          key TEXT PRIMARY KEY,
+          fingerprint TEXT,
+          announced_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `);
+    },
+  },
 ];
 
 function runMigrations(dbRef) {

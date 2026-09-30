@@ -1,0 +1,97 @@
+{
+  "desktop.arrive": [
+    "Out of the box. Nice view out here.",
+    "Desktop mode. I'll keep to the edges, promise.",
+    "Hi, {name}. I'll be down here if you need me."
+  ],
+  "desktop.return": [
+    "Back. Did I miss anything?",
+    "And I'm back.",
+    "Okay, coast is clear. Hi again."
+  ],
+  "desktop.click": [
+    "What's up, {name}?",
+    "You rang?",
+    "Need something, or just checking I'm real?",
+    "Still here. Still watching the clock for you."
+  ],
+  "desktop.hideHour": {
+    "normal": ["Fine. One hour. I'll be counting.", "An hour off. Don't do anything I wouldn't do."],
+    "clean": ["Okay, see you in an hour.", "One hour. I'll be around."]
+  },
+  "desktop.hideTomorrow": [
+    "Night off. See you tomorrow.",
+    "Got it. Tomorrow, then."
+  ],
+  "desktop.enterApp": [
+    "Heading inside.",
+    "Meet you in there."
+  ],
+  "desktop.leaveApp": [
+    "I'll wait out here.",
+    "Back to my spot."
+  ],
+  "desktop.dropped": {
+    "normal": ["Rude. But fine.", "Hey! Warn a girl first.", "Okay, okay, I'm down."],
+    "clean": ["Whoa. Okay, I'm down.", "Landed. All good."]
+  },
+  "desktop.picked": [
+    "Where are we going?",
+    "Put me down somewhere nice.",
+    "Whoa, heights."
+  ],
+  "desktop.idle": [
+    "Taskbar's comfy, for the record.",
+    "Just stretching my legs.",
+    "Quiet in here today."
+  ],
+  "desktop.trayNotice": [
+    "Study Hub is still running in the tray so I can keep an eye on Blackboard. Quit from the tray icon to close it all the way."
+  ],
+  "desktop.gradeEnvelope": [
+    "Something came in from {course}. Want to open it?",
+    "Mail from {course}. It's a grade.",
+    "{course} posted a grade. Ready?"
+  ],
+  "desktop.gradeChanged": [
+    "{course} changed a grade. Want to see?",
+    "A grade in {course} got updated."
+  ],
+  "desktop.gradeGood": {
+    "normal": ["{item}: {score}. Look at you, {name}.", "{score} on {item}. Told you.", "{item}, {score}. That's above your target. Nice."],
+    "clean": ["{item}: {score}. Nice work, {name}.", "{score} on {item}. Above your target."]
+  },
+  "desktop.gradeOk": [
+    "{item}: {score}. Right around your target.",
+    "{score} on {item}. Close to where you want to be."
+  ],
+  "desktop.gradeLow": [
+    "{item}: {score}. Below your target. Want to look at where it went?",
+    "{score} on {item}. Not what we wanted. Let's look at it."
+  ],
+  "desktop.gradePlain": [
+    "{item}: {score}.",
+    "{course} graded {item}: {score}."
+  ],
+  "desktop.announcement": [
+    "{course} posted an announcement.",
+    "New from {course}."
+  ],
+  "desktop.assignment": [
+    "New assignment in {course}: {item}. I'm just the messenger.",
+    "{course} added {item}. Don't shoot the messenger."
+  ],
+  "desktop.dueChanged": [
+    "{item} in {course} moved to {due}.",
+    "Heads up, {item} is now due {due}."
+  ],
+  "desktop.due30": [
+    "{item} is due in 30 minutes.",
+    "Knock knock. {item}, 30 minutes.",
+    "{name}, {item} closes in half an hour."
+  ],
+  "desktop.bbExpired": [
+    "Blackboard logged me out. Sign in again so I can keep checking?",
+    "My Blackboard session expired. Mind logging back in?"
+  ]
+}

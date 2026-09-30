@@ -2470,7 +2470,11 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   useEffect(() => {
     const open = () => setSettingsOpen((v) => !v);
     window.addEventListener("studyhub-scout-settings", open);
-    return () => window.removeEventListener("studyhub-scout-settings", open);
+    const offTray = window.studyHub?.desktop?.onOpenSettings?.(() => setSettingsOpen(true));
+    return () => {
+      window.removeEventListener("studyhub-scout-settings", open);
+      offTray?.();
+    };
   }, []);
 
   /* Today's arrival waves her hello; the briefing's voice moves her mouth. */

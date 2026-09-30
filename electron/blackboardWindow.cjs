@@ -3,13 +3,14 @@ const fs = require("fs");
 const path = require("path");
 const { getDb } = require("./database.cjs");
 const { applyBbSync, ensureCourseForBb } = require("./dbMirrorHandlers.cjs");
-const { listEnrolledCourses, syncCourse, resetUserCache, setPageFetcher, getCourseInfo } = require("./bbSync.cjs");
+const { listEnrolledCourses, syncCourse, checkCourse, resetUserCache, setPageFetcher, getCourseInfo } = require("./bbSync.cjs");
 
 let bbWindow = null;
 const syllabusPopups = new Set();
 let extractBufferText = null;
 let getMainWindow = () => null;
 let allowPaths = () => {};
+let onDisconnect = () => {};
 let activeCourseId = "";
 let linkedCourseName = "";
 let linkedBbCourseId = "";
@@ -698,6 +699,28 @@ async function requestJsonFromEndpoint(url, bbSession) {
     request.on("error", reject);
     request.end();
   });
+
+  /** Background check of one linked course (Desktop Nova). Shares the sync lock so it never overlaps a manual sync. */
+  async function backgroundCheck(bbCourseId) {
+    const id = String(bbCourseId || "");
+    if (!/^_\d+_\d+$/.test(id)) return { ok: false, error: "invalid" };
+    if (syncing) return { ok: false, error: "busy" };
+    if (!(await isLoggedIn())) return { ok: false, error: "not-logged-in" };
+    const course = getDb().prepare("SELECT uuid FROM courses WHERE bb_course_id = ? ORDER BY id ASC LIMIT 1").get(id);
+    if (!course) return { ok: false, error: "not-linked" };
+    syncing = true;
+    try {
+      const payload = await checkCourse(id);
+      const result = applyBbSync(getDb(), course.uuid, payload);
+      return { ok: !!result.success, courseUuid: course.uuid, payload };
+    } catch (err) {
+      return { ok: false, error: err?.status === 401 || err?.status === 403 ? "not-logged-in" : err?.message || String(err) };
+    } finally {
+      syncing = false;
+    }
+  }
+
+  return { backgroundCheck, openLogin: () => openBlackboardWindow() };
 }
 
 async function resolveDownloadUrlFromContent(bbCourseId, contentId) {
@@ -1337,6 +1360,7 @@ function closeBlackboardWindow() {
 async function disconnectBlackboard() {
   closeBlackboardWindow();
   resetUserCache();
+  onDisconnect();
   const bbSession = session.fromPartition(BB_PARTITION);
   await bbSession.clearStorageData();
   await bbSession.clearCache();
@@ -1346,6 +1370,7 @@ function registerBlackboardHandlers(mainWindowGetter, options = {}) {
   getMainWindow = typeof mainWindowGetter === "function" ? mainWindowGetter : () => mainWindowGetter;
   if (typeof options.allowPaths === "function") allowPaths = options.allowPaths;
   if (typeof options.extractBufferText === "function") extractBufferText = options.extractBufferText;
+  if (typeof options.onDisconnect === "function") onDisconnect = options.onDisconnect;
 
   setPageFetcher(async (pathname) => {
     if (!bbWindow || bbWindow.isDestroyed()) return null;

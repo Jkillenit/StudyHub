@@ -1,0 +1,14 @@
+[
+  { "note": "Zoom meeting, share toolbar and share border", "exe": "^zoom\\.exe$", "cls": "^(ZPContentViewWndClass|ZPFloatToolbarClass|ZPToolBarParentWndClass|ZPShareBorderWndClass|ZPPTMainFrmWndClassEx)$", "reason": "call" },
+  { "note": "Zoom meeting window by title", "exe": "^zoom\\.exe$", "title": "^Zoom (Meeting|Webinar)", "reason": "call" },
+  { "note": "Teams meeting, call, compact view and share bar", "exe": "^(ms-teams|teams)\\.exe$", "title": "(\\bMeeting\\b|\\bCall\\b|Call with|compact view|Sharing control bar|sharing toolbar)", "reason": "call" },
+  { "note": "Google Meet tab in any browser", "title": "^(Meet|Google Meet) [-\u2013] ", "reason": "call" },
+  { "note": "Browser screen-share bar (Chrome, Edge, Brave)", "title": "is sharing (your screen|a window|this tab|an application)", "reason": "share" },
+  { "note": "Webex meeting process", "exe": "^(atmgr|webexmta|ciscocollabhost)\\.exe$", "reason": "call" },
+  { "note": "Webex app meeting window", "exe": "^webex\\.exe$", "title": "Meeting", "reason": "call" },
+  { "note": "Discord screen share / Go Live popouts", "exe": "^discord\\.exe$", "title": "(Screen Share|Go Live|is sharing)", "reason": "share" },
+  { "note": "Slack huddle window", "exe": "^slack\\.exe$", "title": "Huddle", "reason": "call" },
+  { "note": "OBS open = likely recording or streaming", "exe": "^obs(32|64)?\\.exe$", "reason": "share" },
+  { "note": "PowerPoint slideshow and presenter view", "exe": "^powerpnt\\.exe$", "cls": "^screenClass$", "reason": "present" },
+  { "note": "PowerPoint presenter view", "exe": "^powerpnt\\.exe$", "title": "Presenter View", "reason": "present" }
+]

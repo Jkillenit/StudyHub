@@ -449,6 +449,17 @@ async function syncCourse(bbCourseId, onProgress = () => {}, helpers = {}) {
   };
 }
 
+/** Light background check: announcements and the gradebook only (no content tree, files or syllabus). */
+async function checkCourse(bbCourseId) {
+  if (!/^_\d+_\d+$/.test(String(bbCourseId || ""))) throw new Error("Invalid Blackboard course id");
+  /* Uncached: the section collectors swallow errors, so this is what surfaces an expired session (401/403). */
+  await firstOk(["/learn/api/v1/users/me", "/learn/api/public/v1/users/me"]);
+  const announcements = await collectAnnouncements(bbCourseId);
+  await sleep(REQUEST_GAP_MS);
+  const { assignments, gradeItems, gradeSource, scoredCount } = await collectGradebook(bbCourseId);
+  return { contents: [], announcements, assignments, gradeItems, gradeSource, scoredCount, syllabus: null };
+}
+
 async function getCourseInfo(bbCourseId) {
   const c = await firstOk([
     `/learn/api/public/v3/courses/${encodeURIComponent(bbCourseId)}`,
@@ -461,4 +472,4 @@ function resetUserCache() {
   cachedUserId = null;
 }
 
-module.exports = { listEnrolledCourses, syncCourse, resetUserCache, setPageFetcher, getCourseInfo };
+module.exports = { listEnrolledCourses, syncCourse, checkCourse, resetUserCache, setPageFetcher, getCourseInfo };
