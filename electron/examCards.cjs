@@ -51,17 +51,6 @@ function examCardStats(cards, { dueDate, moduleIds = [] }, now = new Date()) {
   return { total: own.length, due, ready: own.length ? Math.round((passed / own.length) * 100) : 0 };
 }
 
-/** Module scope saved by the study guide for an exam (settings key studyGuide.scope.{uuid}). */
-function examScope(db, examUuid) {
-  const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(`studyGuide.scope.${examUuid}`);
-  try {
-    const ids = JSON.parse(row?.value || "[]");
-    return Array.isArray(ids) ? ids.map(String) : [];
-  } catch {
-    return [];
-  }
-}
-
 function courseCards(db, courseId) {
   return db
     .prepare(`
@@ -80,4 +69,4 @@ function courseCards(db, courseId) {
     }));
 }
 
-module.exports = { FINAL_WINDOW_DAYS, READY_GRADE, isCardDue, examCardStats, examScope, courseCards };
+module.exports = { FINAL_WINDOW_DAYS, READY_GRADE, isCardDue, examCardStats, courseCards };

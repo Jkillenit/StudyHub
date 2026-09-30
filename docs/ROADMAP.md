@@ -81,8 +81,13 @@ per-category minimum); unmatched items use a per-kind default and show no weight
   calendar days before the exam plus exam day. The capped interval is what gets stored, so growth
   after the exam restarts from it. The drill, DUE filter, study guide and Today exam reason are
   exam-aware; Nova's quiz reviews are not yet (2.3).
-- **2.2 Exam ↔ module linking** (EXAM-002): `exam_modules` join table (existing study-guide
+- ✓ **2.2 Exam ↔ module linking** (EXAM-002): `exam_modules` join table (existing study-guide
   scopes migrated in); parse from syllabus where possible, module picker fallback.
+  Shipped notes: an exam's scope is the student's pick (`exam_modules`, with
+  `assignments.scope_source = 'manual'`; no rows = whole course), else syllabus coverage, else the
+  whole course. Syllabus rules ("Exam 1: Chapters 1-4", "Final: cumulative") are stored on the course
+  and matched to module titles at read time, so later imports are picked up. The study guide's COVERS
+  row is the picker; it shows where the scope came from and can reset a pick to the syllabus.
 - **2.3 Nova runs the session** (EXAM-003): opening line from a local template built from DB
   facts (Haiku may rephrase); 10–20 exam cards, due first; logged to `study_sessions`; end
   summary with cards done, exam ready % change, suggested next session.

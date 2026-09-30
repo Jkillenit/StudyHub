@@ -187,6 +187,44 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    version: 7,
+    up(dbRef) {
+      // scope_source 'manual': the student picked this exam's modules (no rows = whole course).
+      // exam_coverage_json: syllabus coverage rules, resolved against module titles at read time.
+      addColumn(dbRef, "assignments", "scope_source", "TEXT");
+      addColumn(dbRef, "courses", "exam_coverage_json", "TEXT");
+      dbRef.exec(`
+        CREATE TABLE IF NOT EXISTS exam_modules (
+          exam_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+          module_id INTEGER NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
+          PRIMARY KEY (exam_id, module_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_exam_modules_module ON exam_modules(module_id);
+      `);
+      const scopes = dbRef.prepare("SELECT key, value FROM settings WHERE key LIKE 'studyGuide.scope.%'").all();
+      const exam = dbRef.prepare("SELECT id, course_id FROM assignments WHERE uuid = ?");
+      const moduleId = dbRef.prepare("SELECT id FROM modules WHERE uuid = ? AND course_id = ?");
+      const insert = dbRef.prepare("INSERT OR IGNORE INTO exam_modules (exam_id, module_id) VALUES (?, ?)");
+      const markManual = dbRef.prepare("UPDATE assignments SET scope_source = 'manual' WHERE id = ?");
+      for (const { key, value } of scopes) {
+        const row = exam.get(key.slice("studyGuide.scope.".length));
+        if (!row) continue;
+        let ids = [];
+        try {
+          ids = JSON.parse(value || "[]");
+        } catch {
+          ids = [];
+        }
+        for (const uuid of Array.isArray(ids) ? ids : []) {
+          const mod = moduleId.get(String(uuid), row.course_id);
+          if (mod) insert.run(row.id, mod.id);
+        }
+        markManual.run(row.id);
+      }
+      dbRef.exec("DELETE FROM settings WHERE key LIKE 'studyGuide.scope.%'");
+    },
+  },
 ];
 
 function runMigrations(dbRef) {

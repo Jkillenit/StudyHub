@@ -1,9 +1,34 @@
 import { useEffect, useMemo, useState } from "react";
 import { dueLabel, shortDate } from "../dashboard/dateLabels.js";
 import { buildStudyGuide, guideToMarkdown } from "./studyGuide.js";
-import { cardsInScope, estimateExam, formatMinutes, loadScope, saveScope } from "./examEstimate.js";
+import { cardsInScope, estimateExam, formatMinutes } from "./examEstimate.js";
+import { courseStore } from "../../db/courseStore.js";
+import { daysUntilExam } from "../../study/sm2.js";
 
 const CUSTOM = "custom";
+
+function ScopeHint({ scope, onUseSyllabus }) {
+  if (!scope) return null;
+  if (scope.source === "syllabus") {
+    return <p className="sh-guide-hint">From your syllabus. Pick modules below to change it.</p>;
+  }
+  if (scope.source === "manual") {
+    return scope.suggestion ? (
+      <p className="sh-guide-hint">
+        Your pick.{" "}
+        <button type="button" className="sh-btn-ghost sh-btn-xs" onClick={onUseSyllabus}>
+          USE SYLLABUS
+        </button>
+      </p>
+    ) : null;
+  }
+  return (
+    <p className="sh-guide-hint">
+      No syllabus coverage found for this exam, so it counts the whole course. Pick its modules to focus reviews and
+      the ready %.
+    </p>
+  );
+}
 
 function EstimatePanel({ est, exam }) {
   if (!est.total) {
@@ -101,25 +126,17 @@ export function StudyGuideView({ course }) {
     [course?.modules, course?.disabledModuleIds]
   );
   const [exams, setExams] = useState([]);
-  const [examId, setExamId] = useState(CUSTOM);
-  const [moduleIds, setModuleIds] = useState([]);
+  const [scopes, setScopes] = useState({});
+  const [examId, setExamId] = useState(null);
+  const [customIds, setCustomIds] = useState([]);
   const [pace, setPace] = useState(null);
   const [includeNotes, setIncludeNotes] = useState(true);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    void Promise.all([
-      window.studyHub?.db?.assignments?.getByCourse?.(courseUuid),
-      window.studyHub?.db?.sessions?.stats?.(courseUuid),
-    ]).then(([rows, stats]) => {
-      if (!alive) return;
-      const upcoming = (Array.isArray(rows) ? rows : [])
-        .filter((a) => a.kind === "exam" && !a.completed && a.due_date && new Date(a.due_date) >= new Date(Date.now() - 86400000))
-        .sort((a, b) => a.due_date.localeCompare(b.due_date));
-      setExams(upcoming);
-      setPace(stats?.avgSecondsPerCard || null);
-      if (upcoming.length) setExamId(upcoming[0].uuid);
+    void window.studyHub?.db?.sessions?.stats?.(courseUuid).then((stats) => {
+      if (alive) setPace(stats?.avgSecondsPerCard || null);
     });
     return () => {
       alive = false;
@@ -128,16 +145,33 @@ export function StudyGuideView({ course }) {
 
   useEffect(() => {
     let alive = true;
-    if (examId === CUSTOM) return undefined;
-    void loadScope(examId).then((ids) => {
-      if (alive) setModuleIds(ids.filter((id) => modules.some((m) => m.id === id)));
-    });
+    const load = () =>
+      void Promise.all([window.studyHub?.db?.assignments?.getByCourse?.(courseUuid), courseStore.getExamScopes(courseUuid)]).then(
+        ([rows, nextScopes]) => {
+          if (!alive) return;
+          const upcoming = (Array.isArray(rows) ? rows : [])
+            .filter((a) => a.kind === "exam" && !a.completed && (daysUntilExam(a.due_date) ?? -1) >= 0)
+            .sort((a, b) => a.due_date.localeCompare(b.due_date));
+          setExams(upcoming);
+          setScopes(nextScopes);
+          setExamId((cur) => (cur === CUSTOM || upcoming.some((e) => e.uuid === cur) ? cur : upcoming[0]?.uuid || CUSTOM));
+        }
+      );
+    load();
+    const events = ["studyhub-exam-scope-changed", "studyhub-mirror-changed", "studyhub-bb-synced"];
+    events.forEach((name) => window.addEventListener(name, load));
     return () => {
       alive = false;
+      events.forEach((name) => window.removeEventListener(name, load));
     };
-  }, [examId, modules]);
+  }, [courseUuid]);
 
   const exam = exams.find((e) => e.uuid === examId) || null;
+  const scope = exam ? scopes[exam.uuid] : null;
+  const moduleIds = useMemo(() => {
+    const ids = exam ? scope?.moduleIds || [] : customIds;
+    return ids.filter((id) => modules.some((m) => m.id === id));
+  }, [exam, scope, customIds, modules]);
   const guide = useMemo(() => buildStudyGuide(course, moduleIds), [course, moduleIds]);
   const est = useMemo(
     () => estimateExam(cardsInScope(course?.flashcards, moduleIds), { avgSecondsPerCard: pace, examDate: exam?.due_date }),
@@ -145,8 +179,12 @@ export function StudyGuideView({ course }) {
   );
 
   const setScope = (ids) => {
-    setModuleIds(ids);
-    if (exam) saveScope(exam.uuid, ids);
+    if (!exam) {
+      setCustomIds(ids);
+      return;
+    }
+    setScopes((s) => ({ ...s, [exam.uuid]: { ...s[exam.uuid], moduleIds: ids, source: "manual" } }));
+    void courseStore.setExamScope(exam.uuid, ids);
   };
   const toggleModule = (id) => setScope(moduleIds.includes(id) ? moduleIds.filter((x) => x !== id) : [...moduleIds, id]);
 
@@ -198,7 +236,7 @@ export function StudyGuideView({ course }) {
             className={`sh-pt-chip${examId === CUSTOM ? " active" : ""}`}
             onClick={() => {
               setExamId(CUSTOM);
-              setModuleIds([]);
+              setCustomIds([]);
             }}
           >
             NO EXAM DATE
@@ -211,6 +249,7 @@ export function StudyGuideView({ course }) {
         ) : null}
 
         <div className="sh-hub-section-label">COVERS</div>
+        {exam ? <ScopeHint scope={scope} onUseSyllabus={() => void courseStore.setExamScope(exam.uuid, null)} /> : null}
         <div className="sh-pt-chips">
           <button type="button" className={`sh-pt-chip${!moduleIds.length ? " active" : ""}`} onClick={() => setScope([])}>
             ALL MODULES

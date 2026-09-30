@@ -681,6 +681,7 @@ export default function GradesTab({ course, onComponentsChange }) {
       setStatus("Could not read file - try a different format");
       return;
     }
+    await courseStore.setSyllabusCoverage(courseUuid, text);
     const parsed = parseSyllabus(text);
     if (parsed.grading.length === 0) {
       setStatus("No grade components found - try adding manually");

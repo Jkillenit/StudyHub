@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { daysFromToday, dueLabel, shortDate } from "./dateLabels.js";
 import { CalendarView } from "./CalendarView.jsx";
-import { cardsInScope, estimateExam, formatMinutes, loadScope } from "../study/examEstimate.js";
+import { cardsInScope, estimateExam, formatMinutes } from "../study/examEstimate.js";
+import { courseStore } from "../../db/courseStore.js";
 import { pctTone, shortCourse } from "./courseLabel.js";
 import { KindTag } from "./KindTag.jsx";
 import { RankedToday } from "../today/RankedToday.jsx";
@@ -138,11 +139,19 @@ function ExamPrep({ exams, userCourses, pace, onOpenCourse }) {
 
   useEffect(() => {
     let alive = true;
-    void Promise.all(exams.map((e) => loadScope(e.uuid).then((ids) => [e.uuid, ids]))).then((pairs) => {
-      if (alive) setScopes(Object.fromEntries(pairs));
-    });
+    const load = () => {
+      const courseUuids = [...new Set(exams.map((e) => e.course_uuid))];
+      void Promise.all(courseUuids.map((uuid) => courseStore.getExamScopes(uuid))).then((all) => {
+        if (!alive) return;
+        const merged = Object.assign({}, ...all);
+        setScopes(Object.fromEntries(Object.entries(merged).map(([uuid, s]) => [uuid, s.moduleIds])));
+      });
+    };
+    load();
+    window.addEventListener("studyhub-exam-scope-changed", load);
     return () => {
       alive = false;
+      window.removeEventListener("studyhub-exam-scope-changed", load);
     };
   }, [examKey]); // eslint-disable-line react-hooks/exhaustive-deps
 

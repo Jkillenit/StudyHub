@@ -2,7 +2,8 @@ const { ipcMain } = require("electron");
 const { getDb } = require("./database.cjs");
 const { courseIdFor, newUuid, saveFullCourse } = require("./dbHandlers.cjs");
 const { applyBbGrades, resolveMappings, loadForCourse } = require("./gradeMapping.cjs");
-const { courseCards, examCardStats, examScope } = require("./examCards.cjs");
+const { courseCards, examCardStats } = require("./examCards.cjs");
+const { examScopes, parseExamCoverage, setExamScope } = require("./examCoverage.cjs");
 
 let registered = false;
 
@@ -209,7 +210,9 @@ function todayData(db, courseUuid = null) {
 
     const cards = cardsStmt.get(today, course.id);
     const openAssignments = assignmentStmt.all(course.id, since);
-    const deck = openAssignments.some((a) => a.kind === "exam") ? courseCards(db, course.id) : [];
+    const hasExam = openAssignments.some((a) => a.kind === "exam");
+    const deck = hasExam ? courseCards(db, course.id) : [];
+    const scopes = hasExam ? examScopes(db, course.id) : new Map();
     return {
       uuid: course.uuid,
       name: course.name,
@@ -238,7 +241,10 @@ function todayData(db, courseUuid = null) {
         source: a.source,
         componentUuid: componentFor(a),
         ...(a.kind === "exam"
-          ? { examCards: examCardStats(deck, { dueDate: a.due_date, moduleIds: examScope(db, a.uuid) }) }
+          ? {
+              examCards: examCardStats(deck, { dueDate: a.due_date, moduleIds: scopes.get(a.uuid)?.moduleIds || [] }),
+              scopeSource: scopes.get(a.uuid)?.source || "course",
+            }
           : {}),
       })),
     };
@@ -453,6 +459,27 @@ function registerMirrorHandlers() {
   });
 
   ipcMain.handle("db:today:get", (_, args) => todayData(db, args?.courseUuid ? String(args.courseUuid) : null));
+
+  /* ---------------- exam ↔ module scope ---------------- */
+
+  ipcMain.handle("db:exams:getScopes", (_, courseUuid) => {
+    const courseId = courseIdFor(db, courseUuid);
+    if (!courseId) return [];
+    return [...examScopes(db, courseId)].map(([examUuid, scope]) => ({ examUuid, ...scope }));
+  });
+
+  ipcMain.handle("db:exams:setScope", (_, { examUuid, moduleIds }) =>
+    setExamScope(db, String(examUuid || ""), Array.isArray(moduleIds) ? moduleIds.map(String) : null)
+  );
+
+  /** Stores coverage rules from syllabus text; a syllabus with no coverage keeps the previous rules. */
+  ipcMain.handle("db:exams:setSyllabusCoverage", (_, { courseUuid, text }) => {
+    const courseId = courseIdFor(db, courseUuid);
+    if (!courseId) return { success: false, count: 0 };
+    const rules = parseExamCoverage(String(text || "").slice(0, 200000));
+    if (rules.length) db.prepare("UPDATE courses SET exam_coverage_json = ? WHERE id = ?").run(JSON.stringify(rules), courseId);
+    return { success: true, count: rules.length };
+  });
 
   /** Not an edit to the course itself, so updated_at (course list order) is left alone. */
   ipcMain.handle("db:courses:setTargetGrade", (_, { courseUuid, targetGrade }) => {

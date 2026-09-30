@@ -301,6 +301,28 @@ export const courseStore = {
     return res || { success: false };
   },
 
+  /**
+   * Effective module scope per exam uuid: { moduleIds, source: 'manual'|'syllabus'|'course', suggestion }.
+   * Empty moduleIds means the exam covers the whole course.
+   */
+  async getExamScopes(courseUuid) {
+    const rows = courseUuid ? await db?.exams?.getScopes?.(courseUuid) : null;
+    return Object.fromEntries((Array.isArray(rows) ? rows : []).map(({ examUuid, ...scope }) => [examUuid, scope]));
+  },
+
+  /** The student's pick for an exam; null goes back to syllabus coverage (or the whole course). */
+  async setExamScope(examUuid, moduleIds) {
+    const res = await db?.exams?.setScope?.({ examUuid, moduleIds: Array.isArray(moduleIds) ? moduleIds : null });
+    if (res?.success) window.dispatchEvent(new CustomEvent("studyhub-exam-scope-changed", { detail: { examUuid } }));
+    return res || { success: false };
+  },
+
+  async setSyllabusCoverage(courseUuid, text) {
+    const res = await db?.exams?.setSyllabusCoverage?.({ courseUuid, text });
+    if (res?.count) window.dispatchEvent(new CustomEvent("studyhub-exam-scope-changed", { detail: { courseUuid } }));
+    return res || { success: false, count: 0 };
+  },
+
   async saveGradeComponents(courseUuid, components) {
     return db.grades.saveComponents({
       courseUuid,

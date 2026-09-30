@@ -40,6 +40,7 @@ export function parseSyllabusGrading(text) {
 export async function applySyllabusText(courseUuid, text) {
   const db = window.studyHub?.db;
   if (!db || !courseUuid || !text) return { status: "none" };
+  await courseStore.setSyllabusCoverage(courseUuid, text);
   const existing = await db.grades.getComponents(courseUuid);
   if (existing?.length) {
     await db.bb.applyGrades(courseUuid);

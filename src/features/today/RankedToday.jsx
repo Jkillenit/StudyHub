@@ -8,7 +8,7 @@ import { ITEM_TYPES, PRIORITY_CONFIG, rankToday } from "./priority.js";
 import { openCourseView } from "./courseView.js";
 import { NeedBadge } from "./NeedBadge.jsx";
 
-const RELOAD_EVENTS = ["studyhub-mirror-changed", "studyhub-bb-synced", "studyhub-target-changed"];
+const RELOAD_EVENTS = ["studyhub-mirror-changed", "studyhub-bb-synced", "studyhub-target-changed", "studyhub-exam-scope-changed"];
 
 function TypeTag({ item }) {
   if (item.type === ITEM_TYPES.EXAM_PREP) return <span className="sh-today-tag sh-today-tag--exam">EXAM PREP</span>;

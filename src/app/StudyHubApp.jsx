@@ -204,6 +204,9 @@ function StudyHubAppInner() {
         if (!result.course) return null;
         return bbCourseId && !result.course.bbCourseId ? { ...result.course, bbCourseId } : result.course;
       });
+      if (action === "parse-syllabus" && extracted?.success && extracted.text) {
+        await courseStore.setSyllabusCoverage(target.uuid || target.id, extracted.text);
+      }
       if (syllabus?.grading?.length) {
         const courseUuid = target.uuid || target.id;
         const existing = await window.studyHub?.db?.grades?.getComponents(courseUuid);

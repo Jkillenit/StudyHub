@@ -1,40 +1,29 @@
 import { deckBreakdown } from "../progress/deckBreakdown.js";
 import { daysFromToday } from "../dashboard/dateLabels.js";
 import { daysUntilExam, examReadyPercent, getDueCards } from "../../study/sm2.js";
+import { courseStore } from "../../db/courseStore.js";
 
 /** Reviews a card typically needs before it is exam-ready, by SM-2 bucket. */
 export const REVIEWS_TO_READY = { fresh: 4, weak: 3, learning: 2, mastered: 0.3 };
 const DEFAULT_SECONDS_PER_CARD = 10;
 
-export const scopeKey = (examUuid) => `studyGuide.scope.${examUuid}`;
-
-export async function loadScope(examUuid) {
-  if (!examUuid) return [];
-  try {
-    const raw = await window.studyHub?.db?.settings?.get?.(scopeKey(examUuid));
-    const ids = JSON.parse(raw || "[]");
-    return Array.isArray(ids) ? ids : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveScope(examUuid, moduleIds) {
-  if (!examUuid) return;
-  void window.studyHub?.db?.settings?.set?.({ key: scopeKey(examUuid), value: JSON.stringify(moduleIds || []) });
-  window.dispatchEvent(new CustomEvent("studyhub-exam-scope-changed", { detail: { examUuid } }));
-}
-
-/** A course's open exams from today on, soonest first: { uuid, title, dueDate, moduleIds }. */
+/** A course's open exams from today on, soonest first: { uuid, title, dueDate, moduleIds, scopeSource }. */
 export async function loadUpcomingExams(courseUuid) {
   if (!courseUuid) return [];
-  const rows = await window.studyHub?.db?.assignments?.getByCourse?.(courseUuid);
-  const exams = (Array.isArray(rows) ? rows : [])
+  const [rows, scopes] = await Promise.all([
+    window.studyHub?.db?.assignments?.getByCourse?.(courseUuid),
+    courseStore.getExamScopes(courseUuid),
+  ]);
+  return (Array.isArray(rows) ? rows : [])
     .filter((a) => a.kind === "exam" && !a.completed && (daysUntilExam(a.due_date) ?? -1) >= 0)
-    .sort((a, b) => a.due_date.localeCompare(b.due_date));
-  return Promise.all(
-    exams.map(async (a) => ({ uuid: a.uuid, title: a.title, dueDate: a.due_date, moduleIds: await loadScope(a.uuid) }))
-  );
+    .sort((a, b) => a.due_date.localeCompare(b.due_date))
+    .map((a) => ({
+      uuid: a.uuid,
+      title: a.title,
+      dueDate: a.due_date,
+      moduleIds: scopes[a.uuid]?.moduleIds || [],
+      scopeSource: scopes[a.uuid]?.source || "course",
+    }));
 }
 
 export function cardsInScope(cards, moduleIds) {

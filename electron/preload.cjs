@@ -240,6 +240,11 @@ contextBridge.exposeInMainWorld("studyHub", {
       setCompleted: (data) => ipcRenderer.invoke("db:assignments:setCompleted", data),
       delete: (uuid) => ipcRenderer.invoke("db:assignments:delete", uuid),
     },
+    exams: {
+      getScopes: (courseUuid) => ipcRenderer.invoke("db:exams:getScopes", courseUuid),
+      setScope: (data) => ipcRenderer.invoke("db:exams:setScope", data),
+      setSyllabusCoverage: (data) => ipcRenderer.invoke("db:exams:setSyllabusCoverage", data),
+    },
     announcements: {
       getByCourse: (courseUuid) => ipcRenderer.invoke("db:announcements:getByCourse", courseUuid),
       markRead: (uuid) => ipcRenderer.invoke("db:announcements:markRead", uuid),
