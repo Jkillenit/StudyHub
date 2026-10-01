@@ -7,18 +7,12 @@ import {
   saveCompanionState,
   resolveTint,
   levelForXp,
-  unlockedTints,
   isRampant,
-  xpFor,
-  isStudyAward,
   XP_AWARDS,
 } from "./companionStore.js";
-import { getDueCards, localDateString } from "../study/sm2.js";
 import { loadFlashcardDeck, persistFlashcardDeck } from "../study/flashcards/flashcardPersistence.js";
-import { shortCourse } from "../features/dashboard/courseLabel.js";
 import { courseStore } from "../db/courseStore.js";
 import { cardKey, runAwards } from "./lightRun.js";
-import { STUDY_EVENT } from "./studyEvents.js";
 import { BORED_AFTER_MS, clockLabel, dayPart, idleGap, pickIdleGesture } from "./idleDirector.js";
 import { WAKE_DENIAL_CHANCE, dueStage, mayPeek, pickProp } from "./idleStages.js";
 import { buildDoodle, doodleBox, layoutDoodle, pickDoodle } from "./doodles.js";
@@ -45,14 +39,8 @@ import {
   waitForTarget,
 } from "./safeZones.js";
 import { useCompanionMotion } from "./useCompanionMotion.js";
-import { isAtSpot, mayAct, maySpeak, nextCheckMs } from "./attention.js";
+import { isAtSpot, mayAct, nextCheckMs } from "./attention.js";
 import { useCompanionMemory } from "./memory/useCompanionMemory.js";
-import { maybeRephrase } from "./memory/rephrase.js";
-import { MEMORY_LINES, pickLine } from "./memory/lines.js";
-import { NameForm } from "./NameForm.jsx";
-import { BirthdayForm, MONTHS, NeverBugForm } from "./OnboardForms.jsx";
-import { openCourseView } from "../features/today/courseView.js";
-import { blockedWhen } from "../features/today/blocked.js";
 import { NovaSprite } from "./NovaSprite.jsx";
 import { playSound } from "./novaSound.js";
 import { SpeechBubble } from "./SpeechBubble.jsx";
@@ -64,11 +52,8 @@ import { arrangeWorkspace } from "../nova/scenes/arrange.js";
 import { stageDemo } from "../nova/scenes/stageDemo.js";
 import { onScreen } from "../nova/anchors.js";
 import { setVoiceTone } from "../nova/voice.js";
-import { INTENTS, choose, events as directorEvents, onWake, ran, snooze, take, timing, today as directorToday } from "../nova/director.js";
-import { current, feel, rapportTier, tierAtLeast, tone as moodTone } from "../nova/mood.js";
-import { callbackFor } from "./memory/derive.js";
-import { sceneFrom } from "../nova/scenePlayer.js";
-import briefingScene from "../nova/scenes/briefing.json";
+import { ran, take } from "../nova/director.js";
+import { current, feel, tone as moodTone } from "../nova/mood.js";
 import { HelpBubble } from "./HelpBubble.jsx";
 import { CompanionSettings } from "./CompanionSettings.jsx";
 import { FocusPill } from "./FocusPill.jsx";
@@ -78,15 +63,12 @@ import {
   BODY_LOAD_TIMEOUT_MS,
   BUBBLE_W,
   BUILTIN_ID,
-  BUILTIN_NAME,
   BURST_MS,
   DAY_HELLO_DELAY_MS,
-  DIRECTOR_TICK_MS,
   DROP_LINES,
   DROWSY_MS,
   ENGAGED_MODES,
   ENGAGED_SPEED,
-  EPISODE_GRADE_JUMP,
   GROW_MS,
   HOME_AWAY_STOPS,
   HOME_MODES,
@@ -96,14 +78,8 @@ import {
   LATE_QUIP_COOLDOWN_MS,
   MENU_LINE_MS,
   MOVE,
-  NUDGE_COOLDOWN_MS,
-  NUDGE_FIRST_MS,
-  NUDGE_MAX_PER_SESSION,
-  NUDGE_SHOW_MS,
-  ONBOARD_BEAT_MS,
   PICKUP_LINE_CHANCE,
   QUIZ_W,
-  RAMPANT_MUTTER_MS,
   READ_MS,
   REST_CHANCE,
   REST_MS,
@@ -120,13 +96,16 @@ import {
   TALK_MS_PER_CHAR,
   TOURS,
   WALK_OFF_MS,
-  XP_POP_MS,
 } from "./layer/constants.js";
 import { builtinCourse, dropTargetAt, homeGeometry, homeSpot, markStage, nextFrame, overHome, pageShown, rand, randInt, rectOf, subscribeVisibility } from "./layer/geometry.js";
 import { useTimeouts } from "./hooks/useTimeouts.js";
 import { useNovaWindowEvents } from "./hooks/useNovaWindowEvents.js";
 import { useNovaSync } from "./hooks/useNovaSync.js";
 import { useNovaCommands } from "./hooks/useNovaCommands.js";
+import { useNovaNudges } from "./hooks/useNovaNudges.js";
+import { useNovaDirector } from "./hooks/useNovaDirector.js";
+import { useNovaStudyEvents } from "./hooks/useNovaStudyEvents.js";
+import { useNovaMemoryVoice } from "./hooks/useNovaMemoryVoice.jsx";
 
 const Nova3D = lazy(() => import("./nova3d/Nova3D.jsx"));
 
@@ -153,9 +132,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const [quizDeck, setQuizDeck] = useState("all");
   const [now, setNow] = useState(Date.now);
   const [builtinCards, setBuiltinCards] = useState(loadFlashcardDeck);
-  const [pops, setPops] = useState([]);
-  const popIdRef = useRef(0);
-  const drillRef = useRef({ known: 0, missed: 0 });
   /** 3D body status; "failed" drops back to the portrait sprite for good this session. */
   const [body, setBody] = useState("loading");
   const use3d = body !== "failed";
@@ -300,7 +276,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     onNews: (news) => api.current.onMemoryNews?.(news),
   });
   const quizRef = useRef({ sessionId: null, pending: new Map(), answered: 0, correct: 0, missStreak: 0 });
-  const nudgeRef = useRef({ mountedAt: Date.now(), last: 0, cooldown: NUDGE_COOLDOWN_MS, count: 0 });
   const reactTimerRef = useRef(0);
 
   /* ---------- state plumbing ---------- */
@@ -451,54 +426,47 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     });
   }, [posRef]);
 
-  const pushPop = useCallback((text) => {
-    popIdRef.current += 1;
-    const id = popIdRef.current;
-    setPops((list) => [...list.slice(-2), { id, text }]);
-    later(() => setPops((list) => list.filter((p) => p.id !== id)), XP_POP_MS);
-  }, []);
+  const enabled = !!cstate?.enabled;
 
-  /**
-   * The one place XP is granted. Adds the daily bonus to the first study award of the day,
-   * counts studying against rampancy, and (when `announce`) lets Nova react to level-ups.
-   */
-  const awardXp = useCallback(
-    (parts, { announce = true } = {}) => {
-      const cur = stateRef.current;
-      if (!cur) return null;
-      const today = localDateString();
-      const studied = isStudyAward(parts);
-      const daily = studied && cur.lastDailyOn !== today;
-      const all = daily ? [...parts, ["daily", 1]] : parts;
-      const xpGained = xpFor(all);
-      if (!xpGained) return null;
-      const before = levelForXp(cur.xp || 0);
-      const level = levelForXp((cur.xp || 0) + xpGained);
-      const prev = new Set(unlockedTints(cur.xp || 0).map((t) => t.id));
-      const unlocked = unlockedTints((cur.xp || 0) + xpGained).find((t) => !prev.has(t.id))?.label || null;
-      const wasRampant = isRampant(cur);
-      update((s) => ({
-        xp: (s.xp || 0) + xpGained,
-        ...(studied ? { lastStudyAt: new Date().toISOString(), lastDailyOn: today, ignored: 0 } : {}),
-      }));
-      if (cur.enabled) pushPop(`+${xpGained} XP`);
-      const leveledUp = level > before;
-      let spoke = false;
-      if (announce && studied && wasRampant) {
-        setMood("happy");
-        say(line("rampantRecover"));
-        spoke = true;
-      } else if (announce && leveledUp) {
-        setMood("excited");
-        sfx("streak");
-        playGesture("kiss");
-        say(line(unlocked ? "levelUnlock" : "levelUp", { level, tint: unlocked?.toLowerCase() }));
-        spoke = true;
-      }
-      return { xpGained, level, leveledUp, unlocked, daily, spoke };
-    },
-    [update, pushPop, say, sfx, playGesture]
-  );
+  const core = {
+    stateRef,
+    modeRef,
+    navRef,
+    api,
+    send,
+    setBubble,
+    say,
+    setMood,
+    refreshAnchor,
+    bubbleRef,
+    later,
+    memory,
+    feelIt,
+    focusRef,
+    reducedRef,
+    busy,
+    playGesture,
+    setTalkUntil,
+    update,
+    cancel,
+    flyTo,
+    sizeRef,
+    awayFromSpotRef,
+    sfx,
+    startedRef,
+    openerDoneRef,
+    lastInputRef,
+    lastStudyRef,
+    lastTypingRef,
+    quietNow,
+    canAct,
+    dragRef,
+  };
+
+  // flashReaction is defined in menu actions below; E32/E33 need a stable handle to it now
+  const flashReactionVia = useCallback((...a) => api.current.flashReaction(...a), []);
+  // here, not at `pops`: needs update/say/refreshAnchor; must precede endTour, which uses awardXp
+  const { awardXp, pops, rampantNow } = useNovaStudyEvents(core, { cstate, now, enabled, flashReaction: flashReactionVia });
 
   /* ---------- load + first appearance ---------- */
 
@@ -836,29 +804,10 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     setReact(kind);
     reactTimerRef.current = window.setTimeout(() => setReact(null), 650);
   }, []);
+  api.current.flashReaction = flashReaction;
 
   useEffect(() => () => window.clearTimeout(reactTimerRef.current), []);
 
-  const core = {
-    stateRef,
-    modeRef,
-    navRef,
-    api,
-    send,
-    setBubble,
-    say,
-    setMood,
-    refreshAnchor,
-    bubbleRef,
-    later,
-    memory,
-    feelIt,
-    focusRef,
-    reducedRef,
-    busy,
-    playGesture,
-    setTalkUntil,
-  };
   const { sync, syncRef, offline } = useNovaSync(core, { flashReaction, sfx });
 
   const onQuizAnswer = useCallback(
@@ -1009,246 +958,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     startTour(inUserCourse ? "course-tools" : "first-run");
   }, [startTour]);
 
-  /** Asks once what to call them. `intro` is her first-launch hello; `after` runs once they answer or skip. */
-  api.current.askName = ({ intro = false, after = null } = {}) => {
-    update({ askedName: true });
-    const ask = intro ? { text: MEMORY_LINES.introName[0] } : pickLine("askName", {});
-    const done = () => {
-      if (!stateRef.current?.askedMore) api.current.askMore(after);
-      else if (after) after();
-      else setBubble(null);
-    };
-    setMood("happy");
-    refreshAnchor();
-    say(ask.text, {
-      sticky: true,
-      form: (
-        <NameForm
-          onSave={(name) => {
-            void memory.remember("name", { name });
-            say(pickLine("nameSaved", { name }).text, { sticky: true });
-            later(done, ONBOARD_BEAT_MS);
-          }}
-          onSkip={done}
-        />
-      ),
-    });
-  };
-
-  /** The rest of getting to know them: birthday, then what to leave alone. Asked once. */
-  api.current.askMore = (after = null) => {
-    update({ askedMore: true });
-    const finish = () => (after ? after() : setBubble(null));
-    const neverBug = () =>
-      say(pickLine("askNeverBug", {}).text, {
-        sticky: true,
-        form: (
-          <NeverBugForm
-            initial={memory.fact("never_bug")?.intents || []}
-            onSave={(intents) => {
-              void memory.remember("never_bug", { intents });
-              say(pickLine(intents.length ? "neverBugSaved" : "neverBugNone", {}).text, { sticky: true });
-              later(finish, ONBOARD_BEAT_MS);
-            }}
-          />
-        ),
-      });
-    setMood("happy");
-    refreshAnchor();
-    say(pickLine("askBirthday", {}).text, {
-      sticky: true,
-      form: (
-        <BirthdayForm
-          onSave={(b) => {
-            void memory.remember("birthday", b);
-            say(pickLine("birthdaySaved", { month: MONTHS[b.month - 1], day: b.day }).text, { sticky: true });
-            later(neverBug, ONBOARD_BEAT_MS);
-          }}
-          onSkip={neverBug}
-        />
-      ),
-    });
-  };
-
-  api.current.greet = () => {
-    openerDoneRef.current = true;
-    if (!memory.fact("name")) {
-      api.current.askName({ intro: true, after: () => api.current.offerTour({ introduced: true }) });
-      return;
-    }
-    api.current.offerTour();
-  };
-
-  api.current.offerTour = ({ introduced = false } = {}) => {
-    const name = memory.fact("name")?.name;
-    const text = name ? line("tourOffer", { name }) : line(introduced ? "tourOfferAnon" : "firstLaunch");
-    say(text, {
-      sticky: true,
-      actions: [
-        { label: "TAKE THE TOUR", primary: true, autoFocus: true, onClick: () => startTour("first-run") },
-        {
-          label: "MAYBE LATER",
-          onClick: () => {
-            update({ onboarded: true });
-            send("CLOSE");
-            say(line("tourSkip"));
-          },
-        },
-        {
-          label: "I'VE GOT IT",
-          onClick: () => {
-            update({ onboarded: true });
-            send("CLOSE");
-            say(line("dismissed"));
-            void returnHome(200);
-          },
-        },
-      ],
-    });
-  };
-
   /* ---------- what she remembers ---------- */
 
-  /** On screen, on her own time, nothing else being said, and the student isn't typing or mid-session. */
-  const canSpeak = () => {
-    const cur = stateRef.current;
-    return (
-      !!cur?.enabled &&
-      AUTONOMOUS.has(modeRef.current) &&
-      !busy() &&
-      !dragRef.current &&
-      !bubbleRef.current &&
-      maySpeak({ lastTyping: lastTypingRef.current, lastStudy: lastStudyRef.current, quiet: quietNow(), hidden: document.hidden })
-    );
-  };
-
-  const waitToSpeak = async (maxMs) => {
-    const until = Date.now() + maxMs;
-    while (!canSpeak()) {
-      if (Date.now() > until || stateRef.current?.quiet) return false;
-      await new Promise((r) => window.setTimeout(r, 500));
-    }
-    return true;
-  };
-
-  /** Says a picked memory line (optionally rephrased by Claude), and records it so it won't repeat this week. */
-  api.current.speakMemory = async (pick, { actions = null, celebrate = false, waitMs = 6000 } = {}) => {
-    if (!pick?.line) return false;
-    const text = await maybeRephrase(pick.line.text, pick.vars);
-    if (!(await waitToSpeak(waitMs))) return false;
-    memory.markSaid(pick.line);
-    setMood(celebrate ? "excited" : "happy");
-    if (celebrate) {
-      sfx("streak");
-      playGesture("kiss");
-    }
-    refreshAnchor();
-    say(text, actions ? { actions } : {});
-    return true;
-  };
-
-  const memoryActions = (pick) => {
-    const nav = navRef.current;
-    const close = { label: "NOT NOW", onClick: () => setBubble(null) };
-    if (pick.action === "quick5") {
-      return [{ label: "5 CARDS", primary: true, onClick: () => startQuiz() }, { label: "GOING TO BED", onClick: () => setBubble(null) }];
-    }
-    if (pick.action === "weakDrill") {
-      const course = nav.courses.find((c) => c.id === pick.vars.courseUuid || c.uuid === pick.vars.courseUuid);
-      if (!course || !nav.onOpenCourse) return null;
-      return [
-        {
-          label: "DRILL IT",
-          primary: true,
-          onClick: () => {
-            setBubble(null);
-            openCourseView(nav.onOpenCourse, course.id, { item: "qz-deck", moduleId: pick.vars.moduleUuid, deckMode: "module" });
-          },
-        },
-        close,
-      ];
-    }
-    return null;
-  };
-
-  /** The launch line: the most personal thing she knows, within a few seconds of opening. */
-  api.current.sayOpener = async () => {
-    try {
-      await api.current.openWithMemory();
-    } finally {
-      openerDoneRef.current = true;
-    }
-  };
-  api.current.openWithMemory = async () => {
-    const cur = stateRef.current;
-    if (!cur?.enabled || cur.quiet || !cur.onboarded) return;
-    await memory.ready();
-    if (!stateRef.current?.askedName && !memory.fact("name")) {
-      if (await waitToSpeak(6000)) api.current.askName();
-      return;
-    }
-    if (!stateRef.current?.askedMore) {
-      if (await waitToSpeak(6000)) api.current.askMore();
-      return;
-    }
-    const pick = await memory.opener({ timeLabel: clockLabel() }).catch(() => null);
-    if (!pick) {
-      const part = dayPart();
-      const chance = part === "late" ? 0.7 : part === "morning" ? 0.4 : 0;
-      if (Math.random() < chance && canSpeak()) {
-        setMood("happy");
-        refreshAnchor();
-        say(line(part === "late" ? "lateHello" : "morningHello", { time: clockLabel() }));
-      }
-      return;
-    }
-    const ok = await api.current.speakMemory(pick, { actions: memoryActions(pick), celebrate: !!pick.celebrate });
-    if (!ok) return;
-    if (pick.memoryKey) memory.patchFact(pick.memoryKey, pick.celebrate ? { celebrated: true } : { said: true });
-    if (pick.then) {
-      const follow = await memory.lineFor(pick.then.trigger, pick.then.vars);
-      if (follow) await api.current.speakMemory({ line: follow, vars: pick.then.vars }, { waitMs: 20000 });
-    }
-  };
-
-  /* Something changed mid-visit (a comeback, a milestone): say it once she's free, or save it for next time. */
-  api.current.onMemoryNews = async (news) => {
-    if (!openerDoneRef.current || stateRef.current?.quiet) return;
-    const item = news.find((n) => n.type === "milestone") || news.find((n) => n.type === "joke_retired") || news.find((n) => n.type === "comeback");
-    if (!item) return;
-    const [trigger, memoryKey] = {
-      milestone: [`milestone.${item.id}`, `milestone:${item.id}`],
-      joke_retired: ["jokeRetired", "joke:nemesis"],
-      comeback: ["comeback", `comeback:${item.courseUuid}`],
-    }[item.type];
-    const celebrate = item.type !== "comeback";
-    const picked = await memory.lineFor(trigger, item);
-    if (!picked) return;
-    const ok = await api.current.speakMemory({ line: picked, vars: item }, { celebrate, waitMs: 120000 });
-    if (ok) memory.patchFact(memoryKey, item.type === "milestone" ? { celebrated: true } : { said: true });
-  };
-
-  /* Blocked days: she says what she moved, or that she'll plan around them. */
-  useEffect(() => {
-    const onBlocked = async (e) => {
-      if (!stateRef.current?.enabled || stateRef.current?.quiet) return;
-      const note = await memory.replanFor();
-      const picked = note
-        ? await memory.lineFor("blockedReplan", note)
-        : await memory.lineFor("blockedMarked", { when: blockedWhen(e.detail?.days || []) });
-      if (picked) void api.current.speakMemory({ line: picked, vars: note || {} }, { waitMs: 8000 });
-    };
-    const onForgot = () => {
-      if (!stateRef.current?.enabled || stateRef.current?.quiet) return;
-      void api.current.speakMemory({ line: pickLine("forgot", {}), vars: {} }, { waitMs: 8000 });
-    };
-    window.addEventListener("studyhub-companion-blocked", onBlocked);
-    window.addEventListener("studyhub-companion-forgot", onForgot);
-    return () => {
-      window.removeEventListener("studyhub-companion-blocked", onBlocked);
-      window.removeEventListener("studyhub-companion-forgot", onForgot);
-    };
-  }, [memory]);
+  const { memoryActions } = useNovaMemoryVoice(core, { startQuiz, startTour, returnHome });
 
   /* ---------- clicking & dragging Nova ---------- */
 
@@ -1460,7 +1172,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   /* ---------- autonomy: wander, perch, sleep ---------- */
 
   const movement = cstate?.movement || "normal";
-  const enabled = !!cstate?.enabled;
 
   const quiet = !!cstate?.quiet;
 
@@ -2205,290 +1916,15 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     };
   }, [visibleNow, busy, send, playGesture, refreshAnchor, say]);
 
-  /** The course with the most due cards, while due-card nudges are allowed this session. */
-  const dueNow = () => {
-    const cur = stateRef.current;
-    const n = nudgeRef.current;
-    if (!cur.nudges || !cur.onboarded || n.count >= NUDGE_MAX_PER_SESSION || Date.now() - n.mountedAt < NUDGE_FIRST_MS) return null;
-    const best = [...navRef.current.courses, builtinCourse(loadFlashcardDeck())]
-      .map((c) => ({ c, count: getDueCards(c.flashcards || []).length }))
-      .sort((a, b) => b.count - a.count)[0];
-    return best?.count ? best : null;
-  };
-
-  /* Due-card nudges (the Director's dueCards intent): rare, polite, and they back off when dismissed. */
-  api.current.nudgeDue = async (best) => {
-    const cur = stateRef.current;
-    const n = nudgeRef.current;
-    n.count += 1;
-    n.kind = "due";
-    cancel();
-    if (send("NUDGE") !== "nudge") return;
-    const spot = document.querySelector('[data-tour-id="today-cards"]');
-    if (spot) {
-      const r = spot.getBoundingClientRect();
-      if (r.width && r.bottom > 0 && r.top < window.innerHeight) {
-        awayFromSpotRef.current = true;
-        await flyTo(pointBeside(r, sizeRef.current, "right"), { speed: 200 });
-        if (modeRef.current !== "nudge") return;
-      }
-    }
-    const rampant = isRampant(cur);
-    setMood(rampant ? "stern" : "happy");
-    if (rampant) {
-      flashReaction("glitch");
-      sfx("glitch");
-    }
-    refreshAnchor();
-    n.answered = false;
-    const course = best.c.id === BUILTIN_ID ? BUILTIN_NAME : shortCourse(best.c.courseCode || best.c.name) || best.c.name;
-    say(line(rampant ? "dueRampant" : "due", { count: best.count, course }), {
-      sticky: true,
-      nudge: true,
-      actions: [
-        {
-          label: "QUIZ ME",
-          primary: true,
-          onClick: () => {
-            n.answered = true;
-            feelIt("nudgeTaken");
-            startQuiz(best.c.id);
-          },
-        },
-        {
-          label: "NOT NOW",
-          onClick: () => {
-            n.answered = true;
-            n.cooldown *= 2;
-            snooze("dueCards", n.cooldown);
-            update((s) => ({ ignored: (s.ignored || 0) + 1 }));
-            feelIt("nudgeDismissed");
-            send("CLOSE");
-            setMood("neutral");
-            say(line("dismissed"));
-          },
-        },
-      ],
-    });
-  };
-
-  /* The Director's briefingOffer intent: a morning "want the rundown?" that plays the briefing scene. */
-  api.current.offerBriefing = () => {
-    const n = nudgeRef.current;
-    n.kind = "briefing";
-    n.answered = false;
-    cancel();
-    if (send("NUDGE") !== "nudge") return;
-    setMood("happy");
-    refreshAnchor();
-    say(line("briefingOffer"), {
-      sticky: true,
-      nudge: true,
-      actions: [
-        {
-          label: "BRIEF ME",
-          primary: true,
-          onClick: () => {
-            n.answered = true;
-            send("CLOSE");
-            setBubble(null);
-            api.current.playScene(sceneFrom(briefingScene, directorToday || {}));
-          },
-        },
-        {
-          label: "LATER",
-          onClick: () => {
-            n.answered = true;
-            send("CLOSE");
-            setMood("neutral");
-            setBubble(null);
-          },
-        },
-      ],
-    });
-  };
-
-  useEffect(() => {
-    if (mode !== "nudge") return undefined;
-    const t = window.setTimeout(() => {
-      if (modeRef.current !== "nudge") return;
-      send("CLOSE");
-      setMood("neutral");
-      if (!nudgeRef.current.answered && nudgeRef.current.kind === "due") {
-        update((s) => ({ ignored: (s.ignored || 0) + 1 }));
-        feelIt("nudgeIgnored");
-        say(line("ignoredNudge"));
-        playGesture("taunt");
-      } else {
-        setBubble(null);
-      }
-    }, NUDGE_SHOW_MS);
-    return () => window.clearTimeout(t);
-  }, [mode, send, update, say, playGesture, feelIt]);
+  // after startQuiz/flashReaction: nudge actions call them
+  const { dueNow } = useNovaNudges(core, { mode, flashReaction, startQuiz });
 
   /* ---------- Ask Nova: typed commands (see src/nova/commands.js) ---------- */
   const { focusUntil, stopFocus } = useNovaCommands(core, { startQuiz, startHelp, closeHelp });
 
   /* ---------- the Director: what she does on her own next (see src/nova/director.js) ---------- */
 
-  /** The gauge under the pointer and since when; hovering one long enough is a question. */
-  const hoverRef = useRef({ anchor: null, since: 0 });
-  useEffect(() => {
-    const onOver = (e) => {
-      const anchor = e.target.closest?.('[data-nova-anchor$=".gauge"]')?.dataset.novaAnchor || null;
-      if (anchor !== hoverRef.current.anchor) hoverRef.current = { anchor, since: Date.now() };
-    };
-    document.addEventListener("pointerover", onOver);
-    return () => document.removeEventListener("pointerover", onOver);
-  }, []);
-
-  api.current.directorTick = () => {
-    const cur = stateRef.current;
-    if (!cur?.enabled || !startedRef.current || !openerDoneRef.current) return;
-    const now = Date.now();
-    setVoiceTone(moodTone(cur.feelings, now));
-    const onToday = !!navRef.current.stageActive;
-    const lastInput = lastInputRef.current;
-    const lastStudy = lastStudyRef.current;
-    const idle = mayAct({ lastInput, lastStudy, now });
-    const hover = { anchor: hoverRef.current.anchor, ms: now - hoverRef.current.since };
-    const feelings = current(cur.feelings, now);
-    const tier = rapportTier(feelings.rapport).id;
-    const bday = memory.fact("birthday");
-    const today = new Date(now);
-    const ctx = {
-      skip: new Set(memory.fact("never_bug")?.intents || []),
-      birthday: !!bday && bday.month === today.getMonth() + 1 && bday.day === today.getDate(),
-      callback: idle ? callbackFor(memory.snapshot(), { allowed: (min) => tierAtLeast(tier, min), now: today }) : null,
-      blocked: quietNow() || document.hidden || !!syncRef.current || !AUTONOMOUS.has(modeRef.current),
-      typing: !maySpeak({ lastTyping: lastTypingRef.current, lastStudy, now }),
-      idle,
-      feelings,
-      events: directorEvents,
-      onToday,
-      today: directorToday,
-      part: dayPart(),
-      hover,
-      gauge: onToday && hover.anchor ? directorToday?.courses?.find((c) => `course.${c.uuid}.gauge` === hover.anchor) || null : null,
-      due: idle ? dueNow() : null,
-    };
-    const it = choose(INTENTS, ctx, timing, now);
-    if (!it) return;
-    ran(it, now);
-    if (it.id === "dueCards") void api.current.nudgeDue(ctx.due);
-    else if (it.id === "briefingOffer") api.current.offerBriefing();
-    else if (it.id === "birthday") void api.current.sayMemoryLine("birthday", { name: memory.fact("name")?.name }, { celebrate: true });
-    else if (it.id === "callback") void api.current.sayCallback(ctx.callback);
-    else if (it.id === "gradeMoved") {
-      const grade = directorEvents.find((e) => e.type === "grade");
-      if (!api.current.playScene(sceneFrom(it, { ...ctx, grade }))) return;
-      take("grade");
-      feelIt(grade.up ? "gradeUp" : "gradeDown");
-      if (grade.up && grade.to - grade.from >= EPISODE_GRADE_JUMP) {
-        memory.record("episode:grade_up", { course: grade.course, fromPct: grade.from.toFixed(1), toPct: grade.pct, at: new Date(now).toISOString(), refs: 0, lastRef: null });
-      }
-    } else {
-      if (it.id === "explainGauge") hoverRef.current = { anchor: null, since: now };
-      api.current.playScene(sceneFrom(it, ctx));
-    }
-  };
-
-  api.current.sayMemoryLine = async (trigger, vars, opts = {}) => {
-    const picked = await memory.lineFor(trigger, vars);
-    return picked ? api.current.speakMemory({ line: picked, vars }, opts) : false;
-  };
-
-  /** "Remember when...": one episode or running joke, then it rests for a while. */
-  api.current.sayCallback = async (cb) => {
-    const pick = { line: await memory.lineFor(`callback.${cb.kind}`, cb.vars), vars: cb.vars, action: cb.kind === "nemesis" ? "weakDrill" : null };
-    if (!(await api.current.speakMemory(pick, { actions: memoryActions(pick) }))) return;
-    memory.patchFact(cb.key, { refs: (cb.vars.refs || 0) + 1, lastRef: new Date().toISOString() });
-  };
-
-  useEffect(() => {
-    const tick = () => api.current.directorTick();
-    const id = window.setInterval(tick, DIRECTOR_TICK_MS);
-    const off = onWake(tick);
-    return () => {
-      window.clearInterval(id);
-      off();
-    };
-  }, []);
-
-  /* Drill cards and practice tests elsewhere in the app: XP, plus the odd comment. */
-  useEffect(() => {
-    const onStudy = (e) => {
-      const d = e.detail || {};
-      const m = modeRef.current;
-      const canTalk = !!stateRef.current?.enabled && (AUTONOMOUS.has(m) || m === "sleep");
-      if (canTalk && m === "sleep") send("WAKE");
-      if (canTalk) api.current.backToSpot?.();
-      if (d.type === "card") {
-        /* Mid-drill she stays put and silent: XP pops and her expression only. */
-        lastStudyRef.current = Date.now();
-        const r = drillRef.current;
-        if (d.correct) {
-          r.known += 1;
-          r.missed = 0;
-        } else {
-          r.missed += 1;
-          r.known = 0;
-        }
-        awardXp([[d.correct ? "cardKnown" : "cardAgain", 1]], { announce: false });
-        feelIt(d.correct ? "cardRight" : "cardWrong");
-        if (!canTalk) return;
-        if (d.correct && r.known % 5 === 0) setMood("excited");
-        else if (!d.correct && r.missed === 3) setMood("stern");
-        return;
-      }
-      if (d.type === "test" && d.total) {
-        const res = awardXp([["testCorrect", d.correct], ["testDone", 1]], { announce: canTalk });
-        feelIt("testDone");
-        if (!canTalk || res?.spoke) return;
-        const tier = finishKey(d.correct, d.total);
-        setMood({ finishedGreat: "excited", finishedGood: "happy", finishedMeh: "neutral", finishedBad: "stern" }[tier]);
-        if (tier === "finishedBad") {
-          flashReaction("glitch");
-          playGesture("facepalm");
-        } else if (tier === "finishedGreat") {
-          playGesture("kiss");
-        }
-        say(line(tier, { correct: d.correct, total: d.total }));
-      }
-    };
-    window.addEventListener(STUDY_EVENT, onStudy);
-    return () => window.removeEventListener(STUDY_EVENT, onStudy);
-  }, [awardXp, say, sfx, flashReaction, send, playGesture, feelIt]);
-
-  /* Rampant: now and then she mutters and glitches while idle. */
-  const rampantNow = !!cstate && isRampant(cstate, now);
-  useEffect(() => {
-    if (!rampantNow || !enabled) {
-      delete document.documentElement.dataset.novaRampant;
-      return undefined;
-    }
-    document.documentElement.dataset.novaRampant = "";
-    let timer = 0;
-    const schedule = (ms) => {
-      timer = window.setTimeout(tick, ms);
-    };
-    const tick = () => {
-      const m = modeRef.current;
-      if ((m === "idle" || m === "perch") && canAct()) {
-        setMood("stern");
-        flashReaction("glitch");
-        sfx("glitch");
-        refreshAnchor();
-        say(line("rampant"));
-      }
-      schedule(rand(RAMPANT_MUTTER_MS));
-    };
-    schedule(20000);
-    return () => {
-      window.clearTimeout(timer);
-      delete document.documentElement.dataset.novaRampant;
-    };
-  }, [rampantNow, enabled, canAct, flashReaction, sfx, refreshAnchor, say]);
+  useNovaDirector(core, { dueNow, memoryActions, syncRef });
 
   /* Input: resets the idle clock, wakes her, and calls her back if she wandered off. Plus cursor shyness and the summon hotkey. */
   useEffect(() => {
