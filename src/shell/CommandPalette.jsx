@@ -14,15 +14,6 @@ function matches(query, primary, sub) {
   return t.includes(q);
 }
 
-function termMatches(query, termItem) {
-  if (!query) return true;
-  const q = query.toLowerCase();
-  return (
-    String(termItem.primary || "").toLowerCase().includes(q) ||
-    String(termItem.sub || "").toLowerCase().includes(q)
-  );
-}
-
 function matchHighlightParts(primary, query) {
   const q = query.trim();
   if (!q) return { pre: primary, match: null, post: null };
@@ -135,7 +126,12 @@ export function CommandPalette({
 
   const { before: layoutBefore } = useWorkspace();
 
-  const indexRows = useMemo(() => {
+  /* Parent passes fresh inline callbacks every render; reading them at run time keeps them out of the memo deps. */
+  const actionsRef = useRef(null);
+  actionsRef.current = { onSelectCourse, onNavigateCourseChapter, onGoToHub, onGoToHubAndNewCourse, onPickImportFiles, onOpenSettings, onExport, onMarkChapterReviewed, onShuffleDeck };
+
+  const allRows = useMemo(() => {
+    if (!mounted) return null;
     const courseRows = [];
     courseRows.push({
       key: "course-builtin",
@@ -144,7 +140,7 @@ export function CommandPalette({
       primary: "OM 300",
       sub: `${STUDY_CHAPTERS.length} MODULES`,
       shortcut: null,
-      run: () => onSelectCourse("builtin"),
+      run: () => actionsRef.current.onSelectCourse("builtin"),
     });
     for (const c of userCourses) {
       const ec = ensureUserCourse(c);
@@ -156,7 +152,7 @@ export function CommandPalette({
         primary: ec.name,
         sub: `${n} MODULES`,
         shortcut: null,
-        run: () => onSelectCourse(ec.id),
+        run: () => actionsRef.current.onSelectCourse(ec.id),
       });
     }
 
@@ -169,7 +165,7 @@ export function CommandPalette({
         primary: ch.title,
         sub: `BUILT-IN · ${studySidebarPrefix(ch.id)}`,
         shortcut: null,
-        run: () => onNavigateCourseChapter("builtin", ch.id),
+        run: () => actionsRef.current.onNavigateCourseChapter("builtin", ch.id),
       });
     }
     for (const c of userCourses) {
@@ -182,7 +178,7 @@ export function CommandPalette({
           primary: m.title || "Section",
           sub: `${ec.name} · ${m.label || "Tab"}`,
           shortcut: null,
-          run: () => onNavigateCourseChapter(ec.id, m.id),
+          run: () => actionsRef.current.onNavigateCourseChapter(ec.id, m.id),
         });
       }
     }
@@ -196,7 +192,7 @@ export function CommandPalette({
             primary: r.primary,
             sub: `BUILT-IN · ${studySidebarPrefix(r.chapterId)}`,
             shortcut: null,
-            run: () => onNavigateCourseChapter("builtin", r.chapterId),
+            run: () => actionsRef.current.onNavigateCourseChapter("builtin", r.chapterId),
           }))
         : [];
 
@@ -218,7 +214,7 @@ export function CommandPalette({
             sub,
             shortcut: null,
             run: () => {
-              onNavigateCourseChapter(activeUserCourse.id, g.moduleId);
+              actionsRef.current.onNavigateCourseChapter(activeUserCourse.id, g.moduleId);
               window.dispatchEvent(
                 new CustomEvent("studyhub-open-content-tab", {
                   detail: { courseId: activeUserCourse.id, moduleId: g.moduleId, tab: "glossary" },
@@ -241,7 +237,7 @@ export function CommandPalette({
         sub: "Ranked plan, due soon, and course list",
         shortcut: null,
         visible: true,
-        run: () => onGoToHub(),
+        run: () => actionsRef.current.onGoToHub(),
       },
       {
         key: "act-new",
@@ -251,7 +247,7 @@ export function CommandPalette({
         sub: "Add a course via Express or Manual",
         shortcut: null,
         visible: true,
-        run: () => onGoToHubAndNewCourse(),
+        run: () => actionsRef.current.onGoToHubAndNewCourse(),
       },
       {
         key: "act-import-file",
@@ -261,7 +257,7 @@ export function CommandPalette({
         sub: "PPTX · PDF · Blackboard ZIP",
         shortcut: null,
         visible: true,
-        run: () => void onPickImportFiles(),
+        run: () => void actionsRef.current.onPickImportFiles(),
       },
       {
         key: "act-settings",
@@ -271,7 +267,7 @@ export function CommandPalette({
         sub: "API key, preferences, backup",
         shortcut: null,
         visible: true,
-        run: () => onOpenSettings(),
+        run: () => actionsRef.current.onOpenSettings(),
       },
       {
         key: "act-export",
@@ -281,7 +277,7 @@ export function CommandPalette({
         sub: "Save all course data",
         shortcut: null,
         visible: true,
-        run: () => onExport(),
+        run: () => actionsRef.current.onExport(),
       },
       {
         key: "act-import-backup",
@@ -291,16 +287,9 @@ export function CommandPalette({
         sub: "Restore from backup file",
         shortcut: null,
         visible: true,
-        run: () => {
-          const input = document.createElement("input");
-          input.type = "file";
-          input.accept = ".json,application/json";
-          input.onchange = (e) => {
-            const file = e.target.files?.[0];
-            if (file) onImportFile(file);
-          };
-          input.click();
-        },
+        /* Stays open: the hidden input unmounts with the palette, and its onChange closes it. */
+        keepOpen: true,
+        run: () => importBackupRef.current?.click(),
       },
       {
         key: "act-ai",
@@ -320,7 +309,7 @@ export function CommandPalette({
         sub: "Toggle current chapter complete",
         shortcut: "⌘R",
         visible: inCourse,
-        run: () => onMarkChapterReviewed(),
+        run: () => actionsRef.current.onMarkChapterReviewed(),
       },
       {
         key: "act-shuffle",
@@ -330,7 +319,7 @@ export function CommandPalette({
         sub: "Randomize flashcard order",
         shortcut: null,
         visible: shuffleVisible,
-        run: () => onShuffleDeck(),
+        run: () => actionsRef.current.onShuffleDeck(),
       },
       ...[
         ["briefing", "Layout: Briefing", "Tonight up top, grades and week below"],
@@ -346,7 +335,7 @@ export function CommandPalette({
         visible: true,
         /* Delayed so the Enter or click that picked this row doesn't count as input and end her scene. */
         run: () => {
-          onGoToHub("today");
+          actionsRef.current.onGoToHub("today");
           window.setTimeout(() => arrangeWorkspace(name), 300);
         },
       })),
@@ -377,6 +366,12 @@ export function CommandPalette({
         : []),
     ].filter((a) => a.visible);
 
+    return { courseRows, chapterRows, referenceRows, termRows, actionRows };
+  }, [mounted, userCourses, courseId, builtinActiveChapter, layoutBefore]);
+
+  const indexRows = useMemo(() => {
+    if (!allRows) return { groups: [], flat: [] };
+    const { courseRows, chapterRows, referenceRows, termRows, actionRows } = allRows;
     const q = query.trim();
     const filterRow = (r) => matches(q, r.primary, r.sub);
 
@@ -384,7 +379,7 @@ export function CommandPalette({
     let chaptersF = chapterRows.filter(filterRow);
     let referenceF = referenceRows.filter(filterRow);
     let actionsF = actionRows.filter(filterRow);
-    let termsF = termRows.filter((row) => termMatches(q, row));
+    let termsF = termRows.filter(filterRow);
 
     if (!q) {
       coursesF = coursesF.slice(0, 4);
@@ -404,23 +399,7 @@ export function CommandPalette({
 
     const flat = groups.flatMap((g) => g.rows);
     return { groups, flat };
-  }, [
-    query,
-    userCourses,
-    courseId,
-    onSelectCourse,
-    onNavigateCourseChapter,
-    onGoToHub,
-    onGoToHubAndNewCourse,
-    onPickImportFiles,
-    onOpenSettings,
-    onExport,
-    onImportFile,
-    onMarkChapterReviewed,
-    onShuffleDeck,
-    builtinActiveChapter,
-    layoutBefore,
-  ]);
+  }, [allRows, query]);
 
   const flatRows = indexRows.flat;
   const totalNav = flatRows.length;
@@ -435,12 +414,8 @@ export function CommandPalette({
   const executeRow = useCallback(
     (row) => {
       if (!row) return;
-      if (row.key === "act-import-backup") {
-        importBackupRef.current?.click();
-        return;
-      }
       row.run();
-      onClose();
+      if (!row.keepOpen) onClose();
     },
     [onClose]
   );
