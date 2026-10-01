@@ -15,6 +15,7 @@ import { ChapterContentSkeleton } from "./ChapterContentSkeleton.jsx";
 import { CourseSidebarSkeleton } from "./CourseSidebarSkeleton.jsx";
 import { useDelayedSkeletonVisible } from "../hooks/useDelayedSkeletonVisible.js";
 import Form from "react-bootstrap/Form";
+import { isTypingTarget } from "../lib/hotkeys.js";
 
 function htmlToPlainText(html) {
   const div = document.createElement("div");
@@ -175,7 +176,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
 
   useEffect(() => {
     const onKey = (e) => {
-      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) return;
+      if (isTypingTarget(e.target)) return;
       if (active === "flashcards" && mainTab === "content") return;
       if (e.key === "ArrowLeft") goChapter(-1);
       if (e.key === "ArrowRight") goChapter(1);
@@ -186,7 +187,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
 
   useEffect(() => {
     const onKey = (e) => {
-      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) return;
+      if (isTypingTarget(e.target)) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "r") {
         e.preventDefault();
         markCurrentComplete();

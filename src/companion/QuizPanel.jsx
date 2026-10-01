@@ -17,17 +17,10 @@ import {
   reviewCard,
   sm2Grade,
 } from "./lightRun.js";
+import { isTypingTarget, paletteOpen } from "../lib/hotkeys.js";
 
 const FLIP_GUARD_MS = 200;
 const CLOCK_ADVANCE_MS = 450;
-
-function paletteOpen() {
-  return !!document.querySelector(".sh-palette");
-}
-
-function isTypingTarget(el) {
-  return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
-}
 
 /** One question at a time; hands every graded answer to the layer (SM-2 write + Nova's reaction). */
 export function QuizPanel({ courses, initialDeck = "all", highScores = {}, onAnswer, onFinish, onClose }) {

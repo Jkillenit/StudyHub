@@ -24,14 +24,9 @@ import {
 import { bodyToHtml, htmlToPlainText, plainTextToHtml } from "../lib/notesBody.js";
 import { useMirrorBadges } from "../features/mirror/useMirrorBadges.js";
 import { takePendingCourseView } from "../features/today/courseView.js";
+import { isTypingTarget } from "../lib/hotkeys.js";
 
 const norm = (v) => String(v || "").toLowerCase().trim();
-
-function isTypingTarget(el) {
-  if (!el) return false;
-  const tag = el.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
-}
 
 export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, courseShellLoad = false, onActiveChapterChange }) {
   const { setBreadcrumb, setStatusBar } = useShell();

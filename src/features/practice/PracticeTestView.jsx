@@ -4,16 +4,9 @@ import { QUESTION_TYPES, buildTest, buildTestWithAi, gradeTyped, retakeQuestions
 import { hasApiKey } from "../../ai/apiKeyUtils.js";
 import { emitStudyEvent } from "../../companion/studyEvents.js";
 import { courseStore } from "../../db/courseStore.js";
+import { isTypingTarget, paletteOpen } from "../../lib/hotkeys.js";
 
 const COUNTS = [10, 20, 30];
-
-function isTypingTarget(el) {
-  if (!el) return false;
-  const tag = el.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
-}
-
-const paletteOpen = () => !!document.querySelector('.sh-palette, .sh-cmd-palette, [data-palette="true"]');
 
 function TestSetup({ modules, pool, onStart, busy }) {
   const [moduleIds, setModuleIds] = useState([]);

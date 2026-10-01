@@ -75,6 +75,7 @@ import { HelpBubble } from "./HelpBubble.jsx";
 import { CompanionSettings } from "./CompanionSettings.jsx";
 import firstRun from "./tours/first-run.json";
 import courseTools from "./tours/course-tools.json";
+import { paletteOpen } from "../lib/hotkeys.js";
 
 const Nova3D = lazy(() => import("./nova3d/Nova3D.jsx"));
 
@@ -2587,7 +2588,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   useEffect(() => {
     const onKey = (e) => {
       if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== "j") return;
-      if (!stateRef.current?.enabled || modeRef.current === "hidden") return;
+      if (!stateRef.current?.enabled || modeRef.current === "hidden" || paletteOpen()) return;
       e.preventDefault();
       if (modeRef.current === "help") closeHelp();
       else {

@@ -9,6 +9,7 @@ import { SEED_FLASHCARDS } from "./seedCards.js";
 import { filterDeck } from "./deckModes.js";
 import { useCourseExams } from "../../features/study/useCourseExams.js";
 import { courseStore } from "../../db/courseStore.js";
+import { isTypingTarget } from "../../lib/hotkeys.js";
 
 const FLIP_GUARD_MS = 200;
 
@@ -32,12 +33,6 @@ function cardTypeLabel(kind) {
   if (kind === "concept") return "CONCEPT";
   if (kind === "definition") return "DEFINITION";
   return null;
-}
-
-function isTypingTarget(el) {
-  if (!el) return false;
-  const tag = el.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
 }
 
 function NextReviewSummary({ cards, examFor }) {
