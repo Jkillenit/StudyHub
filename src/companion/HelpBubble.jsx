@@ -2,11 +2,23 @@ import { useMemo } from "react";
 import { SpeechBubble } from "./SpeechBubble.jsx";
 import { searchFaq } from "./faq.js";
 import { line } from "./character.js";
+import { CHIPS, describeCommand, parseCommand } from "../nova/commands.js";
 
-/** "How do I...?" — search the local answer sheet, then answer and offer to point. */
-export function HelpBubble({ help, h, v, onQuery, onPick, onBack, onClose, onShowMe, onAction }) {
-  const results = useMemo(() => searchFaq(help.query), [help.query]);
-  const dunno = useMemo(() => line("dunno"), []);
+/**
+ * Ask Nova: type a command ("quiz me on mis 430", "focus 50"), small talk, or a how-do-I question.
+ * Commands run through `onCommand`; questions search the local answer sheet, then she answers
+ * and offers to point.
+ */
+export function HelpBubble({ help, h, v, courses, onQuery, onPick, onBack, onClose, onShowMe, onAction, onCommand }) {
+  const query = help.query.trim();
+  const cmd = useMemo(() => parseCommand(query, { courses }), [query, courses]);
+  const preview = describeCommand(cmd);
+  const results = useMemo(() => (query && cmd?.id !== "talk" ? searchFaq(query, preview ? 3 : 4) : []), [query, cmd, preview]);
+  const dunno = useMemo(() => line("cmd.unknown"), []);
+  const run = (text) => {
+    const c = parseCommand(text, { courses });
+    if (c) onCommand(c);
+  };
 
   if (help.answer) {
     const e = help.answer;
@@ -20,23 +32,41 @@ export function HelpBubble({ help, h, v, onQuery, onPick, onBack, onClose, onSho
     return <SpeechBubble title={e.q.toUpperCase()} text={e.a} actions={actions} h={h} v={v} wide />;
   }
 
+  const lost = query && !cmd && !results.length;
   return (
-    <SpeechBubble title="HOW DO I…?" h={h} v={v} wide actions={[{ label: "CLOSE", onClick: onClose }]}>
+    <SpeechBubble title="ASK NOVA" h={h} v={v} wide actions={[{ label: "CLOSE", onClick: onClose }]}>
       <input
         className="sc-help-input"
         type="text"
         value={help.query}
         onChange={(e) => onQuery(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && results[0]) onPick(results[0]);
+          if (e.key === "Enter" && cmd) onCommand(cmd);
+          else if (e.key === "Enter" && results[0]) onPick(results[0]);
           if (e.key === "Escape") onClose();
         }}
-        placeholder="Ask about Study Hub…"
-        aria-label="Ask Nova a question"
+        placeholder="Ask, or tell me what to do…"
+        aria-label="Ask Nova"
         autoFocus
       />
-      {help.query.trim() && !results.length ? <p className="sc-bubble-text sc-help-dunno">{dunno}</p> : null}
+      {lost ? <p className="sc-bubble-text sc-help-dunno">{dunno}</p> : null}
+      {!query || lost ? (
+        <div className="sc-ask-chips">
+          {CHIPS.map((c) => (
+            <button key={c.label} type="button" className="sc-ask-chip" onClick={() => run(c.text)}>
+              {c.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <ul className="sc-help-list">
+        {preview ? (
+          <li>
+            <button type="button" className="sc-help-q sc-ask-run" onClick={() => onCommand(cmd)}>
+              ▸ {preview}
+            </button>
+          </li>
+        ) : null}
         {results.map((f) => (
           <li key={f.id}>
             <button type="button" className="sc-help-q" onClick={() => onPick(f)}>
@@ -45,6 +75,7 @@ export function HelpBubble({ help, h, v, onQuery, onPick, onBack, onClose, onSho
           </li>
         ))}
       </ul>
+      {!query ? <p className="sc-ask-hint">Ctrl+J anytime</p> : null}
     </SpeechBubble>
   );
 }

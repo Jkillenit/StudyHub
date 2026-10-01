@@ -20,6 +20,7 @@ export const EVENTS = {
   nudgeIgnored: { annoyance: 0.15 },
   nudgeTaken: { mood: 0.1, annoyance: -0.2 },
   lateNight: { energy: -0.4 },
+  apology: { annoyance: -0.3, mood: 0.05 },
 };
 
 const clamp = (n) => Math.min(1, Math.max(0, n));

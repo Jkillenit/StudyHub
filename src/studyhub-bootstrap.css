@@ -6663,6 +6663,60 @@ button.sh-today-row-main:hover {
   color: var(--sh-text);
   outline: none;
 }
+.sc-ask-run {
+  border-left-color: var(--sh-accent);
+  color: var(--sh-text);
+}
+.sc-ask-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+.sc-ask-chip {
+  background: transparent;
+  border: 1px solid var(--sh-border);
+  color: var(--sh-text-2);
+  font-family: var(--sh-font-hud);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  cursor: pointer;
+}
+.sc-ask-chip:hover,
+.sc-ask-chip:focus-visible {
+  border-color: var(--sh-accent);
+  color: var(--sh-text);
+  outline: none;
+}
+.sc-ask-hint {
+  margin: 8px 0 0;
+  font-family: var(--sh-font-hud);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sh-text-3);
+}
+.sc-focus-pill {
+  position: fixed;
+  top: calc(var(--sh-topbar-h) + 4px);
+  right: 16px;
+  z-index: 3;
+  pointer-events: auto;
+  background: var(--sh-panel-solid);
+  border: 1px solid var(--sh-accent-line);
+  color: var(--sh-accent);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.sc-focus-pill:hover,
+.sc-focus-pill:focus-visible {
+  border-color: var(--sh-accent);
+  outline: none;
+}
 
 /* Radial menu */
 .sc-menu {

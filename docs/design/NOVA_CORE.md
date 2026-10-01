@@ -275,23 +275,23 @@ Everything local in SQLite (new tables via numbered migrations).
 
 ## 8. Command Bar (talking to her without AI)
 
-- [ ] Summon with a hotkey or by clicking her. A small input appears in her speech bubble.
-- [ ] **Quick chips** under the input based on context: "What's next", "Quiz me", "Focus 25",
+- [x] Summon with a hotkey or by clicking her. A small input appears in her speech bubble.
+- [x] **Quick chips** under the input based on context: "What's next", "Quiz me", "Focus 25",
       "Grades", "What do I need on the final", "Tidy up".
-- [ ] **Intent matcher (no AI):** keyword and fuzzy matching of typed text to commands with slots.
+- [x] **Intent matcher (no AI):** keyword and fuzzy matching of typed text to commands with slots.
       Examples:
       - "quiz me on mis 430" → `startQuiz({ course: 'MIS 430' })`
       - "what's due tomorrow" → `showDue({ range: 'tomorrow' })`
       - "what do i need on the final for gba" → `whatIf({ course: 'GBA 490', item: 'final' })`
       - "focus 50" → `startFocus({ minutes: 50 })`
       - "put grades on the left" → `movePanel('grades', 'left')`
-      - "open the syllabus for marketing" → `openPanel('syllabus', { course: 'MKT 300' })`
-- [ ] Course names match on nicknames too ("marketing", "strategy", "430").
-- [ ] **Small talk pool:** common phrases get scripted answers ("hi", "thanks", "I'm tired",
+      - "open notes for marketing" → `openCourse('MKT 300', { tab: 'notes' })` (no syllabus panel yet)
+- [x] Course names match on nicknames too ("marketing", "strategy", "430").
+- [x] **Small talk pool:** common phrases get scripted answers ("hi", "thanks", "I'm tired",
       "you're annoying", "good night", "how are you") that use mood and memory.
-- [ ] **Unknown input:** she answers in character and shows the closest commands
+- [x] **Unknown input:** she answers in character and shows the closest commands
       ("No idea what that means. Did you want one of these?"). With a key in enhanced mode,
-      unknown input goes to the AI instead.
+      unknown input goes to the AI instead (Nova Core 8).
 
 ---
 
