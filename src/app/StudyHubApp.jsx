@@ -3,6 +3,7 @@ import { ShellProvider, useShell } from "../shell/ShellContext.jsx";
 import { TitleBar } from "../components/TitleBar.jsx";
 import { StatusBar } from "../shell/TilingChrome.jsx";
 import { CommandPalette } from "../shell/CommandPalette.jsx";
+import { AmbientBackground } from "../shell/AmbientBackground.jsx";
 import { BuiltinCourseApp } from "../study/BuiltinCourseApp.jsx";
 import { saveJson } from "../lib/storage.js";
 import { HUB_KEYS, ensureUserCourse, uid } from "../hub/userCourseModel.js";
@@ -356,6 +357,7 @@ function StudyHubAppInner() {
 
   return (
     <div data-bs-theme="dark" className="sh-app-root sh-app-shell">
+      <AmbientBackground />
       <ApiStatusSync />
       <BlackboardImportHandler onImport={handleBlackboardImport} />
       <TitleBar
