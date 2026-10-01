@@ -57,7 +57,6 @@ import {
   BODY_LOAD_TIMEOUT_MS,
   BURST_MS,
   DAY_HELLO_DELAY_MS,
-  DROP_LINES,
   DROWSY_MS,
   ENGAGED_MODES,
   ENGAGED_SPEED,
@@ -68,9 +67,7 @@ import {
   HOME_STAY_MS,
   LAND_QUIP_COOLDOWN_MS,
   LATE_QUIP_COOLDOWN_MS,
-  MENU_LINE_MS,
   MOVE,
-  PICKUP_LINE_CHANCE,
   READ_MS,
   REST_CHANCE,
   REST_MS,
@@ -78,16 +75,11 @@ import {
   SIT_CHANCE,
   SIT_DELAY_MS,
   SIZE_3D,
-  SPAM_CLICKS,
-  SPAM_LOCK_MS,
-  SPAM_WINDOW_MS,
   SPRITE_SKIP,
-  SWING_MAX,
-  SWING_PER_PX,
   TALK_MS_PER_CHAR,
   WALK_OFF_MS,
 } from "./layer/constants.js";
-import { dropTargetAt, homeGeometry, homeSpot, markStage, overHome, pageShown, rand, randInt, rectOf, subscribeVisibility } from "./layer/geometry.js";
+import { homeGeometry, homeSpot, markStage, pageShown, rand, randInt, rectOf, subscribeVisibility } from "./layer/geometry.js";
 import { useTimeouts } from "./hooks/useTimeouts.js";
 import { useNovaWindowEvents } from "./hooks/useNovaWindowEvents.js";
 import { useNovaSync } from "./hooks/useNovaSync.js";
@@ -101,6 +93,7 @@ import { useNovaHelp } from "./hooks/useNovaHelp.js";
 import { useNovaTour } from "./hooks/useNovaTour.js";
 import { useNovaQuiz } from "./hooks/useNovaQuiz.js";
 import { useNovaBriefing } from "./hooks/useNovaBriefing.js";
+import { useNovaDrag } from "./hooks/useNovaDrag.js";
 
 const Nova3D = lazy(() => import("./nova3d/Nova3D.jsx"));
 
@@ -116,7 +109,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const [mood, setMood] = useState("neutral");
   const [bubble, setBubble] = useState(null);
   const [anchor, setAnchor] = useState({ h: "left", v: "above" });
-  const [dragging, setDragging] = useState(false);
   const [react, setReact] = useState(null);
   const [now, setNow] = useState(Date.now);
   /** 3D body status; "failed" drops back to the portrait sprite for good this session. */
@@ -126,15 +118,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   use3dRef.current = use3d;
   const [gesture, setGesture] = useState(null);
   const gestureIdRef = useRef(0);
-  const [dropMark, setDropMark] = useState(null);
-  /** What a drop would start (a Today task, exam or gauge), ringed while she's held over it. */
-  const [dropTarget, setDropTarget] = useState(null);
-  const [menuLine, setMenuLine] = useState(null);
   /** Which ring of her click menu is showing: the main options or the Rearrange layouts. */
   const [menuPage, setMenuPage] = useState("main");
   useWorkspace();
-  const clicksRef = useRef([]);
-  const spamUntilRef = useRef(0);
   const [burst, setBurst] = useState(0);
   const [talkUntil, setTalkUntil] = useState(0);
   /** The platform the 3D body stands on: `{ el }` (el null = window bottom), or null mid-air. */
@@ -238,7 +224,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   );
   const lastDriftRef = useRef(0);
   const dragRef = useRef(null);
-  const suppressClickRef = useRef(false);
   const startedRef = useRef(false);
   /** Latest-closure handlers for timers and global listeners. */
   const api = useRef({});
@@ -453,6 +438,12 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     posRef,
     platRef,
     stageRef,
+    lastActivityRef,
+    use3dRef,
+    baseSizeRef,
+    housedRef,
+    nodeRef,
+    reduced,
   };
 
   // here, not at `pops`: needs update/say/refreshAnchor; must precede endTour, which uses awardXp
@@ -566,210 +557,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   /* ---------- clicking & dragging Nova ---------- */
 
-  const onScoutClick = useCallback(() => {
-    if (suppressClickRef.current) {
-      suppressClickRef.current = false;
-      return;
-    }
-    const m = modeRef.current;
-    if (m === "tour" || m === "greet" || m === "quiz") return;
-    if (m === "help") {
-      closeHelp();
-      return;
-    }
-    const now = Date.now();
-    if (now < spamUntilRef.current) return;
-    clicksRef.current = [...clicksRef.current.filter((t) => now - t < SPAM_WINDOW_MS), now];
-    cancel();
-    lastActivityRef.current = now;
-    if (clicksRef.current.length >= SPAM_CLICKS) {
-      clicksRef.current = [];
-      spamUntilRef.current = now + SPAM_LOCK_MS;
-      if (m === "menu") send("CLOSE");
-      setMood("stern");
-      if (use3dRef.current) playGesture("facepalm");
-      refreshAnchor();
-      feelIt("clickSpam");
-      say(line("clickSpam"));
-      return;
-    }
-    setBubble(null);
-    const next = send("CLICK");
-    sfx("open");
-    setMood(m === "sleep" ? "confused" : "happy");
-    if (next === "menu") {
-      if (use3dRef.current && m !== "sleep") playGesture(Math.random() < 0.5 ? "wave" : "wink");
-      setMenuLine(m === "sleep" ? null : line("clickHi"));
-    }
-    refreshAnchor();
-  }, [cancel, send, closeHelp, refreshAnchor, sfx, say, playGesture, feelIt]);
-
-  useEffect(() => {
-    if (!menuLine) return undefined;
-    const t = window.setTimeout(() => setMenuLine(null), MENU_LINE_MS);
-    return () => window.clearTimeout(t);
-  }, [menuLine]);
-
-  /*
-   * Held in 3D: she dangles from the grab point and swings on a damped spring driven by
-   * the cursor's horizontal speed, then settles back upright after release.
-   */
-  const swingRef = useRef({ a: 0, v: 0, vx: 0, lastT: 0, raf: 0, held: false });
-  const swingStep = useCallback(() => {
-    const sw = swingRef.current;
-    let last = performance.now();
-    const step = (now) => {
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      sw.vx *= Math.exp(-dt * 6);
-      const target = sw.held ? Math.max(-SWING_MAX, Math.min(SWING_MAX, sw.vx * SWING_PER_PX)) : 0;
-      sw.v += (-(sw.a - target) * 70 - sw.v * 4.5) * dt;
-      sw.a += sw.v * dt;
-      const el = nodeRef.current?.querySelector(".sc-bob");
-      if (!sw.held && Math.abs(sw.a) < 0.003 && Math.abs(sw.v) < 0.02) {
-        sw.raf = 0;
-        sw.a = 0;
-        sw.v = 0;
-        if (el) {
-          el.style.transform = "";
-          el.style.transformOrigin = "";
-        }
-        return;
-      }
-      if (el) el.style.transform = `rotate(${sw.a.toFixed(4)}rad)`;
-      sw.raf = requestAnimationFrame(step);
-    };
-    sw.raf = requestAnimationFrame(step);
-  }, []);
-  const startSwing = useCallback(
-    (ox, oy) => {
-      const sw = swingRef.current;
-      sw.held = true;
-      sw.vx = 0;
-      sw.lastT = 0;
-      const el = nodeRef.current?.querySelector(".sc-bob");
-      if (el) el.style.transformOrigin = `${Math.round(ox)}px ${Math.round(oy)}px`;
-      if (!reduced && !sw.raf) swingStep();
-    },
-    [reduced, swingStep]
-  );
-  const releaseSwing = useCallback(() => {
-    swingRef.current.held = false;
-  }, []);
-  useEffect(() => () => cancelAnimationFrame(swingRef.current.raf), []);
-
-  const onPointerDown = useCallback(
-    (e) => {
-      if (e.button !== 0) return;
-      dragRef.current = {
-        sx: e.clientX,
-        sy: e.clientY,
-        ox: e.clientX - posRef.current.x,
-        oy: e.clientY - posRef.current.y,
-        moved: false,
-      };
-      try {
-        e.currentTarget.setPointerCapture?.(e.pointerId);
-      } catch {
-        /* capture is a nicety; dragging still works without it */
-      }
-    },
-    [posRef]
-  );
-
-  const onPointerMove = useCallback(
-    (e) => {
-      const d = dragRef.current;
-      if (!d) return;
-      if (!d.moved) {
-        if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 5) return;
-        d.moved = true;
-        cancel();
-        setDragging(true);
-        if (housedRef.current) {
-          const k = baseSizeRef.current / sizeRef.current;
-          d.ox *= k;
-          d.oy *= k;
-          leaveHome();
-        }
-        setBubble(null);
-        if (use3dRef.current) {
-          d.held = true;
-          setMood("stern");
-          platRef.current = null;
-          startSwing(d.ox, d.oy);
-        }
-        if (Math.random() < PICKUP_LINE_CHANCE) {
-          refreshAnchor();
-          say(line("pickedUp"));
-        }
-      }
-      const s = sizeRef.current;
-      const p = clampPoint({ x: e.clientX - d.ox, y: e.clientY - d.oy }, s);
-      const g = navRef.current.stageActive ? overHome(p, s, baseSizeRef.current) : null;
-      const hit = g ? null : dropTargetAt(e.clientX, e.clientY);
-      if (hit !== d.target) {
-        d.target = hit;
-        setDropTarget(hit ? rectOf(hit.getBoundingClientRect()) : null);
-      }
-      if (hit) {
-        setDropMark(null);
-        jumpTo(p);
-        return;
-      }
-      if (d.held) {
-        const sw = swingRef.current;
-        const now = performance.now();
-        const dt = Math.max(1, now - (sw.lastT || now - 16));
-        sw.vx = sw.vx * 0.6 + ((p.x - posRef.current.x) / dt) * 1000 * 0.4;
-        sw.lastT = now;
-      }
-      if (g) setDropMark({ x: g.cx, y: g.floorTop });
-      else if (d.held) setDropMark({ x: p.x + s / 2, y: platformBelow(p, s).top });
-      else setDropMark(null);
-      jumpTo(p);
-    },
-    [cancel, jumpTo, posRef, startSwing, leaveHome, refreshAnchor, say]
-  );
-
-  const onPointerUp = useCallback(
-    () => {
-      const d = dragRef.current;
-      dragRef.current = null;
-      if (!d?.moved) return;
-      suppressClickRef.current = true;
-      window.setTimeout(() => {
-        suppressClickRef.current = false;
-      }, 0);
-      setDragging(false);
-      setDropMark(null);
-      setDropTarget(null);
-      releaseSwing();
-      const m = modeRef.current;
-      const homeable = AUTONOMOUS.has(m) || m === "sleep" || m === "menu";
-      if (homeable && m !== "menu") send("DROP");
-      if (homeable && navRef.current.stageActive && overHome(posRef.current, sizeRef.current, baseSizeRef.current) && houseAt()) {
-        refreshAnchor();
-        return;
-      }
-      if (!homeable) {
-        refreshAnchor();
-        return;
-      }
-      /* Dropped on a task, exam or gauge: start it with the item's own button. */
-      const kind = d.target?.isConnected ? d.target.dataset.novaDrop : null;
-      if (kind) {
-        const btn = d.target.matches("button") ? d.target : d.target.querySelector("button");
-        btn?.click();
-        setMood("happy");
-        refreshAnchor();
-        say(line(DROP_LINES[kind] || "dropTask"));
-      }
-      if (d.held) void api.current.fall({ dropped: true, quip: !kind });
-      else api.current.returnAfterDrop();
-    },
-    [send, refreshAnchor, posRef, releaseSwing, houseAt, say]
-  );
+  // here, not at the top: needs houseAt, leaveHome and closeHelp
+  const { dragging, dropMark, dropTarget, menuLine, onScoutClick, onPointerDown, onPointerMove, onPointerUp } = useNovaDrag(core, { houseAt, leaveHome, closeHelp });
 
   /* ---------- autonomy: wander, perch, sleep ---------- */
 
