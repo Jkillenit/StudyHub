@@ -9,5 +9,5 @@ export function ambientY(i, count, x, w, h, t) {
 }
 
 export function ambientAlpha(i, t) {
-  return 0.045 + 0.025 * Math.sin(t * 0.3 + i);
+  return 0.05 + 0.01 * Math.sin(t * 0.3 + i);
 }

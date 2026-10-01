@@ -11,7 +11,6 @@ body,
 }
 
 body {
-  background: var(--sh-bg);
   color: var(--sh-text);
   font-family: var(--sh-font-body);
   -webkit-font-smoothing: antialiased;

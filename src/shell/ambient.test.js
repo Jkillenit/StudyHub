@@ -23,8 +23,8 @@ describe("ambient geometry", () => {
     for (let i = 0; i < AMBIENT_LINES; i++) {
       for (const t of [0, 1, 2.5, 10, 99]) {
         const a = ambientAlpha(i, t);
-        expect(a).toBeGreaterThanOrEqual(0.02);
-        expect(a).toBeLessThanOrEqual(0.07);
+        expect(a).toBeGreaterThanOrEqual(0.04);
+        expect(a).toBeLessThanOrEqual(0.06);
       }
     }
   });

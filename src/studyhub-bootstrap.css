@@ -79,6 +79,13 @@
   --bs-body-color: var(--sh-text);
   --bs-body-font-family: var(--sh-font-body);
   --bs-font-monospace: var(--sh-font-mono);
+  --bs-border-radius: 0;
+  --bs-border-radius-sm: 0;
+  --bs-border-radius-lg: 0;
+  --bs-border-radius-xl: 0;
+  --bs-border-radius-xxl: 0;
+  --bs-border-radius-2xl: 0;
+  --bs-border-radius-pill: 0;
 }
 
 ::selection {
@@ -119,7 +126,10 @@ html {
 
 body {
   margin: 0;
-  background: var(--sh-bg);
+  background-color: var(--sh-bg);
+  background-image:
+    radial-gradient(55% 60% at 18% 6%, color-mix(in oklab, var(--sh-accent) 13%, transparent), transparent 70%),
+    radial-gradient(55% 60% at 88% 92%, color-mix(in oklab, var(--sh-accent-2) 20%, transparent), transparent 70%);
   color: var(--sh-text);
   -webkit-font-smoothing: antialiased;
 }
@@ -179,7 +189,7 @@ h4,
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--sh-bg);
+  background: transparent;
   color: var(--sh-text);
   min-width: 880px;
 }
@@ -560,7 +570,7 @@ h4,
   font-family: var(--sh-font-mono);
   font-size: 11px;
   letter-spacing: 0.1em;
-  color: var(--sh-border-strong);
+  color: var(--sh-text-3);
   text-transform: uppercase;
   padding: 6px 12px 3px;
 }
@@ -777,7 +787,7 @@ h4,
 }
 
 .sh-tab:disabled {
-  color: var(--sh-border-strong);
+  color: var(--sh-text-3);
   cursor: not-allowed;
 }
 
@@ -828,7 +838,7 @@ h4,
   font-family: var(--sh-font-mono);
   font-size: 11px;
   letter-spacing: 0.14em;
-  color: var(--sh-border-strong);
+  color: var(--sh-text-3);
   text-transform: uppercase;
   margin-bottom: 8px;
 }
@@ -1111,7 +1121,7 @@ h4,
   border-top: 1px solid var(--sh-border);
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  color: var(--sh-border-strong);
+  color: var(--sh-text-3);
 }
 
 .sh-status-left,
@@ -1374,7 +1384,7 @@ h4,
   font-family: var(--sh-font-mono);
   font-size: 11px;
   letter-spacing: 0.12em;
-  color: var(--sh-border-strong);
+  color: var(--sh-text-3);
 }
 
 /* ─── Flashcard slide ─── */
@@ -1482,7 +1492,7 @@ h4,
   font-family: var(--sh-font-mono);
   font-size: 11px;
   letter-spacing: 0.1em;
-  color: var(--sh-border-strong);
+  color: var(--sh-text-3);
   text-transform: uppercase;
   padding: 6px 12px 3px;
   user-select: none;
@@ -2559,7 +2569,7 @@ h4,
   padding: 8px 0;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  color: var(--sh-border-strong);
+  color: var(--sh-text-3);
   white-space: nowrap;
 }
 
@@ -7517,20 +7527,13 @@ button.sh-today-row-main:hover {
 }
 
 @media print {
-  .sc-layer {
+  .sc-layer,
+  .sh-ambient {
     display: none !important;
   }
 }
 
 /* ═══ Holographic HUD: app chrome, Today, Courses, Settings ═══ */
-
-.sh-app-shell {
-  isolation: isolate;
-  background-color: var(--sh-bg);
-  background-image:
-    radial-gradient(55% 60% at 18% 6%, color-mix(in oklab, var(--sh-accent) 13%, transparent), transparent 70%),
-    radial-gradient(55% 60% at 88% 92%, color-mix(in oklab, var(--sh-accent-2) 20%, transparent), transparent 70%);
-}
 
 .sh-ambient {
   position: fixed;
@@ -8522,7 +8525,7 @@ button.sh-week-day:focus-visible {
 .sh-week-game {
   font-family: var(--sh-font-hud);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
   color: var(--sh-crimson-glow);
 }

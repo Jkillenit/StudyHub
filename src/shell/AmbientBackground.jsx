@@ -37,9 +37,11 @@ export function AmbientBackground() {
         ctx.stroke();
       }
     };
-    const frame = () => {
+    let last = 0;
+    const frame = (now) => {
+      if (last) t += Math.min(now - last, 100) / 1000;
+      last = now;
       draw();
-      t += 1 / 60;
       raf = requestAnimationFrame(frame);
     };
     const onResize = () => {
