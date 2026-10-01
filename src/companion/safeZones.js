@@ -52,7 +52,7 @@ const NOT_CONTENT = ".sc-layer, [data-nova-home]";
 /** Share of the frame her legs hang below the edge when seated (matches NovaStage SEAT_FRAC). */
 const SEAT_LEG_FRAC = 0.3;
 
-const TITLEBAR_H = 64;
+const TITLEBAR_H = 40;
 const EDGE = 12;
 const MARGIN_BAND = 96;
 
@@ -68,8 +68,9 @@ function overlaps(a, b, pad = 6) {
 }
 
 export function viewportBounds(size) {
+  const railRight = document.querySelector(".sh-rail")?.getBoundingClientRect().right ?? 0;
   return {
-    minX: EDGE,
+    minX: railRight + EDGE,
     minY: TITLEBAR_H + 4,
     maxX: Math.max(EDGE, window.innerWidth - size - EDGE),
     maxY: Math.max(TITLEBAR_H + 4, window.innerHeight - size - EDGE),

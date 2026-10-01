@@ -1,6 +1,8 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { ShellProvider, useShell } from "../shell/ShellContext.jsx";
 import { TitleBar } from "../components/TitleBar.jsx";
+import { AppRail } from "../shell/AppRail.jsx";
+import { shortCourse } from "../features/dashboard/courseLabel.js";
 import { StatusBar } from "../shell/TilingChrome.jsx";
 import { CommandPalette } from "../shell/CommandPalette.jsx";
 import { AmbientBackground } from "../shell/AmbientBackground.jsx";
@@ -323,6 +325,10 @@ function StudyHubAppInner() {
   const userCoursesList = useMemo(() => userCourses.filter((c) => c.type !== "builtin"), [userCourses]);
   const activeUserCourse = userCoursesList.find((c) => c.id === courseId);
   const onHub = courseId === null;
+  const railCourses = useMemo(
+    () => [{ id: "builtin", code: "OM 300" }, ...userCoursesList.map((c) => ({ id: c.id, code: shortCourse(c.courseCode) || c.name }))],
+    [userCoursesList]
+  );
 
   useEffect(() => {
     const id = activeUserCourse?.uuid || activeUserCourse?.id;
@@ -360,44 +366,49 @@ function StudyHubAppInner() {
       <AmbientBackground />
       <ApiStatusSync />
       <BlackboardImportHandler onImport={handleBlackboardImport} />
-      <TitleBar
-        onCommandPalette={() => setPaletteOpen(true)}
-        onGoToHub={goHub}
-        onNavigate={goHub}
-        onOpenSettings={() => setSettingsOpen((v) => !v)}
+      <AppRail
         onHub={onHub}
         hubView={hubView}
+        courseId={courseId}
+        courses={railCourses}
+        onNavigate={goHub}
+        onOpenCourse={openCourseFromShell}
+        onSearch={() => setPaletteOpen(true)}
+        onOpenSettings={() => setSettingsOpen((v) => !v)}
       />
-      <ErrorBoundary resetKey={courseId} onReset={() => setCourseId(null)}>
-        {onHub ? (
-          <HubScreen
-            view={hubView}
-            onNavigate={goHub}
-            userCourses={userCoursesList}
-            onOpenCourse={openCourseFromShell}
-            onManualCreate={onHubManualCreate}
-            onExpressComplete={onHubExpressComplete}
-          />
-        ) : (
-          <>
-            <div className="sh-shell-body">
-              {courseId === "builtin" && (
-                <BuiltinCourseApp courseShellLoad={courseShellLoad} onActiveChapterChange={handleBuiltinActiveChapterChange} />
-              )}
-              {activeUserCourse && courseId !== "builtin" && (
-                <UserCourseApp
-                  course={activeUserCourse}
-                  onChangeCourse={saveCourse}
-                  onDeleteCourse={deleteUserCourse}
-                  courseShellLoad={courseShellLoad}
-                  onActiveChapterChange={handleUserCourseActiveChapterChange}
-                />
-              )}
-            </div>
-            <StatusBar />
-          </>
-        )}
-      </ErrorBoundary>
+      <div className="sh-frame-main">
+        <TitleBar onHub={onHub} />
+        <ErrorBoundary resetKey={courseId} onReset={() => setCourseId(null)}>
+          {onHub ? (
+            <HubScreen
+              view={hubView}
+              onNavigate={goHub}
+              userCourses={userCoursesList}
+              onOpenCourse={openCourseFromShell}
+              onManualCreate={onHubManualCreate}
+              onExpressComplete={onHubExpressComplete}
+            />
+          ) : (
+            <>
+              <div className="sh-shell-body">
+                {courseId === "builtin" && (
+                  <BuiltinCourseApp courseShellLoad={courseShellLoad} onActiveChapterChange={handleBuiltinActiveChapterChange} />
+                )}
+                {activeUserCourse && courseId !== "builtin" && (
+                  <UserCourseApp
+                    course={activeUserCourse}
+                    onChangeCourse={saveCourse}
+                    onDeleteCourse={deleteUserCourse}
+                    courseShellLoad={courseShellLoad}
+                    onActiveChapterChange={handleUserCourseActiveChapterChange}
+                  />
+                )}
+              </div>
+              <StatusBar />
+            </>
+          )}
+        </ErrorBoundary>
+      </div>
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}

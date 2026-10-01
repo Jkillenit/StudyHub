@@ -149,7 +149,7 @@ export function HubScreen({ view = "today", onNavigate, userCourses, onOpenCours
 
   return (
     <div className="sh-hub-root">
-      {view === "today" ? <TodayScreen refreshKey={refreshKey} onOpenCourse={onOpenCourse} onNavigate={onNavigate} /> : null}
+      {view === "today" || view === "plan" ? <TodayScreen refreshKey={refreshKey} onOpenCourse={onOpenCourse} onNavigate={onNavigate} /> : null}
       {view === "calendar" ? (
         <div className="sh-page">
           <CalendarView userCourses={userCourses} />
