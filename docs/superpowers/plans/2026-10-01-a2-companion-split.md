@@ -51,14 +51,14 @@
 Requirements (discover selectors by reading `CompanionLayer.jsx`'s render section, `RadialMenu.jsx`, `QuizPanel.jsx`, `HelpBubble.jsx`, `CompanionSettings.jsx`; prefer stable class names already in the JSX):
 
 1. Header docstring with the run command from Global Constraints and a note that it needs `pip install playwright` + `python -m playwright install chromium`.
-2. Chromium headless, viewport 1400×900. Before navigation, `page.add_init_script` sets `localStorage['companion.state']` to `{"enabled":true,"onboarded":true,"askedName":true,"askedMore":true,"nudges":false}` (a fresh profile otherwise sits in onboarding).
+2. Chromium headless, viewport 1400×900. (As built: companion state loads through the Electron bridge, absent in a browser, so a localStorage seed has no effect; the script instead clicks through Nova's onboarding in an `onboard` check.)
 3. Collect `pageerror` events and `console` messages of type `error`; ignore none. Any collected error fails the run at the end, printing them.
 4. Checks, in order, each with a short printed name (`check: <name>`), screenshot to `%TEMP%/nova-smoke-<name>.png`:
    - `load`: go to `http://localhost:5173`, wait for `networkidle`, wait up to 15 s for Nova's scout node to be visible.
    - `menu`: click Nova; radial menu appears; press Escape; menu closes.
    - `ask`: Ctrl+J opens `.sc-help-input`; type `focus 5`, Enter; `.sc-focus-pill` text starts with `FOCUS`; click the pill; pill disappears.
    - `quiz`: open the radial menu, click the `QUIZ ME` item; the quiz panel is visible; close it via its close control; it disappears.
-   - `drag`: record Nova's bounding box; mouse down at its center, move 250 px left and 120 px up in 10 steps, mouse up; wait 1.5 s; the box center moved by more than 50 px from the start.
+   - `drag`: record Nova's bounding box; mouse down at its center, move 250 px toward the window center and 120 px up in 10 steps (left would drop her back on her home panel, where she snaps home), mouse up; wait 1.5 s; the box center moved by more than 50 px from the start.
    - `toggle`: disable Nova through `CompanionSettings` (open it the way the app does: find the trigger in `CompanionLayer`/radial menu), confirm the scout node is gone; re-enable; scout node visible again within 15 s.
 5. Print `nova smoke ok` and exit 0 only if every check passed and no errors were collected.
 
