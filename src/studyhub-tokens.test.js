@@ -24,7 +24,7 @@ describe("design tokens", () => {
 
   it("has no rounded corners", () => {
     for (const r of ["xl", "lg", "md", "sm", "xs"]) expect(token(`sh-radius-${r}`)).toBe("0");
-    const literals = [...css.matchAll(/border-radius:\s*([^;]+);/g)]
+    const literals = [...css.matchAll(/border(?:-(?:top|bottom)-(?:left|right))?-radius:\s*([^;]+);/g)]
       .map((m) => m[1].trim())
       .filter((v) => !/^(0|inherit|var\(--sh-radius-[a-z]+\))( !important)?$/.test(v));
     expect(literals).toEqual([]);
@@ -32,5 +32,16 @@ describe("design tokens", () => {
 
   it("drops the background grid", () => {
     expect(css).not.toMatch(/--sh-grid-line/);
+  });
+
+  it("leaves no old palette behind", () => {
+    expect(css).not.toMatch(/79,\s*216,\s*255|#4FD8FF/i);
+  });
+
+  it("defines the secondary and chamfer tokens", () => {
+    expect(token("sh-side")).toBe("#030407");
+    expect(token("sh-accent-2-soft")).toMatch(/^color-mix/);
+    expect(token("sh-accent-2-line")).toMatch(/^color-mix/);
+    expect(token("sh-cut")).toBe("12px");
   });
 });

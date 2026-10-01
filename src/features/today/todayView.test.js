@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildTodayView, dueText, letterFor, tonightReason } from "./todayView.js";
-import { briefingContext, buildBriefing } from "./briefing.js";
+import { briefingContext, buildBriefing, homeLine } from "./briefing.js";
+import { ITEM_TYPES } from "./priority.js";
 
 const NOW = new Date(2026, 8, 30, 0, 12).toISOString();
 const at = (dayOffset, hour = 23, min = 59) => new Date(2026, 8, 30 + dayOffset, hour, min).toISOString();
@@ -80,6 +81,33 @@ describe("buildTodayView", () => {
     expect(view.tonight).toEqual([]);
     expect(view.overdue).toEqual([]);
     expect(view.standing.courses).toEqual([]);
+  });
+
+  it("passes the last sync time through", () => {
+    expect(buildTodayView({ now: NOW, courses: [], syncedAt: "2026-10-01 17:58:00" }, { now: NOW }).syncedAt).toBe("2026-10-01 17:58:00");
+    expect(buildTodayView({ now: NOW, courses: [] }, { now: NOW }).syncedAt).toBeNull();
+  });
+});
+
+describe("homeLine", () => {
+  const dueTextStub = () => "Today";
+  it("asks to connect when there are no courses", () => {
+    const segs = homeLine({ hasCourses: false, tonight: [] }, { now: new Date(2026, 9, 1, 20), dueText: dueTextStub });
+    expect(segs[0]).toBe("Evening.");
+    expect(segs.join("")).toMatch(/Connect Blackboard/);
+  });
+  it("marks clock times as accent numbers", () => {
+    const due = new Date(2026, 9, 1, 22, 0).toISOString();
+    const tonight = [
+      { title: "A", courseLabel: "MIS 430", daysUntil: 0, dueDate: due, type: ITEM_TYPES.ASSIGNMENT },
+      { title: "B", courseLabel: "MIS 430", daysUntil: 0, dueDate: due, type: ITEM_TYPES.ASSIGNMENT },
+    ];
+    const segs = homeLine({ hasCourses: true, tonight }, { now: new Date(2026, 9, 1, 20), dueText: dueTextStub });
+    const nums = segs.filter((s) => typeof s === "object");
+    expect(nums).toHaveLength(1);
+    expect(nums[0].tone).toBe("accent");
+    expect(nums[0].num).toMatch(/10:00/);
+    expect(segs.map((s) => (typeof s === "string" ? s : s.num)).join("")).toMatch(/Two MIS 430 items are due today/);
   });
 });
 

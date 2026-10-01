@@ -4,6 +4,7 @@ import { openInBlackboard } from "../mirror/openInBlackboard.js";
 import { PANELS, inSlot, lastRects, useWorkspace } from "../../nova/workspace.js";
 import { publishToday } from "../../nova/director.js";
 import { openCourseView } from "./courseView.js";
+import { runTodayAction } from "./runAction.js";
 import { briefingContext, buildBriefing } from "./briefing.js";
 import { dueText } from "./todayView.js";
 import { useTodayModel } from "./useTodayModel.js";
@@ -51,16 +52,7 @@ export function TodayScreen({ refreshKey = 0, onOpenCourse, onNavigate }) {
     if (briefingFacts) publishToday(briefingFacts);
   }, [briefingFacts]);
 
-  const run = useCallback(
-    (action) => {
-      if (!action) return;
-      if (action.type === "blackboard") openInBlackboard(action.url);
-      else if (action.type === "review") openCourseView(onOpenCourse, action.courseUuid, { item: "qz-deck" });
-      else if (action.type === "grades") openCourseView(onOpenCourse, action.courseUuid, { tab: "grades" });
-      else onOpenCourse(action.courseUuid);
-    },
-    [onOpenCourse]
-  );
+  const run = useCallback((action) => runTodayAction(action, onOpenCourse), [onOpenCourse]);
 
   const openOverdue = useCallback(
     (item) => {

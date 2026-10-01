@@ -315,6 +315,7 @@ export const courseStore = {
       (await db?.today?.get?.(courseUuid ? { courseUuid } : undefined)) || {
         now: new Date().toISOString(),
         synced: false,
+        syncedAt: null,
         courses: [],
       }
     );

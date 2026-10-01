@@ -168,6 +168,7 @@ export function buildTodayView(data, { now, scales = {}, config = PRIORITY_CONFI
 
   return {
     synced: !!data?.synced,
+    syncedAt: data?.syncedAt ?? null,
     hasCourses: courses.length > 0,
     tonight,
     overdue,

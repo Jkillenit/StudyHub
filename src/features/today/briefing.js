@@ -114,3 +114,20 @@ export function buildBriefing(view, { now = new Date(), dueText }) {
   }
   return { segments, text: segments.map(segText).join("") };
 }
+
+const CLOCK = /\b\d{1,2}:\d{2}(?:\s?[AP]M)?/gi;
+
+/** The home screen's one line: greeting + the task sentence, clock times as accent numbers. */
+export function homeLine(view, { now = new Date(), dueText }) {
+  const text = view?.hasCourses
+    ? taskSentence(view.tonight || [], dueText)
+    : "Connect Blackboard and I'll tell you what matters every day.";
+  const segments = [greeting(now), " "];
+  let i = 0;
+  for (const m of text.matchAll(CLOCK)) {
+    segments.push(text.slice(i, m.index), { num: m[0], tone: "accent" });
+    i = m.index + m[0].length;
+  }
+  segments.push(text.slice(i));
+  return segments.filter((s) => s !== "");
+}

@@ -256,7 +256,9 @@ function todayData(db, courseUuid = null) {
     db.prepare("SELECT 1 FROM assignments WHERE source = 'blackboard' LIMIT 1").get() ||
     db.prepare("SELECT 1 FROM bb_items LIMIT 1").get() ||
     db.prepare("SELECT 1 FROM bb_grade_items LIMIT 1").get();
-  return { now: new Date().toISOString(), synced: !!synced, courses: result };
+  const syncedAt =
+    db.prepare("SELECT MAX(at) AS at FROM (SELECT MAX(synced_at) AS at FROM bb_items UNION ALL SELECT MAX(synced_at) FROM bb_grade_items)").get()?.at || null;
+  return { now: new Date().toISOString(), synced: !!synced, syncedAt, courses: result };
 }
 
 function localDate(offsetDays = 0) {
