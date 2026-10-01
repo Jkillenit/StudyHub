@@ -113,6 +113,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const [now, setNow] = useState(Date.now);
   /** 3D body status; "failed" drops back to the portrait sprite for good this session. */
   const [body, setBody] = useState("loading");
+  const onBodyReady = useCallback(() => setBody("ready"), []);
+  const onBodyFail = useCallback(() => setBody("failed"), []);
   const use3d = body !== "failed";
   const use3dRef = useRef(use3d);
   use3dRef.current = use3d;
@@ -558,7 +560,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   /* ---------- clicking & dragging Nova ---------- */
 
   // here, not at the top: needs houseAt, leaveHome and closeHelp
-  const { dragging, dropMark, dropTarget, menuLine, onScoutClick, onPointerDown, onPointerMove, onPointerUp } = useNovaDrag(core, { houseAt, leaveHome, closeHelp });
+  const { dragging, dropMarkRef, dropTarget, menuLine, onScoutClick, onPointerDown, onPointerMove, onPointerUp } = useNovaDrag(core, { houseAt, leaveHome, closeHelp });
 
   /* ---------- autonomy: wander, perch, sleep ---------- */
 
@@ -1479,7 +1481,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         : null}
       {dropTarget ? <Spotlight rect={dropTarget} dim={false} pad={4} /> : null}
       {focusUntil ? <FocusPill until={focusUntil} onStop={stopFocus} /> : null}
-      {dropMark ? <span className="nv-drop" style={{ left: dropMark.x, top: dropMark.y }} aria-hidden /> : null}
+      <span ref={dropMarkRef} className="nv-drop" hidden aria-hidden />
       {doodle ? (
         <DoodleTrail
           doodle={doodle}
@@ -1553,8 +1555,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
                     tint={tint}
                     visible={visible}
                     gesture={gesture}
-                    onReady={() => setBody("ready")}
-                    onFail={() => setBody("failed")}
+                    onReady={onBodyReady}
+                    onFail={onBodyFail}
                   />
                 </Suspense>
                 ) : null

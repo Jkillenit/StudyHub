@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { NovaStage, webglAvailable } from "./NovaStage.js";
 
 const GLITCH_MS = 520;
@@ -12,7 +12,7 @@ const GLITCH_MS = 520;
  * Idle life: `activity` ("draw" | "read" | "cards", or "pull" while syncing) shows her hologram props or points her arm at the
  * pen in `pen` (a ref of viewport px); `drowsy` droops her eyes; each new `glance` `{ x, y, ms }` turns her gaze.
  */
-export default function Nova3D({
+export default memo(function Nova3D({
   size,
   facing = 1,
   gait = null,
@@ -159,4 +159,4 @@ export default function Nova3D({
       <canvas ref={canvasRef} className="nv-3d-canvas" />
     </span>
   );
-}
+});

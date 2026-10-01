@@ -5,6 +5,18 @@ import { clampPoint, platformBelow } from "../safeZones.js";
 import { dropTargetAt, overHome, rectOf } from "../layer/geometry.js";
 import { DROP_LINES, MENU_LINE_MS, PICKUP_LINE_CHANCE, SPAM_CLICKS, SPAM_LOCK_MS, SPAM_WINDOW_MS, SWING_MAX, SWING_PER_PX } from "../layer/constants.js";
 
+/** Moves the `.nv-drop` landing marker by hand (null hides it), so a drag doesn't re-render the layer on every move. */
+function placeDropMark(el, at) {
+  if (!el) return;
+  if (!at) {
+    el.hidden = true;
+    return;
+  }
+  el.style.left = `${at.x}px`;
+  el.style.top = `${at.y}px`;
+  el.hidden = false;
+}
+
 /** Clicking and dragging Nova: the click menu, the spam guard, the held swing, and drops onto the home window or a task. */
 export function useNovaDrag(core, { houseAt, leaveHome, closeHelp }) {
   const {
@@ -33,7 +45,7 @@ export function useNovaDrag(core, { houseAt, leaveHome, closeHelp }) {
     reduced,
   } = core;
   const [dragging, setDragging] = useState(false);
-  const [dropMark, setDropMark] = useState(null);
+  const dropMarkRef = useRef(null);
   /** What a drop would start (a Today task, exam or gauge), ringed while she's held over it. */
   const [dropTarget, setDropTarget] = useState(null);
   const [menuLine, setMenuLine] = useState(null);
@@ -188,7 +200,7 @@ export function useNovaDrag(core, { houseAt, leaveHome, closeHelp }) {
         setDropTarget(hit ? rectOf(hit.getBoundingClientRect()) : null);
       }
       if (hit) {
-        setDropMark(null);
+        placeDropMark(dropMarkRef.current, null);
         jumpTo(p);
         return;
       }
@@ -199,9 +211,9 @@ export function useNovaDrag(core, { houseAt, leaveHome, closeHelp }) {
         sw.vx = sw.vx * 0.6 + ((p.x - posRef.current.x) / dt) * 1000 * 0.4;
         sw.lastT = now;
       }
-      if (g) setDropMark({ x: g.cx, y: g.floorTop });
-      else if (d.held) setDropMark({ x: p.x + s / 2, y: platformBelow(p, s).top });
-      else setDropMark(null);
+      if (g) placeDropMark(dropMarkRef.current, { x: g.cx, y: g.floorTop });
+      else if (d.held) placeDropMark(dropMarkRef.current, { x: p.x + s / 2, y: platformBelow(p, s).top });
+      else placeDropMark(dropMarkRef.current, null);
       jumpTo(p);
     },
     [cancel, jumpTo, posRef, startSwing, leaveHome, refreshAnchor, say]
@@ -217,7 +229,7 @@ export function useNovaDrag(core, { houseAt, leaveHome, closeHelp }) {
         suppressClickRef.current = false;
       }, 0);
       setDragging(false);
-      setDropMark(null);
+      placeDropMark(dropMarkRef.current, null);
       setDropTarget(null);
       releaseSwing();
       const m = modeRef.current;
@@ -246,5 +258,5 @@ export function useNovaDrag(core, { houseAt, leaveHome, closeHelp }) {
     [send, refreshAnchor, posRef, releaseSwing, houseAt, say]
   );
 
-  return { dragging, dropMark, dropTarget, menuLine, onScoutClick, onPointerDown, onPointerMove, onPointerUp };
+  return { dragging, dropMarkRef, dropTarget, menuLine, onScoutClick, onPointerDown, onPointerMove, onPointerUp };
 }
