@@ -138,5 +138,5 @@ export function useNovaStudyEvents(core, { cstate, now, enabled, flashReaction }
     };
   }, [rampantNow, enabled, canAct, flashReaction, sfx, refreshAnchor, say]);
 
-  return { awardXp, pushPop, pops, rampantNow };
+  return { awardXp, pops, rampantNow };
 }

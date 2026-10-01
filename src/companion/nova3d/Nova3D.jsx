@@ -76,14 +76,6 @@ export default memo(function Nova3D({
       cbRef.current.onFail?.();
     };
     canvas.addEventListener("webglcontextlost", onLost);
-    let rect = canvas.getBoundingClientRect();
-    const measure = () => {
-      rect = canvas.getBoundingClientRect();
-    };
-    const resizes = new ResizeObserver(measure);
-    resizes.observe(canvas);
-    window.addEventListener("scroll", measure, { capture: true, passive: true });
-    window.addEventListener("resize", measure);
     /* She moves by transform (no resize or scroll), so re-measure once per frame while the pointer moves. */
     let frame = 0;
     let px = 0;
@@ -94,7 +86,7 @@ export default memo(function Nova3D({
       if (frame) return;
       frame = requestAnimationFrame(() => {
         frame = 0;
-        measure();
+        const rect = canvas.getBoundingClientRect();
         stage.lookAt(px - (rect.left + rect.width / 2), py - (rect.top + rect.height / 2));
       });
     };
@@ -110,9 +102,6 @@ export default memo(function Nova3D({
       alive = false;
       canvas.removeEventListener("webglcontextlost", onLost);
       cancelAnimationFrame(frame);
-      resizes.disconnect();
-      window.removeEventListener("scroll", measure, { capture: true });
-      window.removeEventListener("resize", measure);
       window.removeEventListener("pointermove", onMove);
       document.removeEventListener("mouseout", onOut);
       stage.dispose();

@@ -50,11 +50,11 @@ export function useNovaPlacement(core, { baseSize, enabled, stageActive }) {
     home,
     sfx,
     reduced,
+    housedRef,
   } = core;
   const growRef = useRef(null);
   /** Standing big inside the Today home window. `homeSize` is her size there. */
   const [housed, setHoused] = useState(false);
-  const housedRef = useRef(false);
   const [homeSize, setHomeSize] = useState(null);
   const awayRef = useRef({ stops: 0, goal: randInt(HOME_AWAY_STOPS) });
   const lastLandQuipRef = useRef(0);
@@ -223,10 +223,6 @@ export function useNovaPlacement(core, { baseSize, enabled, stageActive }) {
     return () => window.clearTimeout(t);
   }, [size, reduced]);
 
-  /*
-   * 3D: keep her feet on something. She rides her platform when it scrolls, and falls to
-   * whatever is below when it disappears (or when an engaged move left her mid-air).
-   */
   /** After a drop she lingers a beat, then heads back to her spot (the home window on Today). */
   api.current.returnAfterDrop = () => {
     later(() => {
@@ -274,5 +270,5 @@ export function useNovaPlacement(core, { baseSize, enabled, stageActive }) {
     }, WALK_OFF_MS);
   };
 
-  return { housed, housedRef, size, growRef, awayRef, houseAt, leaveHome, returnHome };
+  return { housed, size, growRef, awayRef, houseAt, leaveHome, returnHome };
 }

@@ -175,6 +175,10 @@ export function useNovaAutonomy(core, { mode, enabled, movement, quiet, use3d, b
       say(pick.text);
     }, 1100);
   }, [mode, bodyReady, playGesture, memory, refreshAnchor, say]);
+  /*
+   * 3D: keep her feet on something. She rides her platform when it scrolls, and falls to
+   * whatever is below when it disappears (or when an engaged move left her mid-air).
+   */
   useEffect(() => {
     if (!use3d || !ticking) return undefined;
     let raf = 0;

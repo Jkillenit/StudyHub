@@ -7,7 +7,6 @@ import {
   saveCompanionState,
   resolveTint,
   levelForXp,
-  XP_AWARDS,
 } from "./companionStore.js";
 import { dayPart } from "./idleDirector.js";
 import { DoodleTrail } from "./DoodleTrail.jsx";
@@ -33,8 +32,7 @@ import { useWorkspace, workspace } from "../nova/workspace.js";
 import { arrangeWorkspace } from "../nova/scenes/arrange.js";
 import { stageDemo } from "../nova/scenes/stageDemo.js";
 import { setVoiceTone } from "../nova/voice.js";
-import { ran, take } from "../nova/director.js";
-import { current, feel, tone as moodTone } from "../nova/mood.js";
+import { feel, tone as moodTone } from "../nova/mood.js";
 import { HelpBubble } from "./HelpBubble.jsx";
 import { CompanionSettings } from "./CompanionSettings.jsx";
 import { FocusPill } from "./FocusPill.jsx";
@@ -171,6 +169,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   );
   const dragRef = useRef(null);
   const startedRef = useRef(false);
+  /** Standing big inside the Today home window. */
+  const housedRef = useRef(false);
   /** Latest-closure handlers for timers and global listeners. */
   const api = useRef({});
   /** The Stage (see src/nova/stage.js). Scenes run in "brief" mode; leaving it aborts them. */
@@ -305,15 +305,14 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     activityRef,
     lastGestureAtRef,
     force,
+    housedRef,
   };
 
   /* ---------- home window on Today: big inside it, normal size everywhere else ---------- */
 
-  // here, not at the top: needs send, home and refreshAnchor; size comes out of it
-  const { housed, housedRef, size, growRef, awayRef, houseAt, leaveHome, returnHome } = useNovaPlacement(core, { baseSize, enabled, stageActive });
+  const { housed, size, growRef, awayRef, houseAt, leaveHome, returnHome } = useNovaPlacement(core, { baseSize, enabled, stageActive });
   sizeRef.current = size;
 
-  // here, not at `pops`: needs update/say/refreshAnchor; must precede endTour, which uses awardXp
   const { awardXp, pops, rampantNow } = useNovaStudyEvents(core, { cstate, now, enabled, flashReaction });
 
   /* ---------- load + first appearance ---------- */
@@ -391,7 +390,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   /* ---------- tours ---------- */
 
   const { marks, setMarks } = useNovaMarks();
-  // before useNovaTour: tours call setHelp, so showMe reaches ensureRoute through this stable handle
+  // useNovaTour needs setHelp, so showMe reaches its ensureRoute through api
   const ensureRouteVia = useCallback((...a) => api.current.ensureRoute(...a), []);
   const { help, setHelp, startHelp, closeHelp, showMe } = useNovaHelp(core, { setMarks, ensureRoute: ensureRouteVia });
   const { tour, setTour, tourRef, ensureRoute, endTour, goStep, startTour } = useNovaTour(core, { setMarks, awardXp, setHelp, mode });
@@ -421,7 +420,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   /* ---------- clicking & dragging Nova ---------- */
 
-  // here, not at the top: needs houseAt, leaveHome and closeHelp
   const { dragging, dropMarkRef, dropTarget, menuLine, onScoutClick, onPointerDown, onPointerMove, onPointerUp } = useNovaDrag(core, { housedRef, houseAt, leaveHome, closeHelp });
 
   /* ---------- autonomy: wander, perch, sleep ---------- */
@@ -436,7 +434,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const ticking = visibleNow && shown;
   const bodyReady = use3d && body === "ready";
 
-  // here, not at the top: needs syncRef, lastTierRef and the placement hook
   const { seat, setSeat, wokeByRef } = useNovaAutonomy(core, {
     mode,
     enabled,
@@ -454,7 +451,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   /* ---------- idle life: staged by how long the student has been idle ---------- */
 
-  // here, not at the top: needs setSeat, syncRef, ticking and bodyReady
   const { stagesDoneRef, activity, idleLie, drowsy, glance, setGlance, doodle, setDoodle, penRef, doodleDrawnRef, glanceAtRect } = useNovaIdleLife(core, {
     mode,
     facing,
@@ -470,7 +466,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   useNovaBriefing(core, { ensureRoute, setMarks, glanceAtRect, setGlance });
 
-  // after startQuiz/flashReaction: nudge actions call them
   const { dueNow } = useNovaNudges(core, { mode, flashReaction, startQuiz });
 
   /* ---------- Ask Nova: typed commands (see src/nova/commands.js) ---------- */
@@ -480,7 +475,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   useNovaDirector(core, { dueNow, memoryActions, syncRef });
 
-  // here, not at the top: needs help, tour, quiz, autonomy and idle life; after the commands hook so Ctrl+J still runs before the input listener
+  // after useNovaCommands: its Ctrl+J listener must run before the input listener
   const { burst } = useNovaInput(core, {
     visibleNow,
     mode,

@@ -254,5 +254,5 @@ export function useNovaMemoryVoice(core, { startQuiz, startTour, returnHome }) {
     };
   }, [memory]);
 
-  return { memoryActions, canSpeak };
+  return { memoryActions };
 }

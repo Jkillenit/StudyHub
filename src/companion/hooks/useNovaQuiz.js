@@ -197,5 +197,5 @@ export function useNovaQuiz(core, { courses, awardXp, returnHome, setHelp, setMa
     void returnHome(220);
   }, [send, returnHome]);
 
-  return { quizDeck, builtinCards, glow, quizCourses, lastTierRef, startQuiz, dockPoint, onQuizAnswer, onQuizFinish, closeQuiz };
+  return { quizDeck, glow, quizCourses, lastTierRef, startQuiz, dockPoint, onQuizAnswer, onQuizFinish, closeQuiz };
 }

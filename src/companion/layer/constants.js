@@ -56,10 +56,10 @@ export const HOME_MODES = new Set(["idle", "menu", "sleep", "nudge", "perch", "p
 /** Idle stages the portrait sprite can't do (no arms, no props). */
 export const SPRITE_SKIP = new Set(["fidget", "prop"]);
 export const READ_MS = [35 * 1000, 60 * 1000];
-/** Sync portal: how long it lingers after the result, and when to give up on a sync that went quiet. */
 /** Resting: how often a wander turns into sitting on the nearest panel edge, and for how long. */
 export const REST_CHANCE = 0.7;
 export const REST_MS = [30 * 1000, 60 * 1000];
+/** Sync portal: how long it lingers after the result, and when to give up on a sync that went quiet. */
 export const SYNC_CLOSE_MS = 700;
 export const SYNC_STALE_MS = 60 * 1000;
 export const DROWSY_MS = 16 * 1000;
