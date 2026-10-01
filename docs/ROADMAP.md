@@ -5,6 +5,11 @@ The Blackboard mirror is the engine; Today is the product.
 
 - Vision, architecture, data model, guardrails: [`PROJECT_BRIEF.md`](./PROJECT_BRIEF.md)
 - Rated feature IDs: [`PRODUCT_BACKLOG.md`](./PRODUCT_BACKLOG.md)
+- **Build order** (interleaved product + Nova + tech debt, 2026-10):
+  [`superpowers/specs/2026-10-01-build-path-design.md`](./superpowers/specs/2026-10-01-build-path-design.md).
+  A: command bar → CompanionLayer split → grade/data sweep. B: 2.3 + C.7 → exam practice tests →
+  C.6d + desk → CAL-003. C: packaged-build batch (C.8, TD-12, REL-001/004) → backup → onboarding +
+  C.10. D: alpha, with enhanced mode (C.9 merged into Nova Core 8) and FR-001 alongside.
 
 ---
 
@@ -142,7 +147,7 @@ Specs and guardrails in the brief are unchanged; each ships only if alpha usage 
   leaning on panel sides.
 - ○ C.8 Settings and robustness: 3D / portrait switch, animation intensity, context-loss
   recovery, packaged-build check. Model stays full quality (no texture downscaling).
-- ○ C.9 Claude brain once an API key is set: Haiku help with `point_to`, fuzzy typed grading,
+- ○ C.9 (merged into Nova Core 8 enhanced mode) Claude brain once an API key is set: Haiku help with `point_to`, fuzzy typed grading,
   generated distractors, rate limit + canned fallback.
 - ○ C.10 Assessment-mode auto-hide, more tours (blackboard-sync, calendar), polish.
 
@@ -165,4 +170,4 @@ Nova C.x ───────────────────────�
 - Ink / stylus sketches per chapter
 - Cross-device sync of personal data (only after Commons is proven)
 
-*Last updated: 2026-09 — Today-first pivot; Commons deferred.*
+*Last updated: 2026-10 — Build path to completion; Commons deferred.*
