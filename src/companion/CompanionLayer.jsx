@@ -73,156 +73,64 @@ import { sceneFrom } from "../nova/scenePlayer.js";
 import briefingScene from "../nova/scenes/briefing.json";
 import { HelpBubble } from "./HelpBubble.jsx";
 import { CompanionSettings } from "./CompanionSettings.jsx";
-import firstRun from "./tours/first-run.json";
-import courseTools from "./tours/course-tools.json";
 import { paletteOpen } from "../lib/hotkeys.js";
+import { FocusPill } from "./FocusPill.jsx";
+import {
+  ATTEND_MODES,
+  BACK_AFTER_DROP_MS,
+  BODY_LOAD_TIMEOUT_MS,
+  BUBBLE_W,
+  BUILTIN_ID,
+  BUILTIN_NAME,
+  BURST_MS,
+  DAY_HELLO_DELAY_MS,
+  DIRECTOR_TICK_MS,
+  DROP_LINES,
+  DROWSY_MS,
+  ENGAGED_MODES,
+  ENGAGED_SPEED,
+  EPISODE_GRADE_JUMP,
+  GROW_MS,
+  HOME_AWAY_STOPS,
+  HOME_MODES,
+  HOME_RETURN_DELAY_MS,
+  HOME_STAY_MS,
+  LAND_QUIP_COOLDOWN_MS,
+  LATE_QUIP_COOLDOWN_MS,
+  MENU_LINE_MS,
+  MOVE,
+  NUDGE_COOLDOWN_MS,
+  NUDGE_FIRST_MS,
+  NUDGE_MAX_PER_SESSION,
+  NUDGE_SHOW_MS,
+  ONBOARD_BEAT_MS,
+  PICKUP_LINE_CHANCE,
+  QUIZ_W,
+  RAMPANT_MUTTER_MS,
+  READ_MS,
+  REST_CHANCE,
+  REST_MS,
+  RETURN_AWAY_MS,
+  SIT_CHANCE,
+  SIT_DELAY_MS,
+  SIZE_3D,
+  SPAM_CLICKS,
+  SPAM_LOCK_MS,
+  SPAM_WINDOW_MS,
+  SPRITE_SKIP,
+  SWING_MAX,
+  SWING_PER_PX,
+  SYNC_CLOSE_MS,
+  SYNC_STALE_MS,
+  TALK_MS_PER_CHAR,
+  TOURS,
+  WALK_OFF_MS,
+  XP_POP_MS,
+} from "./layer/constants.js";
+import { builtinCourse, dropTargetAt, homeGeometry, homeSpot, markStage, nextFrame, overHome, pageShown, rand, randInt, rectOf, subscribeVisibility } from "./layer/geometry.js";
+import { useTimeouts } from "./hooks/useTimeouts.js";
 
 const Nova3D = lazy(() => import("./nova3d/Nova3D.jsx"));
-
-const TOURS = { [firstRun.id]: firstRun, [courseTools.id]: courseTools };
-/** Height of the 3D body's box at 100% size. */
-const SIZE_3D = 180;
-const LAND_QUIP_COOLDOWN_MS = 45 * 1000;
-const WALK_OFF_MS = 1300;
-const BODY_LOAD_TIMEOUT_MS = 12 * 1000;
-const LATE_QUIP_COOLDOWN_MS = 20 * 60 * 1000;
-const DAY_HELLO_DELAY_MS = 2500;
-/** Dangling swing: radians of tilt per px/s of cursor speed, and the tilt limit. */
-const SWING_PER_PX = 0.0007;
-const SWING_MAX = 0.75;
-/** Away from the window at least this long and she waves when you come back. */
-const RETURN_AWAY_MS = 10 * 60 * 1000;
-/** Chance she sits down after perching on a card, and the delay before she does. */
-const SIT_CHANCE = 0.6;
-const SIT_DELAY_MS = [900, 2400];
-/** Modes where she turns to face the user. */
-const ATTEND_MODES = new Set(["menu", "help", "nudge", "greet", "quiz"]);
-/** Typewriter pace in SpeechBubble (2 chars / 36ms), so her mouth stops with the text. */
-const TALK_MS_PER_CHAR = 18;
-
-const MOVE = {
-  calm: { speed: 60, idle: [14000, 28000] },
-  normal: { speed: 90, idle: [8000, 20000] },
-  lively: { speed: 125, idle: [5000, 12000] },
-};
-const ENGAGED_SPEED = 420;
-const BUBBLE_W = 290;
-const QUIZ_W = 380;
-const NUDGE_FIRST_MS = 90 * 1000;
-const NUDGE_COOLDOWN_MS = 10 * 60 * 1000;
-const NUDGE_MAX_PER_SESSION = 4;
-const NUDGE_SHOW_MS = 8000;
-const DIRECTOR_TICK_MS = 3000;
-/** Onboarding: how long her reply to an answer stays up before the next question. */
-const ONBOARD_BEAT_MS = 1800;
-/** A grade jump this many points is an episode she'll bring up later. */
-const EPISODE_GRADE_JUMP = 3;
-const RAMPANT_MUTTER_MS = [90 * 1000, 200 * 1000];
-const XP_POP_MS = 1500;
-/** The built-in OM 300 course id; its deck lives in localStorage, not SQLite. */
-const BUILTIN_ID = "builtin";
-const BUILTIN_NAME = "OM 300";
-
-const builtinCourse = (flashcards) => ({ id: BUILTIN_ID, uuid: BUILTIN_ID, name: BUILTIN_NAME, flashcards });
-
-/** Home window on Today: how big she may grow, how long she stays, and how many stops she makes before heading back. */
-const HOME_SCALE = [0.6, 2.6];
-const HOME_STAY_MS = [40 * 1000, 90 * 1000];
-const HOME_AWAY_STOPS = [2, 4];
-const HOME_RETURN_DELAY_MS = 600;
-const GROW_MS = 420;
-/** Modes she can hold while standing big in her home window; anything else walks her out at normal size. */
-const HOME_MODES = new Set(["idle", "menu", "sleep", "nudge", "perch", "play"]);
-/** Idle stages the portrait sprite can't do (no arms, no props). */
-const SPRITE_SKIP = new Set(["fidget", "prop"]);
-const READ_MS = [35 * 1000, 60 * 1000];
-/** Sync portal: how long it lingers after the result, and when to give up on a sync that went quiet. */
-/** Resting: how often a wander turns into sitting on the nearest panel edge, and for how long. */
-const REST_CHANCE = 0.7;
-const REST_MS = [30 * 1000, 60 * 1000];
-const SYNC_CLOSE_MS = 700;
-const SYNC_STALE_MS = 60 * 1000;
-const DROWSY_MS = 16 * 1000;
-/** Clicks: this many inside the window counts as spam; then clicks are ignored for a beat. */
-const SPAM_CLICKS = 4;
-const SPAM_WINDOW_MS = 3000;
-const SPAM_LOCK_MS = 1500;
-const MENU_LINE_MS = 2600;
-/** After a drop she stays put this long (so her line can land), then walks back to her spot. */
-const BACK_AFTER_DROP_MS = 1600;
-const PICKUP_LINE_CHANCE = 0.5;
-const DROP_LINES = { task: "dropTask", exam: "dropExam", gauge: "dropGauge" };
-const BURST_MS = 900;
-/** Modes that can take her away from her spot on purpose. */
-const ENGAGED_MODES = new Set(["tour", "help", "quiz", "nudge", "greet", "brief"]);
-
-const rand = ([a, b]) => a + Math.random() * (b - a);
-const randInt = ([a, b]) => Math.floor(a + Math.random() * (b - a + 1));
-const rectOf = (r) => ({ left: r.left, top: r.top, width: r.width, height: r.height });
-const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
-
-const subscribeVisibility = (cb) => {
-  document.addEventListener("visibilitychange", cb);
-  return () => document.removeEventListener("visibilitychange", cb);
-};
-const pageShown = () => !document.hidden;
-
-/** The Today home window's geometry and the size she takes inside it, or null when it isn't on screen. */
-function homeGeometry(baseSize) {
-  const el = document.querySelector("[data-nova-home]");
-  if (!el) return null;
-  const rect = el.getBoundingClientRect();
-  if (rect.width < 40 || rect.height < 40 || rect.bottom < 0 || rect.top > window.innerHeight) return null;
-  const floorTop = (el.querySelector("[data-nova-floor]") || el).getBoundingClientRect().top;
-  const room = Math.min((floorTop - rect.top - 8) * 0.92, rect.width * 1.1);
-  const size = Math.round(Math.max(baseSize * HOME_SCALE[0], Math.min(baseSize * HOME_SCALE[1], room)));
-  return { el, rect, floorTop, cx: rect.left + rect.width / 2, size };
-}
-
-const homeSpot = (g, size) => ({ x: g.cx - size / 2, y: g.floorTop - size });
-
-/** Home geometry when a box at `p` (size `s`) has its center over the home window. */
-function overHome(p, s, baseSize) {
-  const g = homeGeometry(baseSize);
-  if (!g) return null;
-  const cx = p.x + s / 2;
-  const cy = p.y + s / 2;
-  const r = g.rect;
-  return cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom ? g : null;
-}
-
-/** The Today task, exam or gauge under a screen point, or null. */
-function dropTargetAt(x, y) {
-  for (const el of document.elementsFromPoint(x, y)) {
-    const t = el.closest?.("[data-nova-drop]");
-    if (t) return t;
-  }
-  return null;
-}
-
-/** Focus mode countdown; clicking it ends focus early. */
-function FocusPill({ until, onStop }) {
-  const [, tick] = useState(0);
-  useEffect(() => {
-    const id = window.setInterval(() => tick((n) => n + 1), 1000);
-    return () => window.clearInterval(id);
-  }, []);
-  const left = Math.max(0, Math.round((until - Date.now()) / 1000));
-  const mmss = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
-  return (
-    <button type="button" className="sc-focus-pill mono" onClick={onStop} title="End focus early" aria-label={`Focus mode, ${mmss} left. Click to stop.`}>
-      FOCUS {mmss}
-    </button>
-  );
-}
-
-/** Lets the home window dim its core while she stands in it. */
-function markStage(on) {
-  const el = document.querySelector("[data-nova-home]");
-  if (!el) return;
-  if (on) el.dataset.housed = "true";
-  else delete el.dataset.housed;
-}
 
 /**
  * Nova's overlay. Lives above the app in a portal; only Nova, her bubbles and menus take
@@ -303,6 +211,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const nodeRef = useRef(null);
   const growRef = useRef(null);
   const reduced = useReducedMotion();
+  const later = useTimeouts();
   /** Standing big inside the Today home window. `homeSize` is her size there. */
   const [housed, setHoused] = useState(false);
   const housedRef = useRef(false);
@@ -554,7 +463,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     popIdRef.current += 1;
     const id = popIdRef.current;
     setPops((list) => [...list.slice(-2), { id, text }]);
-    window.setTimeout(() => setPops((list) => list.filter((p) => p.id !== id)), XP_POP_MS);
+    later(() => setPops((list) => list.filter((p) => p.id !== id)), XP_POP_MS);
   }, []);
 
   /**
@@ -635,7 +544,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         force("idle");
         if (!houseAt()) jumpTo(home());
         sfx("appear");
-        window.setTimeout(() => void api.current.sayOpener?.(), DAY_HELLO_DELAY_MS);
+        later(() => void api.current.sayOpener?.(), DAY_HELLO_DELAY_MS);
         return;
       }
       force("idle");
@@ -880,7 +789,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       pointAt(el.getBoundingClientRect());
       refreshAnchor();
       setMarks([{ key: "help", el, style: null }]);
-      window.setTimeout(() => setMarks((list) => list.filter((m) => m.key !== "help")), 2600);
+      later(() => setMarks((list) => list.filter((m) => m.key !== "help")), 2600);
     },
     [ensureRoute, flyTo, setFacing, refreshAnchor, pointAt]
   );
@@ -1104,7 +1013,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           onSave={(name) => {
             void memory.remember("name", { name });
             say(pickLine("nameSaved", { name }).text, { sticky: true });
-            window.setTimeout(done, ONBOARD_BEAT_MS);
+            later(done, ONBOARD_BEAT_MS);
           }}
           onSkip={done}
         />
@@ -1125,7 +1034,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
             onSave={(intents) => {
               void memory.remember("never_bug", { intents });
               say(pickLine(intents.length ? "neverBugSaved" : "neverBugNone", {}).text, { sticky: true });
-              window.setTimeout(finish, ONBOARD_BEAT_MS);
+              later(finish, ONBOARD_BEAT_MS);
             }}
           />
         ),
@@ -1139,7 +1048,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           onSave={(b) => {
             void memory.remember("birthday", b);
             say(pickLine("birthdaySaved", { month: MONTHS[b.month - 1], day: b.day }).text, { sticky: true });
-            window.setTimeout(neverBug, ONBOARD_BEAT_MS);
+            later(neverBug, ONBOARD_BEAT_MS);
           }}
           onSkip={neverBug}
         />
@@ -1694,7 +1603,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
    */
   /** After a drop she lingers a beat, then heads back to her spot (the home window on Today). */
   api.current.returnAfterDrop = () => {
-    window.setTimeout(() => {
+    later(() => {
       if (dragRef.current || !(AUTONOMOUS.has(modeRef.current) || modeRef.current === "sleep")) return;
       awayFromSpotRef.current = true;
       api.current.backToSpot?.();
@@ -1729,7 +1638,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       refreshAnchor();
       say(line("landed"));
     }
-    window.setTimeout(async () => {
+    later(async () => {
       if (modeRef.current !== "idle" || busy() || !canAct()) return;
       const step = pickStroll(sizeRef.current, posRef.current, platRef.current, { sameOnly: true });
       if (!step) return;
@@ -1765,7 +1674,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       due = now + idleGap(stateRef.current?.movement, Math.random, part);
       if ((name === "yawn" || name === "sitYawn") && part === "late" && now - lastLateQuipRef.current > LATE_QUIP_COOLDOWN_MS) {
         lastLateQuipRef.current = now;
-        window.setTimeout(() => {
+        later(() => {
           const mm = modeRef.current;
           if ((mm !== "idle" && mm !== "perch") || bubbleRef.current || busy()) return;
           setMood("neutral");
@@ -1786,7 +1695,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     wokeByRef.current = null;
     if (bodyReady && (mode === "idle" || mode === "wander")) playGesture("startle");
     if (!by || by === "keydown" || by === "wheel" || Math.random() >= WAKE_DENIAL_CHANCE) return;
-    window.setTimeout(async () => {
+    later(async () => {
       if (!AUTONOMOUS.has(modeRef.current) || bubbleRef.current || stateRef.current?.quiet) return;
       const pick = await memory.lineFor("wakeDenial", {});
       if (!pick || bubbleRef.current) return;
@@ -1877,6 +1786,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const bodyReadyRef = useRef(false);
   bodyReadyRef.current = bodyReady;
   const threeD = () => use3dRef.current && bodyReadyRef.current;
+  useEffect(() => () => peekClipRef.current?.(), []);
 
   /** Resolves true after `ms` if the activity is still running, false once input cut it short. */
   const hold = (ms, tk) =>
@@ -2227,7 +2137,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       api.current.backToSpot?.();
     };
     if (now) finish();
-    else window.setTimeout(finish, 1200);
+    else later(finish, 1200);
   };
 
   useEffect(() => {
@@ -2347,7 +2257,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       if (m === "sleep") send("WAKE");
       if (stateRef.current?.quiet) return;
       lastActivityRef.current = Date.now();
-      window.setTimeout(() => {
+      later(() => {
         const mm = modeRef.current;
         if (!AUTONOMOUS.has(mm) || busy()) return;
         playGesture("wave");
@@ -2495,7 +2405,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   /** On Today first, then (after the route settles) do `fn`. */
   const onToday = (fn) => {
     navRef.current.onGoHub?.("today");
-    window.setTimeout(fn, 300);
+    later(fn, 300);
   };
 
   api.current.runCommand = async (cmd) => {
