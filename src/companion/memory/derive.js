@@ -12,6 +12,13 @@ export const WEAK_MISS_RATE = 0.35;
 export const STRONG_MISS_RATE = 0.15;
 export const EXAM_READY_PCT = 80;
 export const CARDS_MILESTONE = 100;
+/** Days a topic stays her "toughest" before it becomes the running joke. */
+export const NEMESIS_AFTER_DAYS = 3;
+/** A run this long is worth remembering. */
+export const EPISODE_COMBO = 15;
+/** A session ending in these hours is a late-night story. */
+export const LATE_EPISODE_HOURS = [2, 5];
+const DAY_MS = 86400000;
 /** Sessions before 5am count as the night before, so 1am sits after 11pm, not before 9am. */
 const NIGHT_ROLLOVER_H = 5;
 const MAX_SESSION_MIN = 180;
@@ -160,8 +167,45 @@ export function deriveMemory({ facts, today, memory = {}, now = new Date() }) {
   put("session_length", minutes ? { minutes } : null);
 
   const { weak, strong } = topics(facts?.topics);
-  put("weak_topic", weak);
+  const prevWeak = memory.weak_topic?.value;
+  const weakSince = weak && prevWeak?.moduleUuid === weak.moduleUuid && prevWeak.since ? prevWeak.since : now.toISOString();
+  put("weak_topic", weak && { ...weak, since: weakSince });
   put("strong_topic", strong);
+
+  /* Running joke: a topic that stays her pick for "toughest" becomes the nemesis, until it isn't. */
+  const joke = memory["joke:nemesis"]?.value;
+  const active = joke?.status === "active";
+  const jokeRow = active && (facts?.topics || []).find((r) => r.module_uuid === joke.moduleUuid && r.reviews > 0);
+  if (weak && now - Date.parse(weakSince) >= NEMESIS_AFTER_DAYS * DAY_MS && !(active && joke.moduleUuid === weak.moduleUuid)) {
+    if (!active) {
+      const nemesis = { moduleUuid: weak.moduleUuid, courseUuid: weak.courseUuid, topic: weak.topic, course: weak.course, since: weakSince, status: "active", refs: 0, lastRef: null };
+      put("joke:nemesis", nemesis, "observed");
+    }
+  } else if (jokeRow && jokeRow.misses / jokeRow.reviews < WEAK_MISS_RATE && !muted("joke:nemesis")) {
+    const retired = { ...joke, status: "retired", retiredAt: now.toISOString(), said: false };
+    put("joke:nemesis", retired, "observed");
+    news.push({ type: "joke_retired", ...retired });
+  }
+
+  /* Episodes: moments worth bringing up later. Records only move forward. */
+  const episode = (kind, value, beats) => {
+    const prev = memory[`episode:${kind}`]?.value;
+    if (value && (!prev || beats(prev))) put(`episode:${kind}`, { ...value, refs: 0, lastRef: null }, "observed");
+  };
+  const best = sessions.reduce((b, s) => ((s.best_combo || 0) > (b?.best_combo || 0) ? s : b), null);
+  if (best?.best_combo >= EPISODE_COMBO) {
+    const combo = { combo: best.best_combo, course: best.course_uuid ? courseName(best) : "OM 300", at: best.ended_at || best.started_at };
+    episode("best_combo", combo, (p) => combo.combo > p.combo);
+  }
+  const late = sessions.find((s) => {
+    const h = new Date(s.ended_at || s.started_at).getHours();
+    return h >= LATE_EPISODE_HOURS[0] && h < LATE_EPISODE_HOURS[1];
+  });
+  if (late) {
+    const at = late.ended_at || late.started_at;
+    const time = new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    episode("late_night", { course: late.course_uuid ? courseName(late) : "OM 300", at, time }, (p) => Date.parse(at) > Date.parse(p.at));
+  }
 
   put("streak", facts?.days?.length ? streaks(facts.days, now) : null);
   put("last_session", lastSession(sessions));
@@ -206,6 +250,33 @@ export function deriveMemory({ facts, today, memory = {}, now = new Date() }) {
   }
 
   return { entries, news };
+}
+
+/** Episodes she can bring up, most memorable first, and the rapport each needs. */
+export const CALLBACKS = [
+  { key: "joke:nemesis", kind: "nemesis", tier: "friend", every: 3 },
+  { key: "episode:best_combo", kind: "best_combo", tier: "partner", every: 7 },
+  { key: "episode:grade_up", kind: "grade_up", tier: "partner", every: 7 },
+  { key: "episode:late_night", kind: "late_night", tier: "partner", every: 10 },
+  { key: "episode:long_absence", kind: "long_absence", tier: "friend", every: 14 },
+];
+/** An episode has to be at least this old before it's a "remember when". */
+const CALLBACK_MIN_AGE_MS = DAY_MS;
+
+/**
+ * { key, kind, vars } for the memory she'd bring up now, or null. Each can come back every
+ * `every` days; `allowed(tier)` says whether the relationship is there yet.
+ */
+export function callbackFor(memory, { allowed, now = new Date() }) {
+  for (const c of CALLBACKS) {
+    const v = known(memory, c.key);
+    if (!v || !allowed(c.tier) || (c.kind === "nemesis" && v.status !== "active")) continue;
+    if (now - Date.parse(v.since || v.at) < CALLBACK_MIN_AGE_MS) continue;
+    if (v.lastRef && now - Date.parse(v.lastRef) < c.every * DAY_MS) continue;
+    const sinceLabel = v.since ? new Date(v.since).toLocaleDateString([], { month: "short", day: "numeric" }) : null;
+    return { key: c.key, kind: c.kind, vars: { ...v, sinceLabel } };
+  }
+  return null;
 }
 
 /** Memory rows as a key map, dropping empty values. */

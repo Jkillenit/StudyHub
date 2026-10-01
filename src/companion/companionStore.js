@@ -51,6 +51,8 @@ export function defaultState() {
     quiet: false,
     /** She asks what to call the student once; the answer lives in companion_memory. */
     askedName: false,
+    /** Birthday and "never bug me about", asked once after the name. */
+    askedMore: false,
     nudges: true,
     scale: 1,
     accessory: "auto",

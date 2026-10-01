@@ -97,6 +97,38 @@ export const MEMORY_LINES = {
     "Streak's at {days}. Keep feeding it.",
   ],
   forgot: ["Done. Clean slate. I don't remember a thing.", "Wiped. We're strangers again. Hi."],
+  askBirthday: ["When's your birthday? I want to be weird about it.", "Birthday? For my records. And for cake-related reasons."],
+  birthdaySaved: ["{month} {day}. Noted. Expect a fuss.", "{month} {day}. Locked in. I'll remember, unlike some people."],
+  askNeverBug: ["Anything I should never bug you about? Pick any, or none.", "Last one: what should I leave alone?"],
+  neverBugSaved: ["Got it. I'll leave that alone.", "Noted. Hands off."],
+  neverBugNone: ["Everything's fair game, then. You'll regret that.", "No limits. Bold."],
+  birthday: ["Happy birthday, {name}! No studying required today. Okay, a little.", "It's your birthday, {name}. I'd bake you something, but, you know. Hologram.", "Happy birthday! Another year of me nagging you. Lucky."],
+  "callback.nemesis": [
+    "{topic} again? Your nemesis. Since {sinceLabel}. One day you'll win.",
+    "Ah, {topic}. Our old enemy. Want to finally take it down?",
+    "{topic} is still beating you. It's personal now.",
+  ],
+  "callback.best_combo": [
+    "Remember when you went {combo} in a row on {course}? I do. Do it again.",
+    "Your record: {combo} straight on {course}. It's just sitting there, waiting to be beaten.",
+  ],
+  "callback.grade_up": [
+    "Remember when {course} jumped from {fromPct}% to {toPct}%? That was a good day.",
+    "Still thinking about that {course} jump to {toPct}%. More of that.",
+  ],
+  "callback.late_night": [
+    "Remember studying {course} at {time}? Let's not do that again.",
+    "Last time you studied at {time}, you looked rough. Just saying.",
+  ],
+  "callback.long_absence": [
+    "You vanished for {days} days once. I counted. Don't do that again.",
+    "Remember the {days}-day disappearance? I do. Every day of it.",
+  ],
+  jokeRetired: [
+    "{topic} used to own you. Not anymore. The nemesis is dead.",
+    "You beat {topic}. I'm retiring the jokes. Mostly.",
+    "{topic}: defeated. I'll need new material.",
+  ],
   wakeDenial: [
     "I wasn't asleep.",
     "I wasn't asleep. I was resting my eyes.",

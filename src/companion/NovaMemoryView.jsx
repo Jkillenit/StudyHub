@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { courseStore } from "../db/courseStore.js";
 import { factList } from "./memory/facts.js";
+import { loadCompanionState } from "./companionStore.js";
+import { rapportTier } from "../nova/mood.js";
 
 /**
  * "What she knows": every fact Nova remembers, in plain words. Deleting a fact mutes it, so she
@@ -10,7 +12,12 @@ export function NovaMemoryView({ onBack }) {
   const [rows, setRows] = useState(null);
   const [confirming, setConfirming] = useState(false);
 
-  const load = useCallback(async () => setRows(await courseStore.companionMemory()), []);
+  const [rapport, setRapport] = useState(null);
+  const load = useCallback(async () => {
+    const [memoryRows, state] = await Promise.all([courseStore.companionMemory(), loadCompanionState()]);
+    setRows(memoryRows);
+    setRapport(state.feelings?.rapport || 0);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -39,6 +46,11 @@ export function NovaMemoryView({ onBack }) {
       <p className="sh-settings-hint sh-memory-intro">
         Everything Nova remembers about you. It stays on this computer and is never shared. Remove anything and she stops using it.
       </p>
+      {rapport === null ? null : (
+        <p className="sh-memory-rapport">
+          <span className="sh-settings-section-label">YOU TWO</span> {rapportTier(rapport).label} · {rapport} {rapport === 1 ? "visit" : "visits"}
+        </p>
+      )}
       {rows === null ? null : known.length ? (
         <ul className="sh-memory-list">
           {known.map((f) => (

@@ -54,6 +54,18 @@ export const INTENTS = [
     ],
   },
   {
+    id: "birthday",
+    tier: "critical",
+    cooldownMs: 20 * HOUR,
+    score: (c) => (c.birthday ? 1 : 0),
+  },
+  {
+    id: "callback",
+    tier: "proactive",
+    cooldownMs: 20 * HOUR,
+    score: (c) => (c.callback ? 0.35 : 0),
+  },
+  {
     id: "briefingOffer",
     tier: "proactive",
     cooldownMs: 12 * HOUR,
@@ -81,7 +93,7 @@ export const INTENTS = [
 
 /**
  * The intent to run now, or null.
- * ctx: { blocked, typing, idle, feelings: { annoyance }, events, ... }  (plus what intents read)
+ * ctx: { blocked, typing, idle, feelings: { annoyance }, events, skip?: Set<id>, ... }  (plus what intents read)
  * timing: { next: { [id]: earliest ms }, lastProactive }
  */
 export function choose(intents, ctx, { next = {}, lastProactive = 0 } = {}, now = Date.now()) {
@@ -90,7 +102,7 @@ export function choose(intents, ctx, { next = {}, lastProactive = 0 } = {}, now 
   let best = null;
   let bestKey = -Infinity;
   for (const it of intents) {
-    if (now < (next[it.id] || 0)) continue;
+    if (now < (next[it.id] || 0) || ctx.skip?.has(it.id)) continue;
     if (it.tier === "reactive" && ctx.typing) continue;
     if (it.tier === "proactive" && (!ctx.idle || now - lastProactive < PROACTIVE_GAP_MS)) continue;
     let score = it.score(ctx) || 0;

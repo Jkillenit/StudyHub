@@ -18,9 +18,17 @@ const MILESTONES = {
   first_comeback: (v) => `Milestone: first course back over target (${v.course}).`,
 };
 
+const EPISODE_LABELS = { best_combo: "Your best run", late_night: "Late-night session", long_absence: "Longest time away", grade_up: "Big grade jump" };
+const NEVER_BUG_LABELS = { dueCards: "due flashcards", overdue: "overdue work", briefingOffer: "morning briefing offers", callback: "bringing up the past" };
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
 /** Group for a key, used to order the list and name muted facts. */
 export function factGroup(key) {
   if (key === "name") return { id: "you", label: "Your name" };
+  if (key === "birthday") return { id: "you", label: "Your birthday" };
+  if (key === "never_bug") return { id: "you", label: "Things to leave alone" };
+  if (key.startsWith("episode:")) return { id: "episodes", label: EPISODE_LABELS[key.slice(8)] || "A moment" };
+  if (key.startsWith("joke:")) return { id: "jokes", label: "Running joke" };
   if (key === "study_time" || key === "session_length") return { id: "habits", label: key === "study_time" ? "When you study" : "Session length" };
   if (key === "weak_topic" || key === "strong_topic") return { id: "topics", label: key === "weak_topic" ? "Toughest topic" : "Strongest topic" };
   if (key === "streak" || key === "last_session") return { id: "habits", label: key === "streak" ? "Streaks" : "Last session" };
@@ -59,6 +67,22 @@ export function describeFact(key, value) {
       return `You've studied ${value.course} the most lately (${value.sessions} sessions).`;
     case "last_seen":
       return `You last opened Study Hub ${shortDate(value)}.`;
+    case "birthday":
+      return `Your birthday is ${MONTH_NAMES[value.month - 1]} ${value.day}.`;
+    case "never_bug":
+      return value.intents?.length ? `She leaves these alone: ${value.intents.map((i) => NEVER_BUG_LABELS[i] || i).join(", ")}.` : null;
+    case "episode:best_combo":
+      return `Your best run: ${value.combo} in a row on ${value.course}, ${shortDate(value.at)}.`;
+    case "episode:late_night":
+      return `You studied ${value.course} until ${value.time} on ${shortDate(value.at)}.`;
+    case "episode:long_absence":
+      return `Your longest time away: ${value.days} days, back on ${shortDate(value.at)}.`;
+    case "episode:grade_up":
+      return `${value.course} jumped from ${value.fromPct}% to ${value.toPct}% on ${shortDate(value.at)}.`;
+    case "joke:nemesis":
+      return value.status === "active"
+        ? `Running joke: ${value.topic}${value.course ? ` (${value.course})` : ""} is your nemesis, since ${shortDate(value.since)}.`
+        : `Running joke, retired: you beat ${value.topic} on ${shortDate(value.retiredAt)}.`;
     default:
       break;
   }
@@ -70,7 +94,7 @@ export function describeFact(key, value) {
   return null;
 }
 
-const GROUP_ORDER = ["you", "habits", "topics", "grades", "milestones", "blocked", "other"];
+const GROUP_ORDER = ["you", "habits", "topics", "grades", "milestones", "episodes", "jokes", "blocked", "other"];
 
 /** Rows for the screen: { known: [{ key, text, group }], muted: [{ key, label }] }. */
 export function factList(rows) {

@@ -42,6 +42,21 @@ export function feel(f, event, now = Date.now()) {
   return out;
 }
 
+/** Relationship tiers by rapport (visits together), lowest first. */
+export const RAPPORT_TIERS = [
+  { id: "stranger", label: "Strangers", from: 0 },
+  { id: "partner", label: "Partners", from: 3 },
+  { id: "friend", label: "Friends", from: 15 },
+  { id: "rideOrDie", label: "Ride or die", from: 40 },
+];
+
+export function rapportTier(rapport = 0) {
+  return RAPPORT_TIERS.filter((t) => rapport >= t.from).pop();
+}
+
+/** Is `tier` at least `min`? */
+export const tierAtLeast = (tier, min) => RAPPORT_TIERS.findIndex((t) => t.id === tier) >= RAPPORT_TIERS.findIndex((t) => t.id === min);
+
 /** The flavor her lines take on, or null when she's even. Checked in this order. */
 export function tone(f, now = Date.now()) {
   const c = current(f, now);

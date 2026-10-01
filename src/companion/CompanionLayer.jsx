@@ -50,6 +50,7 @@ import { useCompanionMemory } from "./memory/useCompanionMemory.js";
 import { maybeRephrase } from "./memory/rephrase.js";
 import { MEMORY_LINES, pickLine } from "./memory/lines.js";
 import { NameForm } from "./NameForm.jsx";
+import { BirthdayForm, MONTHS, NeverBugForm } from "./OnboardForms.jsx";
 import { openCourseView } from "../features/today/courseView.js";
 import { blockedWhen } from "../features/today/blocked.js";
 import { NovaSprite } from "./NovaSprite.jsx";
@@ -64,7 +65,8 @@ import { stageDemo } from "../nova/scenes/stageDemo.js";
 import { onScreen } from "../nova/anchors.js";
 import { setVoiceLevel, setVoiceTone } from "../nova/voice.js";
 import { INTENTS, choose, events as directorEvents, onWake, ran, snooze, take, timing, today as directorToday } from "../nova/director.js";
-import { current, feel, tone as moodTone } from "../nova/mood.js";
+import { current, feel, rapportTier, tierAtLeast, tone as moodTone } from "../nova/mood.js";
+import { callbackFor } from "./memory/derive.js";
 import { sceneFrom } from "../nova/scenePlayer.js";
 import briefingScene from "../nova/scenes/briefing.json";
 import { HelpBubble } from "./HelpBubble.jsx";
@@ -108,6 +110,10 @@ const NUDGE_COOLDOWN_MS = 10 * 60 * 1000;
 const NUDGE_MAX_PER_SESSION = 4;
 const NUDGE_SHOW_MS = 8000;
 const DIRECTOR_TICK_MS = 3000;
+/** Onboarding: how long her reply to an answer stays up before the next question. */
+const ONBOARD_BEAT_MS = 1800;
+/** A grade jump this many points is an episode she'll bring up later. */
+const EPISODE_GRADE_JUMP = 3;
 const RAMPANT_MUTTER_MS = [90 * 1000, 200 * 1000];
 const XP_POP_MS = 1500;
 /** The built-in OM 300 course id; its deck lives in localStorage, not SQLite. */
@@ -1062,7 +1068,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     update({ askedName: true });
     const ask = intro ? { text: MEMORY_LINES.introName[0] } : pickLine("askName", {});
     const done = () => {
-      if (after) after();
+      if (!stateRef.current?.askedMore) api.current.askMore(after);
+      else if (after) after();
       else setBubble(null);
     };
     setMood("happy");
@@ -1073,15 +1080,45 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         <NameForm
           onSave={(name) => {
             void memory.remember("name", { name });
-            const saved = pickLine("nameSaved", { name });
-            if (after) {
-              say(saved.text, { sticky: true });
-              window.setTimeout(done, 1800);
-            } else {
-              say(saved.text);
-            }
+            say(pickLine("nameSaved", { name }).text, { sticky: true });
+            window.setTimeout(done, ONBOARD_BEAT_MS);
           }}
           onSkip={done}
+        />
+      ),
+    });
+  };
+
+  /** The rest of getting to know them: birthday, then what to leave alone. Asked once. */
+  api.current.askMore = (after = null) => {
+    update({ askedMore: true });
+    const finish = () => (after ? after() : setBubble(null));
+    const neverBug = () =>
+      say(pickLine("askNeverBug", {}).text, {
+        sticky: true,
+        form: (
+          <NeverBugForm
+            initial={memory.fact("never_bug")?.intents || []}
+            onSave={(intents) => {
+              void memory.remember("never_bug", { intents });
+              say(pickLine(intents.length ? "neverBugSaved" : "neverBugNone", {}).text, { sticky: true });
+              window.setTimeout(finish, ONBOARD_BEAT_MS);
+            }}
+          />
+        ),
+      });
+    setMood("happy");
+    refreshAnchor();
+    say(pickLine("askBirthday", {}).text, {
+      sticky: true,
+      form: (
+        <BirthdayForm
+          onSave={(b) => {
+            void memory.remember("birthday", b);
+            say(pickLine("birthdaySaved", { month: MONTHS[b.month - 1], day: b.day }).text, { sticky: true });
+            window.setTimeout(neverBug, ONBOARD_BEAT_MS);
+          }}
+          onSkip={neverBug}
         />
       ),
     });
@@ -1204,6 +1241,10 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       if (await waitToSpeak(6000)) api.current.askName();
       return;
     }
+    if (!stateRef.current?.askedMore) {
+      if (await waitToSpeak(6000)) api.current.askMore();
+      return;
+    }
     const pick = await memory.opener({ timeLabel: clockLabel() }).catch(() => null);
     if (!pick) {
       const part = dayPart();
@@ -1227,13 +1268,17 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   /* Something changed mid-visit (a comeback, a milestone): say it once she's free, or save it for next time. */
   api.current.onMemoryNews = async (news) => {
     if (!openerDoneRef.current || stateRef.current?.quiet) return;
-    const item = news.find((n) => n.type === "milestone") || news.find((n) => n.type === "comeback");
+    const item = news.find((n) => n.type === "milestone") || news.find((n) => n.type === "joke_retired") || news.find((n) => n.type === "comeback");
     if (!item) return;
-    const trigger = item.type === "milestone" ? `milestone.${item.id}` : "comeback";
-    const memoryKey = item.type === "milestone" ? `milestone:${item.id}` : `comeback:${item.courseUuid}`;
+    const [trigger, memoryKey] = {
+      milestone: [`milestone.${item.id}`, `milestone:${item.id}`],
+      joke_retired: ["jokeRetired", "joke:nemesis"],
+      comeback: ["comeback", `comeback:${item.courseUuid}`],
+    }[item.type];
+    const celebrate = item.type !== "comeback";
     const picked = await memory.lineFor(trigger, item);
     if (!picked) return;
-    const ok = await api.current.speakMemory({ line: picked, vars: item }, { celebrate: item.type === "milestone", waitMs: 120000 });
+    const ok = await api.current.speakMemory({ line: picked, vars: item }, { celebrate, waitMs: 120000 });
     if (ok) memory.patchFact(memoryKey, item.type === "milestone" ? { celebrated: true } : { said: true });
   };
 
@@ -2445,11 +2490,18 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     const lastStudy = lastStudyRef.current;
     const idle = mayAct({ lastInput, lastStudy, now });
     const hover = { anchor: hoverRef.current.anchor, ms: now - hoverRef.current.since };
+    const feelings = current(cur.feelings, now);
+    const tier = rapportTier(feelings.rapport).id;
+    const bday = memory.fact("birthday");
+    const today = new Date(now);
     const ctx = {
+      skip: new Set(memory.fact("never_bug")?.intents || []),
+      birthday: !!bday && bday.month === today.getMonth() + 1 && bday.day === today.getDate(),
+      callback: idle ? callbackFor(memory.snapshot(), { allowed: (min) => tierAtLeast(tier, min), now: today }) : null,
       blocked: cur.quiet || document.hidden || !!syncRef.current || !AUTONOMOUS.has(modeRef.current),
       typing: !maySpeak({ lastTyping: lastTypingRef.current, lastStudy, now }),
       idle,
-      feelings: current(cur.feelings, now),
+      feelings,
       events: directorEvents,
       onToday,
       today: directorToday,
@@ -2463,15 +2515,32 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     ran(it, now);
     if (it.id === "dueCards") void api.current.nudgeDue(ctx.due);
     else if (it.id === "briefingOffer") api.current.offerBriefing();
+    else if (it.id === "birthday") void api.current.sayMemoryLine("birthday", { name: memory.fact("name")?.name }, { celebrate: true });
+    else if (it.id === "callback") void api.current.sayCallback(ctx.callback);
     else if (it.id === "gradeMoved") {
       const grade = directorEvents.find((e) => e.type === "grade");
       if (!api.current.playScene(sceneFrom(it, { ...ctx, grade }))) return;
       take("grade");
       feelIt(grade.up ? "gradeUp" : "gradeDown");
+      if (grade.up && grade.to - grade.from >= EPISODE_GRADE_JUMP) {
+        memory.record("episode:grade_up", { course: grade.course, fromPct: grade.from.toFixed(1), toPct: grade.pct, at: new Date(now).toISOString(), refs: 0, lastRef: null });
+      }
     } else {
       if (it.id === "explainGauge") hoverRef.current = { anchor: null, since: now };
       api.current.playScene(sceneFrom(it, ctx));
     }
+  };
+
+  api.current.sayMemoryLine = async (trigger, vars, opts = {}) => {
+    const picked = await memory.lineFor(trigger, vars);
+    return picked ? api.current.speakMemory({ line: picked, vars }, opts) : false;
+  };
+
+  /** "Remember when...": one episode or running joke, then it rests for a while. */
+  api.current.sayCallback = async (cb) => {
+    const pick = { line: await memory.lineFor(`callback.${cb.kind}`, cb.vars), vars: cb.vars, action: cb.kind === "nemesis" ? "weakDrill" : null };
+    if (!(await api.current.speakMemory(pick, { actions: memoryActions(pick) }))) return;
+    memory.patchFact(cb.key, { refs: (cb.vars.refs || 0) + 1, lastRef: new Date().toISOString() });
   };
 
   useEffect(() => {

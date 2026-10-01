@@ -10,6 +10,8 @@ const REFRESH_EVENTS = ["studyhub-session-logged", "studyhub-bb-synced", "studyh
 const REFRESH_DEBOUNCE_MS = 1500;
 const SEEN_EVERY_MS = 10 * 60 * 1000;
 const DAY_MS = 86400000;
+/** Away this long is an episode she'll bring up later. */
+const LONG_ABSENCE_DAYS = 7;
 
 /** { due, next, when } for the week ahead, from the same snapshot Today uses. */
 function catchUpFrom(today, now) {
@@ -65,10 +67,16 @@ export function useCompanionMemory({ enabled, onNews }) {
     let alive = true;
     readyRef.current = (async () => {
       const rows = await courseStore.companionMemory();
-      const lastSeen = known(memoryMap(rows), "last_seen");
+      const mem = memoryMap(rows);
+      const lastSeen = known(mem, "last_seen");
       const away = lastSeen ? (Date.now() - Date.parse(lastSeen)) / DAY_MS : 0;
       absentRef.current = Number.isFinite(away) ? Math.floor(away) : 0;
-      await courseStore.companionRemember([{ key: "last_seen", value: new Date().toISOString(), source: "observed" }]);
+      const writes = [{ key: "last_seen", value: new Date().toISOString(), source: "observed" }];
+      const longest = mem["episode:long_absence"];
+      if (absentRef.current >= LONG_ABSENCE_DAYS && !longest?.muted && absentRef.current > (longest?.value?.days || 0)) {
+        writes.push({ key: "episode:long_absence", value: { days: absentRef.current, at: new Date().toISOString(), refs: 0, lastRef: null }, source: "observed" });
+      }
+      await courseStore.companionRemember(writes);
       if (alive) await refresh();
     })().catch(() => {});
     const seen = window.setInterval(() => {
@@ -147,6 +155,13 @@ export function useCompanionMemory({ enabled, onNews }) {
     memoryRef.current = { ...memoryRef.current, [key]: { value, muted: false, source: "told" } };
   }, []);
 
+  /** Store something she noticed, unless the student told her to stop tracking it. */
+  const record = useCallback((key, value) => {
+    if (memoryRef.current[key]?.muted) return;
+    memoryRef.current = { ...memoryRef.current, [key]: { value, muted: false, source: "observed" } };
+    void courseStore.companionRemember([{ key, value, source: "observed" }], { notify: true });
+  }, []);
+
   const fact = useCallback((key) => known(memoryRef.current, key), []);
 
   /** What moved now that these days are blocked: { when, title } or null. */
@@ -161,7 +176,7 @@ export function useCompanionMemory({ enabled, onNews }) {
   /** The whole memory map as of the last load (muted rows included, flagged). */
   const snapshot = useCallback(() => memoryRef.current, []);
   return useMemo(
-    () => ({ opener, lineFor, markSaid, patchFact, remember, fact, replanFor, ready, snapshot }),
-    [opener, lineFor, markSaid, patchFact, remember, fact, replanFor, ready, snapshot]
+    () => ({ opener, lineFor, markSaid, patchFact, remember, record, fact, replanFor, ready, snapshot }),
+    [opener, lineFor, markSaid, patchFact, remember, record, fact, replanFor, ready, snapshot]
   );
 }

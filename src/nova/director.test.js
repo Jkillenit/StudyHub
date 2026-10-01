@@ -50,6 +50,12 @@ describe("director", () => {
     expect(pickId({ today, part: "morning", onToday: false })).toBe(null);
   });
 
+  it("leaves alone what you told her to, and never misses your birthday", () => {
+    expect(pickId({ due: { count: 12 }, skip: new Set(["dueCards"]) })).toBe(null);
+    expect(pickId({ birthday: true, idle: false })).toBe("birthday");
+    expect(pickId({ callback: { kind: "nemesis" } })).toBe("callback");
+  });
+
   it("notices grades that moved, not new or unchanged courses", () => {
     const moves = gradeMoves({ a: 80, b: 90 }, [
       { uuid: "a", course: "MIS 430", current: 84, pct: "84.0" },
