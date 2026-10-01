@@ -36,3 +36,6 @@ Thumbs.db
 
 # Ponytail (Cursor hooks run from here; keep the folder, don't commit it)
 ponytail/
+
+# Superpowers scratch (task briefs, reports, review packages)
+.superpowers/
