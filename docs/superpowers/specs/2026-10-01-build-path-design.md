@@ -32,7 +32,10 @@ efficient order. No external deadline; order is chosen for least rework, not cal
 |------|------|-------|
 | A1 | Nova Core 6 command bar + TD-04 + TD-06 | Parser and wiring exist uncommitted. Finish unknown-input reply ("did you mean"), commit. TD-04 palette index and TD-06 shared hotkey guard touch the same hotkey/palette code. |
 | A2 | TD-11 split `CompanionLayer` + TD-10 | Hooks per concern: idle, drag, tours, quiz, nudges. Ref-based drag position, clear all timeouts, dispose WebGL on toggle. Behavior must not change. |
-| A3 | Grade/data sweep: TD-01, TD-02, TD-03, TD-07, TD-08 | `features/grades/gradeMath.js` already exists with tests: verify how much of TD-01 is done first. One date module, `courseStore` for all DB calls. |
+| A3 | Grade/data sweep: TD-01, TD-02, TD-03, TD-07, TD-08 | **Queued (planned, not started)** behind the UI overhaul. Plan: `docs/superpowers/plans/2026-10-01-a3-grade-data-sweep.md`; code map: `.superpowers/sdd/a3-map.md`. Decisions recorded in the plan's Global Constraints. |
+
+**Queue (2026-10-01):** UI overhaul (own spec in `docs/superpowers/specs/`) → A3 → Stage B.
+A3's Task 7 (tone classes, print rules) must be re-checked against the overhaul's CSS before it runs.
 
 ### Stage B — Close Phase 2
 
