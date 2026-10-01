@@ -2,42 +2,45 @@
 
 :root {
   /* surfaces */
-  --sh-bg: #060A12;
-  --sh-panel: rgba(12, 22, 36, 0.72);
-  --sh-panel-strong: rgba(12, 22, 36, 0.80);
-  --sh-panel-solid: #0C1624;
-  --sh-border: rgba(140, 210, 255, 0.16);
-  --sh-border-strong: rgba(140, 210, 255, 0.28);
-  --sh-grid-line: rgba(79, 216, 255, 0.035);
+  --sh-bg: #04050A;
+  --sh-side: #030407;
+  --sh-panel: rgba(14, 16, 24, 0.72);
+  --sh-panel-strong: rgba(14, 16, 24, 0.86);
+  --sh-panel-solid: #0E1018;
+  --sh-border: rgba(255, 255, 255, 0.08);
+  --sh-border-strong: rgba(255, 255, 255, 0.15);
   --sh-track: rgba(255, 255, 255, 0.08);
-  --sh-scrim: rgba(6, 10, 18, 0.72);
+  --sh-scrim: rgba(4, 5, 10, 0.72);
 
   /* text */
-  --sh-text: #EAF6FF;
+  --sh-text: #F5F7FA;
   --sh-text-strong: #FFFFFF;
-  --sh-text-2: #9FB4C8;
-  --sh-text-3: #7F98AE;
+  --sh-text-2: #A9B0BC;
+  --sh-text-3: #757D8A;
 
-  /* accent (matches the companion) */
-  --sh-accent: #4FD8FF;
-  --sh-accent-hover: #8BE6FF;
-  --sh-accent-press: #36C2EA;
-  --sh-accent-ink: #04121C;
-  --sh-accent-soft: rgba(79, 216, 255, 0.08);
-  --sh-accent-line: rgba(79, 216, 255, 0.38);
-  --sh-accent-glow: rgba(79, 216, 255, 0.35);
-  --sh-link: #9FE8FF;
+  /* accent: aqua primary, magenta secondary (corners, ambient, aura only) */
+  --sh-accent: #4CF0E8;
+  --sh-accent-hover: #8AF7F2;
+  --sh-accent-press: #22C9C1;
+  --sh-accent-ink: #021412;
+  --sh-accent-soft: color-mix(in oklab, var(--sh-accent) 8%, transparent);
+  --sh-accent-line: color-mix(in oklab, var(--sh-accent) 38%, transparent);
+  --sh-accent-glow: color-mix(in oklab, var(--sh-accent) 35%, transparent);
+  --sh-link: #9CF7F2;
+  --sh-accent-2: #FF4FD8;
+  --sh-accent-2-soft: color-mix(in oklab, var(--sh-accent-2) 10%, transparent);
+  --sh-accent-2-line: color-mix(in oklab, var(--sh-accent-2) 40%, transparent);
 
   /* meaning colors: only when earned */
-  --sh-warn: #FFB547;
-  --sh-warn-text: #FFC56E;
-  --sh-warn-soft: rgba(255, 181, 71, 0.12);
-  --sh-warn-line: rgba(255, 181, 71, 0.35);
-  --sh-danger: #FF6B78;
-  --sh-danger-text: #FF8591;
-  --sh-danger-soft: rgba(255, 107, 120, 0.10);
-  --sh-danger-wash: rgba(255, 92, 108, 0.07);
-  --sh-danger-line: rgba(255, 107, 120, 0.32);
+  --sh-warn: #FFC857;
+  --sh-warn-text: #FFD27A;
+  --sh-warn-soft: color-mix(in oklab, var(--sh-warn) 12%, transparent);
+  --sh-warn-line: color-mix(in oklab, var(--sh-warn) 35%, transparent);
+  --sh-danger: #FF4D4F;
+  --sh-danger-text: #FF7375;
+  --sh-danger-soft: color-mix(in oklab, var(--sh-danger) 10%, transparent);
+  --sh-danger-wash: color-mix(in oklab, var(--sh-danger) 7%, transparent);
+  --sh-danger-line: color-mix(in oklab, var(--sh-danger) 32%, transparent);
   --sh-danger-chip-text: #F3D6DA;
   --sh-danger-chip-meta: #D8A3AA;
   --sh-danger-link: #FFB3BA;
@@ -46,16 +49,19 @@
   --sh-crimson-glow: #FF3355;
 
   /* type */
-  --sh-font-body: "Manrope", system-ui, sans-serif;
-  --sh-font-hud: "Chakra Petch", sans-serif;
-  --sh-font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --sh-font-body: "Geist Sans", system-ui, sans-serif;
+  --sh-font-display: "Michroma", "Geist Sans", sans-serif;
+  --sh-font-mono: "Geist Mono", ui-monospace, monospace;
+  /* deprecated: HUD labels are mono now */
+  --sh-font-hud: var(--sh-font-mono);
 
-  /* shape */
-  --sh-radius-xl: 20px;
-  --sh-radius-lg: 16px;
-  --sh-radius-md: 12px;
-  --sh-radius-sm: 9px;
-  --sh-radius-xs: 6px;
+  /* shape: hard edges; chamfer size for .sh-cut */
+  --sh-radius-xl: 0;
+  --sh-radius-lg: 0;
+  --sh-radius-md: 0;
+  --sh-radius-sm: 0;
+  --sh-radius-xs: 0;
+  --sh-cut: 12px;
 
   /* depth */
   --sh-shadow-panel: 0 24px 60px rgba(0, 0, 0, 0.45);
@@ -320,7 +326,7 @@ h4,
 .sh-status-dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: 0;
   flex-shrink: 0;
   background: var(--sh-text-3);
 }
@@ -1699,7 +1705,7 @@ h4,
 .sh-confidence-dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: 0;
   flex-shrink: 0;
   opacity: 0.8;
 }
@@ -3840,7 +3846,7 @@ h4,
 .sh-category-dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: 0;
   flex-shrink: 0;
 }
 
@@ -4665,7 +4671,7 @@ button.sh-today-row-main:hover {
 .sh-today-dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: 0;
   flex-shrink: 0;
   background: transparent;
   border: 1px solid var(--sh-border);
@@ -5683,7 +5689,7 @@ button.sh-today-row-main:hover {
 .sh-titlebar-scout-dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--sh-accent);
   box-shadow: 0 0 6px var(--sh-accent);
   animation: nv-flicker 5.5s steps(1, end) infinite;
@@ -5728,7 +5734,7 @@ button.sh-today-row-main:hover {
   cursor: grab;
   pointer-events: auto;
   touch-action: none;
-  border-radius: 10px;
+  border-radius: 0;
 }
 .sc-scout-btn:focus-visible {
   outline: 2px solid var(--sh-accent);
@@ -6013,7 +6019,7 @@ button.sh-today-row-main:hover {
   right: 22%;
   bottom: -4px;
   height: 10px;
-  border-radius: 50%;
+  border-radius: 0;
   background: radial-gradient(
     ellipse at center,
     color-mix(in srgb, var(--sh-accent) 70%, transparent) 0%,
@@ -6099,7 +6105,7 @@ button.sh-today-row-main:hover {
   width: 64px;
   height: 14px;
   margin: -7px 0 0 -32px;
-  border-radius: 50%;
+  border-radius: 0;
   border: 1px solid color-mix(in srgb, var(--sh-accent) 80%, transparent);
   background: radial-gradient(ellipse at center, color-mix(in srgb, var(--sh-accent) 35%, transparent), transparent 70%);
   box-shadow: 0 0 12px color-mix(in srgb, var(--sh-accent) 45%, transparent);
@@ -6142,7 +6148,7 @@ button.sh-today-row-main:hover {
 .sc-portal-ring {
   position: absolute;
   inset: 0;
-  border-radius: 50%;
+  border-radius: 0;
   border: 2px dashed var(--sh-accent);
   box-shadow: 0 0 14px var(--sh-accent-glow), inset 0 0 10px var(--sh-accent-glow);
   animation: sc-portal-spin 2.4s linear infinite;
@@ -6150,7 +6156,7 @@ button.sh-today-row-main:hover {
 .sc-portal-core {
   position: absolute;
   inset: 22%;
-  border-radius: 50%;
+  border-radius: 0;
   background: radial-gradient(circle, var(--sh-accent-glow), transparent 70%);
 }
 .sc-portal-bit {
@@ -6160,7 +6166,7 @@ button.sh-today-row-main:hover {
   width: 5px;
   height: 5px;
   margin: -2.5px 0 0 -2.5px;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--sh-accent);
   box-shadow: 0 0 6px var(--sh-accent);
   animation: sc-portal-bit 0.9s ease-in infinite;
@@ -6432,7 +6438,7 @@ button.sh-today-row-main:hover {
   top: -2px;
   width: 5px;
   height: 5px;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--sc-tone);
   box-shadow: 0 0 6px var(--sc-tone);
 }
@@ -6461,7 +6467,7 @@ button.sh-today-row-main:hover {
 .sc-bubble-live {
   width: 5px;
   height: 5px;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--sc-tone);
   box-shadow: 0 0 6px var(--sc-tone);
   animation: nv-flicker 2.4s steps(1, end) infinite;
@@ -6788,7 +6794,7 @@ button.sh-today-row-main:hover {
   color: var(--sh-text);
   background: var(--sh-panel-strong);
   border: 1px solid var(--sh-border);
-  border-radius: 6px;
+  border-radius: 0;
   pointer-events: none;
   animation: sc-caption 2.6s ease-out forwards;
 }
@@ -6818,7 +6824,7 @@ button.sh-today-row-main:hover {
   width: 5px;
   height: 5px;
   margin: -2.5px 0 0 -2.5px;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--sh-accent);
   box-shadow: 0 0 8px var(--sh-accent);
   animation: sc-burst 0.8s cubic-bezier(0.1, 0.7, 0.3, 1) forwards;
@@ -7520,10 +7526,6 @@ button.sh-today-row-main:hover {
 
 .sh-app-shell {
   background-color: var(--sh-bg);
-  background-image:
-    linear-gradient(var(--sh-grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--sh-grid-line) 1px, transparent 1px);
-  background-size: 48px 48px;
 }
 
 a {
@@ -7841,7 +7843,7 @@ a:hover {
   position: relative;
   box-sizing: border-box;
   padding: 14px 18px 0;
-  border-radius: var(--sh-radius-lg) var(--sh-radius-lg) 0 0;
+  border-radius: 0;
   background: linear-gradient(180deg, transparent, var(--sh-accent-soft));
   animation: nv-fade-in 300ms ease-out;
 }
@@ -7863,7 +7865,7 @@ a:hover {
   gap: 6px;
   padding: 4px 10px;
   border: 1px solid var(--sh-accent-line);
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   color: var(--sh-accent);
   font-family: var(--sh-font-mono);
@@ -7920,7 +7922,7 @@ a:hover {
   padding: 3px 8px 2px;
   border: 1px solid var(--sh-border);
   border-bottom: 0;
-  border-radius: var(--sh-radius-sm) var(--sh-radius-sm) 0 0;
+  border-radius: 0;
   background: var(--sh-panel-strong);
   font-family: var(--sh-font-mono);
   font-size: 9px;
@@ -7932,7 +7934,7 @@ a:hover {
   width: 84px;
   height: 52px;
   border: 1px solid var(--sh-border);
-  border-radius: 0 var(--sh-radius-sm) var(--sh-radius-sm) var(--sh-radius-sm);
+  border-radius: 0;
   background: var(--sh-panel-strong);
   box-shadow: 0 6px 14px -8px var(--sh-bg);
   color: var(--sh-accent);
@@ -8543,7 +8545,7 @@ button.sh-week-day:focus-visible {
 .sh-week-dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: 0;
 }
 
 .sh-week-dot--accent {
@@ -8934,7 +8936,7 @@ button.sh-week-day:focus-visible {
   width: 38px;
   height: 22px;
   margin: 0;
-  border-radius: 11px;
+  border-radius: 0;
   border: 1px solid var(--sh-border-strong);
   background: var(--sh-track);
   cursor: pointer;
@@ -8948,7 +8950,7 @@ button.sh-week-day:focus-visible {
   left: 2px;
   width: 16px;
   height: 16px;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--sh-text-2);
   transition: transform 160ms ease, background-color 160ms ease;
 }
@@ -9244,7 +9246,7 @@ html.dn-overlay body {
 
 .dn-prop--envelope {
   border: 1px solid var(--sh-warn);
-  border-radius: 2px;
+  border-radius: 0;
   background:
     linear-gradient(to bottom right, transparent calc(50% - 1px), var(--sh-warn) 50%, transparent calc(50% + 1px)) left top / 50% 60% no-repeat,
     linear-gradient(to bottom left, transparent calc(50% - 1px), var(--sh-warn) 50%, transparent calc(50% + 1px)) right top / 50% 60% no-repeat,

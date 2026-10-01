@@ -5,8 +5,8 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import "@fontsource/manrope/500.css";
-import "@fontsource/jetbrains-mono/500.css";
+import "@fontsource/geist-sans/500.css";
+import "@fontsource/geist-mono/500.css";
 import "../studyhub-bootstrap.css";
 import { isReducedMotion } from "../shell/motion.js";
 
