@@ -1,7 +1,7 @@
-import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useReducedMotion } from "../shell/motion.js";
 import { createPortal } from "react-dom";
-import { character, line, finishKey, isFailing } from "./character.js";
+import { character, line } from "./character.js";
 import {
   loadCompanionState,
   saveCompanionState,
@@ -10,9 +10,6 @@ import {
   isRampant,
   XP_AWARDS,
 } from "./companionStore.js";
-import { loadFlashcardDeck, persistFlashcardDeck } from "../study/flashcards/flashcardPersistence.js";
-import { courseStore } from "../db/courseStore.js";
-import { cardKey, runAwards } from "./lightRun.js";
 import { BORED_AFTER_MS, clockLabel, dayPart, idleGap, pickIdleGesture } from "./idleDirector.js";
 import { WAKE_DENIAL_CHANCE, dueStage, mayPeek, pickProp } from "./idleStages.js";
 import { buildDoodle, doodleBox, layoutDoodle, pickDoodle } from "./doodles.js";
@@ -33,10 +30,8 @@ import {
   pickWaypoint,
   platformAt,
   platformBelow,
-  pointBeside,
   seatClear,
   standOn,
-  waitForTarget,
 } from "./safeZones.js";
 import { useCompanionMotion } from "./useCompanionMotion.js";
 import { isAtSpot, mayAct, nextCheckMs } from "./attention.js";
@@ -50,7 +45,6 @@ import { createStage, playScene } from "../nova/stage.js";
 import { useWorkspace, workspace } from "../nova/workspace.js";
 import { arrangeWorkspace } from "../nova/scenes/arrange.js";
 import { stageDemo } from "../nova/scenes/stageDemo.js";
-import { onScreen } from "../nova/anchors.js";
 import { setVoiceTone } from "../nova/voice.js";
 import { ran, take } from "../nova/director.js";
 import { current, feel, tone as moodTone } from "../nova/mood.js";
@@ -61,8 +55,6 @@ import {
   ATTEND_MODES,
   BACK_AFTER_DROP_MS,
   BODY_LOAD_TIMEOUT_MS,
-  BUBBLE_W,
-  BUILTIN_ID,
   BURST_MS,
   DAY_HELLO_DELAY_MS,
   DROP_LINES,
@@ -79,7 +71,6 @@ import {
   MENU_LINE_MS,
   MOVE,
   PICKUP_LINE_CHANCE,
-  QUIZ_W,
   READ_MS,
   REST_CHANCE,
   REST_MS,
@@ -94,10 +85,9 @@ import {
   SWING_MAX,
   SWING_PER_PX,
   TALK_MS_PER_CHAR,
-  TOURS,
   WALK_OFF_MS,
 } from "./layer/constants.js";
-import { builtinCourse, dropTargetAt, homeGeometry, homeSpot, markStage, nextFrame, overHome, pageShown, rand, randInt, rectOf, subscribeVisibility } from "./layer/geometry.js";
+import { dropTargetAt, homeGeometry, homeSpot, markStage, overHome, pageShown, rand, randInt, rectOf, subscribeVisibility } from "./layer/geometry.js";
 import { useTimeouts } from "./hooks/useTimeouts.js";
 import { useNovaWindowEvents } from "./hooks/useNovaWindowEvents.js";
 import { useNovaSync } from "./hooks/useNovaSync.js";
@@ -106,6 +96,11 @@ import { useNovaNudges } from "./hooks/useNovaNudges.js";
 import { useNovaDirector } from "./hooks/useNovaDirector.js";
 import { useNovaStudyEvents } from "./hooks/useNovaStudyEvents.js";
 import { useNovaMemoryVoice } from "./hooks/useNovaMemoryVoice.jsx";
+import { useNovaMarks } from "./hooks/useNovaMarks.js";
+import { useNovaHelp } from "./hooks/useNovaHelp.js";
+import { useNovaTour } from "./hooks/useNovaTour.js";
+import { useNovaQuiz } from "./hooks/useNovaQuiz.js";
+import { useNovaBriefing } from "./hooks/useNovaBriefing.js";
 
 const Nova3D = lazy(() => import("./nova3d/Nova3D.jsx"));
 
@@ -121,17 +116,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const [mood, setMood] = useState("neutral");
   const [bubble, setBubble] = useState(null);
   const [anchor, setAnchor] = useState({ h: "left", v: "above" });
-  const [tour, setTour] = useState(null);
-  /** Highlights and pinned notes on page elements: `{ key, el, style, note }`. */
-  const [marks, setMarks] = useState([]);
-  const [, setMarkTick] = useState(0);
-  const [help, setHelp] = useState(null);
   const [dragging, setDragging] = useState(false);
-  const [glow, setGlow] = useState(1);
   const [react, setReact] = useState(null);
-  const [quizDeck, setQuizDeck] = useState("all");
   const [now, setNow] = useState(Date.now);
-  const [builtinCards, setBuiltinCards] = useState(loadFlashcardDeck);
   /** 3D body status; "failed" drops back to the portrait sprite for good this session. */
   const [body, setBody] = useState("loading");
   const use3d = body !== "failed";
@@ -173,7 +160,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const peekClipRef = useRef(null);
   /** The input that woke her, so the "I wasn't asleep" line only follows a mouse or touch. */
   const wokeByRef = useRef(null);
-  const lastTierRef = useRef(null);
   const bubbleRef = useRef(null);
   bubbleRef.current = bubble;
 
@@ -218,13 +204,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const sizeRef = useRef(size);
   sizeRef.current = size;
 
-  const quizCourses = useMemo(
-    () => (builtinCards.length ? [...courses, builtinCourse(builtinCards)] : courses),
-    [courses, builtinCards]
-  );
   const stageActive = onHub && hubView === "today";
   const navRef = useRef({});
-  navRef.current = { courses, quizCourses, activeCourseId, onHub, onGoHub, onOpenCourse, stageActive };
+  navRef.current = { courses, activeCourseId, onHub, onGoHub, onOpenCourse, stageActive };
 
   const lastActivityRef = useRef(Date.now());
   /** Last pointer, key, wheel or touch input; she only acts on her own after IDLE_START_MS of none. */
@@ -255,7 +237,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     []
   );
   const lastDriftRef = useRef(0);
-  const tourRef = useRef(null);
   const dragRef = useRef(null);
   const suppressClickRef = useRef(false);
   const startedRef = useRef(false);
@@ -268,15 +249,18 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     const keys = ["stop", "walkTo", "lookAt", "pointAt", "mark", "clearMarks", "scrollTo", "openTab", "focus", "unfocus", "say", "line", "mood", "gesture", "layout", "place", "remember", "inUse"];
     stageRef.current = createStage(Object.fromEntries(keys.map((k) => [k, via(k)])));
   }
-  const focusedRef = useRef(null);
-  /** The utterance a scene is speaking aloud, so aborting the scene can silence it. */
-  const speakingRef = useRef(null);
   const memory = useCompanionMemory({
     enabled: !!cstate?.enabled,
     onNews: (news) => api.current.onMemoryNews?.(news),
   });
-  const quizRef = useRef({ sessionId: null, pending: new Map(), answered: 0, correct: 0, missStreak: 0 });
   const reactTimerRef = useRef(0);
+  const flashReaction = useCallback((kind) => {
+    window.clearTimeout(reactTimerRef.current);
+    setReact(kind);
+    reactTimerRef.current = window.setTimeout(() => setReact(null), 650);
+  }, []);
+
+  useEffect(() => () => window.clearTimeout(reactTimerRef.current), []);
 
   /* ---------- state plumbing ---------- */
 
@@ -461,12 +445,18 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     quietNow,
     canAct,
     dragRef,
+    jumpTo,
+    setFacing,
+    setAnchor,
+    pointAt,
+    flashReaction,
+    posRef,
+    platRef,
+    stageRef,
   };
 
-  // flashReaction is defined in menu actions below; E32/E33 need a stable handle to it now
-  const flashReactionVia = useCallback((...a) => api.current.flashReaction(...a), []);
   // here, not at `pops`: needs update/say/refreshAnchor; must precede endTour, which uses awardXp
-  const { awardXp, pops, rampantNow } = useNovaStudyEvents(core, { cstate, now, enabled, flashReaction: flashReactionVia });
+  const { awardXp, pops, rampantNow } = useNovaStudyEvents(core, { cstate, now, enabled, flashReaction });
 
   /* ---------- load + first appearance ---------- */
 
@@ -542,217 +532,11 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   /* ---------- tours ---------- */
 
-  const ensureRoute = useCallback((route) => {
-    const nav = navRef.current;
-    if (route === "hub" || route?.startsWith("hub:")) {
-      nav.onGoHub?.(route === "hub" ? "today" : route.slice(4));
-      return true;
-    }
-    if (route === "course") {
-      const inUserCourse = nav.activeCourseId && nav.courses.some((c) => c.id === nav.activeCourseId);
-      if (inUserCourse) return true;
-      if (!nav.courses.length) return false;
-      nav.onOpenCourse?.(nav.courses[0].id);
-      return true;
-    }
-    return true;
-  }, []);
-
-  const endTour = useCallback(
-    (completed) => {
-      const t = tourRef.current;
-      if (!t) return;
-      t.cleanup?.();
-      tourRef.current = null;
-      setTour(null);
-      const firstFinish = completed && !stateRef.current?.tours?.[t.id]?.done;
-      update((s) => ({
-        onboarded: true,
-        tours: { ...s.tours, [t.id]: { step: 0, done: completed || !!s.tours[t.id]?.done } },
-      }));
-      send("END");
-      setMood(completed ? "happy" : "neutral");
-      say(line(completed ? "tourDone" : "tourSkip"));
-      if (firstFinish) awardXp([["tour", 1]]);
-    },
-    [update, send, say, awardXp]
-  );
-
-  const goStep = useCallback(
-    async (index, dir = 1) => {
-      const t = tourRef.current;
-      if (!t) return;
-      t.cleanup?.();
-      t.cleanup = null;
-      t.el = null;
-      const token = ++t.token;
-      let i = index;
-      if (i < 0) {
-        i = 0;
-        dir = 1;
-      }
-      if (i >= t.steps.length) {
-        endTour(true);
-        return;
-      }
-      const step = t.steps[i];
-      const skip = () => goStep(i + dir < 0 ? i + 1 : i + dir, i + dir < 0 ? 1 : dir);
-      update((s) => ({ tours: { ...s.tours, [t.id]: { ...(s.tours[t.id] || {}), step: i } } }));
-      setTour({ id: t.id, index: i, total: t.steps.length, step, rect: null, ready: false });
-      setMood("thinking");
-
-      if (!ensureRoute(step.route)) return skip();
-      const el = step.targetId ? await waitForTarget(step.targetId, 3000) : null;
-      if (tourRef.current !== t || t.token !== token) return;
-      if (step.targetId && !el) return skip();
-
-      const s = sizeRef.current;
-      let p;
-      let rect = null;
-      if (el) {
-        el.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-        await nextFrame();
-        rect = el.getBoundingClientRect();
-        p = pointBeside(rect, s, step.placement);
-      } else {
-        p = { ...clampPoint({ x: window.innerWidth / 2 - s / 2, y: window.innerHeight / 2 - s }, s), side: "right" };
-      }
-      setTour((prev) => (prev ? { ...prev, rect: rect ? rectOf(rect) : null } : prev));
-      await flyTo(p, { speed: ENGAGED_SPEED });
-      if (tourRef.current !== t || t.token !== token) return;
-
-      if (rect) setFacing(p.x + s / 2 > rect.left + rect.width / 2 ? -1 : 1);
-      setMood("point");
-      if (el) pointAt(el.getBoundingClientRect());
-      let h = p.side === "left" ? "left" : p.side === "right" ? "right" : p.x + s / 2 > window.innerWidth / 2 ? "left" : "right";
-      const need = BUBBLE_W + 12;
-      if (h === "right" && window.innerWidth - (p.x + s) < need && p.x >= need) h = "left";
-      else if (h === "left" && p.x < need && window.innerWidth - (p.x + s) >= need) h = "right";
-      setAnchor({ h, v: p.y > window.innerHeight / 2 ? "above" : "below" });
-      t.el = el;
-      t.placement = step.placement;
-      if (el && step.waitFor === "click") {
-        const onTargetClick = () => goStep(i + 1, 1);
-        el.addEventListener("click", onTargetClick, { once: true });
-        t.cleanup = () => el.removeEventListener("click", onTargetClick);
-      }
-      setTour((prev) => (prev ? { ...prev, ready: true } : prev));
-    },
-    [endTour, ensureRoute, flyTo, setFacing, update, pointAt]
-  );
-
-  const startTour = useCallback(
-    (id) => {
-      const def = TOURS[id];
-      if (!def) return;
-      setBubble(null);
-      setHelp(null);
-      setMarks([]);
-      cancel();
-      if (send("TOUR") !== "tour") return;
-      const saved = stateRef.current?.tours?.[id];
-      const resumeAt = saved && !saved.done && saved.step > 0 && saved.step < def.steps.length ? saved.step : 0;
-      tourRef.current = { id, steps: def.steps, token: 0, el: null, cleanup: null };
-      void goStep(resumeAt, 1);
-    },
-    [cancel, send, goStep]
-  );
-
-  /* Keep the spotlight glued to its target through resizes and scrolling. */
-  useEffect(() => {
-    if (mode !== "tour") return undefined;
-    let raf = 0;
-    let settle = 0;
-    const onChange = () => {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        raf = 0;
-        const t = tourRef.current;
-        if (!t?.el) return;
-        const r = t.el.getBoundingClientRect();
-        setTour((prev) => (prev ? { ...prev, rect: rectOf(r) } : prev));
-        window.clearTimeout(settle);
-        settle = window.setTimeout(() => {
-          const p = pointBeside(t.el.getBoundingClientRect(), sizeRef.current, t.placement);
-          jumpTo(p);
-        }, 160);
-      });
-    };
-    window.addEventListener("resize", onChange);
-    window.addEventListener("scroll", onChange, true);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.clearTimeout(settle);
-      window.removeEventListener("resize", onChange);
-      window.removeEventListener("scroll", onChange, true);
-    };
-  }, [mode, jumpTo]);
-
-  /* Keep highlights and pinned notes on their elements through resizes and scrolling. */
-  const hasMarks = marks.length > 0;
-  useEffect(() => {
-    if (!hasMarks) return undefined;
-    let raf = 0;
-    const onChange = () => {
-      if (!raf) raf = requestAnimationFrame(() => {
-        raf = 0;
-        setMarkTick((n) => n + 1);
-      });
-    };
-    window.addEventListener("resize", onChange);
-    window.addEventListener("scroll", onChange, true);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("resize", onChange);
-      window.removeEventListener("scroll", onChange, true);
-    };
-  }, [hasMarks]);
-
-  /* ---------- help ---------- */
-
-  const startHelp = useCallback(() => {
-    setBubble(null);
-    cancel();
-    if (send("HELP") !== "help") return;
-    setHelp({ query: "", answer: null, pointed: false });
-    setMood("thinking");
-    refreshAnchor();
-  }, [cancel, send, refreshAnchor]);
-
-  const closeHelp = useCallback(() => {
-    setHelp(null);
-    setMarks([]);
-    send("CLOSE");
-    setMood("neutral");
-  }, [send]);
-
-  const showMe = useCallback(
-    async (entry) => {
-      ensureRoute(entry.route);
-      const el = await waitForTarget(entry.pointTo, 3000);
-      if (modeRef.current !== "help") return;
-      if (!el) {
-        setMood("confused");
-        setHelp((h) => (h ? { ...h, pointed: true } : h));
-        return;
-      }
-      el.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-      await nextFrame();
-      const rect = el.getBoundingClientRect();
-      const s = sizeRef.current;
-      const p = pointBeside(rect, s, "right");
-      setHelp((h) => (h ? { ...h, pointed: true } : h));
-      const ok = await flyTo(p, { speed: ENGAGED_SPEED });
-      if (!ok || modeRef.current !== "help") return;
-      setFacing(p.x + s / 2 > rect.left + rect.width / 2 ? -1 : 1);
-      setMood("point");
-      pointAt(el.getBoundingClientRect());
-      refreshAnchor();
-      setMarks([{ key: "help", el, style: null }]);
-      later(() => setMarks((list) => list.filter((m) => m.key !== "help")), 2600);
-    },
-    [ensureRoute, flyTo, setFacing, refreshAnchor, pointAt]
-  );
+  const { marks, setMarks } = useNovaMarks();
+  // before useNovaTour: tours call setHelp, so showMe reaches ensureRoute through this stable handle
+  const ensureRouteVia = useCallback((...a) => api.current.ensureRoute(...a), []);
+  const { help, setHelp, startHelp, closeHelp, showMe } = useNovaHelp(core, { setMarks, ensureRoute: ensureRouteVia });
+  const { tour, setTour, tourRef, ensureRoute, endTour, goStep, startTour } = useNovaTour(core, { setMarks, awardXp, setHelp, mode });
 
   /* ---------- menu actions ---------- */
 
@@ -766,191 +550,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     send("HIDE");
   }, [cancel, send]);
 
-  const dockPoint = useCallback(() => {
-    const s = sizeRef.current;
-    const panelLeft = window.innerWidth - 16 - QUIZ_W;
-    return clampPoint({ x: panelLeft - s - 18, y: 110 }, s);
-  }, []);
-
-  const startQuiz = useCallback(
-    async (deckId) => {
-      const nav = navRef.current;
-      const fresh = loadFlashcardDeck();
-      setBuiltinCards(fresh);
-      const pool = [...nav.courses, builtinCourse(fresh)];
-      const hasCards = (id) => pool.some((c) => c.id === id && (c.flashcards || []).length);
-      const deck = deckId && hasCards(deckId) ? deckId : hasCards(nav.activeCourseId) ? nav.activeCourseId : "all";
-      setBubble(null);
-      setHelp(null);
-      setMarks([]);
-      cancel();
-      if (send("QUIZ") !== "quiz") return;
-      quizRef.current = { sessionId: `quiz_${Date.now()}`, pending: new Map(), answered: 0, correct: 0, missStreak: 0 };
-      if (stateRef.current?.ignored) update({ ignored: 0 });
-      setQuizDeck(deck);
-      setGlow(1);
-      setMood("excited");
-      const ok = await flyTo(dockPoint(), { speed: ENGAGED_SPEED });
-      if (!ok || modeRef.current !== "quiz") return;
-      setFacing(1);
-      setAnchor({ h: "left", v: "below" });
-      say(line("quizStart"));
-    },
-    [cancel, send, flyTo, dockPoint, setFacing, say, update]
-  );
-
-  const flashReaction = useCallback((kind) => {
-    window.clearTimeout(reactTimerRef.current);
-    setReact(kind);
-    reactTimerRef.current = window.setTimeout(() => setReact(null), 650);
-  }, []);
-  api.current.flashReaction = flashReaction;
-
-  useEffect(() => () => window.clearTimeout(reactTimerRef.current), []);
+  const { quizDeck, glow, quizCourses, lastTierRef, startQuiz, dockPoint, onQuizAnswer, onQuizFinish, closeQuiz } = useNovaQuiz(core, { courses, awardXp, returnHome, setHelp, setMarks, onUpdateCourse });
 
   const { sync, syncRef, offline } = useNovaSync(core, { flashReaction, sfx });
-
-  const onQuizAnswer = useCallback(
-    ({ card, grade, fields, correct, partial, streak, answer }) => {
-      if (card.courseId !== BUILTIN_ID) {
-        void window.studyHub?.db?.mastery?.update?.({
-          flashcardUuid: cardKey(card),
-          grade,
-          easeFactor: fields.easeFactor,
-          intervalDays: fields.intervalDays,
-          repetitions: fields.repetitions,
-          nextReview: fields.next_review,
-          sessionId: quizRef.current.sessionId,
-        });
-      }
-      const pending = quizRef.current.pending;
-      if (!pending.has(card.courseId)) pending.set(card.courseId, new Map());
-      pending.get(card.courseId).set(cardKey(card), fields);
-
-      const run = quizRef.current;
-      run.answered += 1;
-      if (correct) {
-        run.correct += 1;
-        run.missStreak = 0;
-      } else {
-        run.missStreak += 1;
-      }
-
-      setGlow((g) => Math.max(0, Math.min(character.glowLevels, g + (correct ? 1 : -1))));
-      setAnchor({ h: "left", v: "below" });
-      if (correct) {
-        setMood(streak >= 3 ? "excited" : "happy");
-        flashReaction("bounce");
-        sfx(streak >= 3 ? "streak" : "correct");
-        if (partial) say(line("partial"));
-        else say(line(streak >= 3 ? "correctStreak" : "correct", { streak }));
-        if (streak > 0 && streak % 5 === 0) playGesture("kiss");
-        else if (streak === 3) playGesture("wink");
-      } else if (isFailing(run)) {
-        setMood("stern");
-        flashReaction("glitch");
-        sfx("glitch");
-        if (run.missStreak >= 2) playGesture("facepalm");
-        const streakLine = run.missStreak >= 3 && Math.random() < 0.5;
-        say(line(streakLine ? "wrongHarshStreak" : "wrongHarsh", { misses: run.missStreak }));
-      } else {
-        setMood("sad");
-        flashReaction("droop");
-        sfx("wrong");
-        const text = String(answer);
-        say(text.length > 32 ? line("wrongLong") : line("wrong", { answer: text }));
-      }
-    },
-    [flashReaction, say, sfx, playGesture]
-  );
-
-  /** Called once per run: XP, high score, session log, and fresh SM-2 fields back into course state. */
-  const onQuizFinish = useCallback(
-    (summary) => {
-      const cur = stateRef.current;
-      const prevBest = cur.highScores?.[summary.deckId] || 0;
-      const newHighScore = summary.mode === "streak" && summary.score > prevBest;
-      const wasRampant = isRampant(cur);
-      const award = awardXp(runAwards(summary), { announce: false }) || {
-        xpGained: 0,
-        level: levelForXp(cur.xp || 0),
-        leveledUp: false,
-        unlocked: null,
-      };
-      update((s) => ({
-        runs: (s.runs || 0) + 1,
-        highScores: newHighScore ? { ...s.highScores, [summary.deckId]: summary.score } : s.highScores,
-      }));
-
-      const endedAt = new Date().toISOString();
-      const logUuids = [...new Set(summary.courseUuids.map((u) => (u === BUILTIN_ID ? null : u)))];
-      for (const courseUuid of logUuids.length ? logUuids : [null]) {
-        if (!summary.answered) break;
-        void courseStore.logStudySession({
-          courseUuid,
-          kind: "quiz",
-          startedAt: summary.startedAt,
-          endedAt,
-          reviewed: summary.answered,
-          correct: summary.correct,
-          incorrect: summary.answered - summary.correct,
-          bestCombo: summary.best,
-        });
-      }
-
-      const pending = quizRef.current.pending;
-      quizRef.current = { ...quizRef.current, sessionId: `quiz_${Date.now()}`, pending: new Map() };
-      for (const [courseId, updates] of pending) {
-        if (courseId === BUILTIN_ID) {
-          const next = loadFlashcardDeck().map((c) => (updates.has(cardKey(c)) ? { ...c, ...updates.get(cardKey(c)) } : c));
-          persistFlashcardDeck(next);
-          setBuiltinCards(next);
-          window.dispatchEvent(new CustomEvent("studyhub-flashcards-updated"));
-          continue;
-        }
-        void onUpdateCourse?.(courseId, (course) => ({
-          ...course,
-          flashcards: (course.flashcards || []).map((c) => (updates.has(cardKey(c)) ? { ...c, ...updates.get(cardKey(c)) } : c)),
-        }));
-      }
-
-      const tier = finishKey(summary.correct, summary.answered);
-      lastTierRef.current = tier;
-      setMood({ finishedGreat: "excited", finishedGood: "happy", finishedMeh: "neutral", finishedBad: "stern" }[tier]);
-      if (tier === "finishedBad") {
-        flashReaction("glitch");
-        sfx("glitch");
-        playGesture("facepalm");
-      } else {
-        if (tier === "finishedGreat" || (award.leveledUp && !wasRampant)) playGesture("kiss");
-        sfx(tier === "finishedGreat" ? "streak" : "correct");
-      }
-      if (wasRampant && summary.answered) {
-        setMood("happy");
-        say(line("rampantRecover"));
-      } else if (award.leveledUp && tier !== "finishedBad") {
-        say(line(award.unlocked ? "levelUnlock" : "levelUp", { level: award.level, tint: award.unlocked?.toLowerCase() }));
-      } else {
-        say(line(tier, { correct: summary.correct, total: summary.answered }));
-      }
-      return {
-        xpGained: award.xpGained,
-        level: award.level,
-        leveledUp: award.leveledUp,
-        unlocked: award.unlocked ? `${award.unlocked} projection` : null,
-        newHighScore,
-      };
-    },
-    [update, onUpdateCourse, say, flashReaction, sfx, awardXp, playGesture]
-  );
-
-  const closeQuiz = useCallback(() => {
-    setBubble(null);
-    send("END");
-    setGlow(1);
-    setMood("neutral");
-    void returnHome(220);
-  }, [send, returnHome]);
 
   const contextualTour = useCallback(() => {
     const nav = navRef.current;
@@ -1733,150 +1335,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   /* ---------- the spoken briefing: she walks to what she's talking about ---------- */
 
-  const briefRef = useRef({ token: 0 });
-
-  /** Where to stand for a briefing target: on its panel's top edge above it, else beside it. */
-  const briefSpot = (el, rect, s) => {
-    const panel = el.closest("[data-perch]");
-    const plat = panel ? livePlatform({ el: panel }, s) : null;
-    const cx = rect.left + rect.width / 2;
-    if (plat) {
-      for (const dx of [-0.45, 0.45, 0]) {
-        const p = standOn(plat, cx + dx * s, s);
-        if (!coversContent(p, s)) return { p, plat };
-      }
-    }
-    return { p: pointBeside(rect, s, "left"), plat: null };
-  };
-
-  api.current.briefStart = () => {
-    const m = modeRef.current;
-    if (!stateRef.current?.enabled || stateRef.current?.quiet || !(AUTONOMOUS.has(m) || m === "sleep")) return;
-    cancel();
-    setBubble(null);
-    if (send("BRIEF") !== "brief") return;
-    briefRef.current.token += 1;
-    setMood("point");
-  };
-
-  const faceToward = (rect) => {
-    const s = sizeRef.current;
-    setFacing(posRef.current.x + s / 2 > rect.left + rect.width / 2 ? -1 : 1);
-  };
-
-  /* What the Stage does with her body and the page. Rebuilt every render so it sees fresh state. */
-  api.current.stageDeps = {
-    stop: () => {
-      cancel();
-      if (speakingRef.current) window.speechSynthesis.cancel();
-    },
-    walkTo: async (el) => {
-      el.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-      await nextFrame();
-      const rect = el.getBoundingClientRect();
-      if (!onScreen(rect)) return false;
-      setBubble(null);
-      const s = sizeRef.current;
-      const { p, plat } = briefSpot(el, rect, s);
-      if (!(await flyTo(p, { speed: ENGAGED_SPEED }))) return false;
-      platRef.current = plat;
-      faceToward(el.getBoundingClientRect());
-      return true;
-    },
-    lookAt: (el) => (el ? glanceAtRect(el.getBoundingClientRect(), 2500) : setGlance({ x: 0, y: 0, ms: 2500 })),
-    pointAt: (el) => {
-      const rect = el.getBoundingClientRect();
-      if (!onScreen(rect)) return false;
-      faceToward(rect);
-      setMood("point");
-      pointAt(rect);
-    },
-    mark: (key, el, style, note) => setMarks((list) => [...list.filter((m) => m.key !== key), { key, el, style, note }]),
-    clearMarks: () => setMarks((list) => (list.length ? [] : list)),
-    scrollTo: async (el) => {
-      el.scrollIntoView?.({ block: "center", behavior: reducedRef.current ? "auto" : "smooth" });
-      await new Promise((r) => window.setTimeout(r, reducedRef.current ? 0 : 450));
-    },
-    openTab: ensureRoute,
-    focus: (el) => {
-      api.current.stageDeps.unfocus();
-      const panel = el.closest(".sh-arrive") || el;
-      panel.dataset.novaFocus = "";
-      document.body.dataset.novaFocusing = "";
-      focusedRef.current = panel;
-    },
-    unfocus: () => {
-      if (focusedRef.current) delete focusedRef.current.dataset.novaFocus;
-      focusedRef.current = null;
-      delete document.body.dataset.novaFocusing;
-    },
-    say: (text, { speak = false } = {}) => {
-      refreshAnchor();
-      say(text);
-      if (!speak || !("speechSynthesis" in window)) return undefined;
-      return new Promise((resolve) => {
-        const u = new SpeechSynthesisUtterance(text);
-        u.onstart = () => setTalkUntil(performance.now() + 60 * 1000);
-        u.onend = u.onerror = () => {
-          if (speakingRef.current === u) speakingRef.current = null;
-          setTalkUntil(0);
-          resolve();
-        };
-        speakingRef.current = u;
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(u);
-      });
-    },
-    line,
-    mood: setMood,
-    gesture: (name) => playGesture(name),
-    layout: () => workspace.get().layout,
-    place: workspace.place,
-    remember: workspace.remember,
-    /* Using a panel = typing in it or having one of its popovers open. Hover and focus alone don't count (focus lingers after clicks). */
-    inUse: (el) => {
-      const a = document.activeElement;
-      const typing = el.contains(a) && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
-      return typing || !!el.querySelector('[aria-expanded="true"]');
-    },
-  };
-
-  /** Run a Stage scene: she stops what she's doing, performs it, then heads back. Any input cuts it short. False if she can't start. */
-  api.current.playScene = (scene) => {
-    api.current.briefStart();
-    if (modeRef.current !== "brief") return false;
-    void stageRef.current.run(scene).then((done) => api.current.briefEnd({ now: !done }));
-    return true;
-  };
-
-  /** End of the briefing (or cut short by input): back to her spot, full size at home. */
-  api.current.briefEnd = ({ now = false } = {}) => {
-    if (modeRef.current !== "brief") return;
-    const token = ++briefRef.current.token;
-    const finish = () => {
-      if (modeRef.current !== "brief" || briefRef.current.token !== token) return;
-      cancel();
-      send("END");
-      setMood("neutral");
-      awayFromSpotRef.current = true;
-      api.current.backToSpot?.();
-    };
-    if (now) finish();
-    else later(finish, 1200);
-  };
-
-  useEffect(() => {
-    const onScene = (e) => {
-      const d = e.detail;
-      if (typeof d?.scene === "function") d.handled = api.current.playScene(d.scene);
-    };
-    const stage = stageRef.current;
-    window.addEventListener("studyhub-companion-scene", onScene);
-    return () => {
-      window.removeEventListener("studyhub-companion-scene", onScene);
-      stage.abort();
-    };
-  }, []);
+  useNovaBriefing(core, { ensureRoute, setMarks, glanceAtRect, setGlance });
 
   /* Back after a while away from the window: she wakes up and waves. */
   useEffect(() => {
