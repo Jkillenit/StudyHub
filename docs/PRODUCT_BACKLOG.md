@@ -95,7 +95,6 @@ behavior is covered by `npm run check:db`. Line refs are approximate. Est. cut =
 | TD-07 | Inline styles fighting CSS: `DefinitionCard` tier borders vs `.sh-tier-*`, `GradeScaleDisplay` vs `.sh-grade-scale-row--current`, 8× `gradeColor` inline, runtime `<style>@media print` in two apps | Tone classes + print rules in `studyhub-bootstrap.css` | ~40 | Visual regressions; untangle `!important` |
 | TD-08 | `GradesTab` loads the whole Today snapshot for `HoldTarget` and reloads all 5 queries after every structural edit; sub-entry average computed twice | Refetch only components + grade items; derive HoldTarget inputs | ~3 fewer IPC calls per edit | `neededScores` needs assignment shares |
 | TD-09 | `FlashcardDeck` copies `externalCards` into state → 3 renders per rating; `completedCount` O(n²) | `useMemo` for user decks; Set lookup | ~8 | Depends on stable `externalCards` (fixed in 2.10) |
-| TD-11 | Split `CompanionLayer.jsx` (~2,800 lines, 128 hooks) by concern: idle, drag, tours, quiz, nudges. Drag re-renders the whole layer per mousemove; `Nova3D` reads layout per mousemove; 10 uncleared timeouts; WebGL context leaked on toggle | Extract hooks per concern; ref-based drag position | large | High — timing-sensitive behavior |
 | TD-12 | `nova.vrm` 15.5 MB + `clips.json` 1.1 MB base64 loaded up front | meshopt-compress VRM (gltf-transform), ship clips as binary | ~12 MB payload | Needs asset pipeline + visual check |
 
 ## Parked

@@ -134,6 +134,7 @@ Specs and guardrails in the brief are unchanged; each ships only if alpha usage 
   riding scrolled cards, falling with landings, drag-to-teleport, portrait fallback.
 - ✓ C.5.1 Voice pass (PG-13 to R: profanity and innuendo, never explicit), no foot ring,
   supersampled rendering at full texture quality.
+- ✓ Nova Core 6 command bar; CompanionLayer split into hooks (TD-10/TD-11).
 - ○ C.6 Personality. Missing moves (stretch, facepalm, point) are procedural, no new clips.
   - ✓ C.6a Idle director: yawn/look/bored/stretch every ~20-45s scaled by movement setting,
     cursor glances, face the user on click; time-of-day aware (late-night yawns and teasing).
