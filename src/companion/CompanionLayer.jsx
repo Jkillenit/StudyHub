@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useReducedMotion } from "../shell/motion.js";
 import { createPortal } from "react-dom";
 import { character, line } from "./character.js";
@@ -7,34 +7,21 @@ import {
   saveCompanionState,
   resolveTint,
   levelForXp,
-  isRampant,
   XP_AWARDS,
 } from "./companionStore.js";
-import { BORED_AFTER_MS, clockLabel, dayPart, idleGap, pickIdleGesture } from "./idleDirector.js";
-import { WAKE_DENIAL_CHANCE, dueStage, mayPeek, pickProp } from "./idleStages.js";
-import { buildDoodle, doodleBox, layoutDoodle, pickDoodle } from "./doodles.js";
+import { dayPart } from "./idleDirector.js";
 import { DoodleTrail } from "./DoodleTrail.jsx";
 import { QuizPanel } from "./QuizPanel.jsx";
 import { transition, AUTONOMOUS } from "./machine.js";
 import {
   clampPoint,
-  coversContent,
   defaultHome,
-  findDoodleSpot,
-  findPeekSpot,
-  findTarget,
   groundPlatform,
-  livePlatform,
-  pickRestEdge,
-  pickStroll,
-  pickWaypoint,
-  platformAt,
   platformBelow,
-  seatClear,
   standOn,
 } from "./safeZones.js";
 import { useCompanionMotion } from "./useCompanionMotion.js";
-import { isAtSpot, mayAct, nextCheckMs } from "./attention.js";
+import { mayAct } from "./attention.js";
 import { useCompanionMemory } from "./memory/useCompanionMemory.js";
 import { NovaSprite } from "./NovaSprite.jsx";
 import { playSound } from "./novaSound.js";
@@ -53,33 +40,14 @@ import { CompanionSettings } from "./CompanionSettings.jsx";
 import { FocusPill } from "./FocusPill.jsx";
 import {
   ATTEND_MODES,
-  BACK_AFTER_DROP_MS,
   BODY_LOAD_TIMEOUT_MS,
-  BURST_MS,
   DAY_HELLO_DELAY_MS,
-  DROWSY_MS,
   ENGAGED_MODES,
-  ENGAGED_SPEED,
-  GROW_MS,
-  HOME_AWAY_STOPS,
   HOME_MODES,
-  HOME_RETURN_DELAY_MS,
-  HOME_STAY_MS,
-  LAND_QUIP_COOLDOWN_MS,
-  LATE_QUIP_COOLDOWN_MS,
   MOVE,
-  READ_MS,
-  REST_CHANCE,
-  REST_MS,
-  RETURN_AWAY_MS,
-  SIT_CHANCE,
-  SIT_DELAY_MS,
   SIZE_3D,
-  SPRITE_SKIP,
-  TALK_MS_PER_CHAR,
-  WALK_OFF_MS,
 } from "./layer/constants.js";
-import { homeGeometry, homeSpot, markStage, pageShown, rand, randInt, rectOf, subscribeVisibility } from "./layer/geometry.js";
+import { pageShown, rectOf, subscribeVisibility } from "./layer/geometry.js";
 import { useTimeouts } from "./hooks/useTimeouts.js";
 import { useNovaWindowEvents } from "./hooks/useNovaWindowEvents.js";
 import { useNovaSync } from "./hooks/useNovaSync.js";
@@ -94,6 +62,10 @@ import { useNovaTour } from "./hooks/useNovaTour.js";
 import { useNovaQuiz } from "./hooks/useNovaQuiz.js";
 import { useNovaBriefing } from "./hooks/useNovaBriefing.js";
 import { useNovaDrag } from "./hooks/useNovaDrag.js";
+import { useNovaPlacement } from "./hooks/useNovaPlacement.js";
+import { useNovaIdleLife } from "./hooks/useNovaIdleLife.js";
+import { useNovaAutonomy } from "./hooks/useNovaAutonomy.js";
+import { useNovaInput } from "./hooks/useNovaInput.js";
 
 const Nova3D = lazy(() => import("./nova3d/Nova3D.jsx"));
 
@@ -123,43 +95,17 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   /** Which ring of her click menu is showing: the main options or the Rearrange layouts. */
   const [menuPage, setMenuPage] = useState("main");
   useWorkspace();
-  const [burst, setBurst] = useState(0);
   const [talkUntil, setTalkUntil] = useState(0);
   /** The platform the 3D body stands on: `{ el }` (el null = window bottom), or null mid-air. */
   const platRef = useRef(null);
-  const lastLandQuipRef = useRef(0);
-  const lastLateQuipRef = useRef(0);
-  const [seat, setSeat] = useState(null);
-  const seatRef = useRef(null);
-  seatRef.current = seat;
-  /* Idle life: the running activity (`{ kind, aborted, moving }`), what ran this idle stretch, and what the body shows. */
+  /** Idle life's running activity (`{ kind, aborted, moving }`). */
   const activityRef = useRef(null);
-  const stagesDoneRef = useRef(new Set());
-  const lastPeekRef = useRef(0);
-  const [activity, setActivity] = useState(null);
-  const [idleLie, setIdleLie] = useState(null);
-  const [drowsy, setDrowsy] = useState(false);
-  const [glance, setGlance] = useState(null);
-  const [doodle, setDoodle] = useState(null);
-  const penRef = useRef(null);
-  const doodleIdRef = useRef(0);
-  const doodleDrawnRef = useRef(null);
-  const lastDoodleRef = useRef(null);
-  const peekClipRef = useRef(null);
-  /** The input that woke her, so the "I wasn't asleep" line only follows a mouse or touch. */
-  const wokeByRef = useRef(null);
   const bubbleRef = useRef(null);
   bubbleRef.current = bubble;
 
   const nodeRef = useRef(null);
-  const growRef = useRef(null);
   const reduced = useReducedMotion();
   const later = useTimeouts();
-  /** Standing big inside the Today home window. `homeSize` is her size there. */
-  const [housed, setHoused] = useState(false);
-  const housedRef = useRef(false);
-  const [homeSize, setHomeSize] = useState(null);
-  const awayRef = useRef({ stops: 0, goal: randInt(HOME_AWAY_STOPS) });
   const sfx = useCallback((name) => {
     if (stateRef.current?.sound) playSound(name);
   }, []);
@@ -188,9 +134,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const baseSize = Math.round((use3d ? SIZE_3D : character.size) * (cstate?.scale || 1));
   const baseSizeRef = useRef(baseSize);
   baseSizeRef.current = baseSize;
-  const size = housed && homeSize ? homeSize : baseSize;
-  const sizeRef = useRef(size);
-  sizeRef.current = size;
+  /** Synced to `size` once the placement hook below has worked it out. */
+  const sizeRef = useRef(baseSize);
 
   const stageActive = onHub && hubView === "today";
   const navRef = useRef({});
@@ -224,7 +169,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       }),
     []
   );
-  const lastDriftRef = useRef(0);
   const dragRef = useRef(null);
   const startedRef = useRef(false);
   /** Latest-closure handlers for timers and global listeners. */
@@ -298,96 +242,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     return standOn(platformBelow(p, s), p.x + s / 2, s);
   }, []);
 
-  /* ---------- home window on Today: big inside it, normal size everywhere else ---------- */
-
-  /** Snap into the home window at full home size. False when the window isn't on screen. */
-  const houseAt = useCallback(() => {
-    if (!navRef.current.stageActive) return false;
-    const g = homeGeometry(baseSizeRef.current);
-    if (!g) return false;
-    housedRef.current = true;
-    sizeRef.current = g.size;
-    platRef.current = null;
-    setHomeSize(g.size);
-    setHoused(true);
-    jumpTo(homeSpot(g, g.size));
-    markStage(true);
-    awayRef.current = { stops: 0, goal: randInt(HOME_AWAY_STOPS) };
-    awayFromSpotRef.current = false;
-    return true;
-  }, [jumpTo]);
-
-  /** Shrink back to normal size where she stands, feet and center kept in place. */
-  const leaveHome = useCallback(() => {
-    if (!housedRef.current) return;
-    const big = sizeRef.current;
-    const s = baseSizeRef.current;
-    const p = posRef.current;
-    housedRef.current = false;
-    sizeRef.current = s;
-    setHoused(false);
-    markStage(false);
-    jumpTo({ x: p.x + (big - s) / 2, y: p.y + big - s });
-  }, [jumpTo, posRef]);
-  api.current.leaveHome = leaveHome;
-
-  /**
-   * Teleport back into the home window and grow. Resolves null when there's no home window to
-   * go to (callers fall back to the usual spot), false when something interrupted the trip.
-   */
-  api.current.goHome = async ({ speed = ENGAGED_SPEED } = {}) => {
-    if (housedRef.current) return true;
-    const g = navRef.current.stageActive ? homeGeometry(baseSizeRef.current) : null;
-    if (!g) return null;
-    if (modeRef.current !== "wander" && send("WANDER") !== "wander") return false;
-    const ok = await flyTo(homeSpot(g, sizeRef.current), { speed });
-    if (!ok || modeRef.current !== "wander") return false;
-    if (!houseAt()) return false;
-    send("ARRIVE");
-    return true;
-  };
-  const returnHome = useCallback(
-    async (speed) => {
-      const res = await api.current.goHome({ speed });
-      if (res === null) await flyTo(home(), { speed });
-    },
-    [flyTo, home]
-  );
-
-  /**
-   * Input while she's off her spot sends her straight back: the home window on Today,
-   * her saved spot everywhere else. Only interrupts her own wandering, never an engaged mode.
-   */
-  api.current.backToSpot = () => {
-    const m = modeRef.current;
-    if (!awayFromSpotRef.current || returningRef.current || dragRef.current || activityRef.current) return;
-    if (!(AUTONOMOUS.has(m) || m === "sleep")) return;
-    returningRef.current = true;
-    cancel();
-    setBubble(null);
-    if (m === "sleep") send("WAKE");
-    const done = () => {
-      returningRef.current = false;
-      awayFromSpotRef.current = false;
-    };
-    if (navRef.current.stageActive && homeGeometry(baseSizeRef.current)) {
-      void api.current.goHome({ speed: ENGAGED_SPEED }).finally(done);
-      return;
-    }
-    const spot = home();
-    if (isAtSpot(posRef.current, spot)) {
-      if (modeRef.current === "wander") send("ARRIVE");
-      done();
-      return;
-    }
-    if (modeRef.current !== "wander") send("WANDER");
-    void flyTo(spot, { speed: ENGAGED_SPEED })
-      .then((ok) => {
-        if (ok && modeRef.current === "wander") send("ARRIVE");
-      })
-      .finally(done);
-  };
-
   const refreshAnchor = useCallback(() => {
     const p = posRef.current;
     const s = sizeRef.current;
@@ -443,10 +297,21 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     lastActivityRef,
     use3dRef,
     baseSizeRef,
-    housedRef,
     nodeRef,
     reduced,
+    dropTo,
+    home,
+    returningRef,
+    activityRef,
+    lastGestureAtRef,
+    force,
   };
+
+  /* ---------- home window on Today: big inside it, normal size everywhere else ---------- */
+
+  // here, not at the top: needs send, home and refreshAnchor; size comes out of it
+  const { housed, housedRef, size, growRef, awayRef, houseAt, leaveHome, returnHome } = useNovaPlacement(core, { baseSize, enabled, stageActive });
+  sizeRef.current = size;
 
   // here, not at `pops`: needs update/say/refreshAnchor; must precede endTour, which uses awardXp
   const { awardXp, pops, rampantNow } = useNovaStudyEvents(core, { cstate, now, enabled, flashReaction });
@@ -533,9 +398,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   /* ---------- menu actions ---------- */
 
-  /** A deliberate sit (resting on a panel edge) holds until this time. */
-  const sitHoldRef = useRef(0);
-
   const hideForNow = useCallback(() => {
     setBubble(null);
     setHelp(null);
@@ -560,7 +422,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   /* ---------- clicking & dragging Nova ---------- */
 
   // here, not at the top: needs houseAt, leaveHome and closeHelp
-  const { dragging, dropMarkRef, dropTarget, menuLine, onScoutClick, onPointerDown, onPointerMove, onPointerUp } = useNovaDrag(core, { houseAt, leaveHome, closeHelp });
+  const { dragging, dropMarkRef, dropTarget, menuLine, onScoutClick, onPointerDown, onPointerMove, onPointerUp } = useNovaDrag(core, { housedRef, houseAt, leaveHome, closeHelp });
 
   /* ---------- autonomy: wander, perch, sleep ---------- */
 
@@ -568,603 +430,45 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   const quiet = !!cstate?.quiet;
 
-  useEffect(() => {
-    if (mode !== "idle" || !enabled || quiet || reduced) return undefined;
-    const cfg = MOVE[movement] || MOVE.normal;
-    let timer = 0;
-    let alive = true;
-    const schedule = (ms) => {
-      timer = window.setTimeout(tick, ms);
-    };
-    const tick = async () => {
-      if (!alive) return;
-      if (!canAct() || syncRef.current) {
-        schedule(nextCheckMs({ lastInput: lastInputRef.current, lastStudy: lastStudyRef.current }) + rand([500, 4000]));
-        return;
-      }
-      awayFromSpotRef.current = true;
-      if (housedRef.current) {
-        leaveHome();
-        if (use3d) {
-          void api.current.fall();
-          schedule(rand(cfg.idle));
-          return;
-        }
-      } else if (navRef.current.stageActive && ++awayRef.current.stops > awayRef.current.goal) {
-        const res = await api.current.goHome({ speed: cfg.speed });
-        if (res !== null || !alive) return;
-      }
-      if (use3d && Math.random() < REST_CHANCE) {
-        const s = sizeRef.current;
-        const rest = pickRestEdge(s, posRef.current);
-        if (rest) {
-          const here = rest.plat.el === platRef.current?.el && Math.abs(rest.x - posRef.current.x) < 12;
-          if (!here) {
-            send("WANDER");
-            const ok = await flyTo(rest, { speed: cfg.speed, walk: rest.plat.el === platRef.current?.el });
-            if (!ok || modeRef.current !== "wander") return;
-          }
-          platRef.current = rest.plat;
-          if (send("PERCH") !== "perch") return;
-          sitHoldRef.current = Date.now() + rand(REST_MS);
-          const slipping = isRampant(stateRef.current) || lastTierRef.current === "finishedBad" || lastTierRef.current === "finishedMeh";
-          setSeat(slipping ? "cold" : "playful");
-          return;
-        }
-      }
-      if (use3d) {
-        const step = pickStroll(sizeRef.current, posRef.current, platRef.current);
-        if (!step) {
-          schedule(rand(cfg.idle));
-          return;
-        }
-        send("WANDER");
-        const ok = await flyTo(step, { speed: cfg.speed, walk: step.walk });
-        if (!ok || modeRef.current !== "wander") return;
-        platRef.current = step.plat;
-        send(step.plat.el ? "PERCH" : "ARRIVE");
-        return;
-      }
-      const wp = pickWaypoint(sizeRef.current, posRef.current);
-      if (!wp) {
-        schedule(rand(cfg.idle));
-        return;
-      }
-      send("WANDER");
-      const ok = await flyTo(wp, { speed: cfg.speed });
-      if (!ok || modeRef.current !== "wander") return;
-      send(wp.perch ? "PERCH" : "ARRIVE");
-    };
-    schedule(rand(housedRef.current ? HOME_STAY_MS : cfg.idle));
-    return () => {
-      alive = false;
-      window.clearTimeout(timer);
-    };
-  }, [mode, enabled, movement, quiet, reduced, canAct, send, flyTo, posRef, use3d, leaveHome]);
-
-  /* Leaving Today sends her out of the home window; coming back walks her home. */
-  useEffect(() => {
-    if (!enabled) return undefined;
-    if (!stageActive) {
-      if (housedRef.current) {
-        leaveHome();
-        awayFromSpotRef.current = true;
-        if (use3dRef.current) void api.current.fall();
-      }
-      return undefined;
-    }
-    const t = window.setTimeout(() => {
-      const m = modeRef.current;
-      if (housedRef.current || !AUTONOMOUS.has(m) || busy() || dragRef.current) return;
-      void api.current.goHome();
-    }, HOME_RETURN_DELAY_MS);
-    return () => window.clearTimeout(t);
-  }, [stageActive, enabled, leaveHome, busy]);
-
-  /* Keep her sized and standing on the home floor as the window reflows. */
-  useEffect(() => {
-    if (!housed) return undefined;
-    let raf = 0;
-    const refit = () => {
-      raf = 0;
-      if (!housedRef.current || dragRef.current?.moved) return;
-      const g = homeGeometry(baseSizeRef.current);
-      if (!g) {
-        leaveHome();
-        jumpTo(clampPoint(posRef.current, baseSizeRef.current));
-        return;
-      }
-      sizeRef.current = g.size;
-      setHomeSize(g.size);
-      const spot = homeSpot(g, g.size);
-      const p = posRef.current;
-      if (Math.abs(spot.x - p.x) > 0.5 || Math.abs(spot.y - p.y) > 0.5) jumpTo(spot);
-    };
-    const schedule = () => {
-      if (!raf) raf = requestAnimationFrame(refit);
-    };
-    const stage = document.querySelector("[data-nova-home]");
-    const ro = stage && typeof ResizeObserver !== "undefined" ? new ResizeObserver(schedule) : null;
-    if (ro) ro.observe(stage);
-    window.addEventListener("resize", schedule);
-    window.addEventListener("scroll", schedule, true);
-    return () => {
-      cancelAnimationFrame(raf);
-      ro?.disconnect();
-      window.removeEventListener("resize", schedule);
-      window.removeEventListener("scroll", schedule, true);
-    };
-  }, [housed, leaveHome, jumpTo, posRef]);
-
-  /* Grow into / shrink out of the home size instead of snapping. */
-  const grownSizeRef = useRef(size);
-  useLayoutEffect(() => {
-    const prev = grownSizeRef.current;
-    grownSizeRef.current = size;
-    const el = growRef.current;
-    if (!el || prev === size || reduced || Math.abs(prev - size) < 4) return undefined;
-    el.style.transition = "none";
-    el.style.transform = `scale(${prev / size})`;
-    void el.offsetWidth;
-    el.style.transition = `transform ${GROW_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1)`;
-    el.style.transform = "scale(1)";
-    const t = window.setTimeout(() => {
-      el.style.transition = "";
-      el.style.transform = "";
-    }, GROW_MS + 40);
-    return () => window.clearTimeout(t);
-  }, [size, reduced]);
-
-  /*
-   * 3D: keep her feet on something. She rides her platform when it scrolls, and falls to
-   * whatever is below when it disappears (or when an engaged move left her mid-air).
-   */
-  /** After a drop she lingers a beat, then heads back to her spot (the home window on Today). */
-  api.current.returnAfterDrop = () => {
-    later(() => {
-      if (dragRef.current || !(AUTONOMOUS.has(modeRef.current) || modeRef.current === "sleep")) return;
-      awayFromSpotRef.current = true;
-      api.current.backToSpot?.();
-    }, BACK_AFTER_DROP_MS);
-  };
-
-  api.current.fall = async ({ dropped = false, quip = true } = {}) => {
-    if (housedRef.current) return;
-    const s = sizeRef.current;
-    const below = dropped ? platformBelow(posRef.current, s) : platformBelow(posRef.current, s, platRef.current?.el);
-    if (modeRef.current === "sleep") send("WAKE");
-    const ok = await dropTo(below.top - s);
-    platRef.current = below;
-    if (!ok) return;
-    if (modeRef.current === "perch") send("DONE");
-    playGesture("land");
-    sfx("teleportIn");
-    const now = Date.now();
-    if (dropped) {
-      api.current.returnAfterDrop();
-      if (quip && Math.random() < 0.45) {
-        lastLandQuipRef.current = now;
-        setMood("stern");
-        refreshAnchor();
-        say(line("grabbed"));
-      }
-      return;
-    }
-    if (now - lastLandQuipRef.current > LAND_QUIP_COOLDOWN_MS && AUTONOMOUS.has(modeRef.current)) {
-      lastLandQuipRef.current = now;
-      setMood("stern");
-      refreshAnchor();
-      say(line("landed"));
-    }
-    later(async () => {
-      if (modeRef.current !== "idle" || busy() || !canAct()) return;
-      const step = pickStroll(sizeRef.current, posRef.current, platRef.current, { sameOnly: true });
-      if (!step) return;
-      send("WANDER");
-      const walked = await flyTo(step, { speed: (MOVE[stateRef.current?.movement] || MOVE.normal).speed, walk: true });
-      if (walked && modeRef.current === "wander") send("ARRIVE");
-    }, WALK_OFF_MS);
-  };
-
   const visibleNow = !!cstate?.enabled && mode !== "hidden";
   /** Polling loops stop while the window is minimized/hidden; listeners that detect "back" still use visibleNow. */
   const shown = useSyncExternalStore(subscribeVisibility, pageShown);
   const ticking = visibleNow && shown;
-
-  /*
-   * 3D idle life: every 20-45s (scaled by movement) she yawns, looks around, gets bored or
-   * stretches. Checked on a steady tick so it survives idle/wander/perch hops.
-   */
   const bodyReady = use3d && body === "ready";
-  useEffect(() => {
-    if (!bodyReady || !ticking) return undefined;
-    let due = Date.now() + idleGap(stateRef.current?.movement, Math.random, dayPart());
-    let last = null;
-    const id = window.setInterval(() => {
-      const now = Date.now();
-      if (now < Math.max(due, lastGestureAtRef.current + 8000)) return;
-      const m = modeRef.current;
-      if (!canAct() || (m !== "idle" && m !== "perch") || busy() || bubbleRef.current || dragRef.current || syncRef.current) return;
-      const part = dayPart();
-      const name = seatRef.current ? "sitYawn" : pickIdleGesture({ part, bored: now - lastActivityRef.current > BORED_AFTER_MS, last });
-      last = name;
-      playGesture(name, { idle: true });
-      due = now + idleGap(stateRef.current?.movement, Math.random, part);
-      if ((name === "yawn" || name === "sitYawn") && part === "late" && now - lastLateQuipRef.current > LATE_QUIP_COOLDOWN_MS) {
-        lastLateQuipRef.current = now;
-        later(() => {
-          const mm = modeRef.current;
-          if ((mm !== "idle" && mm !== "perch") || bubbleRef.current || busy()) return;
-          setMood("neutral");
-          refreshAnchor();
-          say(line("lateNight", { time: clockLabel() }));
-        }, 5200);
-      }
-    }, 2000);
-    return () => window.clearInterval(id);
-  }, [bodyReady, ticking, busy, canAct, playGesture, refreshAnchor, say]);
 
-  const prevModeRef = useRef(mode);
-  useEffect(() => {
-    const prev = prevModeRef.current;
-    prevModeRef.current = mode;
-    if (prev !== "sleep" || mode === "sleep") return;
-    const by = wokeByRef.current;
-    wokeByRef.current = null;
-    if (bodyReady && (mode === "idle" || mode === "wander")) playGesture("startle");
-    if (!by || by === "keydown" || by === "wheel" || Math.random() >= WAKE_DENIAL_CHANCE) return;
-    later(async () => {
-      if (!AUTONOMOUS.has(modeRef.current) || bubbleRef.current || stateRef.current?.quiet) return;
-      const pick = await memory.lineFor("wakeDenial", {});
-      if (!pick || bubbleRef.current) return;
-      memory.markSaid(pick);
-      setMood("stern");
-      refreshAnchor();
-      say(pick.text);
-    }, 1100);
-  }, [mode, bodyReady, playGesture, memory, refreshAnchor, say]);
-  useEffect(() => {
-    if (!use3d || !ticking) return undefined;
-    let raf = 0;
-    const check = () => {
-      raf = 0;
-      if (housedRef.current) return;
-      const m = modeRef.current;
-      const grounded = AUTONOMOUS.has(m) || m === "sleep";
-      if (!(grounded || m === "menu" || m === "nudge") || dragRef.current?.moved || busy()) return;
-      const s = sizeRef.current;
-      const pos = posRef.current;
-      const plat = platRef.current;
-      const cx = pos.x + s / 2;
-      if (plat && Math.abs(plat.top - (pos.y + s)) <= 2) {
-        const live = livePlatform(plat, s);
-        if (live && cx >= live.left - 4 && cx <= live.right + 4) {
-          if (Math.abs(live.top - plat.top) > 0.5) jumpTo({ x: pos.x, y: live.top - s });
-          platRef.current = live;
-          return;
-        }
-        if (grounded) void api.current.fall();
-        return;
-      }
-      const here = platformAt(pos, s);
-      if (here) {
-        platRef.current = here;
-        return;
-      }
-      if (grounded) void api.current.fall();
-    };
-    const schedule = () => {
-      if (!raf) raf = requestAnimationFrame(check);
-    };
-    const id = window.setInterval(schedule, 400);
-    window.addEventListener("scroll", schedule, true);
-    window.addEventListener("resize", schedule);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.clearInterval(id);
-      window.removeEventListener("scroll", schedule, true);
-      window.removeEventListener("resize", schedule);
-    };
-  }, [use3d, ticking, busy, jumpTo, posRef]);
-
-  useEffect(() => {
-    if (mode !== "perch") return undefined;
-    const t = window.setTimeout(() => send("DONE"), Math.max(rand([10000, 30000]), sitHoldRef.current - Date.now()));
-    return () => window.clearTimeout(t);
-  }, [mode, send]);
-
-  /* 3D: sometimes she sits on the edge of the card she perched on; cold when you're slipping. */
-  useEffect(() => {
-    if (mode !== "perch" || !bodyReady) return undefined;
-    const t = window.setTimeout(() => {
-      if (modeRef.current !== "perch" || busy() || dragRef.current || sitHoldRef.current > Date.now() || Math.random() > SIT_CHANCE) return;
-      if (!seatClear(posRef.current, sizeRef.current)) return;
-      const slipping = isRampant(stateRef.current) || lastTierRef.current === "finishedBad" || lastTierRef.current === "finishedMeh";
-      setSeat(slipping ? "cold" : "playful");
-    }, rand(SIT_DELAY_MS));
-    return () => {
-      window.clearTimeout(t);
-      setSeat(null);
-    };
-  }, [mode, bodyReady, busy, posRef]);
-
-  /* Off her spot, if the page shifts content under her, she goes back rather than cover it. */
-  useEffect(() => {
-    if (!ticking) return undefined;
-    const id = window.setInterval(() => {
-      const m = modeRef.current;
-      if (!awayFromSpotRef.current || activityRef.current || busy() || dragRef.current || !(AUTONOMOUS.has(m) || m === "sleep")) return;
-      if (coversContent(posRef.current, sizeRef.current, { standing: use3dRef.current })) api.current.backToSpot?.();
-    }, 1500);
-    return () => window.clearInterval(id);
-  }, [ticking, busy, posRef]);
+  // here, not at the top: needs syncRef, lastTierRef and the placement hook
+  const { seat, setSeat, wokeByRef } = useNovaAutonomy(core, {
+    mode,
+    enabled,
+    movement,
+    quiet,
+    use3d,
+    bodyReady,
+    ticking,
+    syncRef,
+    lastTierRef,
+    housedRef,
+    leaveHome,
+    awayRef,
+  });
 
   /* ---------- idle life: staged by how long the student has been idle ---------- */
 
-  const bodyReadyRef = useRef(false);
-  bodyReadyRef.current = bodyReady;
-  const threeD = () => use3dRef.current && bodyReadyRef.current;
-  useEffect(() => () => peekClipRef.current?.(), []);
-
-  /** Resolves true after `ms` if the activity is still running, false once input cut it short. */
-  const hold = (ms, tk) =>
-    new Promise((resolve) => window.setTimeout(() => resolve(!tk.aborted && activityRef.current === tk), ms));
-
-  /** Put the body back to normal. `fast` (input) snaps the doodle out instead of letting it fade. */
-  const clearActivityVisuals = (fast) => {
-    setActivity(null);
-    setIdleLie(null);
-    setDrowsy(false);
-    setSeat((s) => (s === "cards" ? null : s));
-    penRef.current = null;
-    doodleDrawnRef.current?.();
-    doodleDrawnRef.current = null;
-    if (fast) setDoodle((d) => (d ? { ...d, abort: true } : null));
-    peekClipRef.current?.();
-    peekClipRef.current = null;
-  };
-
-  /** Any input ends idle life: she drops what she's doing and the layer walks her back. */
-  api.current.endActivity = () => {
-    const tk = activityRef.current;
-    if (!tk) return;
-    tk.aborted = true;
-    activityRef.current = null;
-    clearActivityVisuals(true);
-    if (tk.moving) cancel();
-    if (use3dRef.current) playGesture("cancel", { idle: true });
-    if (modeRef.current === "play") send("DONE");
-  };
-
-  useEffect(() => {
-    if (mode !== "play" && activityRef.current) api.current.endActivity();
-  }, [mode]);
-
-  api.current.runStage = async (kind) => {
-    if (activityRef.current) return;
-    const tk = { kind, aborted: false, moving: false };
-    activityRef.current = tk;
-    if (send("PLAY") !== "play") {
-      activityRef.current = null;
-      return;
-    }
-    setBubble(null);
-    let after = "DONE";
-    try {
-      after = (await api.current.stages[kind]?.(tk)) || "DONE";
-    } catch {
-      after = "DONE";
-    }
-    if (activityRef.current !== tk) return;
-    activityRef.current = null;
-    clearActivityVisuals(false);
-    if (modeRef.current === "play") send(after);
-  };
-
-  /** Point her eyes at a DOM rect for `ms`. */
-  const glanceAtRect = (rect, ms) => {
-    const s = sizeRef.current;
-    const p = posRef.current;
-    setGlance({ x: rect.left + rect.width / 2 - (p.x + s / 2), y: rect.top + rect.height / 2 - (p.y + s / 2), ms });
-  };
-
-  /** Hide the part of her that overlaps `el`, every frame, so she looks like she's behind it. */
-  const clipBehind = (el) => {
-    const node = nodeRef.current;
-    let raf = 0;
-    const step = () => {
-      raf = requestAnimationFrame(step);
-      if (!node) return;
-      const r = el.isConnected ? el.getBoundingClientRect() : null;
-      const s = sizeRef.current;
-      const p = posRef.current;
-      const x1 = r ? Math.max(0, r.left - p.x) : 0;
-      const x2 = r ? Math.min(s, r.right - p.x) : 0;
-      const y1 = r ? Math.max(0, r.top - p.y) : 0;
-      const y2 = r ? Math.min(s, r.bottom - p.y) : 0;
-      node.style.clipPath = x2 > x1 && y2 > y1 ? `path(evenodd, "M0 0H${s}V${s}H0Z M${x1} ${y1}H${x2}V${y2}H${x1}Z")` : "";
-    };
-    step();
-    return () => {
-      cancelAnimationFrame(raf);
-      if (node) node.style.clipPath = "";
-    };
-  };
-
-  api.current.stages = {
-    /* 30s: looks around, stretches, glances at the Tonight panel. */
-    fidget: async (tk) => {
-      playGesture("look", { idle: true });
-      if (!(await hold(5500, tk))) return;
-      playGesture("stretch", { idle: true });
-      if (!(await hold(3600, tk))) return;
-      const tonight = findTarget("today-tonight");
-      if (!tonight) return;
-      glanceAtRect(tonight.getBoundingClientRect(), 2600);
-      await hold(2800, tk);
-    },
-
-    /* 60s: a light-trail doodle on open grid space beside her. */
-    doodle: async (tk) => {
-      const pick = pickDoodle({ memory: memory.snapshot(), now: new Date(), last: lastDoodleRef.current });
-      const built = buildDoodle(pick);
-      const s = sizeRef.current;
-      const box = doodleBox(built, s);
-      const spot = findDoodleSpot(posRef.current, s, { ...box, prefer: facing });
-      if (!spot) return;
-      lastDoodleRef.current = pick.id;
-      setFacing(spot.side);
-      if (!(await hold(400, tk))) return;
-      const drawn = new Promise((resolve) => {
-        doodleDrawnRef.current = resolve;
-      });
-      if (threeD()) setActivity("draw");
-      doodleIdRef.current += 1;
-      setDoodle({ id: doodleIdRef.current, strokes: layoutDoodle(built, spot.rect), color: built.color, abort: false });
-      await drawn;
-      if (tk.aborted) return;
-      setActivity(null);
-      setMood("happy");
-      if (threeD() && Math.random() < 0.4) playGesture("wink", { idle: true });
-      await hold(2600, tk);
-      setMood("neutral");
-    },
-
-    /* 2 min: reads a hologram book on her stomach, or sits on an edge and shuffles a deck. */
-    prop: async (tk) => {
-      const canSit = !housedRef.current && !!platRef.current?.el && seatClear(posRef.current, sizeRef.current);
-      return api.current.stages[pickProp({ canSit })](tk);
-    },
-    read: async (tk) => {
-      setIdleLie("belly");
-      if (!(await hold(1200, tk))) return;
-      setActivity("read");
-      if (!(await hold(rand(READ_MS), tk))) return;
-      setActivity(null);
-      await hold(700, tk);
-    },
-    cards: async (tk) => {
-      if (!(await hold(60, tk))) return;
-      setSeat("cards");
-      if (!(await hold(800, tk))) return;
-      setActivity("cards");
-      if (!(await hold(rand(READ_MS), tk))) return;
-      setActivity(null);
-      await hold(700, tk);
-    },
-
-    /* 5 min: yawns, lies down propped on an elbow, eyes drooping, then dozes off. */
-    doze: async (tk) => {
-      if (threeD()) {
-        playGesture("yawn", { idle: true });
-        if (!(await hold(4600, tk))) return;
-        playGesture("cancel", { idle: true });
-        setIdleLie("prop");
-        setDrowsy(true);
-        if (!(await hold(DROWSY_MS, tk))) return;
-      }
-      return "SLEEP";
-    },
-
-    /* Once in a while: hides behind a panel, peeks out, walks back. */
-    peek: async (tk) => {
-      const s = sizeRef.current;
-      const start = { ...posRef.current };
-      const spot = findPeekSpot(start, s, platRef.current);
-      if (!spot) return;
-      const wasAway = awayFromSpotRef.current;
-      awayFromSpotRef.current = true;
-      peekClipRef.current = clipBehind(spot.el);
-      const speed = (MOVE[stateRef.current?.movement] || MOVE.normal).speed;
-      tk.moving = true;
-      const there = await flyTo({ x: spot.x, y: spot.y }, { speed, walk: true });
-      tk.moving = false;
-      if (!there || tk.aborted) return;
-      setFacing(spot.outward);
-      if (!(await hold(900, tk))) return;
-      playGesture("lean", { idle: true });
-      if (!(await hold(2600, tk))) return;
-      if (Math.random() < 0.5) {
-        playGesture("wink", { idle: true });
-        if (!(await hold(1400, tk))) return;
-      }
-      tk.moving = true;
-      const back = await flyTo(start, { speed, walk: true });
-      tk.moving = false;
-      if (back && !tk.aborted) awayFromSpotRef.current = wasAway;
-    },
-  };
-
-  api.current.idleTick = () => {
-    if (activityRef.current || syncRef.current) return;
-    const m = modeRef.current;
-    if ((m !== "idle" && m !== "perch") || busy() || dragRef.current || bubbleRef.current || returningRef.current) return;
-    if (!canAct()) return;
-    const now = Date.now();
-    const idleMs = now - lastInputRef.current;
-    const body3d = threeD();
-    const stage = dueStage(idleMs, stagesDoneRef.current, { part: dayPart(), skip: body3d ? null : SPRITE_SKIP });
-    if (stage) {
-      stagesDoneRef.current.add(stage);
-      void api.current.runStage(stage);
-      return;
-    }
-    if (body3d && !housedRef.current && mayPeek({ idleMs, lastPeek: lastPeekRef.current, now })) {
-      lastPeekRef.current = now;
-      void api.current.runStage("peek");
-    }
-  };
-
-  useEffect(() => {
-    if (!ticking || quiet || reduced) {
-      api.current.endActivity?.();
-      return undefined;
-    }
-    const id = window.setInterval(() => api.current.idleTick?.(), 1000);
-    return () => window.clearInterval(id);
-  }, [ticking, quiet, reduced]);
+  // here, not at the top: needs setSeat, syncRef, ticking and bodyReady
+  const { stagesDoneRef, activity, idleLie, drowsy, glance, setGlance, doodle, setDoodle, penRef, doodleDrawnRef, glanceAtRect } = useNovaIdleLife(core, {
+    mode,
+    facing,
+    bodyReady,
+    ticking,
+    quiet,
+    syncRef,
+    housedRef,
+    setSeat,
+  });
 
   /* ---------- the spoken briefing: she walks to what she's talking about ---------- */
 
   useNovaBriefing(core, { ensureRoute, setMarks, glanceAtRect, setGlance });
-
-  /* Back after a while away from the window: she wakes up and waves. */
-  useEffect(() => {
-    if (!visibleNow) return undefined;
-    let awayAt = 0;
-    const leave = () => {
-      if (!awayAt) awayAt = Date.now();
-    };
-    const back = () => {
-      if (document.hidden || !awayAt) return;
-      const away = Date.now() - awayAt;
-      awayAt = 0;
-      const m = modeRef.current;
-      if (away < RETURN_AWAY_MS || !(AUTONOMOUS.has(m) || m === "sleep") || busy() || dragRef.current) return;
-      if (m === "sleep") send("WAKE");
-      if (stateRef.current?.quiet) return;
-      lastActivityRef.current = Date.now();
-      later(() => {
-        const mm = modeRef.current;
-        if (!AUTONOMOUS.has(mm) || busy()) return;
-        playGesture("wave");
-        if (!bubbleRef.current) {
-          setMood("happy");
-          refreshAnchor();
-          say(line("welcomeBack"));
-        }
-      }, 600);
-    };
-    const onVis = () => (document.hidden ? leave() : back());
-    document.addEventListener("visibilitychange", onVis);
-    window.addEventListener("blur", leave);
-    window.addEventListener("focus", back);
-    return () => {
-      document.removeEventListener("visibilitychange", onVis);
-      window.removeEventListener("blur", leave);
-      window.removeEventListener("focus", back);
-    };
-  }, [visibleNow, busy, send, playGesture, refreshAnchor, say]);
 
   // after startQuiz/flashReaction: nudge actions call them
   const { dueNow } = useNovaNudges(core, { mode, flashReaction, startQuiz });
@@ -1176,163 +480,22 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   useNovaDirector(core, { dueNow, memoryActions, syncRef });
 
-  /* Input: resets the idle clock, wakes her, and calls her back if she wandered off. Plus cursor shyness and the summon hotkey. */
-  useEffect(() => {
-    let lastMove = 0;
-    const onActivity = (e) => {
-      const now = Date.now();
-      lastActivityRef.current = now;
-      lastInputRef.current = now;
-      stagesDoneRef.current = new Set();
-      if (e?.type === "keydown" || e?.type === "wheel") lastTypingRef.current = now;
-      api.current.endActivity?.();
-      if (modeRef.current === "brief" && e?.type !== "pointermove") api.current.briefEnd?.({ now: true });
-      if (e?.target && nodeRef.current?.contains(e.target)) return;
-      if (modeRef.current === "sleep") wokeByRef.current = e?.type || "keydown";
-      if (modeRef.current === "sleep" && !awayFromSpotRef.current) send("WAKE");
-      api.current.backToSpot?.();
-    };
-    const onPointerMoveGlobal = (e) => {
-      const now = Date.now();
-      if (now - lastMove < 120) return;
-      lastMove = now;
-      onActivity(e);
-      if (use3dRef.current || modeRef.current !== "wander" || now - lastDriftRef.current < 3000) return;
-      const s = sizeRef.current;
-      const p = posRef.current;
-      const cx = p.x + s / 2;
-      const cy = p.y + s / 2;
-      const dist = Math.hypot(e.clientX - cx, e.clientY - cy);
-      if (dist >= 80) return;
-      lastDriftRef.current = now;
-      const ax = (cx - e.clientX) / (dist || 1);
-      const ay = (cy - e.clientY) / (dist || 1);
-      void flyTo(clampPoint({ x: p.x + ax * 120, y: p.y + ay * 120 }, s), { speed: 160 }).then((ok) => {
-        if (ok && modeRef.current === "wander") send("ARRIVE");
-      });
-    };
-    const onKey = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === "Space") {
-        e.preventDefault();
-        api.current.summon();
-        return;
-      }
-      onActivity();
-    };
-    window.addEventListener("pointermove", onPointerMoveGlobal, { passive: true });
-    window.addEventListener("pointerdown", onActivity, true);
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("wheel", onActivity, { passive: true });
-    window.addEventListener("touchstart", onActivity, { passive: true });
-    return () => {
-      window.removeEventListener("pointermove", onPointerMoveGlobal);
-      window.removeEventListener("pointerdown", onActivity, true);
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("wheel", onActivity);
-      window.removeEventListener("touchstart", onActivity);
-    };
-  }, [send, flyTo, posRef]);
-
-  api.current.summon = async () => {
-    const cur = stateRef.current;
-    if (!cur) return;
-    const m = modeRef.current;
-    if (m === "tour" || m === "quiz") return;
-    if (!cur.enabled) update({ enabled: true });
-    if (m === "hidden" || !cur.enabled) force("idle");
-    if (m === "menu") {
-      send("CLOSE");
-      return;
-    }
-    if (m === "help") {
-      closeHelp();
-      return;
-    }
-    cancel();
-    setBubble(null);
-    if (!AUTONOMOUS.has(modeRef.current) && modeRef.current !== "sleep") force("idle");
-    if (!housedRef.current) {
-      const s = sizeRef.current;
-      jumpTo(
-        use3dRef.current
-          ? standOn(groundPlatform(), window.innerWidth * 0.55, s)
-          : clampPoint({ x: window.innerWidth * 0.55, y: window.innerHeight * 0.42 }, s)
-      );
-      if (use3dRef.current) platRef.current = groundPlatform();
-    }
-    setBurst((n) => n + 1);
-    sfx("teleportIn");
-    startHelp();
-  };
-
-  useEffect(() => {
-    if (!burst) return undefined;
-    const t = window.setTimeout(() => setBurst(0), BURST_MS);
-    return () => window.clearTimeout(t);
-  }, [burst]);
-
-  /* Close the menu / help when clicking elsewhere. */
-  useEffect(() => {
-    if (mode !== "menu" && mode !== "help") return undefined;
-    const onDown = (e) => {
-      if (nodeRef.current?.contains(e.target)) return;
-      if (modeRef.current === "help") closeHelp();
-      else send("CLOSE");
-    };
-    window.addEventListener("pointerdown", onDown, true);
-    return () => window.removeEventListener("pointerdown", onDown, true);
-  }, [mode, send, closeHelp]);
-
-  /* Escape leaves a tour; stay on screen through resizes. */
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape" && modeRef.current === "tour") endTour(false);
-      if (e.key === "Escape" && modeRef.current === "help") closeHelp();
-    };
-    const onResize = () => {
-      if (modeRef.current === "quiz") {
-        jumpTo(dockPoint());
-        return;
-      }
-      const s = sizeRef.current;
-      const c = clampPoint(posRef.current, s);
-      if (c.x !== posRef.current.x || c.y !== posRef.current.y) jumpTo(c);
-    };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [endTour, closeHelp, jumpTo, posRef, dockPoint]);
-
-  const prevSizeRef = useRef(size);
-  useEffect(() => {
-    if (prevSizeRef.current === size) return;
-    prevSizeRef.current = size;
-    const c = clampPoint(posRef.current, size);
-    if (c.x !== posRef.current.x || c.y !== posRef.current.y) jumpTo(c);
-  }, [size, jumpTo, posRef]);
-
-  /* Plain bubbles fade on their own; sticky ones wait for a choice. */
-  useEffect(() => {
-    if (!bubble || bubble.sticky) return undefined;
-    const t = window.setTimeout(() => {
-      setBubble(null);
-      if (AUTONOMOUS.has(modeRef.current)) setMood("neutral");
-    }, 4200 + (bubble.text?.length || 0) * 35);
-    return () => window.clearTimeout(t);
-  }, [bubble]);
-
-  useEffect(() => {
-    if (flying || mode === "tour") return;
-    refreshAnchor();
-  }, [flying, mode, bubble, refreshAnchor]);
-
-  const speech = mode === "tour" ? (tour?.ready ? tour.step.text : "") : bubble?.text || "";
-  useEffect(() => {
-    setTalkUntil(speech ? performance.now() + 300 + speech.length * TALK_MS_PER_CHAR : 0);
-  }, [speech, bubble]);
+  // here, not at the top: needs help, tour, quiz, autonomy and idle life; after the commands hook so Ctrl+J still runs before the input listener
+  const { burst } = useNovaInput(core, {
+    visibleNow,
+    mode,
+    bubble,
+    flying,
+    size,
+    tour,
+    housedRef,
+    stagesDoneRef,
+    wokeByRef,
+    closeHelp,
+    startHelp,
+    endTour,
+    dockPoint,
+  });
 
   /* ---------- settings ---------- */
 

@@ -18,7 +18,7 @@ function placeDropMark(el, at) {
 }
 
 /** Clicking and dragging Nova: the click menu, the spam guard, the held swing, and drops onto the home window or a task. */
-export function useNovaDrag(core, { houseAt, leaveHome, closeHelp }) {
+export function useNovaDrag(core, { housedRef, houseAt, leaveHome, closeHelp }) {
   const {
     modeRef,
     navRef,
@@ -40,7 +40,6 @@ export function useNovaDrag(core, { houseAt, leaveHome, closeHelp }) {
     lastActivityRef,
     use3dRef,
     baseSizeRef,
-    housedRef,
     nodeRef,
     reduced,
   } = core;
