@@ -32,6 +32,9 @@ const LIE_CLIPS = { prop: "lieProp", back: "lieBack", belly: "lieBelly", side: "
 const LIE_EXTENT_BONES = ["head", "hips", "leftHand", "rightHand", "leftFoot", "rightFoot", "leftToes", "rightToes"];
 /** Bases that keep her hands clasped behind her back. */
 const ARMS_BACK_BASES = new Set(["idle", "walk"]);
+/** `rest` keys for the left and right chains of each limb pair. */
+const ARM_CHAINS = ["left", "right"];
+const LEG_CHAINS = ["leftLeg", "rightLeg"];
 /** The cursor only draws her eyes when it's this close (CSS px from her center) and recently moved. */
 const GLANCE_RADIUS = 420;
 const GLANCE_MS = 3500;
@@ -62,10 +65,54 @@ const ARMS_BACK = {
 };
 const mirror = (v) => new THREE.Vector3(-v.x, v.y, v.z);
 const dir = (x, y, z) => new THREE.Vector3(x, y, z).normalize();
+/** `dir` into an existing vector, for poses rebuilt every frame. */
+const setDir = (out, x, y, z) => out.set(x, y, z).normalize();
 const bothArms = (upper, lower, hand) => ({ left: [upper, lower, hand], right: [mirror(upper), mirror(lower), mirror(hand)] });
+const vec3s = (n) => Array.from({ length: n }, () => new THREE.Vector3());
 const smooth = (a, b, t) => THREE.MathUtils.smoothstep(t, a, b);
 /** 0 → 1 → 0 over [a, b] with `ramp`-second edges. */
 const bump = (t, a, b, ramp = 0.4) => smooth(a, a + ramp, t) * (1 - smooth(b - ramp, b, t));
+
+/*
+ * Per-frame scratch, one set per function so no call can clobber a caller's values.
+ * Poses returned from the per-frame pose builders below are module-owned and only valid
+ * until the next call of the same builder; applyLimbs reads them without keeping them.
+ */
+const _point = { reach: [], d: new THREE.Vector3(), lift: new THREE.Vector3() };
+_point.reach.push(_point.d, _point.d, _point.lift);
+const _held = { arms: { left: vec3s(3), right: vec3s(3) }, legs: { left: vec3s(3), right: vec3s(3) } };
+const _seatLegs = { left: vec3s(3), right: vec3s(3) };
+/** Pull arm: [upper, lower, lower]; the hand follows the forearm. */
+const pullArm = () => {
+  const [upper, lower] = vec3s(2);
+  return [upper, lower, lower];
+};
+const _pull = { reach: new THREE.Vector3(), drawn: new THREE.Vector3(), out: { left: pullArm(), right: pullArm() } };
+const _bend = { e: new THREE.Euler(), q: new THREE.Quaternion() };
+const _limbs = {
+  delta: new THREE.Quaternion(),
+  parent: new THREE.Quaternion(),
+  want: new THREE.Quaternion(),
+  local: new THREE.Quaternion(),
+  target: new THREE.Vector3(),
+  restDir: new THREE.Vector3(),
+};
+const _head = { pos: new THREE.Vector3(), want: new THREE.Vector3(), e: new THREE.Euler(), q: new THREE.Quaternion() };
+const _props = { head: new THREE.Vector3(), lh: new THREE.Vector3(), rh: new THREE.Vector3() };
+const _seatHips = new THREE.Vector3();
+const _lieP = new THREE.Vector3();
+
+const ARMS_BACK_LEFT = [ARMS_BACK.upper, ARMS_BACK.lower, ARMS_BACK.hand];
+const ARMS_BACK_RIGHT = [mirror(ARMS_BACK.upper), mirror(ARMS_BACK.lower), mirror(ARMS_BACK.hand)];
+const STRETCH_ARMS = bothArms(dir(0.28, 0.95, 0.08), dir(-0.5, 0.86, 0.05), dir(-0.7, 0.7, 0.05));
+const FACEPALM_ARMS = {
+  left: ARMS_BACK_LEFT,
+  right: [dir(-0.3, -0.3, 0.9), dir(0.55, 0.82, 0.15), dir(0.45, 0.8, -0.35)],
+};
+const STARTLE_ARMS = bothArms(dir(0.6, -0.55, 0.45), dir(0.4, -0.05, 0.9), dir(0.3, 0.25, 0.9));
+const POINT_DEFAULT_AT = { x: 1, y: 0 };
+const POINT_RIGHT = { left: _point.reach, right: ARMS_BACK_RIGHT };
+const POINT_LEFT = { left: ARMS_BACK_LEFT, right: _point.reach };
 
 /**
  * Gestures with no Mixamo clip: an arm pose (same world-direction scheme as ARMS_BACK),
@@ -75,7 +122,7 @@ const bump = (t, a, b, ramp = 0.4) => smooth(a, a + ramp, t) * (1 - smooth(b - r
 const PROC = {
   stretch: {
     duration: 3.4,
-    arms: () => bothArms(dir(0.28, 0.95, 0.08), dir(-0.5, 0.86, 0.05), dir(-0.7, 0.7, 0.05)),
+    arms: () => STRETCH_ARMS,
     body: (t) => {
       const sway = Math.sin(smooth(0.8, 2.8, t) * Math.PI * 2) * 0.16;
       return { spine: [-0.06, 0, sway * 0.5], chest: [-0.1, 0, sway], head: [-0.12, 0, sway * 0.6] };
@@ -86,13 +133,10 @@ const PROC = {
   point: {
     duration: 2.8,
     arms: (t, p) => {
-      const at = p.at || { x: 1, y: 0 };
-      const d = dir(at.x, -at.y, Math.hypot(at.x, at.y) * 0.35);
-      const lift = (v) => dir(v.x, v.y + 0.12, v.z);
-      const reach = [d, d, lift(d)];
-      return at.x >= 0
-        ? { left: reach, right: [mirror(ARMS_BACK.upper), mirror(ARMS_BACK.lower), mirror(ARMS_BACK.hand)] }
-        : { left: [ARMS_BACK.upper, ARMS_BACK.lower, ARMS_BACK.hand], right: reach };
+      const at = p.at || POINT_DEFAULT_AT;
+      const d = setDir(_point.d, at.x, -at.y, Math.hypot(at.x, at.y) * 0.35);
+      setDir(_point.lift, d.x, d.y + 0.12, d.z);
+      return at.x >= 0 ? POINT_RIGHT : POINT_LEFT;
     },
     body: (t, p) => {
       const side = (p.at?.x ?? 1) >= 0 ? 1 : -1;
@@ -103,10 +147,7 @@ const PROC = {
   /** Right hand to her forehead, head down, a slow disappointed shake. */
   facepalm: {
     duration: 2.6,
-    arms: () => ({
-      left: [ARMS_BACK.upper, ARMS_BACK.lower, ARMS_BACK.hand],
-      right: [dir(-0.3, -0.3, 0.9), dir(0.55, 0.82, 0.15), dir(0.45, 0.8, -0.35)],
-    }),
+    arms: () => FACEPALM_ARMS,
     body: (t) => {
       const shake = Math.sin(smooth(0.6, 2.2, t) * Math.PI * 4) * 0.12;
       return { spine: [0.06, 0, 0], neck: [0.2, shake * 0.5, 0], head: [0.28, shake, 0] };
@@ -134,7 +175,7 @@ const PROC = {
   startle: {
     duration: 1.3,
     ramp: [0.1, 0.7],
-    arms: () => bothArms(dir(0.6, -0.55, 0.45), dir(0.4, -0.05, 0.9), dir(0.3, 0.25, 0.9)),
+    arms: () => STARTLE_ARMS,
     body: (t) => {
       const j = bump(t, 0, 1.1, 0.12);
       return { spine: [-0.08 * j, 0, 0], chest: [-0.1 * j, 0, 0], head: [-0.16 * j, 0, 0.05 * j] };
@@ -153,16 +194,25 @@ const CARDS_ARMS = bothArms(dir(0.2, -0.85, 0.35), dir(-0.45, 0.2, 0.87), dir(-0
 const HELD = {
   arms: (t) => {
     const w = Math.sin(t * 7);
-    const left = [dir(0.9, 0.2 + 0.25 * w, 0.2), dir(0.6, 0.65 + 0.2 * w, 0.35), dir(0.4, 0.85, 0.3)];
-    const right = [dir(-0.9, 0.2 - 0.25 * w, 0.2), dir(-0.6, 0.65 - 0.2 * w, 0.35), dir(-0.4, 0.85, 0.3)];
-    return { left, right };
+    const { left, right } = _held.arms;
+    setDir(left[0], 0.9, 0.2 + 0.25 * w, 0.2);
+    setDir(left[1], 0.6, 0.65 + 0.2 * w, 0.35);
+    setDir(left[2], 0.4, 0.85, 0.3);
+    setDir(right[0], -0.9, 0.2 - 0.25 * w, 0.2);
+    setDir(right[1], -0.6, 0.65 - 0.2 * w, 0.35);
+    setDir(right[2], -0.4, 0.85, 0.3);
+    return _held.arms;
   },
   legs: (t) => {
     const k = Math.sin(t * 8);
-    return {
-      left: [dir(0.1 + 0.1 * k, -1, 0.12 + 0.2 * k), dir(0.02 - 0.2 * k, -1, -0.1 - 0.45 * k), dir(0, -0.75, 0.66)],
-      right: [dir(-0.1 + 0.1 * k, -1, 0.12 - 0.2 * k), dir(-0.02 - 0.2 * k, -1, -0.1 + 0.45 * k), dir(0, -0.75, 0.66)],
-    };
+    const { left, right } = _held.legs;
+    setDir(left[0], 0.1 + 0.1 * k, -1, 0.12 + 0.2 * k);
+    setDir(left[1], 0.02 - 0.2 * k, -1, -0.1 - 0.45 * k);
+    setDir(left[2], 0, -0.75, 0.66);
+    setDir(right[0], -0.1 + 0.1 * k, -1, 0.12 - 0.2 * k);
+    setDir(right[1], -0.02 - 0.2 * k, -1, -0.1 + 0.45 * k);
+    setDir(right[2], 0, -0.75, 0.66);
+    return _held.legs;
   },
 };
 
@@ -173,22 +223,28 @@ const SEAT_PLAYFUL = {
   arms: bothArms(dir(0.32, -0.92, -0.2), dir(0.08, -1, 0.12), dir(0, -0.85, 0.5)),
 };
 
-/** Tip a direction forward (toward +z, the way she faces) by `a` radians around the x axis. */
-function forward(v, a) {
+/** Tip the direction (x, y, z) forward (toward +z, the way she faces) by `a` radians around the x axis, into `out`. */
+function forward(out, x, y, z, a) {
   const c = Math.cos(a);
   const s = Math.sin(a);
-  return new THREE.Vector3(v.x, v.y * c + v.z * s, -v.y * s + v.z * c).normalize();
+  return out.set(x, y * c + z * s, -y * s + z * c).normalize();
 }
 
-/** Seated leg directions from legSwing angles. `sign` is +1 for her left leg, -1 for her right. */
-function seatLeg(j, cross, sign) {
-  const thigh = forward(new THREE.Vector3(0.1 * sign, -0.2, 1), j.hip * 0.5);
-  const shin = forward(new THREE.Vector3(0.02 * sign, -1, 0.2), j.hip + j.knee);
+/** Seated leg directions from legSwing angles, written into `out`. `sign` is +1 for her left leg, -1 for her right. */
+function seatLeg(j, cross, sign, out) {
+  const thigh = out[0];
+  const shin = out[1];
+  const foot = out[2];
+  forward(thigh, 0.1 * sign, -0.2, 1, j.hip * 0.5);
+  forward(shin, 0.02 * sign, -1, 0.2, j.hip + j.knee);
   shin.x -= sign * 0.3 * cross;
   shin.z += (sign > 0 ? 0.12 : 0) * cross;
-  const foot = forward(new THREE.Vector3(0, -0.55, 0.85), j.hip + j.knee + j.ankle);
+  forward(foot, 0, -0.55, 0.85, j.hip + j.knee + j.ankle);
   foot.x -= sign * 0.25 * cross;
-  return [thigh.normalize(), shin.normalize(), foot.normalize()];
+  thigh.normalize();
+  shin.normalize();
+  foot.normalize();
+  return out;
 }
 
 /** Face overlays for clip gestures, keyed by clip name; `t` is the clip time. */
@@ -303,13 +359,19 @@ function buildClip(name, data, vrm, hipsHeight) {
   return new THREE.AnimationClip(name, data.duration, tracks);
 }
 
+let webglOk = null;
+
 export function webglAvailable() {
+  if (webglOk !== null) return webglOk;
   try {
     const c = document.createElement("canvas");
-    return !!(c.getContext("webgl2") || c.getContext("webgl"));
+    const gl = c.getContext("webgl2") || c.getContext("webgl");
+    gl?.getExtension("WEBGL_lose_context")?.loseContext();
+    webglOk = !!gl;
   } catch {
-    return false;
+    webglOk = false;
   }
+  return webglOk;
 }
 
 /**
@@ -332,6 +394,7 @@ export class NovaStage {
     this.state = { gait: null, speed: 90, facing: 1, mood: "neutral", talkUntil: 0, rampant: false, glow: 1, asleep: false, attend: false, held: false, seat: null, lie: null, still: false, energy: 1, glitchUntil: 0, visible: true, activity: null, drowsy: false, staticNoise: false };
     this.forced = null;
     this.focusWorld = null;
+    this.focusVec = new THREE.Vector3();
     this.penRef = null;
     this.drawAt = { x: 1, y: 0 };
     this.drawW = 0;
@@ -467,7 +530,7 @@ export class NovaStage {
     this.deckW = ease(this.deckW, s.activity === "cards" && this.cardsW > 0.6 ? 1 : 0, 3);
     this.focusWorld = null;
     const h = this.vrm.humanoid;
-    const at = (name) => h.getNormalizedBoneNode(name)?.getWorldPosition(new THREE.Vector3());
+    const at = (name, out) => h.getNormalizedBoneNode(name)?.getWorldPosition(out);
     const setOpacity = (set, w) => {
       set.fill.opacity = 0.3 * w;
       set.line.opacity = 0.85 * w;
@@ -477,9 +540,9 @@ export class NovaStage {
     this.book.visible = this.bookW > 0.01;
     if (this.book.visible) {
       setOpacity(this.propMats.book, this.bookW);
-      const head = at("head");
-      const lh = at("leftHand") || head;
-      const rh = at("rightHand") || head;
+      const head = at("head", _props.head);
+      const lh = at("leftHand", _props.lh) || head;
+      const rh = at("rightHand", _props.rh) || head;
       const x = Math.min(head.x, lh.x, rh.x) - this.height * 0.07;
       const y = Math.max(this.rest.floorY + this.height * 0.03, Math.min(lh.y, rh.y));
       this.book.position.set(x, y, head.z + 0.05);
@@ -488,14 +551,14 @@ export class NovaStage {
       const f = smooth(4.4, 5.3, cyc);
       this.bookFlip.rotation.y = this.bookOpen + (Math.PI - 2 * this.bookOpen) * f;
       this.bookFlip.visible = f > 0.001 && f < 0.999;
-      this.focusWorld = this.book.position.clone();
+      this.focusWorld = this.focusVec.copy(this.book.position);
     }
 
     this.deck.visible = this.deckW > 0.01;
     if (this.deck.visible) {
       setOpacity(this.propMats.deck, this.deckW);
-      const lh = at("leftHand");
-      const rh = at("rightHand");
+      const lh = at("leftHand", _props.lh);
+      const rh = at("rightHand", _props.rh);
       if (lh && rh) {
         const mid = lh.add(rh).multiplyScalar(0.5);
         this.deck.position.set(mid.x, mid.y - this.height * 0.01, mid.z + 0.03);
@@ -509,7 +572,7 @@ export class NovaStage {
         card.position.set(Math.sin(ph) * this.height * 0.025 * shuffle, Math.abs(Math.cos(ph)) * this.height * 0.008 * shuffle, i * 0.002);
         card.rotation.z = (i - (n - 1) / 2) * 0.2 * fan + Math.sin(ph) * 0.15 * shuffle;
       });
-      this.focusWorld = this.deck.position.clone();
+      this.focusWorld = this.focusVec.copy(this.deck.position);
     }
   }
 
@@ -644,9 +707,9 @@ export class NovaStage {
     const hips = h.getNormalizedBoneNode("hips");
     this.rest = {
       chest,
-      chestQ: chest.getWorldQuaternion(new THREE.Quaternion()),
+      chestQInv: chest.getWorldQuaternion(new THREE.Quaternion()).invert(),
       hips,
-      hipsQ: hips.getWorldQuaternion(new THREE.Quaternion()),
+      hipsQInv: hips.getWorldQuaternion(new THREE.Quaternion()).invert(),
       floorY: new THREE.Box3().setFromObject(this.vrm.scene).min.y,
       left: [rest("leftUpperArm", "leftLowerArm"), rest("leftLowerArm", "leftHand"), rest("leftHand", "leftMiddleProximal")],
       right: [rest("rightUpperArm", "rightLowerArm"), rest("rightLowerArm", "rightHand"), rest("rightHand", "rightMiddleProximal")],
@@ -764,8 +827,8 @@ export class NovaStage {
     const node = this.vrm.humanoid.getNormalizedBoneNode(bone);
     if (!node) return;
     const v0 = this.vrm.meta?.metaVersion === "0";
-    const e = new THREE.Euler((v0 ? -x : x) * weight, y * weight, (v0 ? -z : z) * weight, "XYZ");
-    node.quaternion.multiply(new THREE.Quaternion().setFromEuler(e));
+    const e = _bend.e.set((v0 ? -x : x) * weight, y * weight, (v0 ? -z : z) * weight, "XYZ");
+    node.quaternion.multiply(_bend.q.setFromEuler(e));
   }
 
   onFinished(action) {
@@ -857,7 +920,9 @@ export class NovaStage {
     const swing = stepLegSwing(this.legSwing, dt, { active: this.playW > 0.5 && !s.still, energy: s.energy || 1 });
     if (this.playW > 0.01) {
       this.applyArmPose(SEAT_PLAYFUL.arms, this.playW);
-      this.applyLegPose({ left: seatLeg(swing.left, swing.cross, 1), right: seatLeg(swing.right, swing.cross, -1) }, this.playW);
+      seatLeg(swing.left, swing.cross, 1, _seatLegs.left);
+      seatLeg(swing.right, swing.cross, -1, _seatLegs.right);
+      this.applyLegPose(_seatLegs, this.playW);
       if (!s.still) this.bend("head", [0, 0, Math.sin(this.t * 1.3) * 0.08], this.playW * (1 - this.cardsW));
     }
     if (this.cardsW > 0.01) this.applyArmPose(CARDS_ARMS, this.cardsW);
@@ -911,19 +976,30 @@ export class NovaStage {
   /** Syncing: both hands reach toward the portal on her facing side and draw the data in, hand over hand. */
   pullPose(facing) {
     const f = facing < 0 ? -1 : 1;
-    const arm = (phase) => {
+    const reach = setDir(_pull.reach, f * 0.8, 0.12, 0.55);
+    const drawn = setDir(_pull.drawn, f * 0.3, -0.25, 0.9);
+    const arm = (out, phase) => {
       const k = (1 + Math.sin(this.t * 3.2 + phase)) / 2;
-      const reach = dir(f * 0.8, 0.12, 0.55);
-      const drawn = dir(f * 0.3, -0.25, 0.9);
-      const lower = reach.clone().lerp(drawn, k).normalize();
-      return [reach.clone().lerp(drawn, k * 0.4).normalize(), lower, lower];
+      out[1].copy(reach).lerp(drawn, k).normalize();
+      out[0].copy(reach).lerp(drawn, k * 0.4).normalize();
     };
-    return { left: arm(0), right: arm(Math.PI) };
+    arm(_pull.out.left, 0);
+    arm(_pull.out.right, Math.PI);
+    return _pull.out;
   }
 
   /** Drowsy: 0 most of the time, easing up to 1 as her head drops and her eyes close, every few seconds. */
   nod() {
     return Math.pow(Math.max(0, Math.sin(this.t * 0.7)), 4);
+  }
+
+  /**
+   * Bone reads below go through getWorldPosition, which refreshes their own ancestor chain.
+   * The one matrix read elsewhere without a refresh is VRMLookAt's raw head bone (in
+   * `vrm.update`), so refresh that chain too, at the same point a whole-model update did.
+   */
+  syncLookAtHead() {
+    this.vrm.humanoid.getRawBoneNode("head")?.updateWorldMatrix(true, false);
   }
 
   /**
@@ -934,8 +1010,8 @@ export class NovaStage {
     const w = this.seatW < 0.002 ? 0 : this.seatW;
     this.root.position.y = 0;
     if (w) {
-      this.root.updateMatrixWorld(true);
-      const hipsY = this.rest.hips.getWorldPosition(new THREE.Vector3()).y;
+      this.syncLookAtHead();
+      const hipsY = this.rest.hips.getWorldPosition(_seatHips).y;
       this.root.position.y = (this.rest.floorY + SEAT_FRAC * this.frameH - hipsY) * w;
     }
     const parts = [];
@@ -967,14 +1043,13 @@ export class NovaStage {
     let want = 0;
     if (pose) {
       const h = this.vrm.humanoid;
-      this.root.updateMatrixWorld(true);
+      this.syncLookAtHead();
       let lo = Infinity;
       let hi = -Infinity;
-      const p = new THREE.Vector3();
       for (const name of LIE_EXTENT_BONES) {
         const node = h.getNormalizedBoneNode(name);
         if (!node) continue;
-        const x = node.getWorldPosition(p).x - this.root.position.x;
+        const x = node.getWorldPosition(_lieP).x - this.root.position.x;
         lo = Math.min(lo, x);
         hi = Math.max(hi, x);
       }
@@ -990,35 +1065,33 @@ export class NovaStage {
   /** Blend the arms toward a pose of world directions (relative to the chest) by `weight`. */
   applyArmPose(pose, weight) {
     const r = this.rest;
-    this.applyLimbs(pose, weight, r.chest, r.chestQ, ["left", "right"]);
+    this.applyLimbs(pose, weight, r.chest, r.chestQInv, ARM_CHAINS);
   }
 
   /** Same for the legs, relative to the hips. */
   applyLegPose(pose, weight) {
     const r = this.rest;
-    this.applyLimbs(pose, weight, r.hips, r.hipsQ, ["leftLeg", "rightLeg"]);
+    this.applyLimbs(pose, weight, r.hips, r.hipsQInv, LEG_CHAINS);
   }
 
-  applyLimbs(pose, weight, anchor, anchorRestQ, chains) {
+  /** Each bone's parent.getWorldQuaternion refreshes the chain above it, so no explicit matrix update is needed here. */
+  applyLimbs(pose, weight, anchor, anchorRestQInv, chains) {
     const r = this.rest;
-    const bodyDelta = anchor.getWorldQuaternion(new THREE.Quaternion()).multiply(anchorRestQ.clone().invert());
-    const parentQ = new THREE.Quaternion();
-    const want = new THREE.Quaternion();
-    const local = new THREE.Quaternion();
-    for (const [chain, side] of [
-      [chains[0], "left"],
-      [chains[1], "right"],
-    ]) {
-      r[chain].forEach((bone, i) => {
-        if (!bone) return;
-        const target = pose[side][i].clone().applyQuaternion(bodyDelta);
-        const restDir = bone.dir.clone().applyQuaternion(bodyDelta);
+    const { parent: parentQ, want, local } = _limbs;
+    const bodyDelta = anchor.getWorldQuaternion(_limbs.delta).multiply(anchorRestQInv);
+    for (let s = 0; s < 2; s += 1) {
+      const bones = r[chains[s]];
+      const dirs = pose[s === 0 ? "left" : "right"];
+      for (let i = 0; i < bones.length; i += 1) {
+        const bone = bones[i];
+        if (!bone) continue;
+        const target = _limbs.target.copy(dirs[i]).applyQuaternion(bodyDelta);
+        const restDir = _limbs.restDir.copy(bone.dir).applyQuaternion(bodyDelta);
         want.setFromUnitVectors(restDir, target).multiply(bodyDelta).multiply(bone.q);
         bone.node.parent.getWorldQuaternion(parentQ);
         local.copy(parentQ.invert().multiply(want));
         bone.node.quaternion.slerp(local, weight);
-        bone.node.updateMatrixWorld(true);
-      });
+      }
     }
   }
 
@@ -1026,17 +1099,17 @@ export class NovaStage {
     const head = this.vrm.humanoid.getNormalizedBoneNode("head");
     if (!head) return;
     const ppu = this.sizePx / this.frameH;
-    const headPos = head.getWorldPosition(new THREE.Vector3());
+    const headPos = head.getWorldPosition(_head.pos);
     const cy = (this.camera.top + this.camera.bottom) / 2;
     const now = performance.now();
     const forced = this.forced && now < this.forced.until ? this.forced : null;
     const l = forced ? { ...forced, at: now } : this.look;
     const glancing = l.at && now - l.at < GLANCE_MS && (forced || Math.hypot(l.x, l.y) < GLANCE_RADIUS);
     const onCursor = !!this.focusWorld || glancing || (s.attend && l.at);
-    let want;
-    if (this.focusWorld) want = this.focusWorld.clone();
-    else if (onCursor) want = new THREE.Vector3(l.x / ppu, cy - l.y / ppu, 2.5);
-    else want = new THREE.Vector3(headPos.x + Math.sin(this.yaw) * 2.5, headPos.y, Math.cos(this.yaw) * 2.5);
+    const want = _head.want;
+    if (this.focusWorld) want.copy(this.focusWorld);
+    else if (onCursor) want.set(l.x / ppu, cy - l.y / ppu, 2.5);
+    else want.set(headPos.x + Math.sin(this.yaw) * 2.5, headPos.y, Math.cos(this.yaw) * 2.5);
     /* Eyes: the gaze point catches the cursor quickly and eases back to neutral slowly. */
     this.gaze.lerp(want, 1 - Math.exp(-(onCursor ? GAZE_CATCH : GAZE_RELEASE) * dt));
     this.lookTarget.position.copy(this.gaze);
@@ -1057,8 +1130,8 @@ export class NovaStage {
     this.headYaw = spring(this.headYaw || 0, wantYaw, "yaw");
     this.headPitch = spring(this.headPitch || 0, wantPitch, "pitch");
     const v0 = this.vrm.meta?.metaVersion === "0";
-    const e = new THREE.Euler(v0 ? -this.headPitch : this.headPitch, this.headYaw, 0, "YXZ");
-    head.quaternion.multiply(new THREE.Quaternion().setFromEuler(e));
+    const e = _head.e.set(v0 ? -this.headPitch : this.headPitch, this.headYaw, 0, "YXZ");
+    head.quaternion.multiply(_head.q.setFromEuler(e));
   }
 
   applyFace(dt, now, s, talking, overlay) {
@@ -1128,5 +1201,6 @@ export class NovaStage {
     for (const g of this.propGeos || []) g.dispose();
     for (const set of Object.values(this.propMats || {})) for (const mat of Object.values(set)) mat.dispose();
     this.renderer.dispose();
+    this.renderer.forceContextLoss();
   }
 }
