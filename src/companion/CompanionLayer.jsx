@@ -59,13 +59,11 @@ import { SpeechBubble } from "./SpeechBubble.jsx";
 import { RadialMenu } from "./RadialMenu.jsx";
 import { PinNote, Spotlight } from "./Spotlight.jsx";
 import { createStage, playScene } from "../nova/stage.js";
-import { PANEL_LABELS, canPlace, useWorkspace, workspace } from "../nova/workspace.js";
-import { NEXT_SCENE, dueBetween } from "../nova/commands.js";
-import { formatPct, neededScores } from "../features/today/priority.js";
+import { useWorkspace, workspace } from "../nova/workspace.js";
 import { arrangeWorkspace } from "../nova/scenes/arrange.js";
 import { stageDemo } from "../nova/scenes/stageDemo.js";
 import { onScreen } from "../nova/anchors.js";
-import { setVoiceLevel, setVoiceTone } from "../nova/voice.js";
+import { setVoiceTone } from "../nova/voice.js";
 import { INTENTS, choose, events as directorEvents, onWake, ran, snooze, take, timing, today as directorToday } from "../nova/director.js";
 import { current, feel, rapportTier, tierAtLeast, tone as moodTone } from "../nova/mood.js";
 import { callbackFor } from "./memory/derive.js";
@@ -73,7 +71,6 @@ import { sceneFrom } from "../nova/scenePlayer.js";
 import briefingScene from "../nova/scenes/briefing.json";
 import { HelpBubble } from "./HelpBubble.jsx";
 import { CompanionSettings } from "./CompanionSettings.jsx";
-import { paletteOpen } from "../lib/hotkeys.js";
 import { FocusPill } from "./FocusPill.jsx";
 import {
   ATTEND_MODES,
@@ -120,8 +117,6 @@ import {
   SPRITE_SKIP,
   SWING_MAX,
   SWING_PER_PX,
-  SYNC_CLOSE_MS,
-  SYNC_STALE_MS,
   TALK_MS_PER_CHAR,
   TOURS,
   WALK_OFF_MS,
@@ -129,6 +124,9 @@ import {
 } from "./layer/constants.js";
 import { builtinCourse, dropTargetAt, homeGeometry, homeSpot, markStage, nextFrame, overHome, pageShown, rand, randInt, rectOf, subscribeVisibility } from "./layer/geometry.js";
 import { useTimeouts } from "./hooks/useTimeouts.js";
+import { useNovaWindowEvents } from "./hooks/useNovaWindowEvents.js";
+import { useNovaSync } from "./hooks/useNovaSync.js";
+import { useNovaCommands } from "./hooks/useNovaCommands.js";
 
 const Nova3D = lazy(() => import("./nova3d/Nova3D.jsx"));
 
@@ -144,7 +142,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const [mood, setMood] = useState("neutral");
   const [bubble, setBubble] = useState(null);
   const [anchor, setAnchor] = useState({ h: "left", v: "above" });
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [tour, setTour] = useState(null);
   /** Highlights and pinned notes on page elements: `{ key, el, style, note }`. */
   const [marks, setMarks] = useState([]);
@@ -200,10 +197,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const peekClipRef = useRef(null);
   /** The input that woke her, so the "I wasn't asleep" line only follows a mouse or touch. */
   const wokeByRef = useRef(null);
-  /** Blackboard sync in progress: `{ phase: "open" | "ok" | "fail", step }`, drawn as a portal beside her. */
-  const [sync, setSync] = useState(null);
-  const syncRef = useRef(null);
-  const [offline, setOffline] = useState(() => typeof navigator !== "undefined" && navigator.onLine === false);
   const lastTierRef = useRef(null);
   const bubbleRef = useRef(null);
   bubbleRef.current = bubble;
@@ -273,7 +266,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   reducedRef.current = reduced;
   /** Focus mode ends at this time (0 = off); she stays quiet like quiet mode until then. */
   const focusRef = useRef(0);
-  const focusMinutesRef = useRef(25);
   const quietNow = () => !!stateRef.current?.quiet || focusRef.current > Date.now();
   const canAct = useCallback(
     () =>
@@ -846,6 +838,28 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   }, []);
 
   useEffect(() => () => window.clearTimeout(reactTimerRef.current), []);
+
+  const core = {
+    stateRef,
+    modeRef,
+    navRef,
+    api,
+    send,
+    setBubble,
+    say,
+    setMood,
+    refreshAnchor,
+    bubbleRef,
+    later,
+    memory,
+    feelIt,
+    focusRef,
+    reducedRef,
+    busy,
+    playGesture,
+    setTalkUntil,
+  };
+  const { sync, syncRef, offline } = useNovaSync(core, { flashReaction, sfx });
 
   const onQuizAnswer = useCallback(
     ({ card, grade, fields, correct, partial, streak, answer }) => {
@@ -2141,10 +2155,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   };
 
   useEffect(() => {
-    void window.studyHub?.desktop?.get?.().then((d) => setVoiceLevel(d?.settings?.level));
-  }, []);
-
-  useEffect(() => {
     const onScene = (e) => {
       const d = e.detail;
       if (typeof d?.scene === "function") d.handled = api.current.playScene(d.scene);
@@ -2156,90 +2166,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       stage.abort();
     };
   }, []);
-
-  /* ---------- sync: she opens a portal and pulls the data in; glitches on failure, static offline ---------- */
-
-  useEffect(() => {
-    const bb = window.studyHub?.blackboard;
-    if (!bb?.onSyncProgress || !bb?.onSyncComplete) return undefined;
-    let closeTimer = 0;
-    let staleTimer = 0;
-    const courseLabel = (uuid) => {
-      const c = navRef.current.courses.find((x) => x.uuid === uuid || x.id === uuid);
-      return shortCourse(c?.courseCode || c?.code || c?.name) || c?.name || "that course";
-    };
-    const close = (ms) => {
-      window.clearTimeout(closeTimer);
-      closeTimer = window.setTimeout(() => {
-        syncRef.current = null;
-        setSync(null);
-      }, ms);
-    };
-    const offProgress = bb.onSyncProgress((p) => {
-      const cur = stateRef.current;
-      const m = modeRef.current;
-      if (!cur?.enabled || cur.quiet || !(AUTONOMOUS.has(m) || m === "sleep")) return;
-      if (!syncRef.current) {
-        api.current.endActivity?.();
-        if (modeRef.current === "sleep") send("WAKE");
-        setBubble(null);
-      }
-      window.clearTimeout(closeTimer);
-      window.clearTimeout(staleTimer);
-      staleTimer = window.setTimeout(() => close(0), SYNC_STALE_MS);
-      syncRef.current = { phase: "open", step: p?.step || null };
-      setSync(syncRef.current);
-      setMood("thinking");
-    });
-    const offComplete = bb.onSyncComplete((res) => {
-      window.clearTimeout(staleTimer);
-      if (!syncRef.current) return;
-      if (res?.ok) {
-        syncRef.current = { phase: "ok" };
-        setSync(syncRef.current);
-        setMood("happy");
-        close(SYNC_CLOSE_MS);
-        return;
-      }
-      syncRef.current = { phase: "fail" };
-      setSync(syncRef.current);
-      flashReaction("glitch");
-      sfx("glitch");
-      setMood("stern");
-      close(SYNC_CLOSE_MS + 300);
-      const error = String(res?.error || "").trim();
-      const course = courseLabel(res?.courseUuid);
-      if (stateRef.current?.quiet) return;
-      refreshAnchor();
-      if (error === "not-logged-in") say(line("syncFailLogin", { course }));
-      else if (error) say(line("syncFail", { course, error: error.replace(/\.$/, "") }));
-    });
-    return () => {
-      offProgress?.();
-      offComplete?.();
-      window.clearTimeout(closeTimer);
-      window.clearTimeout(staleTimer);
-    };
-  }, [send, flashReaction, sfx, refreshAnchor, say]);
-
-  useEffect(() => {
-    const onOffline = () => {
-      setOffline(true);
-      const m = modeRef.current;
-      if (stateRef.current?.enabled && !stateRef.current?.quiet && AUTONOMOUS.has(m) && !bubbleRef.current) {
-        refreshAnchor();
-        say(line("offline"));
-      }
-    };
-    const onOnline = () => setOffline(false);
-    window.addEventListener("offline", onOffline);
-    window.addEventListener("online", onOnline);
-    return () => {
-      window.removeEventListener("offline", onOffline);
-      window.removeEventListener("online", onOnline);
-    };
-  }, [refreshAnchor, say]);
-
 
   /* Back after a while away from the window: she wakes up and waves. */
   useEffect(() => {
@@ -2401,114 +2327,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   }, [mode, send, update, say, playGesture, feelIt]);
 
   /* ---------- Ask Nova: typed commands (see src/nova/commands.js) ---------- */
-
-  /** On Today first, then (after the route settles) do `fn`. */
-  const onToday = (fn) => {
-    navRef.current.onGoHub?.("today");
-    later(fn, 300);
-  };
-
-  api.current.runCommand = async (cmd) => {
-    const nav = navRef.current;
-    const reply = (key, vars = {}) => {
-      setMood("happy");
-      refreshAnchor();
-      say(line(key, { name: memory.fact("name")?.name, ...vars }));
-    };
-    closeHelp();
-    switch (cmd.id) {
-      case "quiz":
-        return startQuiz(cmd.course?.id);
-      case "focus":
-        return api.current.startFocus(cmd.minutes);
-      case "talk":
-        if (cmd.key === "sorry") feelIt("apology");
-        return reply(`talk.${cmd.key}`);
-      case "next":
-        return onToday(() => playScene(sceneFrom(NEXT_SCENE, directorToday || {})));
-      case "view":
-        return nav.onGoHub?.(cmd.view);
-      case "open":
-        if (!cmd.tab) return nav.onOpenCourse?.(cmd.course.id);
-        return openCourseView(nav.onOpenCourse, cmd.course.id, cmd.tab === "deck" ? { item: "qz-deck" } : { tab: cmd.tab });
-      case "grades":
-        if (cmd.course) return openCourseView(nav.onOpenCourse, cmd.course.id, { tab: "grades" });
-        return onToday(() => arrangeWorkspace("grades"));
-      case "layout":
-        return onToday(() => (cmd.name === "back" ? workspace.putBack() : arrangeWorkspace(cmd.name)));
-      case "move":
-        if (!canPlace(cmd.panel, cmd.slot)) return reply("cmd.cantMove", { panel: PANEL_LABELS[cmd.panel] });
-        return onToday(() => playScene((stage) => stage.movePanel(cmd.panel, cmd.slot)));
-      case "due": {
-        const list = dueBetween(await courseStore.loadTodayData(), cmd.days, new Date(), cmd.course?.id);
-        return reply(list.length > 1 ? "cmd.dueMany" : list.length ? "cmd.dueOne" : "cmd.dueNone", { when: cmd.when, count: list.length, first: list[0] });
-      }
-      case "need": {
-        if (!cmd.course) return reply("cmd.needWhich");
-        const data = await courseStore.loadTodayData();
-        const course = data?.courses?.find((c) => c.uuid === cmd.course.id);
-        const label = shortCourse(cmd.course.courseCode || cmd.course.name) || cmd.course.name;
-        const s = course ? neededScores(course) : null;
-        const item = cmd.item === "final" ? s?.final : s?.next;
-        if (!item) return reply("cmd.needNone", { course: label, item: cmd.item });
-        if (item.needed == null) return reply("cmd.needUnknown", { course: label });
-        const vars = { course: label, title: item.title, needed: formatPct(item.needed), target: formatPct(s.target) };
-        return reply(item.needed <= 0 ? "cmd.needSafe" : item.needed > 100 ? "cmd.needImpossible" : "cmd.need", vars);
-      }
-      default:
-        return undefined;
-    }
-  };
-
-  /* Focus mode: she goes quiet for N minutes, shows a countdown, and checks in at the end. */
-  const [focusUntil, setFocusUntil] = useState(0);
-  focusRef.current = focusUntil;
-  api.current.startFocus = (minutes) => {
-    setFocusUntil(Date.now() + minutes * 60000);
-    focusMinutesRef.current = minutes;
-    setMood("happy");
-    refreshAnchor();
-    say(line("cmd.focusStart", { minutes }));
-    api.current.backToSpot?.();
-  };
-  const stopFocus = () => {
-    setFocusUntil(0);
-    say(line("cmd.focusStop"));
-  };
-  useEffect(() => {
-    if (!focusUntil) return undefined;
-    const t = window.setTimeout(() => {
-      setFocusUntil(0);
-      const minutes = focusMinutesRef.current;
-      setMood("excited");
-      refreshAnchor();
-      say(line("cmd.focusEnd", { minutes }), {
-        sticky: true,
-        actions: [
-          { label: "QUIZ ME", primary: true, onClick: () => startQuiz() },
-          { label: `ANOTHER ${minutes}`, onClick: () => api.current.startFocus(minutes) },
-          { label: "BREAK", onClick: () => setBubble(null) },
-        ],
-      });
-    }, Math.max(0, focusUntil - Date.now()));
-    return () => window.clearTimeout(t);
-  }, [focusUntil, refreshAnchor, say, startQuiz]);
-
-  /* Ctrl+J: Ask Nova from anywhere. */
-  useEffect(() => {
-    const onKey = (e) => {
-      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== "j") return;
-      if (!stateRef.current?.enabled || modeRef.current === "hidden" || paletteOpen()) return;
-      e.preventDefault();
-      if (modeRef.current === "help") closeHelp();
-      else {
-        if (modeRef.current === "menu") send("CLOSE");
-        startHelp();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [startHelp, closeHelp, send]);
+  const { focusUntil, stopFocus } = useNovaCommands(core, { startQuiz, startHelp, closeHelp });
 
   /* ---------- the Director: what she does on her own next (see src/nova/director.js) ---------- */
 
@@ -2829,41 +2648,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     setTalkUntil(speech ? performance.now() + 300 + speech.length * TALK_MS_PER_CHAR : 0);
   }, [speech, bubble]);
 
-  useEffect(() => {
-    const open = () => setSettingsOpen((v) => !v);
-    window.addEventListener("studyhub-scout-settings", open);
-    const offTray = window.studyHub?.desktop?.onOpenSettings?.(() => setSettingsOpen(true));
-    return () => {
-      window.removeEventListener("studyhub-scout-settings", open);
-      offTray?.();
-    };
-  }, []);
-
-  /* Today's arrival waves her hello; the briefing's voice moves her mouth. */
-  useEffect(() => {
-    const onGreet = () => {
-      if (!visibleNow || stateRef.current?.quiet || reducedRef.current || !AUTONOMOUS.has(modeRef.current) || busy()) return;
-      setMood("happy");
-      playGesture("wave");
-    };
-    const onTalk = (e) => {
-      const ms = e.detail?.ms;
-      setTalkUntil(ms ? performance.now() + ms : 0);
-    };
-    window.addEventListener("studyhub-companion-greet", onGreet);
-    window.addEventListener("studyhub-companion-talk", onTalk);
-    return () => {
-      window.removeEventListener("studyhub-companion-greet", onGreet);
-      window.removeEventListener("studyhub-companion-talk", onTalk);
-    };
-  }, [visibleNow, busy, playGesture]);
-
-  useEffect(() => {
-    document.documentElement.dataset.nova = visibleNow ? "on" : "off";
-    document.documentElement.dataset.novaQuiet = quiet ? "on" : "off";
-    window.dispatchEvent(new CustomEvent("studyhub-companion-state", { detail: { visible: visibleNow, quiet } }));
-  }, [visibleNow, quiet]);
-
   /* ---------- settings ---------- */
 
   const onSettingsChange = useCallback(
@@ -2895,12 +2679,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     [update, appear, cancel, force, send]
   );
 
-  /* Quiet mode can be flipped from the app Settings panel and from her menu too. */
-  useEffect(() => {
-    const onQuiet = (e) => onSettingsChange({ quiet: !!e.detail?.quiet });
-    window.addEventListener("studyhub-companion-quiet", onQuiet);
-    return () => window.removeEventListener("studyhub-companion-quiet", onQuiet);
-  }, [onSettingsChange]);
+  const { settingsOpen, setSettingsOpen } = useNovaWindowEvents(core, { visibleNow, quiet, onSettingsChange });
 
   if (!cstate) return null;
 
