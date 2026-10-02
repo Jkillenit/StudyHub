@@ -4,6 +4,8 @@ import { HUB_KEYS, ensureUserCourse } from "./userCourseModel.js";
 import { ManualCourseEntry } from "../welcome/ManualCourseEntry.jsx";
 import { ExpressImportModal } from "../welcome/ExpressImportModal.jsx";
 import { TodayScreen } from "../features/today/TodayScreen.jsx";
+import { HomeScreen } from "../features/today/HomeScreen.jsx";
+import { NovaBar } from "../shell/NovaBar.jsx";
 import { CalendarView } from "../features/dashboard/CalendarView.jsx";
 import { CourseFeeds } from "../features/dashboard/CourseFeeds.jsx";
 import { BlackboardSyncPanel } from "../features/blackboard/BlackboardSyncPanel.jsx";
@@ -143,27 +145,47 @@ function CoursesView({ userCourses, onOpenCourse, onManualCreate, refreshKey, on
   );
 }
 
-export function HubScreen({ view = "today", onNavigate, userCourses, onOpenCourse, onManualCreate, onExpressComplete }) {
+const PROMPTS = {
+  plan: "Ask Nova to plan your week…",
+  calendar: "Ask Nova what's due…",
+  courses: "Ask Nova to open a course…",
+};
+
+export function HubScreen({ view = "today", onNavigate, userCourses, courses, onOpenCourse, onManualCreate, onExpressComplete }) {
   const [expressOpen, setExpressOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  let screen = null;
+  if (view === "plan") screen = <TodayScreen refreshKey={refreshKey} onOpenCourse={onOpenCourse} onNavigate={onNavigate} />;
+  else if (view === "calendar") {
+    screen = (
+      <div className="sh-page">
+        <CalendarView userCourses={userCourses} />
+      </div>
+    );
+  } else if (view === "courses") {
+    screen = (
+      <CoursesView
+        userCourses={userCourses}
+        onOpenCourse={onOpenCourse}
+        onManualCreate={onManualCreate}
+        refreshKey={refreshKey}
+        onSynced={() => setRefreshKey((k) => k + 1)}
+        onExpress={() => setExpressOpen(true)}
+      />
+    );
+  }
+
   return (
     <div className="sh-hub-root">
-      {view === "today" || view === "plan" ? <TodayScreen refreshKey={refreshKey} onOpenCourse={onOpenCourse} onNavigate={onNavigate} /> : null}
-      {view === "calendar" ? (
-        <div className="sh-page">
-          <CalendarView userCourses={userCourses} />
+      {view === "today" ? <HomeScreen refreshKey={refreshKey} courses={courses} onOpenCourse={onOpenCourse} onNavigate={onNavigate} /> : null}
+      {screen ? (
+        <div className={`sh-plan${view === "calendar" ? " sh-plan--wide" : ""}`}>
+          <div className="sh-plan-col">{screen}</div>
+          <div className="sh-plan-dock">
+            <NovaBar courses={courses} placeholder={PROMPTS[view]} />
+          </div>
         </div>
-      ) : null}
-      {view === "courses" ? (
-        <CoursesView
-          userCourses={userCourses}
-          onOpenCourse={onOpenCourse}
-          onManualCreate={onManualCreate}
-          refreshKey={refreshKey}
-          onSynced={() => setRefreshKey((k) => k + 1)}
-          onExpress={() => setExpressOpen(true)}
-        />
       ) : null}
       <ExpressImportModal open={expressOpen} onClose={() => setExpressOpen(false)} onExpressComplete={onExpressComplete} />
     </div>

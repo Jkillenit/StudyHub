@@ -33,7 +33,7 @@ export const FAQ = [
     a: "Today shows the three things worth doing tonight, anything overdue, and the rest of your week across all your classes.",
     keywords: ["due", "deadline", "assignment", "homework", "today", "upcoming", "week", "tonight", "overdue"],
     pointTo: "today-tonight",
-    route: "hub",
+    route: "hub:plan",
   },
   {
     id: "calendar",

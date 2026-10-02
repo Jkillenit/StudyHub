@@ -5,7 +5,7 @@ const LINES = { briefing: "arrangeBriefing", grades: "arrangeGrades", tidy: "arr
 
 /** She announces the layout, then moves the panels herself one by one. */
 const arrangeScene = (name) => async (stage) => {
-  await stage.openTab("hub");
+  await stage.openTab("hub:plan");
   await stage.say(LINES[name]);
   await stage.arrange(name);
   await stage.lookAt("user");

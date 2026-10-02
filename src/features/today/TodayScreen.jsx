@@ -9,7 +9,6 @@ import { briefingContext, buildBriefing } from "./briefing.js";
 import { dueText } from "./todayView.js";
 import { useTodayModel } from "./useTodayModel.js";
 import { useArrival } from "./useArrival.js";
-import { CompanionStage } from "./components/CompanionStage.jsx";
 import { BriefingPanel } from "./components/BriefingPanel.jsx";
 import { TonightList } from "./components/TonightList.jsx";
 import { OverdueStrip } from "./components/OverdueStrip.jsx";
@@ -64,7 +63,7 @@ export function TodayScreen({ refreshKey = 0, onOpenCourse, onNavigate }) {
 
   useLayoutEffect(animateMoves, [layout]);
 
-  if (!loaded || !view) return <section className="sh-today2" aria-label="Today" aria-busy="true" />;
+  if (!loaded || !view) return <section className="sh-today2" aria-label="Full plan" aria-busy="true" />;
 
   const panels = {
     briefing: <BriefingPanel briefing={briefing} context={briefingFacts} arriving={arriving} canStart={view.tonight.length > 0} onStart={() => run(view.tonight[0]?.action)} index={1} />,
@@ -85,9 +84,8 @@ export function TodayScreen({ refreshKey = 0, onOpenCourse, onNavigate }) {
   const dock = slot("dock");
 
   return (
-    <section className={`sh-today2${arriving ? " sh-today2--arriving" : ""}`} aria-label="Today" data-tour-id="today-dashboard">
+    <section className={`sh-today2${arriving ? " sh-today2--arriving" : ""}`} aria-label="Full plan">
       <div className="sh-today2-left">
-        <CompanionStage index={0} />
         {slot("left")}
         <NovaDesk filed={inSlot(layout, "desk")} canPutBack={!!before} />
       </div>

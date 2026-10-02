@@ -51,7 +51,7 @@ export function NovaBar({ courses, placeholder = "Message Nova, or type / for co
   return (
     <div className={`sh-novabar${focused ? " sh-novabar--open" : ""}`}>
       {showList ? (
-        <ul className="sh-novabar-list" role="listbox">
+        <ul className="sh-novabar-list">
           {slash.map((s) => (
             <li key={s.cmd}>
               <button type="button" className="sh-novabar-opt" onMouseDown={(e) => e.preventDefault()} onClick={() => fill(s.text)}>
@@ -90,7 +90,7 @@ export function NovaBar({ courses, placeholder = "Message Nova, or type / for co
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") {
+                if (e.key === "Enter" && !e.nativeEvent.isComposing) {
                   e.preventDefault();
                   submit();
                 } else if (e.key === "Escape") done();

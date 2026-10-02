@@ -384,6 +384,7 @@ function StudyHubAppInner() {
               view={hubView}
               onNavigate={goHub}
               userCourses={userCoursesList}
+              courses={userCoursesList}
               onOpenCourse={openCourseFromShell}
               onManualCreate={onHubManualCreate}
               onExpressComplete={onHubExpressComplete}

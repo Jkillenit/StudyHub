@@ -9169,6 +9169,220 @@ button.sh-week-day:focus-visible {
   }
 }
 
+/* Pure home: wordmark, one line, the message box, tonight's top three */
+.sh-home {
+  flex: 1 0 auto;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+}
+
+.sh-home-col {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sh-home-mark {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 14px;
+  font-family: var(--sh-font-display);
+  font-weight: 400;
+  font-size: 28px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sh-text);
+}
+
+.sh-home-mark svg {
+  color: var(--sh-accent);
+}
+
+.sh-home-line {
+  margin: 0 0 8px;
+  text-align: center;
+  font-family: var(--sh-font-body);
+  font-size: 15px;
+  color: var(--sh-text-2);
+}
+
+.sh-home-num {
+  font-family: var(--sh-font-mono);
+  color: var(--sh-accent);
+}
+
+.sh-home-sync {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 24px;
+  font-family: var(--sh-font-body);
+  font-size: 12.5px;
+  color: var(--sh-text-3);
+}
+
+.sh-home-sync-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--sh-accent);
+}
+
+.sh-home-cards {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.sh-home-card {
+  --sh-home-edge: var(--sh-border-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  text-align: left;
+  background: var(--sh-panel);
+  border: 1px solid var(--sh-border);
+  border-radius: 0;
+  box-shadow: inset 0 2px 0 var(--sh-home-edge);
+  cursor: pointer;
+  transition: border-color 150ms ease;
+}
+
+.sh-home-card--first {
+  --sh-home-edge: var(--sh-accent);
+}
+
+.sh-home-card--today {
+  --sh-home-edge: var(--sh-warn);
+}
+
+.sh-home-card:hover {
+  border-color: var(--sh-border-strong);
+}
+
+.sh-home-card-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-family: var(--sh-font-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sh-text);
+}
+
+.sh-home-card-meta {
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  color: var(--sh-text-3);
+}
+
+.sh-home-empty {
+  margin-top: 16px;
+}
+
+.sh-home-more {
+  align-self: stretch;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.sh-home-link {
+  padding: 4px 0;
+  background: transparent;
+  border: 0;
+  font-family: var(--sh-font-body);
+  font-size: 13px;
+  color: var(--sh-text-2);
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+
+.sh-home-link:hover {
+  color: var(--sh-accent);
+}
+
+html[data-motion="reduced"] :is(.sh-home-card, .sh-home-link) {
+  transition: none;
+}
+
+@media (max-width: 900px) {
+  .sh-home-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Plan layout: one content column with the message box docked under it */
+.sh-plan {
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sh-plan-col {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 0;
+}
+
+.sh-plan-dock {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 12px 0 20px;
+}
+
+.sh-plan--wide .sh-plan-col,
+.sh-plan--wide .sh-plan-dock {
+  max-width: 1040px;
+}
+
+.sh-plan .sh-page,
+.sh-plan .sh-courses-page {
+  padding: 0;
+}
+
+.sh-plan .sh-today2 {
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  gap: 16px;
+}
+
+.sh-plan .sh-today2-left {
+  width: auto;
+  flex-direction: column;
+}
+
+.sh-plan .sh-today2-row {
+  flex-direction: column;
+}
+
+.sh-plan .sh-standing {
+  width: auto;
+}
+
+.sh-plan .sh-courses-page {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 /* Settings */
 .sh-settings {
   position: fixed;

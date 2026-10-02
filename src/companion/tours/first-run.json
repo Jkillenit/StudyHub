@@ -14,14 +14,14 @@
       "title": "Tonight",
       "text": "The three things worth your time tonight, most important first. Hit the top one and you're winning.",
       "placement": "left",
-      "route": "hub"
+      "route": "hub:plan"
     },
     {
       "targetId": "today-standing",
       "title": "Where you stand",
       "text": "Each gauge is a class grade; the tick is your target. Click one for the what-if calculator.",
       "placement": "top",
-      "route": "hub"
+      "route": "hub:plan"
     },
     {
       "targetId": "nav-calendar",

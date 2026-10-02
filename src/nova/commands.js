@@ -169,7 +169,7 @@ export function dueBetween(todayData, [from, to], now = new Date(), courseUuid =
 /** "What's next": she goes to Tonight's top item and says it (context: briefingContext). */
 export const NEXT_SCENE = {
   steps: [
-    { do: "openTab", route: "hub" },
+    { do: "openTab", route: "hub:plan" },
     {
       if: "task",
       then: [

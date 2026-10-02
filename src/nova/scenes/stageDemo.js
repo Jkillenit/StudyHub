@@ -2,7 +2,7 @@ import { anchorNames } from "../anchors.js";
 
 /** Dev check that the Stage works end to end: she walks to the lowest gauge, points, highlights, and pulls Standing forward. */
 export async function stageDemo(stage) {
-  await stage.openTab("hub");
+  await stage.openTab("hub:plan");
   if (!(await stage.find("panel.standing"))) return;
   const gauge = anchorNames("course.", ".gauge")[0];
   if (!gauge) {
