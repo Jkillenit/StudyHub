@@ -30,7 +30,8 @@ Keeping the names means most components restyle with zero edits. New tokens are 
 | Token | Value | Notes |
 |---|---|---|
 | `--sh-bg` | `#04050A` | true black |
-| `--sh-panel` / `--sh-side` (new) | `#030407` | sidebar/rail |
+| `--sh-panel` | `rgba(14,16,24,.72)` | cards, translucent |
+| `--sh-side` (new) | `#030407` | rail |
 | `--sh-panel-strong` / `--sh-panel-solid` | `#0E1018` | raised surfaces, bar, cards, bubbles |
 | `--sh-border` / `--sh-border-strong` | `rgba(255,255,255,.08)` / `.15` | |
 | `--sh-track` | `rgba(255,255,255,.08)` | bar tracks |
@@ -91,6 +92,7 @@ drain 650ms after 450ms, recharge 1.5s.
 - **Pin** button and **Ctrl B** pin it open in-flow. Inside a course it is pinned by default
   and the course expands into its modules (01 Requirements, 02 Use cases…).
 - Collapsed rail hides labels, section header, round tally, attention dot.
+- Inside a course the course keeps its own module list beside the collapsed rail until step 3.
 
 ### 2.2 Home ("Pure")
 
@@ -98,6 +100,7 @@ Center of the window: NOVA wordmark (Michroma) → Nova's one-line greeting with
 in mono aqua ("Two MIS 430 items land at 10:00") → "Synced 2m ago" → message box → Today's top
 three items as cards under the box (top card aqua top edge, due-soon amber). Top strip: date and
 round in mono. Today's full ranked list stays reachable (card "more" / Ctrl K / Today in rail).
+The old Today dashboard is the Full plan view, linked under the cards.
 
 ### 2.3 Every other screen ("Plan")
 
