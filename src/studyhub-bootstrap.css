@@ -533,6 +533,179 @@ html[data-motion="reduced"] .sh-rail :is(.sh-rail-label, .sh-rail-hint, .sh-rail
   flex: 1;
 }
 
+/* Cut-corner frame: quiet edge, aqua top-left and magenta bottom-right corners */
+.sh-cut {
+  --sh-cut-edge: linear-gradient(135deg, var(--sh-accent) 0 18px, var(--sh-border-strong) 18px calc(100% - 18px), var(--sh-accent-2) calc(100% - 18px));
+  padding: 1px;
+  background: var(--sh-cut-edge);
+  clip-path: polygon(var(--sh-cut) 0, 100% 0, 100% calc(100% - var(--sh-cut)), calc(100% - var(--sh-cut)) 100%, 0 100%, 0 var(--sh-cut));
+}
+
+.sh-cut-fill {
+  position: relative;
+  background: var(--sh-panel-solid);
+  clip-path: polygon(calc(var(--sh-cut) - 1px) 0, 100% 0, 100% calc(100% - var(--sh-cut) + 1px), calc(100% - var(--sh-cut) + 1px) 100%, 0 100%, 0 calc(var(--sh-cut) - 1px));
+}
+
+.sh-hex::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--sh-accent);
+  opacity: 0.05;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='48' viewBox='0 0 28 48'%3E%3Cpath d='M14 0l14 8v16l-14 8L0 24V8zM14 32v16' fill='none' stroke='black'/%3E%3C/svg%3E") repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='48' viewBox='0 0 28 48'%3E%3Cpath d='M14 0l14 8v16l-14 8L0 24V8zM14 32v16' fill='none' stroke='black'/%3E%3C/svg%3E") repeat;
+}
+
+/* Message box (NovaBar): commands and questions for Nova */
+.sh-novabar {
+  position: relative;
+  width: 100%;
+}
+
+.sh-novabar-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+  padding: 0 16px;
+}
+
+.sh-novabar-glyph {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--sh-accent);
+  animation: sh-novabar-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes sh-novabar-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+html[data-motion="reduced"] .sh-novabar-glyph {
+  animation: none;
+}
+
+.sh-novabar-portrait {
+  display: none;
+}
+
+.sh-novabar-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-family: var(--sh-font-body);
+  font-size: 14px;
+  color: var(--sh-text);
+}
+
+.sh-novabar-input::placeholder {
+  color: var(--sh-text-3);
+}
+
+.sh-novabar-key {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  color: var(--sh-text-3);
+  background: transparent;
+  border: 1px solid var(--sh-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.sh-novabar-tools {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--sh-border);
+}
+
+.sh-novabar-tool {
+  padding: 3px 8px;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  color: var(--sh-text-2);
+  background: transparent;
+  border: 1px solid var(--sh-border);
+  border-radius: 0;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.sh-novabar-tool:hover {
+  color: var(--sh-accent);
+  border-color: var(--sh-accent-line);
+}
+
+.sh-novabar-hint {
+  margin-left: auto;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  color: var(--sh-text-3);
+}
+
+.sh-novabar-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 20;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background: var(--sh-panel-solid);
+  border: 1px solid var(--sh-border-strong);
+  box-shadow: var(--sh-shadow-panel);
+}
+
+.sh-novabar-opt {
+  display: block;
+  width: 100%;
+  padding: 8px 16px;
+  text-align: left;
+  font-family: var(--sh-font-body);
+  font-size: 13px;
+  color: var(--sh-text-2);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.sh-novabar-opt:hover,
+.sh-novabar-opt:focus-visible {
+  color: var(--sh-text);
+  background: var(--sh-accent-soft);
+}
+
+.sh-novabar-slash {
+  font-family: var(--sh-font-mono);
+  color: var(--sh-accent-2);
+}
+
+.sh-novabar-opt--run {
+  color: var(--sh-accent);
+}
+
+html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
+  transition: none;
+}
+
 .sh-titlebar-wincontrols {
   display: flex;
   align-items: center;

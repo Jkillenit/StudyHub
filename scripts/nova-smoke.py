@@ -96,8 +96,10 @@ def check_menu(page):
 
 
 def check_ask(page):
+    """Ctrl+J lands in the message box when one is on screen, else opens the Ask Nova bubble."""
     page.keyboard.press("Control+j")
-    inp = page.wait_for_selector(".sc-help-input", state="visible", timeout=5000)
+    selector = ".sh-novabar-input" if page.locator(".sh-novabar-input").count() else ".sc-help-input"
+    inp = page.wait_for_selector(selector, state="visible", timeout=5000)
     inp.fill("focus 5")
     inp.press("Enter")
     pill = page.wait_for_selector(".sc-focus-pill", state="visible", timeout=5000)

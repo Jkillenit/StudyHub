@@ -17,9 +17,9 @@ export function useNovaCommands(core, { startQuiz, startHelp, closeHelp }) {
   const { stateRef, modeRef, navRef, api, send, setBubble, say, setMood, refreshAnchor, later, memory, feelIt, focusRef } = core;
   const focusMinutesRef = useRef(25);
 
-  /** On Today first, then (after the route settles) do `fn`. */
+  /** On Full plan first, then (after the route settles) do `fn`. */
   const onToday = (fn) => {
-    navRef.current.onGoHub?.("today");
+    navRef.current.onGoHub?.("plan");
     later(fn, 300);
   };
 
@@ -109,10 +109,10 @@ export function useNovaCommands(core, { startQuiz, startHelp, closeHelp }) {
     return () => window.clearTimeout(t);
   }, [focusUntil, refreshAnchor, say, startQuiz]);
 
-  /* Ctrl+J: Ask Nova from anywhere. */
+  /* Ctrl+J or Ctrl+/: Ask Nova from anywhere. */
   useEffect(() => {
     const onKey = (e) => {
-      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== "j") return;
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || (e.key.toLowerCase() !== "j" && e.key !== "/")) return;
       if (!stateRef.current?.enabled || modeRef.current === "hidden" || paletteOpen()) return;
       e.preventDefault();
       if (modeRef.current === "help") closeHelp();

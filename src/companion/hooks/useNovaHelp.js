@@ -8,14 +8,31 @@ export function useNovaHelp(core, { setMarks, ensureRoute }) {
   const { modeRef, send, setBubble, setMood, refreshAnchor, later, cancel, flyTo, sizeRef, setFacing, pointAt } = core;
   const [help, setHelp] = useState(null);
 
+  const openHelp = useCallback(
+    (answer) => {
+      setBubble(null);
+      cancel();
+      if (send("HELP") !== "help") return;
+      setHelp({ query: "", answer, pointed: false });
+      setMood(answer ? "happy" : "thinking");
+      refreshAnchor();
+    },
+    [cancel, send, refreshAnchor]
+  );
+
+  /** Ask Nova: the message box when one is on screen, otherwise her bubble. */
   const startHelp = useCallback(() => {
-    setBubble(null);
-    cancel();
-    if (send("HELP") !== "help") return;
-    setHelp({ query: "", answer: null, pointed: false });
-    setMood("thinking");
-    refreshAnchor();
-  }, [cancel, send, refreshAnchor]);
+    const bar = document.querySelector(".sh-novabar-input");
+    if (bar) {
+      if (modeRef.current === "menu") send("CLOSE");
+      bar.focus();
+      return;
+    }
+    openHelp(null);
+  }, [openHelp, send]);
+
+  /** Her answer bubble for a FAQ entry picked in the message box. */
+  const openAnswer = useCallback((entry) => openHelp(entry), [openHelp]);
 
   const closeHelp = useCallback(() => {
     setHelp(null);
@@ -52,5 +69,5 @@ export function useNovaHelp(core, { setMarks, ensureRoute }) {
     [ensureRoute, flyTo, setFacing, refreshAnchor, pointAt]
   );
 
-  return { help, setHelp, startHelp, closeHelp, showMe };
+  return { help, setHelp, startHelp, closeHelp, showMe, openAnswer };
 }

@@ -392,7 +392,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const { marks, setMarks } = useNovaMarks();
   // useNovaTour needs setHelp, so showMe reaches its ensureRoute through api
   const ensureRouteVia = useCallback((...a) => api.current.ensureRoute(...a), []);
-  const { help, setHelp, startHelp, closeHelp, showMe } = useNovaHelp(core, { setMarks, ensureRoute: ensureRouteVia });
+  const { help, setHelp, startHelp, closeHelp, showMe, openAnswer } = useNovaHelp(core, { setMarks, ensureRoute: ensureRouteVia });
   const { tour, setTour, tourRef, ensureRoute, endTour, goStep, startTour } = useNovaTour(core, { setMarks, awardXp, setHelp, mode });
 
   /* ---------- menu actions ---------- */
@@ -470,6 +470,18 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   /* ---------- Ask Nova: typed commands (see src/nova/commands.js) ---------- */
   const { focusUntil, stopFocus } = useNovaCommands(core, { startQuiz, startHelp, closeHelp });
+
+  /* The message box (src/shell/NovaBar.jsx) talks to her through window events. */
+  useEffect(() => {
+    const onRun = (e) => void api.current.runCommand?.(e.detail);
+    const onAnswer = (e) => openAnswer(e.detail);
+    window.addEventListener("studyhub-nova-run", onRun);
+    window.addEventListener("studyhub-nova-answer", onAnswer);
+    return () => {
+      window.removeEventListener("studyhub-nova-run", onRun);
+      window.removeEventListener("studyhub-nova-answer", onAnswer);
+    };
+  }, [openAnswer]);
 
   /* ---------- the Director: what she does on her own next (see src/nova/director.js) ---------- */
 
