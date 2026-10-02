@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { loadJson, saveJson } from "../lib/storage.js";
 import { isTypingTarget, paletteOpen } from "../lib/hotkeys.js";
+import { useShell } from "./ShellContext.jsx";
 
 const PIN_KEY = "sh-rail-pinned";
+const PIN_COURSE_KEY = "sh-rail-pinned-course";
 
 function Icon({ children }) {
   return (
@@ -70,23 +72,61 @@ function splitCode(code) {
   return i < 0 ? [s, ""] : [s.slice(0, i), s.slice(i + 1)];
 }
 
+function CourseSubNav({ nav }) {
+  return (
+    <div className="sh-rail-subnav">
+      <div className="sh-rail-subnav-inner">
+        {nav.groups.map((g) =>
+          g.items.length ? (
+            <div key={g.key} className="sh-rail-subgroup" data-tour-id={g.tourId}>
+              {g.label ? <div className="sh-rail-subgroup-label">{g.label}</div> : null}
+              {g.items.map((item) => {
+                const active = nav.activeId === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`sh-rail-subitem${active ? " is-active" : ""}`}
+                    aria-current={active ? "page" : undefined}
+                    onClick={() => nav.onSelect(item.id)}
+                    title={item.label}
+                  >
+                    <span className={`sh-rail-subitem-prefix${item.tone === "amber" ? " is-amber" : ""}`}>{item.prefix}</span>
+                    <span className="sh-rail-subitem-label">{item.label}</span>
+                    {item.complete ? <span className="sh-rail-subitem-done" aria-label="Complete">✓</span> : null}
+                    {item.badge ? <span className="sh-rail-subitem-badge">{item.badge}</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function AppRail({ onHub, hubView, courseId, courses, onNavigate, onOpenCourse, onSearch, onOpenSettings }) {
-  const [pinned, setPinned] = useState(() => loadJson(PIN_KEY, false) === true);
+  const { courseNav } = useShell();
+  const [pinnedHub, setPinnedHub] = useState(() => loadJson(PIN_KEY, false) === true);
+  const [pinnedCourse, setPinnedCourse] = useState(() => loadJson(PIN_COURSE_KEY, true) !== false);
+  const showPinned = onHub ? pinnedHub : pinnedCourse;
+  const togglePinned = useCallback(() => (onHub ? setPinnedHub : setPinnedCourse)((v) => !v), [onHub]);
 
   useEffect(() => {
     const onKey = (e) => {
       if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== "b") return;
       if (isTypingTarget(e.target) || paletteOpen()) return;
       e.preventDefault();
-      setPinned((v) => !v);
+      togglePinned();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [togglePinned]);
 
-  useEffect(() => saveJson(PIN_KEY, pinned), [pinned]);
+  useEffect(() => saveJson(PIN_KEY, pinnedHub), [pinnedHub]);
+  useEffect(() => saveJson(PIN_COURSE_KEY, pinnedCourse), [pinnedCourse]);
 
-  const showPinned = pinned && onHub;
   const kbd = typeof navigator !== "undefined" && /Mac|iPhone|iPod|iPad/i.test(navigator.platform || "") ? "⌘ K" : "Ctrl K";
 
   return (
@@ -103,9 +143,9 @@ export function AppRail({ onHub, hubView, courseId, courses, onNavigate, onOpenC
           <button
             type="button"
             className="sh-rail-pin"
-            aria-pressed={pinned}
-            onClick={() => setPinned((v) => !v)}
-            title={pinned ? "Unpin sidebar (Ctrl B)" : "Pin sidebar (Ctrl B)"}
+            aria-pressed={showPinned}
+            onClick={togglePinned}
+            title={showPinned ? "Unpin sidebar (Ctrl B)" : "Pin sidebar (Ctrl B)"}
           >
             Pin
           </button>
@@ -146,17 +186,19 @@ export function AppRail({ onHub, hubView, courseId, courses, onNavigate, onOpenC
             const [pre, num] = splitCode(c.code);
             const active = courseId === c.id;
             return (
-              <button
-                key={c.id}
-                type="button"
-                className={`sh-rail-item sh-rail-course${active ? " is-active" : ""}`}
-                aria-current={active ? "page" : undefined}
-                onClick={() => onOpenCourse(c.id)}
-                title={c.code}
-              >
-                <span className="sh-rail-code-pre">{pre}</span>
-                <span className="sh-rail-label sh-rail-code-num">{num}</span>
-              </button>
+              <Fragment key={c.id}>
+                <button
+                  type="button"
+                  className={`sh-rail-item sh-rail-course${active ? " is-active" : ""}`}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => onOpenCourse(c.id)}
+                  title={c.code}
+                >
+                  <span className="sh-rail-code-pre">{pre}</span>
+                  <span className="sh-rail-label sh-rail-code-num">{num}</span>
+                </button>
+                {courseNav && courseNav.courseId === c.id ? <CourseSubNav nav={courseNav} /> : null}
+              </Fragment>
             );
           })}
         </div>

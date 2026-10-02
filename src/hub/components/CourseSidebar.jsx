@@ -1,18 +1,8 @@
 import React, { useMemo, useState } from "react";
 import InlineEdit from "./InlineEdit";
+import { COURSE_ITEMS, STUDY_ITEMS } from "../courseNav.js";
 
-export const COURSE_ITEMS = [
-  { id: "course-assignments", prefix: "AS·01", label: "Assignments" },
-  { id: "course-announcements", prefix: "AN·02", label: "Announcements" },
-  { id: "course-bb-content", prefix: "BB·03", label: "Blackboard Content" },
-];
-
-export const STUDY_ITEMS = [
-  { id: "qz-deck", prefix: "QZ·01", label: "Flashcard Deck" },
-  { id: "study-test", prefix: "PT·02", label: "Practice Test" },
-  { id: "study-guide", prefix: "SG·03", label: "Study Guide" },
-  { id: "study-progress", prefix: "ST·04", label: "Progress" },
-];
+export { COURSE_ITEMS, STUDY_ITEMS };
 
 function ItemButton({ item, activeItem, onActiveChange, badge }) {
   return (

@@ -535,6 +535,353 @@ html[data-motion="reduced"] .sh-rail :is(.sh-rail-label, .sh-rail-hint, .sh-rail
   flex: 1;
 }
 
+/* Course sub-nav under the active course row; collapses with the rail */
+.sh-rail-subnav {
+  display: grid;
+  grid-template-rows: 0fr;
+  flex-shrink: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: grid-template-rows 160ms ease, opacity 160ms ease, visibility 160ms;
+}
+
+.sh-rail:not(.sh-rail--pinned):is(:hover, :has(:focus-visible)) .sh-rail-subnav {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition: grid-template-rows 160ms ease 150ms, opacity 160ms ease 150ms, visibility 0s 150ms;
+}
+
+.sh-rail--pinned .sh-rail-subnav {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+}
+
+html[data-motion="reduced"] .sh-rail .sh-rail-subnav {
+  transition: none !important;
+}
+
+.sh-rail-subnav-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sh-rail-subgroup-label {
+  padding: 8px 12px 4px 34px;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sh-text-3);
+}
+
+.sh-rail-subitem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 28px;
+  padding: 0 12px 0 34px;
+  border: none;
+  background: transparent;
+  font-family: var(--sh-font-body);
+  font-size: 13px;
+  color: var(--sh-text-2);
+  text-align: left;
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+
+.sh-rail-subitem:hover {
+  color: var(--sh-text);
+}
+
+.sh-rail-subitem.is-active {
+  color: var(--sh-text);
+  box-shadow: inset 2px 0 0 var(--sh-accent);
+}
+
+.sh-rail-subitem-prefix {
+  flex: 0 0 auto;
+  min-width: 26px;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  color: var(--sh-text-3);
+}
+
+.sh-rail-subitem-prefix.is-amber {
+  color: var(--sh-warn);
+}
+
+.sh-rail-subitem.is-active .sh-rail-subitem-prefix {
+  color: var(--sh-accent);
+}
+
+.sh-rail-subitem-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sh-rail-subitem-done {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--sh-text-3);
+}
+
+.sh-rail-subitem-badge {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 0 5px;
+  border: 1px solid var(--sh-border-strong);
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--sh-text-2);
+}
+
+/* Course header: breadcrumb, title, tabs, mastery line */
+.sh-course-head {
+  padding-top: 20px;
+}
+
+.sh-course-crumb {
+  margin-bottom: 6px;
+  font-family: var(--sh-font-mono);
+  font-size: 12px;
+  color: var(--sh-text-3);
+}
+
+.sh-course-crumb-strong {
+  color: var(--sh-accent);
+}
+
+.sh-course-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.sh-course-title {
+  min-width: 0;
+  margin: 0;
+  font-family: var(--sh-font-body);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--sh-text);
+}
+
+.sh-course-tag {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border: 1px solid var(--sh-border-strong);
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  color: var(--sh-text-2);
+}
+
+.sh-course-head .sh-tab-row {
+  gap: 4px;
+  border-bottom: 1px solid var(--sh-border);
+}
+
+.sh-course-head .sh-tab {
+  padding: 6px 8px 8px;
+  font-family: var(--sh-font-body);
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.sh-course-head .sh-tab.active {
+  color: var(--sh-text);
+}
+
+.sh-tab-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 5px;
+  vertical-align: middle;
+  background: var(--sh-warn);
+}
+
+.sh-mastery {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.sh-mastery-label {
+  font-family: var(--sh-font-body);
+  font-size: 12.5px;
+  color: var(--sh-text-3);
+}
+
+.sh-mastery-track {
+  position: relative;
+  flex: 1;
+  height: 3px;
+  background: var(--sh-track);
+}
+
+.sh-mastery-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(90deg, var(--sh-accent), var(--sh-accent-2));
+}
+
+.sh-mastery-value {
+  min-width: 36px;
+  font-family: var(--sh-font-mono);
+  font-size: 12px;
+  color: var(--sh-text);
+  text-align: right;
+}
+
+/* Course "..." menu */
+.sh-course-menu {
+  position: relative;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.sh-course-menu-btn {
+  width: 32px;
+  height: 28px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: var(--sh-font-mono);
+  font-size: 13px;
+  color: var(--sh-text-3);
+  cursor: pointer;
+}
+
+.sh-course-menu-btn:hover,
+.sh-course-menu-btn[aria-expanded="true"] {
+  color: var(--sh-text);
+  border-color: var(--sh-border-strong);
+}
+
+.sh-course-menu-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 200;
+  min-width: 200px;
+  padding: 4px 0;
+  background: var(--sh-panel-solid);
+  border: 1px solid var(--sh-border-strong);
+  box-shadow: var(--sh-shadow-panel);
+}
+
+.sh-course-menu-item {
+  display: block;
+  width: 100%;
+  padding: 7px 14px;
+  border: none;
+  background: transparent;
+  font-family: var(--sh-font-body);
+  font-size: 13px;
+  color: var(--sh-text-2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sh-course-menu-item:hover:not(:disabled),
+.sh-course-menu-item:focus-visible {
+  color: var(--sh-text);
+  background: color-mix(in oklab, var(--sh-accent) 6%, transparent);
+  outline: none;
+}
+
+.sh-course-menu-item.is-danger {
+  color: var(--sh-danger);
+}
+
+.sh-course-menu-item:disabled {
+  color: var(--sh-text-3);
+  cursor: default;
+}
+
+.sh-course-menu-divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--sh-border);
+}
+
+/* Right slide-over drawer */
+.sh-drawer {
+  position: fixed;
+  top: var(--sh-topbar-h);
+  right: 0;
+  bottom: 0;
+  z-index: 9400;
+  width: 380px;
+  display: flex;
+  flex-direction: column;
+  background: var(--sh-panel-solid);
+  border-left: 1px solid var(--sh-border-strong);
+  box-shadow: var(--sh-shadow-panel);
+  animation: sh-drawer-in 160ms ease;
+}
+
+html[data-motion="reduced"] .sh-drawer {
+  animation: none;
+}
+
+@keyframes sh-drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.sh-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  height: 44px;
+  padding: 0 8px 0 16px;
+  border-bottom: 1px solid var(--sh-border);
+}
+
+.sh-drawer-title {
+  font-family: var(--sh-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sh-text-2);
+}
+
+.sh-drawer-close {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  color: var(--sh-text-3);
+  cursor: pointer;
+}
+
+.sh-drawer-close:hover {
+  color: var(--sh-text);
+}
+
+.sh-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+}
+
 /* Cut-corner frame: quiet edge, aqua top-left and magenta bottom-right corners */
 .sh-cut {
   --sh-cut-edge: linear-gradient(135deg, var(--sh-accent) 0 18px, var(--sh-border-strong) 18px calc(100% - 18px), var(--sh-accent-2) calc(100% - 18px));

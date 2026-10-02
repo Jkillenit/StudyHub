@@ -7,6 +7,8 @@ export function ShellProvider({ children }) {
   const [statusLeft, setStatusLeft] = useState(() => []);
   const [statusRight, setStatusRight] = useState(() => []);
   const [apiLive, setApiLive] = useState(false);
+  const [courseNav, setCourseNav] = useState(null);
+  const [prompt, setPrompt] = useState(null);
 
   const setStatusBar = useCallback((parts) => {
     setStatusLeft(parts?.left ?? []);
@@ -22,8 +24,12 @@ export function ShellProvider({ children }) {
       setStatusBar,
       apiLive,
       setApiLive,
+      courseNav,
+      setCourseNav,
+      prompt,
+      setPrompt,
     }),
-    [apiLive, breadcrumb, statusLeft, statusRight, setStatusBar]
+    [apiLive, breadcrumb, statusLeft, statusRight, setStatusBar, courseNav, prompt]
   );
 
   return <ShellContext.Provider value={value}>{children}</ShellContext.Provider>;
