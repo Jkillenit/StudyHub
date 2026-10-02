@@ -161,11 +161,17 @@ export function useNovaPlacement(core, { baseSize, enabled, stageActive }) {
       }
       return undefined;
     }
-    const t = window.setTimeout(() => {
-      const m = modeRef.current;
-      if (housedRef.current || !AUTONOMOUS.has(m) || busy() || dragRef.current) return;
+    let t = 0;
+    const tryHome = () => {
+      if (housedRef.current) return;
+      /* Busy, asleep, or engaged (e.g. falling after the window resized): try again once she's settled. */
+      if (!AUTONOMOUS.has(modeRef.current) || busy() || dragRef.current) {
+        t = window.setTimeout(tryHome, HOME_RETURN_DELAY_MS);
+        return;
+      }
       void api.current.goHome();
-    }, HOME_RETURN_DELAY_MS);
+    };
+    t = window.setTimeout(tryHome, HOME_RETURN_DELAY_MS);
     return () => window.clearTimeout(t);
   }, [stageActive, enabled, leaveHome, busy]);
 

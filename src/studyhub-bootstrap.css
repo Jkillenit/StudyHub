@@ -598,6 +598,56 @@ html[data-motion="reduced"] .sh-novabar-glyph {
   display: none;
 }
 
+html[data-nova-tucked] .sh-novabar-portrait {
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+
+html[data-nova-tucked] .sh-novabar-glyph > svg {
+  display: none;
+}
+
+/* Nova's lane: she rests here, bottom right, beside the content column */
+.sh-nova-lane {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 260px;
+  height: 320px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.sh-nova-lane-floor {
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  bottom: 0;
+  height: 2px;
+  background: var(--sh-accent);
+}
+
+.sh-nova-lane-floor::before {
+  content: "";
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  bottom: 0;
+  height: 80px;
+  background: radial-gradient(ellipse at 50% 100%, var(--sh-accent-soft), transparent 70%);
+}
+
+.sh-nova-lane[data-housed] .sh-nova-lane-floor::before {
+  background: radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--sh-accent) 20%, transparent), transparent 70%);
+}
+
+@media (max-width: 1259px) {
+  .sh-nova-lane {
+    display: none;
+  }
+}
+
 .sh-novabar-input {
   flex: 1;
   min-width: 0;
@@ -6045,6 +6095,10 @@ button.sh-today-row-main:hover {
 .sc-scout--hidden {
   display: none;
 }
+.sc-scout--tucked {
+  visibility: hidden;
+  pointer-events: none;
+}
 .sc-scout-btn {
   position: relative;
   width: 100%;
@@ -6427,9 +6481,7 @@ button.sh-today-row-main:hover {
   height: 14px;
   margin: -7px 0 0 -32px;
   border-radius: 0;
-  border: 1px solid color-mix(in srgb, var(--sh-accent) 80%, transparent);
   background: radial-gradient(ellipse at center, color-mix(in srgb, var(--sh-accent) 35%, transparent), transparent 70%);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--sh-accent) 45%, transparent);
   pointer-events: none;
   animation: nv-drop 0.9s ease-in-out infinite;
 }
@@ -6672,6 +6724,14 @@ button.sh-today-row-main:hover {
   left: calc(100% - 2px);
   transform-origin: left center;
 }
+.sc-bubble--center {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  transform-origin: center bottom;
+  max-width: 240px;
+  animation-name: sc-pop-center;
+}
 .sc-bubble--above {
   bottom: 42%;
 }
@@ -6728,6 +6788,22 @@ button.sh-today-row-main:hover {
     filter: brightness(1);
   }
 }
+@keyframes sc-pop-center {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scaleX(0.6) scaleY(0.2);
+    filter: brightness(2);
+  }
+  60% {
+    opacity: 1;
+    transform: translateX(-50%) scaleX(1.02) scaleY(1);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+    filter: brightness(1);
+  }
+}
 .sc-bubble-corner {
   position: absolute;
   width: 8px;
@@ -6774,6 +6850,17 @@ button.sh-today-row-main:hover {
 }
 .sc-bubble--right .sc-bubble-tail::after {
   left: -3px;
+}
+.sc-bubble--center .sc-bubble-tail {
+  top: 100%;
+  left: 50%;
+  width: 1px;
+  height: 12px;
+}
+.sc-bubble--center .sc-bubble-tail::after {
+  top: auto;
+  bottom: -3px;
+  left: -2px;
 }
 .sc-bubble-head {
   display: flex;
@@ -8299,70 +8386,6 @@ a:hover {
   transition: none;
 }
 
-/* Companion stage */
-.sh-stage {
-  flex: 1;
-  min-height: 280px;
-  position: relative;
-  border-radius: var(--sh-radius-xl);
-  background-image: radial-gradient(circle at 50% 46%, color-mix(in srgb, var(--sh-accent) 16%, transparent), transparent 62%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--sh-accent);
-}
-
-.sh-stage-status {
-  position: absolute;
-  top: 16px;
-  left: 20px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--sh-font-hud);
-  font-weight: 500;
-  font-size: 12px;
-  letter-spacing: 0.2em;
-  color: var(--sh-text-2);
-}
-
-.sh-stage-status .sh-status-dot {
-  width: 7px;
-  height: 7px;
-}
-
-.sh-stage-clock {
-  position: absolute;
-  top: 16px;
-  right: 20px;
-  font-family: var(--sh-font-mono);
-  font-size: 12px;
-  color: var(--sh-text-2);
-}
-
-.sh-stage-rings {
-  width: min(300px, 78%);
-  height: auto;
-  aspect-ratio: 1;
-}
-
-.sh-stage-core {
-  transition: opacity 400ms ease;
-}
-
-.sh-stage[data-housed="true"] .sh-stage-core {
-  opacity: 0.2;
-}
-
-.sh-stage-floor {
-  position: absolute;
-  left: 12%;
-  right: 12%;
-  bottom: 6%;
-  height: 1px;
-  pointer-events: none;
-}
-
 /* Briefing */
 .sh-brief-text {
   margin: 0;
@@ -8964,8 +8987,7 @@ button.sh-week-day:focus-visible {
   animation: none !important;
 }
 
-[data-motion="reduced"] .sh-gauge-fill,
-[data-motion="reduced"] .sh-stage-core {
+[data-motion="reduced"] .sh-gauge-fill {
   transition: none;
 }
 
@@ -9015,21 +9037,6 @@ button.sh-week-day:focus-visible {
     flex-direction: row;
     align-items: stretch;
     gap: 16px;
-  }
-  .sh-stage {
-    flex: 0 0 180px;
-    min-height: 200px;
-  }
-  .sh-stage-status {
-    top: 12px;
-    left: 14px;
-  }
-  .sh-stage-status-text,
-  .sh-stage-clock {
-    display: none;
-  }
-  .sh-stage-rings {
-    width: 150px;
   }
   .sh-brief {
     flex: 1;
@@ -9667,6 +9674,10 @@ html[data-motion="reduced"] :is(.sh-home-card, .sh-home-link) {
 
 .sc-scout--home .sc-bubble--above {
   bottom: 62%;
+}
+
+.sc-scout--home .sc-bubble--center.sc-bubble--above {
+  bottom: 92%;
 }
 
 /* Asleep in 3D she lies on her side along the floor, head toward the left */

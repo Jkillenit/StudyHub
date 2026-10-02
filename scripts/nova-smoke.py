@@ -127,12 +127,11 @@ def check_drag(page):
     if start is None:
         raise RuntimeError("Nova has no bounding box")
     x, y = start
-    # She lives in the Today home panel on the left; a drop still over it re-houses her
-    # in place, so move 250 px toward the window's middle instead of always left.
-    dx = 250 if x < 700 else -250
+    # She rests in her lane at the bottom right; a drop still over it re-houses her in
+    # place, so drag well up and to the left, clear of the lane.
     page.mouse.move(x, y)
     page.mouse.down()
-    page.mouse.move(x + dx, y - 120, steps=10)
+    page.mouse.move(x - 320, y - 220, steps=10)
     page.mouse.up()
     page.wait_for_timeout(1500)
     end = center(page, SCOUT)

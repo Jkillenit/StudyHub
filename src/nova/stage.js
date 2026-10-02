@@ -84,9 +84,11 @@ export function createStage(deps) {
     if (from === slot) return true;
     const anchor = from === "desk" ? "desk" : `panel.${id}`;
     const e = await el(anchor);
-    const busy = () => from !== "desk" && e && deps.inUse(e);
+    /* Off Full plan (no panel or desk on screen) she never rearranges anything. */
+    if (!e) return false;
+    const busy = () => from !== "desk" && deps.inUse(e);
     if (busy()) return false;
-    if (e && (await stage.walkTo(anchor))) await stage.pointAt(anchor);
+    if (await stage.walkTo(anchor)) await stage.pointAt(anchor);
     if (current !== r || busy()) return false;
     deps.place(id, slot);
     await sleep(MOVE_MS);

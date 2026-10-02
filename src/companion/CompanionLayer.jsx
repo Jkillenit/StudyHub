@@ -42,6 +42,7 @@ import {
   DAY_HELLO_DELAY_MS,
   ENGAGED_MODES,
   HOME_MODES,
+  LANE_MIN_W,
   MOVE,
   SIZE_3D,
 } from "./layer/constants.js";
@@ -71,7 +72,7 @@ const Nova3D = lazy(() => import("./nova3d/Nova3D.jsx"));
  * Nova's overlay. Lives above the app in a portal; only Nova, her bubbles and menus take
  * pointer events. Mounted by StudyHubApp once the launch splash is gone.
  */
-export default function CompanionLayer({ courses = [], activeCourseId = null, onHub = true, hubView = "today", onGoHub, onOpenCourse, onUpdateCourse }) {
+export default function CompanionLayer({ courses = [], activeCourseId = null, onHub = true, hubView = "today", place = "free", onGoHub, onOpenCourse, onUpdateCourse }) {
   const [cstate, setCstate] = useState(null);
   const stateRef = useRef(null);
   const [mode, setMode] = useState("hidden");
@@ -135,9 +136,19 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   /** Synced to `size` once the placement hook below has worked it out. */
   const sizeRef = useRef(baseSize);
 
-  const stageActive = onHub && hubView === "today";
+  /** Hidden while resting on the calendar or in a window too narrow for her lane; the message box shows her portrait. */
+  const tuckedRef = useRef(false);
+  const [winW, setWinW] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const onResize = () => setWinW(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  /* Width is part of it so widening the window past the lane breakpoint walks her back in. */
+  const stageActive = place === "lane" && winW >= LANE_MIN_W;
+  const onToday = onHub && (hubView === "today" || hubView === "plan");
   const navRef = useRef({});
-  navRef.current = { courses, activeCourseId, onHub, onGoHub, onOpenCourse, stageActive };
+  navRef.current = { courses, activeCourseId, onHub, onGoHub, onOpenCourse, stageActive, onToday };
 
   const lastActivityRef = useRef(Date.now());
   /** Last pointer, key, wheel or touch input; she only acts on her own after IDLE_START_MS of none. */
@@ -158,6 +169,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const quietNow = () => !!stateRef.current?.quiet || focusRef.current > Date.now();
   const canAct = useCallback(
     () =>
+      !tuckedRef.current &&
       mayAct({
         lastInput: lastInputRef.current,
         lastStudy: lastStudyRef.current,
@@ -243,6 +255,10 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   }, []);
 
   const refreshAnchor = useCallback(() => {
+    if (housedRef.current) {
+      setAnchor({ h: "center", v: "above" });
+      return;
+    }
     const p = posRef.current;
     const s = sizeRef.current;
     setAnchor({
@@ -421,6 +437,16 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   /* ---------- clicking & dragging Nova ---------- */
 
   const { dragging, dropMarkRef, dropTarget, menuLine, onScoutClick, onPointerDown, onPointerMove, onPointerUp } = useNovaDrag(core, { housedRef, houseAt, leaveHome, closeHelp });
+
+  /* Anything she's engaged in (quiz, help, tour, briefing), a line she's saying, or a drag brings her back out. */
+  const tucked = enabled && (place === "tuck" || (place === "lane" && winW < LANE_MIN_W)) && (HOME_MODES.has(mode) || mode === "wander") && !dragging && !bubble;
+  tuckedRef.current = tucked;
+  useEffect(() => {
+    const root = document.documentElement;
+    if (tucked) root.dataset.novaTucked = "";
+    else delete root.dataset.novaTucked;
+    return () => delete root.dataset.novaTucked;
+  }, [tucked]);
 
   /* ---------- autonomy: wander, perch, sleep ---------- */
 
@@ -609,7 +635,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   if (mode !== "menu" && menuPage !== "main") setMenuPage("main");
   const pickLayout = (fn) => () => {
     send("CLOSE");
-    fn();
+    onGoHub?.("plan");
+    later(fn, 300);
   };
   const layoutItems = [
     { id: "l-briefing", label: "BRIEFING", icon: "▦", onClick: pickLayout(() => arrangeWorkspace("briefing")) },
@@ -668,6 +695,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         className={[
           "sc-scout",
           visible ? "" : "sc-scout--hidden",
+          tucked ? "sc-scout--tucked" : "",
           dragging ? "sc-scout--dragging" : "",
           mode === "sleep" ? "sc-scout--asleep" : "",
           reduced ? "sc-scout--still" : "",

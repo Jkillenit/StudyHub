@@ -24,6 +24,7 @@ import { openCourseView } from "../features/today/courseView.js";
 import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import { SplashScreen, useSplashPhase } from "../components/SplashScreen.jsx";
 import { SettingsPanel } from "../shell/SettingsPanel.jsx";
+import { NovaLane } from "../shell/NovaLane.jsx";
 
 const CompanionLayer = lazy(() => import("../companion/CompanionLayer.jsx"));
 
@@ -325,6 +326,7 @@ function StudyHubAppInner() {
   const userCoursesList = useMemo(() => userCourses.filter((c) => c.type !== "builtin"), [userCourses]);
   const activeUserCourse = userCoursesList.find((c) => c.id === courseId);
   const onHub = courseId === null;
+  const novaPlace = onHub ? (hubView === "calendar" ? "tuck" : "lane") : "free";
   const railCourses = useMemo(
     () => [{ id: "builtin", code: "OM 300" }, ...userCoursesList.map((c) => ({ id: c.id, code: shortCourse(c.courseCode) || c.name }))],
     [userCoursesList]
@@ -427,6 +429,7 @@ function StudyHubAppInner() {
         onShuffleDeck={() => window.dispatchEvent(new CustomEvent("studyhub-shuffle-flashcards"))}
         builtinActiveChapter={paletteChapterMeta.courseId === "builtin" ? paletteChapterMeta.chapterId : null}
       />
+      {novaPlace === "lane" ? <NovaLane /> : null}
       <AiAssistantPanel open={aiOpen} onClose={() => setAiOpen(false)} />
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       {splashPhase === "done" ? (
@@ -437,6 +440,7 @@ function StudyHubAppInner() {
               activeCourseId={courseId}
               onHub={onHub}
               hubView={hubView}
+              place={novaPlace}
               onGoHub={goHub}
               onOpenCourse={openCourseFromShell}
               onUpdateCourse={updateCourse}

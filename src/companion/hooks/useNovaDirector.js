@@ -28,7 +28,7 @@ export function useNovaDirector(core, { dueNow, memoryActions, syncRef }) {
     if (!cur?.enabled || !startedRef.current || !openerDoneRef.current) return;
     const now = Date.now();
     setVoiceTone(moodTone(cur.feelings, now));
-    const onToday = !!navRef.current.stageActive;
+    const onToday = !!navRef.current.onToday;
     const lastInput = lastInputRef.current;
     const lastStudy = lastStudyRef.current;
     const idle = mayAct({ lastInput, lastStudy, now });

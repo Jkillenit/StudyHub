@@ -335,7 +335,7 @@ export function CommandPalette({
         visible: true,
         /* Delayed so the Enter or click that picked this row doesn't count as input and end her scene. */
         run: () => {
-          actionsRef.current.onGoToHub("today");
+          actionsRef.current.onGoToHub("plan");
           window.setTimeout(() => arrangeWorkspace(name), 300);
         },
       })),

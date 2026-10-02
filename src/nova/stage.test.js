@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createStage } from "./stage.js";
+import { sceneFrom } from "./scenePlayer.js";
 import { LAYOUTS } from "./workspace.js";
+import briefing from "./scenes/briefing.json";
 
 function fakeStage({ anchors = ["a", "b"], layout = { ...LAYOUTS.briefing }, busy = [], autoWalk = false } = {}) {
   const log = [];
@@ -138,6 +140,22 @@ describe("stage", () => {
     await stage.run((s) => s.openPanel("standing"));
     expect(ws.layout.standing).toBe("dock");
     expect(log.find((l) => l[0] === "walkTo")).toEqual(["walkTo", "desk"]);
+  });
+
+  it("plays the briefing speech-only when no panel is on screen", async () => {
+    vi.useFakeTimers();
+    try {
+      const { stage, log, ws } = fakeStage({ anchors: [], layout: { ...LAYOUTS.tidy }, autoWalk: true });
+      const ctx = { hasCourses: true, task: { title: "Essay" }, overdue: { count: 2 }, risk: { uuid: "c1" } };
+      const done = stage.run(sceneFrom(briefing, ctx));
+      await vi.runAllTimersAsync();
+      expect(await done).toBe(true);
+      expect(log.filter((l) => l[0] === "say").map((l) => l[1])).toEqual(["briefing.opener", "briefing.task", "briefing.overdue", "briefing.risk", "briefing.closer"]);
+      expect(log.filter((l) => ["walkTo", "pointAt", "mark", "place"].includes(l[0]))).toEqual([]);
+      expect(ws.layout).toEqual(LAYOUTS.tidy);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("actions do nothing outside a run", async () => {

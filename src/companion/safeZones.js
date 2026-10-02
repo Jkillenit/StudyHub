@@ -9,11 +9,15 @@ const AVOID_SELECTOR = [
   ".drill-card",
   "video",
   "iframe",
+  ".sh-novabar",
+  ".sh-rail",
 ].join(",");
 
 /** Everything she must not cover when she moves on her own: panels, text and anything clickable. */
 const CONTENT_SELECTOR = [
   AVOID_SELECTOR,
+  ".sh-plan-col",
+  ".sh-home-col",
   ".sh-panel",
   ".sh-hub-block",
   "button",
@@ -48,7 +52,7 @@ const TEXT_SELECTOR = [
   "[class*='chip']",
 ].join(",");
 /** Her own UI and her home window never count as content. */
-const NOT_CONTENT = ".sc-layer, [data-nova-home]";
+const NOT_CONTENT = ".sc-layer, [data-nova-home], .sh-nova-lane";
 /** Share of the frame her legs hang below the edge when seated (matches NovaStage SEAT_FRAC). */
 const SEAT_LEG_FRAC = 0.3;
 

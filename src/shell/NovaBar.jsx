@@ -1,9 +1,23 @@
-import { useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { describeCommand, parseCommand } from "../nova/commands.js";
 import { searchFaq } from "../companion/faq.js";
 import { slashMatches } from "../nova/slash.js";
 
+const NovaSprite = lazy(() => import("../companion/NovaSprite.jsx").then((m) => ({ default: m.NovaSprite })));
+
 const emit = (name, detail) => window.dispatchEvent(new CustomEvent(name, { detail }));
+
+/** True while the companion layer has her tucked away (html[data-nova-tucked]). */
+function useNovaTucked() {
+  const root = document.documentElement;
+  const [tucked, setTucked] = useState(() => "novaTucked" in root.dataset);
+  useEffect(() => {
+    const mo = new MutationObserver(() => setTucked("novaTucked" in root.dataset));
+    mo.observe(root, { attributes: true, attributeFilter: ["data-nova-tucked"] });
+    return () => mo.disconnect();
+  }, [root]);
+  return tucked;
+}
 
 const Hex = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
@@ -16,6 +30,7 @@ export function NovaBar({ courses, placeholder = "Message Nova, or type / for co
   const [q, setQ] = useState("");
   const [focused, setFocused] = useState(false);
   const inputRef = useRef(null);
+  const tucked = useNovaTucked();
   const slash = slashMatches(q);
   const text = q.trim().replace(/^\//, "");
   const cmd = useMemo(() => (slash.length || !text ? null : parseCommand(text, { courses })), [slash.length, text, courses]);
@@ -80,7 +95,13 @@ export function NovaBar({ courses, placeholder = "Message Nova, or type / for co
           <div className="sh-novabar-row">
             <span className="sh-novabar-glyph">
               <Hex />
-              <span className="sh-novabar-portrait" data-nova-portrait />
+              <span className="sh-novabar-portrait" data-nova-portrait>
+                {tucked ? (
+                  <Suspense fallback={null}>
+                    <NovaSprite size={28} />
+                  </Suspense>
+                ) : null}
+              </span>
             </span>
             <input
               ref={inputRef}
