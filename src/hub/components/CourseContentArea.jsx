@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { DECK_MODES, filterDeck } from "../../study/flashcards/deckModes.js";
 
 const FlashcardDeck = lazy(() => import("../../study/flashcards/FlashcardDeck.jsx"));
 const UserCourseTipTapNotesEditor = lazy(() => import("../UserCourseTipTapNotesEditor.jsx"));
@@ -24,7 +25,7 @@ const StudyGuideView = lazy(() =>
   import("../../features/study/StudyGuideView.jsx").then((m) => ({ default: m.StudyGuideView }))
 );
 
-const COURSE_VIEWS = {
+export const COURSE_VIEWS = {
   "course-assignments": AssignmentsView,
   "course-announcements": AnnouncementsView,
   "course-bb-content": BbContentView,
@@ -275,6 +276,9 @@ export default function CourseContentArea({
   onImportFile,
   activeItem,
   sourceFilter,
+  onSourceFilterChange,
+  dueCount = 0,
+  examFor = null,
   onSaveCards,
   reviewMeta,
   enhancing,
@@ -392,7 +396,10 @@ export default function CourseContentArea({
     );
   }, [course?.glossary, currentModule?.id, onRemoveGlossaryTerm]);
 
-  const tabs = ["content", "notes", "glossary", "grades"];
+  const filteredCount = useMemo(
+    () => filterDeck(userFlashcards, sourceFilter, currentModule?.id, { examFor }).length,
+    [userFlashcards, sourceFilter, currentModule?.id, examFor]
+  );
 
   const CourseView = COURSE_VIEWS[activeItem];
   if (CourseView) {
@@ -407,35 +414,44 @@ export default function CourseContentArea({
 
   return (
     <>
-      <div className="sh-main-header" data-perch>
-        <div className="sh-tab-row" data-tour-id="course-tabs">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              className={`sh-tab sh-usercourse-tab ${mainTab === tab ? "active" : ""}`}
-              onClick={() => onTabChange(tab)}
-            >
-              {tab.toUpperCase()}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="sh-main-body sh-scroll-hover position-relative">
+      <div className="sh-main-body position-relative">
         {mainTab === "content" ? (
           activeItem === "qz-deck" ? (
-            <Suspense fallback={null}>
-              <FlashcardDeck
-                key={`${course?.id}-qz`}
-                cards={userFlashcards}
-                courseId={course?.uuid || course?.id}
-                moduleId={currentModule?.id}
-                showMasteryButtons
-                sourceFilter={sourceFilter}
-                onSaveCards={onSaveCards}
-                editTriggerRef={localFlashcardEditRef}
-              />
-            </Suspense>
+            <>
+              {userFlashcards.length > 0 ? (
+                <div className="sh-deck-modes">
+                  <div className="sh-deck-chips" role="group" aria-label="Deck mode">
+                    {DECK_MODES.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        className={`sh-deck-chip${sourceFilter === opt.id ? " is-active" : ""}`}
+                        aria-pressed={sourceFilter === opt.id}
+                        onClick={() => onSourceFilterChange?.(opt.id)}
+                      >
+                        {opt.label}
+                        {opt.id === "due" && dueCount > 0 ? <span className="sh-deck-chip-count"> · {dueCount}</span> : null}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="sh-deck-count">
+                    {filteredCount}/{userFlashcards.length} cards · {dueCount} due
+                  </div>
+                </div>
+              ) : null}
+              <Suspense fallback={null}>
+                <FlashcardDeck
+                  key={`${course?.id}-qz`}
+                  cards={userFlashcards}
+                  courseId={course?.uuid || course?.id}
+                  moduleId={currentModule?.id}
+                  showMasteryButtons
+                  sourceFilter={sourceFilter}
+                  onSaveCards={onSaveCards}
+                  editTriggerRef={localFlashcardEditRef}
+                />
+              </Suspense>
+            </>
           ) : (
             <div className="main-content">{renderContentData(currentModule?.contentData)}</div>
           )

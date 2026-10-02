@@ -1,14 +1,15 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CourseSidebarSkeleton } from "../study/CourseSidebarSkeleton.jsx";
-import { useDelayedSkeletonVisible } from "../hooks/useDelayedSkeletonVisible.js";
 import { appendMaterialPaths, ensureUserCourse, uid } from "./userCourseModel.js";
 import { useShell } from "../shell/ShellContext.jsx";
+import { NovaBar } from "../shell/NovaBar.jsx";
 import { usePptxImport } from "../pptx/usePptxImport.js";
 import { buildOutput } from "../pptx/pptxOutputBuilder.js";
 import { classifySlides, textToSlides } from "../pptx/pptxClassifier.js";
-import CourseSidebar from "./components/CourseSidebar.jsx";
-import CourseContentArea from "./components/CourseContentArea.jsx";
-import CourseContextPanel from "./components/CourseContextPanel.jsx";
+import CourseContentArea, { COURSE_VIEWS } from "./components/CourseContentArea.jsx";
+import CourseHeader from "./components/CourseHeader.jsx";
+import InlineEdit from "./components/InlineEdit.jsx";
+import { userCourseNav } from "./courseNav.js";
+import { shortCourse } from "../features/dashboard/courseLabel.js";
 import { hasApiKey } from "../ai/apiKeyUtils.js";
 import { enhanceWithClaude } from "../ai/pptxEnhancer.js";
 import { mergeEnhancedOutput } from "../ai/mergeEnhancedOutput.js";
@@ -27,17 +28,24 @@ import { takePendingCourseView } from "../features/today/courseView.js";
 import { isTypingTarget } from "../lib/hotkeys.js";
 
 const norm = (v) => String(v || "").toLowerCase().trim();
+const pad2 = (n) => String(n).padStart(2, "0");
 
-export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, courseShellLoad = false, onActiveChapterChange }) {
-  const { setBreadcrumb, setStatusBar } = useShell();
+const TABS = [
+  { id: "content", label: "Content" },
+  { id: "notes", label: "Notes" },
+  { id: "glossary", label: "Glossary" },
+  { id: "grades", label: "Grades" },
+];
+
+export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, onActiveChapterChange, novaCourses }) {
+  const { setBreadcrumb, setCourseNav } = useShell();
   const courseRef = useRef(course);
   courseRef.current = course;
   const mountedRef = useRef(true);
   const flashcardEditTriggerRef = useRef(null);
   const toastTimerRef = useRef(null);
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [ctxCollapsed, setCtxCollapsed] = useState(false);
+  const [renamingCourse, setRenamingCourse] = useState(false);
   const [mainTab, setMainTab] = useState("content");
   const [hasGrades, setHasGrades] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
@@ -46,7 +54,6 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, courseSh
   const c = useMemo(() => ensureUserCourse(course), [course]);
   const [active, setActive] = useState(c.activeModuleId);
   const [activeItem, setActiveItem] = useState(`module:${c.activeModuleId}`);
-  const shellSkelVis = useDelayedSkeletonVisible(!!courseShellLoad, courseShellLoad ? "shell" : "");
   const { importPptx, error: pptxError, reset: resetPptx } = usePptxImport();
   const mirrorBadges = useMirrorBadges(c.uuid || c.id);
 
@@ -83,6 +90,7 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, courseSh
     setActive(ec.activeModuleId);
     setActiveItem(`module:${ec.activeModuleId}`);
     setMainTab("content");
+    setRenamingCourse(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [course.id]);
 
@@ -360,7 +368,6 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, courseSh
   const { examFor } = useCourseExams(c.uuid || c.id);
   const dueCount = useMemo(() => getDueCards(c.flashcards || [], { examFor }).length, [c.flashcards, examFor]);
   const masteryPct = useMemo(() => masteryPercent(c.flashcards || []), [c.flashcards]);
-  const completedCount = [...completedIds].filter((id) => visibleChapters.some((ch) => ch.id === id)).length;
   const chNum = (id) => `CH·${String(c.modules.findIndex((x) => x.id === id) + 1).padStart(2, "0")}`;
 
   useEffect(() => {
@@ -368,12 +375,35 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, courseSh
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [c.name, c.subtitle, c.courseCode, currentModule, setBreadcrumb]);
 
+  const selectModuleRef = useRef(selectModule);
+  selectModuleRef.current = selectModule;
+  const selectNav = useCallback((nextActiveItem) => {
+    if (nextActiveItem.startsWith("module:")) {
+      selectModuleRef.current(nextActiveItem.slice("module:".length));
+    } else {
+      setActiveItem(nextActiveItem);
+      setMainTab("content");
+    }
+  }, []);
+
+  const navGroups = useMemo(
+    () =>
+      userCourseNav(c, {
+        completedIds: [...completedIds],
+        badges: {
+          "qz-deck": dueCount || null,
+          "course-assignments": mirrorBadges.dueSoon ? `${mirrorBadges.dueSoon} DUE` : null,
+          "course-announcements": mirrorBadges.unread ? `${mirrorBadges.unread} NEW` : null,
+        },
+      }),
+    [c, completedIds, dueCount, mirrorBadges.dueSoon, mirrorBadges.unread]
+  );
+
   useEffect(() => {
-    setStatusBar({
-      left: ["●", c.name, `${completedCount}/${visibleChapters.length}`, currentModule?.label ?? ""],
-      right: ["USER", "LOCAL"],
-    });
-  }, [c.name, completedCount, visibleChapters.length, currentModule, setStatusBar]);
+    setCourseNav({ courseId: course.id, groups: navGroups, activeId: activeItem, onSelect: selectNav });
+  }, [course.id, navGroups, activeItem, selectNav, setCourseNav]);
+
+  useEffect(() => () => setCourseNav(null), [setCourseNav]);
 
   const addModule = () => {
     const mid = uid("m");
@@ -455,41 +485,93 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, courseSh
     [update]
   );
 
+  const onDeck = activeItem === "qz-deck";
+  const isCourseView = !!COURSE_VIEWS[activeItem];
+  const moduleIndex = visibleChapters.findIndex((m) => m.id === active);
+  const materialCount = (c.materialPaths || []).length;
+  const prompt = onDeck
+    ? "Message Nova about these cards…"
+    : currentModule && !isCourseView
+      ? `Message Nova about ${currentModule.label}…`
+      : undefined;
+
+  const menu = [
+    { label: "Rename course", onClick: () => setRenamingCourse(true) },
+    { label: "Add module", onClick: addModule },
+    {
+      label: "Delete module",
+      disabled: !currentModule || c.modules.length <= 1,
+      onClick: () => {
+        if (!currentModule || c.modules.length <= 1) return;
+        if (window.confirm(`Delete module "${currentModule?.title}"?`)) removeModule(currentModule.id);
+      },
+    },
+    ...(hasGrades
+      ? []
+      : [
+          {
+            label: "Set up grades",
+            onClick: () => {
+              selectModule(active);
+              setMainTab("grades");
+            },
+          },
+        ]),
+    ...(onDeck ? [{ label: "Edit card", onClick: () => flashcardEditTriggerRef.current?.() }] : []),
+    ...(materialCount ? [{ label: `Materials · ${materialCount} file${materialCount === 1 ? "" : "s"}`, disabled: true }] : []),
+    { divider: true },
+    {
+      label: "Delete course",
+      danger: true,
+      onClick: () => {
+        if (window.confirm("Delete this entire course and all notes?")) onDeleteCourse(c.uuid || c.id);
+      },
+    },
+  ];
+
   return (
     <>
       <style>{`
         @media print {
-          .sh-sidebar, .sh-ctx, .sh-topbar, .sh-statusbar { display: none !important; }
+          .sh-rail, .sh-plan-dock, .sh-topbar, .sh-statusbar { display: none !important; }
         }
       `}</style>
-      <div className="sh-workspace sh-workspace--cyan sh-app-usercourse">
-        <aside className={`sh-sidebar sh-scroll-hover ${sidebarCollapsed ? "collapsed" : ""}`}>
-          {shellSkelVis ? (
-            <CourseSidebarSkeleton />
-          ) : (
-            <CourseSidebar
-              course={c}
-              activeItem={activeItem}
-              onRenameCourse={renameCourse}
-              onRenameModule={renameModule}
-              badges={{
-                "qz-deck": dueCount || null,
-                "course-assignments": mirrorBadges.dueSoon ? `${mirrorBadges.dueSoon} DUE` : null,
-                "course-announcements": mirrorBadges.unread ? `${mirrorBadges.unread} NEW` : null,
-              }}
-              onActiveChange={(nextActiveItem) => {
-                if (nextActiveItem.startsWith("module:")) {
-                  selectModule(nextActiveItem.slice("module:".length));
-                } else {
-                  setActiveItem(nextActiveItem);
-                  setMainTab("content");
-                }
-              }}
+      <div className="sh-plan sh-course sh-app-usercourse">
+        <div className="sh-plan-col">
+          {isCourseView ? null : (
+            <CourseHeader
+              crumb={[
+                renamingCourse ? (
+                  <InlineEdit
+                    startEditing
+                    value={c.name}
+                    className="sh-course-crumb-edit"
+                    onSave={renameCourse}
+                    onDone={() => setRenamingCourse(false)}
+                  />
+                ) : (
+                  shortCourse(c.courseCode || c.name) || c.name
+                ),
+                currentModule ? `${pad2(moduleIndex + 1)} ${currentModule.label}` : "",
+              ]}
+              title={onDeck ? "Flashcards" : undefined}
+              titleNode={
+                onDeck || !currentModule ? undefined : (
+                  <InlineEdit
+                    key={currentModule.id}
+                    value={currentModule.title || currentModule.label || ""}
+                    className="sh-course-title-edit"
+                    onSave={(title) => renameModule(currentModule.id, title)}
+                  />
+                )
+              }
+              tabs={onDeck ? [] : TABS}
+              activeTab={mainTab}
+              onTab={setMainTab}
+              masteryPct={masteryPct}
+              menu={menu}
             />
           )}
-        </aside>
-
-        <main className="sh-main">
           <CourseContentArea
             course={c}
             currentModule={currentModule}
@@ -499,6 +581,9 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, courseSh
             onImportFile={handleImportFile}
             activeItem={activeItem}
             sourceFilter={sourceFilter}
+            onSourceFilterChange={setSourceFilter}
+            dueCount={dueCount}
+            examFor={examFor}
             onSaveCards={handleSaveCards}
             flashcardEditTriggerRef={flashcardEditTriggerRef}
             reviewMeta={reviewMeta}
@@ -510,41 +595,16 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, courseSh
             onGradesChange={(count) => setHasGrades(count > 0)}
             onUpdateContentData={updateContentData}
           />
-        </main>
-
-        <aside className={`sh-ctx sh-scroll-hover ${ctxCollapsed ? "collapsed" : ""}`}>
-          <div className="sh-ctx-scroll sh-scroll-hover">
-            <CourseContextPanel
-              course={c}
-              currentModule={currentModule}
-              activeItem={activeItem}
-              sourceFilter={sourceFilter}
-              onSourceFilterChange={setSourceFilter}
-              masteryPct={masteryPct}
-              dueCount={dueCount}
-              examFor={examFor}
-              onAddModule={addModule}
-              onDeleteModule={(moduleId) => {
-                if (!moduleId || c.modules.length <= 1) return;
-                if (window.confirm(`Delete module "${currentModule?.title}"?`)) removeModule(moduleId);
-              }}
-              onDeleteCourse={() => {
-                if (window.confirm("Delete this entire course and all notes?")) onDeleteCourse(c.uuid || c.id);
-              }}
-              onHideSidebar={() => setSidebarCollapsed((v) => !v)}
-              onHidePanel={() => setCtxCollapsed((v) => !v)}
-              onTabChange={setMainTab}
-              hasGrades={hasGrades}
-              onEditCard={() => flashcardEditTriggerRef.current?.()}
-            />
-          </div>
-        </aside>
-      </div>
-      {toastMsg ? (
-        <div className="sh-toast" role="status" style={{ whiteSpace: "pre-line" }}>
-          {toastMsg}
         </div>
-      ) : null}
+        <div className="sh-plan-dock">
+          <NovaBar courses={novaCourses} placeholder={prompt} />
+        </div>
+        {toastMsg ? (
+          <div className="sh-toast" role="status" style={{ whiteSpace: "pre-line" }}>
+            {toastMsg}
+          </div>
+        ) : null}
+      </div>
     </>
   );
 }

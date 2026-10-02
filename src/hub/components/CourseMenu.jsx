@@ -35,7 +35,8 @@ export default function CourseMenu({ items }) {
     const nodes = [...listRef.current.querySelectorAll('[role="menuitem"]:not(:disabled)')];
     if (!nodes.length) return;
     const i = nodes.indexOf(document.activeElement);
-    const next = e.key === "ArrowDown" ? (i + 1) % nodes.length : (i - 1 + nodes.length) % nodes.length;
+    const next =
+      e.key === "ArrowDown" ? (i + 1) % nodes.length : i < 0 ? nodes.length - 1 : (i - 1 + nodes.length) % nodes.length;
     nodes[next].focus();
   };
 
@@ -59,7 +60,7 @@ export default function CourseMenu({ items }) {
               <div key={`d${i}`} className="sh-course-menu-divider" role="separator" />
             ) : (
               <button
-                key={item.label}
+                key={item.id ?? i}
                 type="button"
                 role="menuitem"
                 className={`sh-course-menu-item${item.danger ? " is-danger" : ""}`}

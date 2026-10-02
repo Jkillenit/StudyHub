@@ -814,6 +814,86 @@ html[data-motion="reduced"] .sh-rail .sh-rail-subnav {
   background: var(--sh-border);
 }
 
+/* Course workspace: header + body in the plan column */
+.sh-course .sh-plan-col {
+  padding-top: 0;
+}
+
+.sh-course .sh-main-body {
+  overflow: visible;
+  padding: 8px 0 16px;
+}
+
+.sh-course .sh-plan-col > .sh-main-body:first-child {
+  padding-top: 20px;
+}
+
+.sh-course .drill-card {
+  min-height: 280px;
+  margin: 16px 0 0;
+}
+
+.sh-course-title .sh-inline-edit-input,
+.sh-course-crumb .sh-inline-edit-input {
+  width: 100%;
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid var(--sh-accent-line);
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  outline: none;
+}
+
+.sh-course-crumb .sh-inline-edit-input {
+  display: inline-block;
+  width: 240px;
+}
+
+/* Deck mode chips above the flashcard deck */
+.sh-deck-modes {
+  margin-bottom: 16px;
+}
+
+.sh-deck-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.sh-deck-chip {
+  padding: 4px 9px;
+  border: 1px solid var(--sh-border);
+  background: transparent;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--sh-text-2);
+  cursor: pointer;
+}
+
+.sh-deck-chip:hover:not(.is-active) {
+  color: var(--sh-text);
+  border-color: var(--sh-border-strong);
+}
+
+.sh-deck-chip.is-active {
+  color: var(--sh-accent);
+  background: var(--sh-accent-soft);
+  border-color: var(--sh-accent-line);
+}
+
+.sh-deck-chip-count {
+  color: var(--sh-warn);
+}
+
+.sh-deck-count {
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  color: var(--sh-text-3);
+}
+
 /* Right slide-over drawer */
 .sh-drawer {
   position: fixed;
@@ -1715,12 +1795,6 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   background: transparent;
 }
 
-.sh-btn-ghost--active {
-  transition: none;
-  border-color: var(--sh-accent);
-  background: var(--sh-accent-soft);
-}
-
 .sh-btn-ghost-cyan {
   color: var(--sh-accent);
 }
@@ -2179,59 +2253,6 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-workspace--cyan .sh-tab.active {
   color: var(--sh-accent);
   border-bottom-color: var(--sh-accent);
-}
-
-.sh-app-usercourse .sh-usercourse-tab {
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  color: var(--sh-text-3);
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 6px 14px;
-  cursor: pointer;
-  transition: color 60ms linear, border-color 60ms linear;
-  margin-bottom: -1px;
-}
-
-.sh-app-usercourse .sh-usercourse-tab:hover {
-  color: var(--sh-text-2);
-  border-bottom-color: transparent;
-  background: transparent;
-}
-
-.sh-app-usercourse .sh-usercourse-tab.active {
-  color: var(--sh-accent);
-  border-bottom-color: var(--sh-accent);
-  background: transparent;
-}
-
-.sh-app-usercourse .sh-usercourse-tab,
-.sh-app-usercourse .sh-usercourse-tab:focus,
-.sh-app-usercourse .sh-usercourse-tab:active {
-  box-shadow: none !important;
-  outline: none !important;
-}
-
-.sh-app-usercourse .ch-divider {
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: var(--sh-text-3);
-  text-transform: uppercase;
-  padding: 6px 12px 3px;
-  user-select: none;
-}
-
-.sh-app-usercourse .ch-num.qz-prefix {
-  color: var(--sh-accent);
-}
-
-.sh-app-usercourse .ch-num.frm-prefix {
-  color: var(--sh-warn);
 }
 
 /* User course flashcard card — match OM 300 style */
@@ -3127,12 +3148,6 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
-}
-
-.sh-due-badge {
-  color: var(--sh-warn);
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
 }
 
 .ctx-deck-collapsible {
@@ -4648,28 +4663,6 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   font-size: 11px !important;
   padding: 4px 10px !important;
   letter-spacing: 0.1em !important;
-}
-
-.sh-panel-action {
-  display: block;
-  width: 100%;
-  background: transparent;
-  border: 1px solid var(--sh-border);
-  color: var(--sh-text-2);
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 6px;
-  text-align: left;
-  margin-bottom: 6px;
-  border-radius: 0;
-  cursor: pointer;
-}
-
-.sh-panel-action--highlight {
-  color: var(--sh-accent) !important;
-  border-color: var(--sh-accent) !important;
 }
 
 .sh-expand-toggle {

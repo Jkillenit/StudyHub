@@ -402,8 +402,8 @@ function StudyHubAppInner() {
                     course={activeUserCourse}
                     onChangeCourse={saveCourse}
                     onDeleteCourse={deleteUserCourse}
-                    courseShellLoad={courseShellLoad}
                     onActiveChapterChange={handleUserCourseActiveChapterChange}
+                    novaCourses={userCoursesList}
                   />
                 )}
               </div>

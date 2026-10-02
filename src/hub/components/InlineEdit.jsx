@@ -7,8 +7,10 @@ export default function InlineEdit({
   placeholder,
   multiline = false,
   suffix = "",
+  startEditing = false,
+  onDone,
 }) {
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startEditing);
   const [draft, setDraft] = useState(value);
   const inputRef = useRef(null);
 
@@ -31,6 +33,7 @@ export default function InlineEdit({
       setDraft(value);
     }
     setEditing(false);
+    onDone?.();
   }
 
   function handleKeyDown(event) {
@@ -41,6 +44,7 @@ export default function InlineEdit({
     if (event.key === "Escape") {
       setDraft(value);
       setEditing(false);
+      onDone?.();
     }
   }
 
