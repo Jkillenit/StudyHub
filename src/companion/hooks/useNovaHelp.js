@@ -12,10 +12,11 @@ export function useNovaHelp(core, { setMarks, ensureRoute }) {
     (answer) => {
       setBubble(null);
       cancel();
-      if (send("HELP") !== "help") return;
+      if (send("HELP") !== "help") return false;
       setHelp({ query: "", answer, pointed: false });
       setMood(answer ? "happy" : "thinking");
       refreshAnchor();
+      return true;
     },
     [cancel, send, refreshAnchor]
   );

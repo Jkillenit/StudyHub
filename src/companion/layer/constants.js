@@ -50,7 +50,6 @@ export const HOME_SCALE = [0.6, 2.6];
 export const HOME_STAY_MS = [40 * 1000, 90 * 1000];
 export const HOME_AWAY_STOPS = [2, 4];
 export const HOME_RETURN_DELAY_MS = 600;
-export const LANE_MIN_W = 1260; // matches .sh-nova-lane media query
 export const GROW_MS = 420;
 /** Modes she can hold while standing big in her home window; anything else walks her out at normal size. */
 export const HOME_MODES = new Set(["idle", "menu", "sleep", "nudge", "perch", "play"]);

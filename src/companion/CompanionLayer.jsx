@@ -42,7 +42,6 @@ import {
   DAY_HELLO_DELAY_MS,
   ENGAGED_MODES,
   HOME_MODES,
-  LANE_MIN_W,
   MOVE,
   SIZE_3D,
 } from "./layer/constants.js";
@@ -138,14 +137,24 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   /** Hidden while resting on the calendar or in a window too narrow for her lane; the message box shows her portrait. */
   const tuckedRef = useRef(false);
-  const [winW, setWinW] = useState(() => window.innerWidth);
+  const [laneShown, setLaneShown] = useState(false);
   useEffect(() => {
-    const onResize = () => setWinW(window.innerWidth);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-  /* Width is part of it so widening the window past the lane breakpoint walks her back in. */
-  const stageActive = place === "lane" && winW >= LANE_MIN_W;
+    const measure = () => {
+      const el = document.querySelector(".sh-nova-lane");
+      setLaneShown(!!el && getComputedStyle(el).display !== "none");
+    };
+    measure();
+    const main = document.querySelector(".sh-frame-main");
+    const ro = new ResizeObserver(measure);
+    if (main) ro.observe(main);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [place]);
+  /* Lane visibility is part of it so widening the window (or unpinning the rail) walks her back in. */
+  const stageActive = place === "lane" && laneShown;
   const onToday = onHub && (hubView === "today" || hubView === "plan");
   const navRef = useRef({});
   navRef.current = { courses, activeCourseId, onHub, onGoHub, onOpenCourse, stageActive, onToday };
@@ -439,7 +448,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const { dragging, dropMarkRef, dropTarget, menuLine, onScoutClick, onPointerDown, onPointerMove, onPointerUp } = useNovaDrag(core, { housedRef, houseAt, leaveHome, closeHelp });
 
   /* Anything she's engaged in (quiz, help, tour, briefing), a line she's saying, or a drag brings her back out. */
-  const tucked = enabled && (place === "tuck" || (place === "lane" && winW < LANE_MIN_W)) && (HOME_MODES.has(mode) || mode === "wander") && !dragging && !bubble;
+  const tucked = enabled && (place === "tuck" || (place === "lane" && !laneShown)) && (HOME_MODES.has(mode) || mode === "wander") && !dragging && !bubble;
   tuckedRef.current = tucked;
   useEffect(() => {
     const root = document.documentElement;
@@ -499,8 +508,15 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   /* The message box (src/shell/NovaBar.jsx) talks to her through window events. */
   useEffect(() => {
-    const onRun = (e) => void api.current.runCommand?.(e.detail);
-    const onAnswer = (e) => openAnswer(e.detail);
+    const engaged = () => ["tour", "greet", "quiz"].includes(modeRef.current);
+    const onRun = (e) => {
+      if (engaged()) return;
+      e.preventDefault();
+      void api.current.runCommand?.(e.detail);
+    };
+    const onAnswer = (e) => {
+      if (!engaged() && openAnswer(e.detail)) e.preventDefault();
+    };
     window.addEventListener("studyhub-nova-run", onRun);
     window.addEventListener("studyhub-nova-answer", onAnswer);
     return () => {

@@ -315,7 +315,7 @@ h4,
   transition: width 160ms ease;
 }
 
-.sh-rail:not(.sh-rail--pinned):hover .sh-rail-panel {
+.sh-rail:not(.sh-rail--pinned):is(:hover, :has(:focus-visible)) .sh-rail-panel {
   width: 200px;
   box-shadow: var(--sh-shadow-panel);
   transition: width 160ms ease 150ms;
@@ -333,7 +333,7 @@ h4,
   transition: opacity 160ms ease;
 }
 
-.sh-rail:not(.sh-rail--pinned):hover :is(.sh-rail-label, .sh-rail-hint, .sh-rail-pin, .sh-rail-add) {
+.sh-rail:not(.sh-rail--pinned):is(:hover, :has(:focus-visible)) :is(.sh-rail-label, .sh-rail-hint, .sh-rail-pin, .sh-rail-add) {
   opacity: 1;
   transition: opacity 160ms ease 150ms;
 }
@@ -342,7 +342,7 @@ h4,
   opacity: 1;
 }
 
-.sh-rail:not(.sh-rail--pinned):not(:hover) :is(.sh-rail-pin, .sh-rail-add) {
+.sh-rail:not(.sh-rail--pinned):not(:hover):not(:has(:focus-visible)) :is(.sh-rail-pin, .sh-rail-add) {
   pointer-events: none;
 }
 
@@ -644,10 +644,28 @@ html[data-nova-tucked] .sh-novabar-glyph > svg {
   background: radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--sh-accent) 20%, transparent), transparent 70%);
 }
 
-@media (max-width: 1259px) {
+html[data-nova="off"] .sh-nova-lane-floor {
+  display: none;
+}
+
+@media (max-width: 1343px) {
   .sh-nova-lane {
     display: none;
   }
+}
+
+@media (max-width: 1487px) {
+  .sh-rail--pinned ~ .sh-nova-lane {
+    display: none;
+  }
+}
+
+.sh-novabar-note {
+  margin: 0;
+  padding: 0 16px 12px 46px;
+  font-family: var(--sh-font-body);
+  font-size: 13px;
+  color: var(--sh-text-2);
 }
 
 .sh-novabar-input {

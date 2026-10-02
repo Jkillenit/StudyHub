@@ -2,10 +2,12 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { describeCommand, parseCommand } from "../nova/commands.js";
 import { searchFaq } from "../companion/faq.js";
 import { slashMatches } from "../nova/slash.js";
+import { paletteOpen } from "../lib/hotkeys.js";
 
 const NovaSprite = lazy(() => import("../companion/NovaSprite.jsx").then((m) => ({ default: m.NovaSprite })));
 
-const emit = (name, detail) => window.dispatchEvent(new CustomEvent(name, { detail }));
+/** True when Nova took it (the listener called preventDefault). */
+const emit = (name, detail) => !window.dispatchEvent(new CustomEvent(name, { detail, cancelable: true }));
 
 /** True while the companion layer has her tucked away (html[data-nova-tucked]). */
 function useNovaTucked() {
@@ -29,6 +31,7 @@ const Hex = () => (
 export function NovaBar({ courses, placeholder = "Message Nova, or type / for commands" }) {
   const [q, setQ] = useState("");
   const [focused, setFocused] = useState(false);
+  const [note, setNote] = useState(null);
   const inputRef = useRef(null);
   const tucked = useNovaTucked();
   const slash = slashMatches(q);
@@ -40,17 +43,32 @@ export function NovaBar({ courses, placeholder = "Message Nova, or type / for co
     [text, slash.length, cmd, preview]
   );
 
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || (e.key.toLowerCase() !== "j" && e.key !== "/")) return;
+      if (paletteOpen()) return;
+      e.preventDefault();
+      inputRef.current?.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   const done = () => {
     setQ("");
+    setNote(null);
     inputRef.current?.blur();
   };
   const run = (c) => {
-    emit("studyhub-nova-run", c);
-    done();
+    if (emit("studyhub-nova-run", c)) done();
+    else setNote("Nova's busy right now. Try again in a moment.");
   };
   const answer = (f) => {
-    emit("studyhub-nova-answer", f);
-    done();
+    if (emit("studyhub-nova-answer", f)) done();
+    else {
+      setQ("");
+      setNote(f.a);
+    }
   };
   const fill = (t) => {
     setQ(t);
@@ -107,7 +125,10 @@ export function NovaBar({ courses, placeholder = "Message Nova, or type / for co
               ref={inputRef}
               className="sh-novabar-input"
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setNote(null);
+              }}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               onKeyDown={(e) => {
@@ -121,6 +142,7 @@ export function NovaBar({ courses, placeholder = "Message Nova, or type / for co
             />
             <kbd className="sh-novabar-key">Ctrl /</kbd>
           </div>
+          {note ? <p className="sh-novabar-note" role="status">{note}</p> : null}
           {focused ? (
             <div className="sh-novabar-tools">
               <button type="button" className="sh-novabar-tool" onMouseDown={(e) => e.preventDefault()} onClick={() => run({ id: "quiz" })}>

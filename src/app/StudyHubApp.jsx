@@ -328,7 +328,7 @@ function StudyHubAppInner() {
   const onHub = courseId === null;
   const novaPlace = onHub ? (hubView === "calendar" ? "tuck" : "lane") : "free";
   const railCourses = useMemo(
-    () => [{ id: "builtin", code: "OM 300" }, ...userCoursesList.map((c) => ({ id: c.id, code: shortCourse(c.courseCode) || c.name }))],
+    () => [{ id: "builtin", code: "OM 300" }, ...userCoursesList.map((c) => ({ id: c.id, code: shortCourse(c.courseCode || c.name) || c.name }))],
     [userCoursesList]
   );
 

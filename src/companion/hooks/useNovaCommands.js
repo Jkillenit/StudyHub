@@ -113,6 +113,7 @@ export function useNovaCommands(core, { startQuiz, startHelp, closeHelp }) {
   useEffect(() => {
     const onKey = (e) => {
       if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || (e.key.toLowerCase() !== "j" && e.key !== "/")) return;
+      if (document.querySelector(".sh-novabar-input")) return;
       if (!stateRef.current?.enabled || modeRef.current === "hidden" || paletteOpen()) return;
       e.preventDefault();
       if (modeRef.current === "help") closeHelp();
