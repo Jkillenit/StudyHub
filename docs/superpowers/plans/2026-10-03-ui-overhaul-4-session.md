@@ -19,6 +19,7 @@
 4. Results title is `ROUND N COMPLETE` only when this session's mark closes a round (5th mark); otherwise `SESSION COMPLETE`. The tally beside it always shows the marks in the current round, the new one glowing.
 5. Only completed sessions add tally marks in this plan (Today items adding marks lands with the Plan 5 screen shells). Rounds are stored in the SQLite settings table (key `session.rounds`), like companion state.
 6. A **Skip** in the quiz moves on without grading: no SM-2 write, no shield change, not counted as answered.
+7. **Rating modifiers** (chosen by the user during Task 4): classic SM-2 gives Hard/Good/Easy the same next interval, so `sm2()` applies Hard ×0.8 (min 1 day), Good ×1, Easy ×1.3 to passing intervals before the exam cap. Applies to quiz grades too (Task 5).
 
 ## Global Constraints
 
@@ -571,6 +572,8 @@ DeckList({ cards, onStart, onAdd, onEdit, onDelete, examFor })
 FlashcardDeck({ ...existingProps, session: { cardIds, crumb, onExit } })
 // Renders only as a session now: inside SessionShell kind="cards".
 ```
+
+**Scheduling change (decision 7), do this first, TDD:** in `sm2()` (`src/study/sm2.js`), for passing grades (`grade >= 3`), after the repetition/interval step and before the exam cap: grade 3 → `intervalDays = Math.max(1, Math.round(intervalDays * 0.8))`; grade 5 → `intervalDays = Math.round(intervalDays * 1.3)`; grade 4 unchanged. Failing grades unchanged. Update the doc comment. In `src/study/sm2.test.js` the `previewIntervals` expectation becomes `["1 day", "12 days", "15 days", "20 days"]` (exam-capped case unchanged); add a test for the modifiers on a second review (`repetitions: 1` → Hard 5, Good 6, Easy 8 days). Fix any other existing test that encoded the old grade-3/grade-5 intervals and list each change in your report. Run `npx vitest run src/study src/session src/companion` (the quiz uses grades 3/4/5 via `sm2Grade`).
 
 **Flow:** The course's deck view (user course `qz-deck`, OM 300 `flashcards`) renders the Plan 3 mode chips + `DeckList` over the chip-filtered cards. `Start session` → the course app sets `sessionCards` (ids of the filtered cards, due-first order as today) and renders `FlashcardDeck` with `session`; `onExit` clears it. Add/edit/delete reuse `FlashcardDeck`'s existing editor and handlers: move that editor UI into `DeckList` (or a small `CardEditor` it renders) so it works without a session; the course `...` menu "Edit card"/"Add card" items open it. Keep both storage modes (user `onSaveCards` + `db.mastery.update`; OM 300 `persistFlashcardDeck`) unchanged.
 
