@@ -42,6 +42,9 @@ function addDays(date, days) {
  * grade 5 = Know It perfectly
  * grade 0 = Complete blackout (Again)
  *
+ * Classic SM-2 gives every passing grade the same interval, so passing intervals are then scaled:
+ * Hard (3) ×0.8 (minimum 1 day), Good (4) ×1, Easy (5) ×1.3.
+ *
  * With an upcoming `examDate`, the interval is capped at days until the exam − 1 (minimum 1) so the
  * card comes back before the exam. On exam day and after, scheduling is plain SM-2.
  */
@@ -60,6 +63,8 @@ export function sm2(card, grade, { examDate = null, now = new Date() } = {}) {
       intervalDays = Math.round(intervalDays * easeFactor);
     }
     repetitions += 1;
+    if (grade === 3) intervalDays = Math.max(1, Math.round(intervalDays * 0.8));
+    else if (grade === 5) intervalDays = Math.round(intervalDays * 1.3);
   }
 
   easeFactor = Math.max(1.3, easeFactor + 0.1 - (5 - grade) * (0.08 + (5 - grade) * 0.02));

@@ -17,11 +17,23 @@ describe("daysUntilExam", () => {
   });
 });
 
+describe("sm2 rating modifiers", () => {
+  it("spreads Hard / Good / Easy on a second review", () => {
+    const second = { easeFactor: 2.5, intervalDays: 1, repetitions: 1 };
+    expect([3, 4, 5].map((g) => sm2(second, g, { now: NOW }).intervalDays)).toEqual([5, 6, 8]);
+  });
+
+  it("keeps Hard at least a day and leaves failing grades alone", () => {
+    expect(sm2({ repetitions: 0 }, 3, { now: NOW }).intervalDays).toBe(1);
+    expect(sm2(mature, 1, { now: NOW }).intervalDays).toBe(1);
+  });
+});
+
 describe("sm2 exam cap", () => {
   it("is plain SM-2 without an exam", () => {
     const r = sm2(mature, 5, { now: NOW });
-    expect(r.intervalDays).toBe(50);
-    expect(r.nextReview).toBe(day(50));
+    expect(r.intervalDays).toBe(65);
+    expect(r.nextReview).toBe(day(65));
   });
 
   it("caps the interval at days until the exam minus one", () => {
@@ -41,8 +53,8 @@ describe("sm2 exam cap", () => {
   });
 
   it("goes back to plain SM-2 on exam day and after", () => {
-    expect(sm2(mature, 5, { examDate: examIn(0), now: NOW }).intervalDays).toBe(50);
-    expect(sm2(mature, 5, { examDate: examIn(-3), now: NOW }).intervalDays).toBe(50);
+    expect(sm2(mature, 5, { examDate: examIn(0), now: NOW }).intervalDays).toBe(65);
+    expect(sm2(mature, 5, { examDate: examIn(-3), now: NOW }).intervalDays).toBe(65);
   });
 
   it("does not change ease or repetitions", () => {
@@ -131,7 +143,7 @@ describe("previewIntervals", () => {
   });
 
   it("shows each rating's next interval", () => {
-    expect(previewIntervals(card, { now: NOW }).map((p) => p.label)).toEqual(["1 day", "15 days", "15 days", "15 days"]);
+    expect(previewIntervals(card, { now: NOW }).map((p) => p.label)).toEqual(["1 day", "12 days", "15 days", "20 days"]);
   });
 
   it("marks intervals capped by an exam", () => {
