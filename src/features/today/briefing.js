@@ -3,6 +3,7 @@
  * Returns segments so grades can render in mono; `text` is the plain sentence for speech.
  */
 import { ITEM_TYPES, formatPct } from "./priority.js";
+import { line } from "../../companion/character.js";
 
 const WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
 const countWord = (n) => WORDS[n] || String(n);
@@ -10,10 +11,10 @@ const JUST_UNDER = 3;
 
 export function greeting(date) {
   const h = new Date(date).getHours();
-  if (h < 5) return "Late one.";
-  if (h < 12) return "Morning.";
-  if (h < 17) return "Afternoon.";
-  return "Evening.";
+  if (h < 5) return line("home.late");
+  if (h < 12) return line("home.morning");
+  if (h < 17) return line("home.afternoon");
+  return line("home.evening");
 }
 
 function timeOf(iso) {
@@ -25,7 +26,7 @@ function lowerFirst(s) {
 }
 
 function taskSentence(tonight, dueText) {
-  if (!tonight.length) return "Nothing is due in the next two weeks.";
+  if (!tonight.length) return line("home.clear");
   const today = tonight.filter((it) => it.daysUntil === 0);
   if (today.length >= 2) {
     const courses = new Set(today.map((it) => it.courseLabel));

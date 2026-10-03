@@ -1,4 +1,6 @@
 import { pick, voiceLevel, voiceTone } from "../nova/voice.js";
+import { getPack } from "../shell/pack.js";
+import { ZOMBIES_LINES } from "./packs/zombiesLines.js";
 
 /**
  * Everything that makes Nova "Nova". Swap this file to change the companion's voice.
@@ -36,6 +38,11 @@ export const character = {
     arrangeBriefing: ["Briefing layout. Tonight up top, where you can't ignore it.", "Back to the usual. Tonight first, excuses later."],
     arrangeGrades: ["Grades front and center. Brace yourself.", "Let's look at the damage. Standing goes up top."],
     arrangeTidy: ["Filing everything. My desk, my rules.", "Tidying up. Don't touch anything."],
+    "home.late": ["Late one."],
+    "home.morning": ["Morning."],
+    "home.afternoon": ["Afternoon."],
+    "home.evening": ["Evening."],
+    "home.clear": ["Nothing is due in the next two weeks."],
     "briefing.opener": [
       "{greeting} Here's the sitrep.",
       "{greeting} Briefing time. Try to keep up.",
@@ -332,13 +339,29 @@ If you don't know something about the app, say so and suggest the tour.
 Only reference UI elements from the provided UI manifest, by id.`,
 };
 
-/** Lines said this session, oldest first; she avoids repeating them until they age out. */
+const PACK_LINES = { zombies: ZOMBIES_LINES };
+const merged = {};
+
+/** Nova's lines with the pack's keys on top. An overridden key drops Nova's `key@tone` variants too. */
+function linesFor(pack) {
+  const over = PACK_LINES[pack];
+  if (!over) return character.lines;
+  if (!merged[pack]) {
+    const base = Object.fromEntries(Object.entries(character.lines).filter(([k]) => !over[k.split("@")[0]] || over[k]));
+    merged[pack] = { ...base, ...over };
+  }
+  return merged[pack];
+}
+
+/** Lines said this session per pack, oldest first; she avoids repeating them until they age out. */
 const RECENT_MAX = 60;
-const recent = new Set();
+const recents = {};
 
 /** Pick a line at the current language level, fill {placeholders}, avoid recent repeats. "" for an unknown key. */
 export function line(key, vars = {}) {
-  const got = pick(character.lines, key, vars, { level: voiceLevel(), tone: voiceTone(), recent });
+  const pack = getPack();
+  const recent = (recents[pack] ||= new Set());
+  const got = pick(linesFor(pack), key, vars, { level: voiceLevel(), tone: voiceTone(), recent });
   if (!got) return "";
   recent.delete(got.id);
   recent.add(got.id);

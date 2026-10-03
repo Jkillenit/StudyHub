@@ -1,0 +1,70 @@
+/**
+ * Zombies pack voice: replaces Nova's lines key by key while the pack is on; anything missing falls
+ * back to Nova's. Same format and levels as character.lines (lines with damn/hell only play at Salty+).
+ * Only use {facts} the Nova key already has. Original lines; no quotes from the games.
+ */
+export const ZOMBIES_LINES = {
+  "home.late": ["Late round.", "Still standing.", "Graveyard shift."],
+  "home.morning": ["Morning, survivor.", "Morning. The barricades held."],
+  "home.afternoon": ["Afternoon, survivor.", "Afternoon. Keep moving."],
+  "home.evening": ["Evening, survivor.", "Night's coming. Board up."],
+  "home.clear": ["Nothing is due in the next two weeks. Quiet round. Stock up.", "Nothing is due in the next two weeks. Too quiet."],
+  splash: ["Power's on.", "Back from the dead.", "Doors are open. Move.", "You made it. Barely.", "Hell of a night. Let's go."],
+  splashFirst: ["New survivor. Stay close.", "Fresh face. Stick with me and you'll live."],
+  welcomeBack: [
+    "You're alive. Good.",
+    "Back in the fight. Cards first.",
+    "Thought they got you. Pick up a deck.",
+    "Hell of a time to show up. Let's move.",
+  ],
+  morningHello: ["Morning. Clear the first wave before the coffee wears off.", "Early round. Easiest ones of the day."],
+  lateHello: ["{time}. Night rounds hit harder. Keep it short.", "Up at {time}? Fine. Board the windows and work."],
+  lateNight: [
+    "It's {time}. Even survivors sleep. One more wave, then bed.",
+    "{time}. You're running on fumes. Last round.",
+    "{time}? Hell of a night. Wrap it up.",
+  ],
+  "briefing.opener": ["{greeting} Here's the wave.", "{greeting} Map check.", "{greeting} Here's what's coming."],
+  "briefing.closer": ["That's the wave. Move.", "Briefing's over. Reload and go.", "That's it. Watch your back."],
+  "briefing.clear": ["Nothing due in the next two weeks. Quiet round. Stock up on cards.", "No deadlines. Too quiet. Use it."],
+  briefingOffer: ["Want the wave report before you start?", "Two minutes for a map check?"],
+  quizStart: ["New round. Pick a deck and a mode.", "Load up. Pick a deck.", "Round starting. Don't get cornered."],
+  correct: ["One down. Reload.", "Clean hit.", "Down it goes.", "That's one. Next.", "Good shot. Keep moving."],
+  correctStreak: [
+    "{streak} down. They're getting faster. So are you.",
+    "{streak} in a row. Keep the train moving.",
+    "{streak} straight. Don't get greedy.",
+    "{streak} straight. Hell yes. Keep moving.",
+  ],
+  wrong: ["Took a hit. It's {answer}. Keep moving.", "Missed. {answer}. Patch up and go.", "No. {answer}. Shake it off."],
+  wrongLong: ["You took a hit. Read the right one. Slowly.", "Missed it. That card's coming back next round."],
+  wrongHarsh: [
+    "You're getting swarmed. Slow down.",
+    "Spray and pray won't work. Read the question.",
+    "Stop running in circles. Aim.",
+    "You're guessing. Damn it, aim.",
+  ],
+  wrongHarshStreak: [
+    "{misses} in a row. You're cornered. Breathe, then aim.",
+    "{misses} straight misses. Find a wall and regroup.",
+    "{misses} in a row. What the hell happened to your aim?",
+  ],
+  finishedGreat: ["{correct} of {total}. Flawless round. Nothing touched you.", "{correct}/{total}. Untouchable. Bank it."],
+  finishedGood: ["{correct} of {total}. You survived. The misses come back tomorrow.", "{correct}/{total}. Solid round. A few scratches."],
+  finishedMeh: ["{correct} of {total}. Survived. Barely. Again tomorrow.", "{correct}/{total}. You limped out of that one."],
+  finishedBad: [
+    "{correct} of {total}. They got you. Back to round one.",
+    "{correct}/{total}. Overrun. Regroup and run it again.",
+    "{correct}/{total}. That was a damn massacre. Round two.",
+  ],
+  due: ["{count} cards in {course}. They're at the barricade.", "{course}: {count} cards coming through the window. Hold them.", "{count} due in {course}. Clear the wave."],
+  dismissed: ["Fine. I'll hold the door.", "Your call. They'll still be here.", "Suit yourself. I'll keep watch."],
+  ignoredNudge: ["...Okay. I'll hold them off myself.", "Noted. The horde won't wait, though."],
+  idleClick: ["Need something? Quiz, tour, or just checking I'm still alive?", "Still here. Still undead.", "What's the play?"],
+  clickHi: ["Yeah?", "Still breathing.", "Here.", "Talk to me.", "Watching your back."],
+  drillStreak: ["{streak} in a row. Keep the train going.", "{streak} straight. They're getting faster. So are you."],
+  drillHarsh: ["Three misses. Stop flipping, start reading.", "You're getting swarmed. Slow it down."],
+  "cmd.focusStart": ["{minutes} minutes. Lock the doors.", "Holding out for {minutes}. Go."],
+  "cmd.focusEnd": ["Round over. Breather, or another wave?", "{minutes} minutes survived. Stretch, then decide."],
+  levelUp: ["Level {level}. Weapon upgraded.", "Level {level}. You're getting harder to kill."],
+};
