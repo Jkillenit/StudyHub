@@ -59,9 +59,15 @@ Personal data never leaves the machine unless the student explicitly publishes a
 - **Parsing**: officeparser v6 (PPTX/DOCX/XLSX), pdf-parse (PDF) — main process only
 - **Editor**: TipTap 3
 - **Styling**: Bootstrap reset + custom `--sh-*` tokens in `src/studyhub-bootstrap.css`.
-  Holographic HUD look (reference: `docs/design/today-mockup.html`): cyan is the only accent,
-  fonts bundled via `@fontsource` (Manrope content, Chakra Petch HUD labels, JetBrains Mono
-  numbers). Reduced motion is `html[data-motion="reduced"]`, driven by Settings or the OS
+  Hard-edged HUD on true black (reference: the UI overhaul spec
+  `docs/superpowers/specs/2026-10-01-ui-overhaul-design.md` and its mockups): aqua is the only
+  interactive accent, magenta a secondary for ambient lines and exam markers, radius 0 with
+  cut-corner panels, fonts bundled via `@fontsource` (Michroma display, Geist content, Geist Mono
+  numbers and labels). Shell: a 56px icon rail, a "Pure" home (NOVA wordmark, greeting, Today's
+  top 3 items above the docked Nova message box), a "Plan" layout for every other screen (full
+  ranked Today, course workspace, Decks, Grades, Calendar, Settings tabs), and full-window Nova
+  sessions with a shield meter. Flavor packs (Nova, Zombies) swap tokens, voice and celebrations.
+  Reduced motion is `html[data-motion="reduced"]`, driven by Settings or the OS
   (`src/shell/motion.js`).
 - **AI**: Claude Haiku (`claude-haiku-4-5-20251001`) via main-process IPC, optional
 - **Cloud (Later, gated on alpha)**: Supabase (Postgres + auth + RLS + edge functions)
@@ -96,14 +102,16 @@ src/
   features/                     Feature modules split out of the god-components
   features/today/               Priority engine + todayView/briefing (pure) + Today screen
   features/dashboard/           CourseFeeds (cards due, announcements, exam prep) on Courses
-  shell/                        Command palette, Settings panel, motion preference
+  features/decks, grades,       Decks, Grades hub, Settings tabs (incl. Backup), First-run setup
+    settings, setup/
+  session/                      Session shell, shield meter, results, rounds, power-ups
   hub/                          User course view (sidebar, content area, grades)
   study/                        OM 300 built-in course + flashcard deck + sm2.js
   companion/                    Nova: 3D companion, quiz panel, tours, XP
   pptx/, ai/, syllabus/         Import pipelines
   db/courseStore.js             Renderer data-access layer (only way to touch the DB)
   commons/                      Commons client (Later)
-  shell/                        Command palette, tiling chrome
+  shell/                        App rail, command palette, round tally, motion + pack prefs
 supabase/                       Commons schema + RLS + edge functions (Later)
 ```
 
@@ -138,7 +146,7 @@ Rules:
 - **Nova (3D companion)**: VRoid model with a hologram shader (portrait fallback), tours and
   help, flashcard quiz with SM-2 grading, XP and streaks. Nova runs exam review sessions:
   the opening line comes from a local template built from DB facts; Haiku may rephrase it
-  but never computes numbers. Spec: `docs/companion-spec.md`.
+  but never computes numbers. Docs: `docs/companion-spec.md` (pointer to the Nova docs).
 
 | Area | Status |
 |------|--------|
@@ -187,6 +195,7 @@ Rules:
 | 2026-09 | Commons auth restricted to verified `.edu` domains (configurable) |
 | 2026-09 | Grade distributions require ≥5 reports per bucket |
 | 2026-09 | Today becomes the core product: a ranked daily plan built from the mirror. Commons, grade insights, and professor reviews deferred until alpha usage justifies them |
+| 2026-10 | UI overhaul: one hard-edged HUD design (rail shell, Pure home, Plan layout, Nova sessions, Nova/Zombies flavor packs) replaces the holographic Today dashboard look |
 
 ## 8. Open questions
 

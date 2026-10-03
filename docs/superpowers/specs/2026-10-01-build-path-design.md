@@ -80,8 +80,9 @@ updated.
   B1 session screen, B2, B3 desk, C1 settings switch, C2, C3 onboarding. Use its two-pass
   process (plan, review against the brief, build, critique with screenshots) and its writing
   guidance for copy, errors and empty states. **House rules win over the skill:** the
-  `.cursorrules` design system (holographic HUD, `--sh-*` tokens, cyan only accent, uppercase
-  Chakra Petch HUD labels, JetBrains Mono for numbers, `docs/design/today-mockup.html`) is the
+  `.cursorrules` design system (hard-edged HUD, `--sh-*` tokens, aqua only interactive accent,
+  Michroma display, Geist Mono for numbers and labels, the UI overhaul spec
+  `2026-10-01-ui-overhaul-design.md` and its mockups) is the
   brief, and the skill itself says the brief's words win. Apply the skill where the brief is
   silent: hierarchy, restraint (glow on one element), copy, motion answering user actions.
 - **`webapp-testing`** — visual and behavioral check for every UI step against the Vite dev

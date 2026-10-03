@@ -53,6 +53,30 @@ The Blackboard mirror is the engine; Today is the product.
 - Study guide generator per exam scope (modules + weak cards).
 - Exam time estimate from mastery data and calendar exam dates.
 
+### UI overhaul ✓ *(Phases 2.22–2.28, spec: [`2026-10-01-ui-overhaul-design.md`](./superpowers/specs/2026-10-01-ui-overhaul-design.md))*
+
+One hard-edged HUD design on true black (aqua accent, magenta secondary, Michroma / Geist /
+Geist Mono, radius 0, drifting-line ambient background), shipped in rollout steps 1–7:
+
+| Step | Detail |
+|------|--------|
+| 1 Foundation | Token values, bundled fonts, hard edges, ambient canvas. |
+| 2 Shell | 56px icon rail (hover overlay, pin / Ctrl B), Pure home (NOVA wordmark, greeting, top 3 cards), Plan layout for every other screen, docked cut-corner message box (Nova command bar), Nova lane with rest / shrunk / tucked states. |
+| 3 Course workspace | Course items in the rail; centered column with breadcrumb, tabs, mastery line, `...` menu and slide-over drawer, for user courses and OM 300. |
+| 4 Session | Full-window Nova session for quizzes and flashcards: shield meter, rating previews from SM-2, ROUND N COMPLETE results with medals, rounds tally. |
+| 5 Screens | Decks, Grades hub, Calendar week + month, Settings tabs (General · Nova · Make it yours · Blackboard · Backup · AI key), Backup tab, full-window First-run setup. |
+| 6 Flavor packs | Nova (default) and Zombies: tokens, backdrop with fog and embers, zombie Nova, Zombies voice, power-ups on results and round close, round tally in rail and Home. |
+| 7 Docs | `.cursorrules` and docs synced to the new design. |
+
+Known follow-ups:
+- Electron-only paths are unverified in the browser tours: Backup buttons, the Blackboard tab,
+  Decks / Grades / Calendar with real data, onboarded persistence after First-run setup.
+- The desktop overlay Nova ignores flavor packs.
+- Rampant Nova has weak contrast in the Zombies pack.
+- Zombies embers are not yet held at 60fps.
+- The token test only checks `:root`, not `html[data-pack="zombies"]`.
+- A3 grade/data sweep is still queued behind the overhaul (spec Non-goals).
+
 ---
 
 ## Phase 1 — Mirror + Today ✓
@@ -102,8 +126,10 @@ per-category minimum); unmatched items use a per-kind default and show no weight
 
 ## Phase 3 — Alpha
 
-- First-run onboarding: connect Blackboard → first sync → land on Today (REL-003).
-- DB backup / export / restore (REL-002).
+- First-run onboarding: connect Blackboard → first sync → land on Today (REL-003). The
+  First-run setup screen shipped with the UI overhaul; the desktop path is unverified.
+- DB backup / export / restore (REL-002). Daily backups (7 kept) and the Settings → Backup tab
+  shipped with the UI overhaul; the desktop buttons are unverified.
 - Auto-update via GitHub Releases (REL-001); code signing if a certificate is available (REL-004).
 - Alpha with 20–30 UA students; measure daily Today opens and sessions started.
 
@@ -120,7 +146,7 @@ Specs and guardrails in the brief are unchanged; each ships only if alpha usage 
 
 ---
 
-## Companion — Nova *(spec: `docs/companion-spec.md`, parallel track)*
+## Companion — Nova *(docs: [`companion-spec.md`](./companion-spec.md) → Nova docs, parallel track)*
 
 - ✓ C.1 Sprite, settings, movement/state machine, radial menu, spotlight tours, local FAQ help.
 - ✓ C.2 Flashcard quiz (4 modes, SM-2 grading, XP/levels), due-card nudges.
@@ -171,4 +197,4 @@ Nova C.x ───────────────────────�
 - Ink / stylus sketches per chapter
 - Cross-device sync of personal data (only after Commons is proven)
 
-*Last updated: 2026-10 — Build path to completion; Commons deferred.*
+*Last updated: 2026-10 — UI overhaul shipped; build path to completion; Commons deferred.*

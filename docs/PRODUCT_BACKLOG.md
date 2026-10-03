@@ -40,6 +40,7 @@ Tags: `local-first` (no API/cloud), `AI-optional`, `AI-required`, `cloud` (Commo
 | TODAY-001 | Priority engine (`src/features/today/priority.js`), per-course target grade, quiz kind, vitest (Phase 1.1) |
 | TODAY-002 | Ranked Today: top 5 with reason + action, empty states, persisted target in calculator (Phase 1.2) |
 | TODAY-003 | Needed score on next major item and final, NEED badge, pressure-based risk (Phase 1.3) |
+| UI-005 | UI overhaul: rail shell, Pure home, Plan layout, course workspace, Nova session (shield meter, results, rounds), Decks screen, Grades hub, Calendar week/month, Settings tabs incl. Backup, First-run setup, Nova/Zombies flavor packs (Phases 2.22–2.28) |
 
 ## Phase 1 — Mirror + Today (carried)
 
@@ -61,8 +62,8 @@ Tags: `local-first` (no API/cloud), `AI-optional`, `AI-required`, `cloud` (Commo
 
 | ID | Feature | Impact | Diff | Est. | Tags |
 |----|---------|--------|------|------|------|
-| REL-003 | First-run onboarding (connect BB → first sync → Today) | 5 | 2 | 2 d | `UI` |
-| REL-002 | DB backup / export / restore | 5 | 2 | 1 d | `local-first` |
+| REL-003 | First-run onboarding (connect BB → first sync → Today). Setup screen shipped in UI-005; verify the desktop path and onboarded persistence | 5 | 2 | 2 d | `UI` |
+| REL-002 | DB backup / export / restore. Daily ×7 backups + Settings → Backup tab shipped in UI-005; verify the desktop buttons | 5 | 2 | 1 d | `local-first` |
 | REL-001 | Auto-update via GitHub Releases | 4 | 2 | 1 d | `Electron` |
 | REL-004 | Windows code signing | 3 | 2 | TBD | `Electron` |
 
