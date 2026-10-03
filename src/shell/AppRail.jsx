@@ -106,7 +106,7 @@ function CourseSubNav({ nav }) {
   );
 }
 
-export function AppRail({ onHub, hubView, courseId, courses, onNavigate, onOpenCourse, onSearch, onOpenSettings }) {
+export function AppRail({ onHub, hubView, courseId, courses, onNavigate, onOpenCourse, onSearch }) {
   const { courseNav, session } = useShell();
   const [pinnedHub, setPinnedHub] = useState(() => loadJson(PIN_KEY, false) === true);
   const [pinnedCourse, setPinnedCourse] = useState(() => loadJson(PIN_COURSE_KEY, true) !== false);
@@ -160,8 +160,8 @@ export function AppRail({ onHub, hubView, courseId, courses, onNavigate, onOpenC
           />
           <RailItem icon="today" label="Today" active={onHub && (hubView === "today" || hubView === "plan")} onClick={() => onNavigate("today")} />
           <RailItem icon="calendar" label="Calendar" active={onHub && hubView === "calendar"} onClick={() => onNavigate("calendar")} data-tour-id="nav-calendar" />
-          <RailItem icon="decks" label="Decks" disabled title="Coming soon" />
-          <RailItem icon="grades" label="Grades" disabled title="Coming soon" />
+          <RailItem icon="decks" label="Decks" active={onHub && hubView === "decks"} onClick={() => onNavigate("decks")} />
+          <RailItem icon="grades" label="Grades" active={onHub && hubView === "grades"} onClick={() => onNavigate("grades")} />
         </div>
 
         <div className="sh-rail-divider" />
@@ -207,8 +207,8 @@ export function AppRail({ onHub, hubView, courseId, courses, onNavigate, onOpenC
         <div className="sh-rail-divider" />
 
         <div className="sh-rail-group">
-          <RailItem icon="yours" label="Make it yours" onClick={onOpenSettings} />
-          <RailItem icon="settings" label="Settings" onClick={onOpenSettings} data-tour-id="titlebar-scout" />
+          <RailItem icon="yours" label="Make it yours" onClick={() => onNavigate("settings", { tab: "theme" })} />
+          <RailItem icon="settings" label="Settings" onClick={() => onNavigate("settings", { tab: "general" })} data-tour-id="titlebar-scout" />
         </div>
       </div>
     </nav>

@@ -10,6 +10,10 @@ import { CalendarView } from "../features/dashboard/CalendarView.jsx";
 import { CourseFeeds } from "../features/dashboard/CourseFeeds.jsx";
 import { BlackboardSyncPanel } from "../features/blackboard/BlackboardSyncPanel.jsx";
 import { shortCourse } from "../features/dashboard/courseLabel.js";
+import { openCourseView } from "../features/today/courseView.js";
+import { DecksScreen } from "../features/decks/DecksScreen.jsx";
+import { GradesScreen } from "../features/grades/GradesScreen.jsx";
+import { SettingsScreen } from "../features/settings/SettingsScreen.jsx";
 
 function CoursesView({ userCourses, onOpenCourse, onManualCreate, refreshKey, onSynced, onExpress }) {
   const [manualOpen, setManualOpen] = useState(false);
@@ -149,11 +153,21 @@ const PROMPTS = {
   plan: "Ask Nova to plan your week…",
   calendar: "Ask Nova what's due…",
   courses: "Ask Nova to open a course…",
+  decks: "Ask Nova what to review…",
+  grades: "Ask Nova what you need on the next exam…",
+  settings: "Ask Nova anything…",
 };
 
-export function HubScreen({ view = "today", onNavigate, userCourses, courses, onOpenCourse, onManualCreate, onExpressComplete }) {
+export function HubScreen({ view = "today", settingsTab, onSettingsTab, onNavigate, userCourses, courses, onOpenCourse, onManualCreate, onExpressComplete }) {
   const [expressOpen, setExpressOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  /** OM 300 has no deck/grades deep link, so it just opens. */
+  const openCourseTab = (id, opts) => {
+    const tab = opts?.tab;
+    if (!tab || id === "builtin") onOpenCourse(id);
+    else openCourseView(onOpenCourse, id, tab === "drill" ? { item: "qz-deck" } : { tab });
+  };
 
   let screen = null;
   if (view === "plan") screen = <TodayScreen refreshKey={refreshKey} onOpenCourse={onOpenCourse} onNavigate={onNavigate} />;
@@ -174,7 +188,9 @@ export function HubScreen({ view = "today", onNavigate, userCourses, courses, on
         onExpress={() => setExpressOpen(true)}
       />
     );
-  }
+  } else if (view === "decks") screen = <DecksScreen userCourses={userCourses} onOpenCourse={openCourseTab} />;
+  else if (view === "grades") screen = <GradesScreen userCourses={userCourses} onOpenCourse={openCourseTab} />;
+  else if (view === "settings") screen = <SettingsScreen tab={settingsTab} onTab={onSettingsTab} />;
 
   return (
     <div className="sh-hub-root">

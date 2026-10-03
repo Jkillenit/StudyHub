@@ -10249,3 +10249,13 @@ html[data-motion="reduced"] .sh-results-tally i[data-new] {
 html[data-motion="reduced"] :is(.sh-quiz-mode, .sh-quiz-option, .sh-quiz-deck, .sh-quiz-input) {
   transition: none;
 }
+
+/* ── Decks screen ── */
+
+/* ── Grades screen ── */
+
+/* ── Calendar week ── */
+
+/* ── Settings screen ── */
+
+/* ── Setup screen ── */

@@ -22,8 +22,9 @@ import { applySyllabusText } from "../features/import/syllabusImport.js";
 import { openCourseView } from "../features/today/courseView.js";
 import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import { SplashScreen, useSplashPhase } from "../components/SplashScreen.jsx";
-import { SettingsPanel } from "../shell/SettingsPanel.jsx";
 import { NovaLane } from "../shell/NovaLane.jsx";
+import { SetupScreen } from "../features/setup/SetupScreen.jsx";
+import { loadCompanionState } from "../companion/companionStore.js";
 
 const CompanionLayer = lazy(() => import("../companion/CompanionLayer.jsx"));
 
@@ -67,17 +68,35 @@ function StudyHubAppInner() {
   const [courseId, setCourseId] = useState(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [hubView, setHubView] = useState("today");
+  const [settingsTab, setSettingsTab] = useState("general");
+  const [setup, setSetup] = useState(false);
   const [courseShellLoad, setCourseShellLoad] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    void loadCompanionState().then((s) => {
+      if (live && !s.onboarded) setSetup(true);
+    });
+    const openSetup = () => {
+      setCourseId(null);
+      setSetup(true);
+    };
+    window.addEventListener("studyhub-open-setup", openSetup);
+    return () => {
+      live = false;
+      window.removeEventListener("studyhub-open-setup", openSetup);
+    };
+  }, []);
 
   useEffect(() => {
     if (courseId != null) saveJson(HUB_KEYS.lastCourse, courseId);
   }, [courseId]);
 
   useEffect(() => {
-    if (courseId === null) setBreadcrumb(["STUDY HUB"]);
-  }, [courseId, setBreadcrumb]);
+    if (setup) setBreadcrumb([]);
+    else if (courseId === null) setBreadcrumb(["STUDY HUB"]);
+  }, [courseId, setup, setBreadcrumb]);
 
   useEffect(() => {
     if (!loaded || courseId === null || courseId === "builtin") return;
@@ -146,9 +165,10 @@ function StudyHubAppInner() {
     [openCourseFromShell]
   );
 
-  const goHub = useCallback((view) => {
+  const goHub = useCallback((view, opts) => {
     setCourseId(null);
     if (typeof view === "string") setHubView(view);
+    if (typeof opts?.tab === "string") setSettingsTab(opts.tab);
   }, []);
 
   /** Desktop Nova: her "Open" buttons, and background Blackboard checks refreshing what's on screen. */
@@ -171,10 +191,12 @@ function StudyHubAppInner() {
     };
   }, [userCourses, openCourseFromShell, goHub, reloadCourse]);
 
-  const openSettings = useCallback(() => {
-    if (courseId === "builtin") window.dispatchEvent(new CustomEvent("studyhub-open-settings"));
-    else setSettingsOpen((v) => !v);
-  }, [courseId]);
+  const openSettings = useCallback(() => goHub("settings", { tab: "general" }), [goHub]);
+
+  useEffect(() => {
+    window.addEventListener("studyhub-open-settings", openSettings);
+    return () => window.removeEventListener("studyhub-open-settings", openSettings);
+  }, [openSettings]);
 
   const goHubAndNewCourse = useCallback(() => {
     setCourseId(null);
@@ -321,7 +343,7 @@ function StudyHubAppInner() {
   const userCoursesList = useMemo(() => userCourses.filter((c) => c.type !== "builtin"), [userCourses]);
   const activeUserCourse = userCoursesList.find((c) => c.id === courseId);
   const onHub = courseId === null;
-  const novaPlace = session ? "session" : onHub && hubView === "calendar" ? "tuck" : "lane";
+  const novaPlace = setup ? "setup" : session ? "session" : onHub && hubView === "calendar" ? "tuck" : "lane";
   const railCourses = useMemo(
     () => [{ id: "builtin", code: "OM 300" }, ...userCoursesList.map((c) => ({ id: c.id, code: shortCourse(c.courseCode || c.name) || c.name }))],
     [userCoursesList]
@@ -350,22 +372,27 @@ function StudyHubAppInner() {
       <AmbientBackground />
       <ApiStatusSync />
       <BlackboardImportHandler onImport={handleBlackboardImport} />
-      <AppRail
-        onHub={onHub}
-        hubView={hubView}
-        courseId={courseId}
-        courses={railCourses}
-        onNavigate={goHub}
-        onOpenCourse={openCourseFromShell}
-        onSearch={() => setPaletteOpen(true)}
-        onOpenSettings={() => setSettingsOpen((v) => !v)}
-      />
+      {setup ? null : (
+        <AppRail
+          onHub={onHub}
+          hubView={hubView}
+          courseId={courseId}
+          courses={railCourses}
+          onNavigate={goHub}
+          onOpenCourse={openCourseFromShell}
+          onSearch={() => setPaletteOpen(true)}
+        />
+      )}
       <div className="sh-frame-main">
-        <TitleBar onHub={onHub} />
+        <TitleBar onHub={onHub && !setup} />
         <ErrorBoundary resetKey={courseId} onReset={() => setCourseId(null)}>
-          {onHub ? (
+          {setup ? (
+            <SetupScreen onDone={() => setSetup(false)} />
+          ) : onHub ? (
             <HubScreen
               view={hubView}
+              settingsTab={settingsTab}
+              onSettingsTab={setSettingsTab}
               onNavigate={goHub}
               userCourses={userCoursesList}
               courses={userCoursesList}
@@ -412,7 +439,6 @@ function StudyHubAppInner() {
       />
       {novaPlace === "lane" || novaPlace === "session" ? <NovaLane session={novaPlace === "session"} /> : null}
       <AiAssistantPanel open={aiOpen} onClose={() => setAiOpen(false)} />
-      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       {splashPhase === "done" ? (
         <ErrorBoundary resetKey="companion" fallback={null}>
           <Suspense fallback={null}>
