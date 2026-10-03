@@ -6,6 +6,7 @@ import { playScene } from "../nova/stage.js";
 import { stageDemo } from "../nova/scenes/stageDemo.js";
 import { arrangeWorkspace } from "../nova/scenes/arrange.js";
 import { useWorkspace, workspace } from "../nova/workspace.js";
+import { setPack, usePack } from "./pack.js";
 
 function matches(query, primary, sub) {
   if (!query) return true;
@@ -123,6 +124,7 @@ export function CommandPalette({
   }, [query]);
 
   const { before: layoutBefore } = useWorkspace();
+  const pack = usePack();
 
   /* Parent passes fresh inline callbacks every render; reading them at run time keeps them out of the memo deps. */
   const actionsRef = useRef(null);
@@ -286,6 +288,16 @@ export function CommandPalette({
         run: () => actionsRef.current.onOpenSettings(),
       },
       {
+        key: "act-pack",
+        group: "actions",
+        icon: "◐",
+        primary: pack === "zombies" ? "Switch to Nova pack" : "Switch to Zombies pack",
+        sub: "Switch pack · colors, art, Nova's voice",
+        shortcut: null,
+        visible: true,
+        run: () => setPack(pack === "zombies" ? "nova" : "zombies"),
+      },
+      {
         key: "act-backup-now",
         group: "actions",
         icon: "→",
@@ -386,7 +398,7 @@ export function CommandPalette({
     ].filter((a) => a.visible);
 
     return { courseRows, chapterRows, referenceRows, termRows, actionRows };
-  }, [mounted, userCourses, courseId, layoutBefore]);
+  }, [mounted, userCourses, courseId, layoutBefore, pack]);
 
   const indexRows = useMemo(() => {
     if (!allRows) return { groups: [], flat: [] };

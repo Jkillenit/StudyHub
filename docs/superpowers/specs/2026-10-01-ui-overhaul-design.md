@@ -199,12 +199,50 @@ celebration effects; layout never changes. Stored as a UI pref (localStorage).
   drops on completion (MAX AMMO style, bounce + glow); Zombies voice ("One down. Reload.").
 - Pack art is original (no ripped assets). References are homage in copy and style.
 
+**Shipped decisions (Phase 2.27):**
+
+1. **Power-up names are the real ones:** MAX AMMO, DOUBLE POINTS, INSTA-KILL, CARPENTER, NUKE.
+   The user accepted the IP risk of the names. All art stays original: icons, map, fonts and
+   sound are drawn or bundled in-house; no ripped icons, logos, fonts or audio.
+2. **Drops:** on session results (power-ups replace the medals row in the Zombies pack) and when
+   a round closes (MAX AMMO). Not on every Today completion.
+3. **Zombie Nova:** red hologram tint plus amber eyes, with wear that sells "zombie": tattered
+   clothing edges, grime, an occasional flicker (none under reduced motion). Shader-only behind a
+   `uZombie` uniform; the VRM file is not edited and the Nova pack renders exactly as before.
+   2D fallbacks (sprite, portrait, splash) shift red via a CSS filter; the pack wins over level tints.
+4. **Round tally in both packs:** small tally in the rail and the Home top strip; the Zombies
+   pack adds the big skewed corner tally on Home.
+5. **Pref:** localStorage `studyHub.v2.prefs.pack` (`"nova" | "zombies"`), applied as
+   `html[data-pack]` before first paint like `data-motion`. Event `studyhub-pack-changed`, hook
+   `usePack()` (`src/shell/pack.js`). Switch from Settings → Make it yours, setup step 03, or the
+   palette command "Switch pack".
+6. **Power-up mapping** (`src/session/powerups.js`, pure, tested): round closed → MAX AMMO;
+   perfect run → INSTA-KILL; shields never went down → CARPENTER; best-streak medal → DOUBLE
+   POINTS; shields went down and the run still finished at ≥ 80% → NUKE. Same `MEDAL_MIN` gate
+   as the medals (MAX AMMO ignores it). At most 3 shown, MAX AMMO first.
+7. **`--sh-power: #7CFF6B`** is a token in `:root` (same value in both packs), used only by
+   power-ups.
+
+**Zombies token values actually used** (`html[data-pack="zombies"]`, everything else derives via
+`color-mix()`): `--sh-bg #0A0706`, `--sh-side #070504`, `--sh-panel rgba(21,16,13,.72)`,
+`--sh-panel-strong` / `--sh-panel-solid #15100D`, `--sh-border rgba(255,236,222,.08)`,
+`--sh-border-strong rgba(255,236,222,.15)`, `--sh-track rgba(255,236,222,.08)`,
+`--sh-scrim rgba(10,7,6,.72)`; text `#F7F1EC` / strong `#FFFFFF` / `#B9ADA4` / `#83766D`;
+`--sh-accent #FF4D4F`, hover `#FF7F80`, press `#D93B3D`, ink `#1A0505`, `--sh-link #FF9C9D`;
+`--sh-accent-2 #FFB23F`; `--sh-warn #FFD27A` (text `#FFE2A8`), distinct from accent-2;
+`--sh-danger #E0312F` (text `#FF6B69`), distinct from the accent.
+
 ## 6. Systems carried by the UI
 
 - **Rounds:** each completed session or Today item adds a tally mark; 5 marks = next round.
   Shown in the top strip, rail, and results. Completing a Today or assignment item (marking it
   done anywhere: Today, Calendar, Assignments) adds a mark, same as finishing a session.
-- **Medals** (Nova pack) / **power-ups** (Zombies pack) on results and completions.
+  Shipped (`src/shell/RoundTally.jsx`): rail tally beside Settings (visible when the rail is
+  pinned or hovered open), Home top strip "ROUND n" + marks in both packs, and the big skewed
+  corner tally on Home in the Zombies pack only.
+- **Medals** (Nova pack) / **power-ups** (Zombies pack) on results; MAX AMMO also drops when a
+  round closes. Power-ups have no spoken lines yet for shield or round events; Nova's Zombies
+  voice covers the session lines, but the drops themselves are silent.
 - **Shield meter** in sessions (3.1).
 - Completing work never changes a grade until it is graded.
 

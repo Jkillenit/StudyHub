@@ -116,6 +116,12 @@ export const FAQ = [
     keywords: ["hide", "nova", "scout", "settings", "turn", "off", "move", "size", "sound", "mute", "color", "annoying", "stop"],
     pointTo: "titlebar-scout",
   },
+  {
+    id: "switch-pack",
+    q: "How do I switch to the Zombies pack?",
+    a: "Make it yours, at the bottom of the sidebar, has two packs: Nova and Zombies. Pick one and the colors, background, my look and my lines change; nothing moves. Ctrl+K and Switch pack works too.",
+    keywords: ["pack", "zombies", "theme", "make", "yours", "color", "colors", "look", "skin", "switch", "power", "ups"],
+  },
 ];
 
 export const POPULAR = ["sync-bb", "flashcards", "whats-due", "quiz-scout"];
