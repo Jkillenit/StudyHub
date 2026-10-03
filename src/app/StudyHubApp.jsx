@@ -24,7 +24,7 @@ import { ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import { SplashScreen, useSplashPhase } from "../components/SplashScreen.jsx";
 import { NovaLane } from "../shell/NovaLane.jsx";
 import { SetupScreen } from "../features/setup/SetupScreen.jsx";
-import { loadCompanionState } from "../companion/companionStore.js";
+import { readOnboarded } from "../companion/companionStore.js";
 
 const CompanionLayer = lazy(() => import("../companion/CompanionLayer.jsx"));
 
@@ -75,8 +75,8 @@ function StudyHubAppInner() {
 
   useEffect(() => {
     let live = true;
-    void loadCompanionState().then((s) => {
-      if (live && !s.onboarded) setSetup(true);
+    void readOnboarded().then((onboarded) => {
+      if (live && onboarded === false) setSetup(true);
     });
     const openSetup = () => {
       setCourseId(null);

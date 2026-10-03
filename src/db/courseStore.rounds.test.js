@@ -16,7 +16,7 @@ function makeBridge({ setCompleted }) {
   };
 }
 
-async function setup(setCompleted = async () => ({ success: true })) {
+async function setup(setCompleted = async () => ({ success: true, changed: true })) {
   const win = Object.assign(new EventTarget(), { studyHub: makeBridge({ setCompleted }) });
   vi.stubGlobal("window", win);
   const marks = [];
@@ -60,6 +60,12 @@ describe("courseStore.setAssignmentCompleted round marks", () => {
     expect(marks).toHaveLength(0);
   });
 
+  it("records no mark when the assignment was already completed", async () => {
+    const { courseStore, marks } = await setup(async () => ({ success: true, changed: false }));
+    await courseStore.setAssignmentCompleted("a1", true);
+    expect(marks).toHaveLength(0);
+  });
+
   it("still completes when recordMark throws", async () => {
     vi.doMock("../session/rounds.js", () => ({
       recordMark: vi.fn(async () => {
@@ -67,7 +73,7 @@ describe("courseStore.setAssignmentCompleted round marks", () => {
       }),
     }));
     const { courseStore, bridge } = await setup();
-    await expect(courseStore.setAssignmentCompleted("a1", true)).resolves.toEqual({ success: true });
+    await expect(courseStore.setAssignmentCompleted("a1", true)).resolves.toEqual({ success: true, changed: true });
     expect(bridge.db.assignments.setCompleted).toHaveBeenCalledTimes(1);
   });
 });

@@ -358,11 +358,10 @@ function registerMirrorHandlers() {
   });
 
   ipcMain.handle("db:assignments:setCompleted", (_, { uuid, completed }) => {
-    db.prepare("UPDATE assignments SET completed = ?, updated_at = datetime('now') WHERE uuid = ?").run(
-      completed ? 1 : 0,
-      uuid
-    );
-    return { success: true };
+    const info = db
+      .prepare("UPDATE assignments SET completed = ?, updated_at = datetime('now') WHERE uuid = ? AND IFNULL(completed, 0) != ?")
+      .run(completed ? 1 : 0, uuid, completed ? 1 : 0);
+    return { success: true, changed: info.changes > 0 };
   });
 
   ipcMain.handle("db:assignments:delete", (_, uuid) => {

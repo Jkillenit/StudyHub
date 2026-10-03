@@ -334,7 +334,7 @@ export const courseStore = {
   async setAssignmentCompleted(uuid, completed = true) {
     const res = await db?.assignments?.setCompleted?.({ uuid, completed });
     window.dispatchEvent(new CustomEvent("studyhub-mirror-changed", { detail: { assignmentUuid: uuid } }));
-    if (completed && res?.success) {
+    if (completed && res?.success && res.changed) {
       try {
         await recordMark();
       } catch {

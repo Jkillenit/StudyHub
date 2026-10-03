@@ -133,6 +133,16 @@ export async function loadCompanionState() {
   }
 }
 
+/** true / false, or null when the read failed (callers must not treat that as a first run). */
+export async function readOnboarded() {
+  try {
+    const raw = await window.studyHub?.db?.settings?.get?.(KEY);
+    return raw ? !!JSON.parse(raw).onboarded : false;
+  } catch {
+    return null;
+  }
+}
+
 export function saveCompanionState(state) {
   try {
     void window.studyHub?.db?.settings?.set?.({ key: KEY, value: JSON.stringify(state) });

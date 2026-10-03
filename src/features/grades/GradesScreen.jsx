@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { courseStore } from "../../db/courseStore.js";
 import { formatPct } from "../today/priority.js";
 import { buildGradesView } from "./gradesView.js";
@@ -35,14 +35,17 @@ function Sparkline({ points }) {
 /** `onOpenCourse(id, { tab: "grades" })` opens that course on its grades tab. */
 export function GradesScreen({ onOpenCourse }) {
   const [rows, setRows] = useState(null);
+  const loadIdRef = useRef(0);
 
   const load = useCallback(async () => {
+    const id = ++loadIdRef.current;
     const data = await courseStore.loadTodayData();
     const courses = data?.courses || [];
     const [scales, items] = await Promise.all([
       Promise.all(courses.map(async (c) => [c.uuid, await courseStore.getGradingScale(c.uuid)])),
       Promise.all(courses.map(async (c) => [c.uuid, await gradeItemsFor(c.uuid)])),
     ]);
+    if (id !== loadIdRef.current) return;
     setRows(buildGradesView(courses, { now: data?.now, scales: Object.fromEntries(scales), gradeItems: Object.fromEntries(items) }));
   }, []);
 

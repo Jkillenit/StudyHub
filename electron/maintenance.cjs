@@ -13,7 +13,7 @@ function backupDir() {
 }
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toLocaleDateString("sv-SE");
 }
 
 const DAILY_BACKUP_RE = /^studyhub-\d{4}-\d{2}-\d{2}\.db$/;
@@ -43,7 +43,14 @@ function readBackupStatus(dir) {
 }
 
 /** One rolling backup per day, pruned to the last KEEP_DAILY_BACKUPS. `overwrite` replaces today's file. */
-async function runDailyBackup({ overwrite = false } = {}) {
+let backupChain = Promise.resolve();
+function runDailyBackup(opts) {
+  const run = backupChain.then(() => writeDailyBackup(opts));
+  backupChain = run.catch(() => {});
+  return run;
+}
+
+async function writeDailyBackup({ overwrite = false } = {}) {
   const dir = backupDir();
   fs.mkdirSync(dir, { recursive: true });
   const target = path.join(dir, `studyhub-${today()}.db`);

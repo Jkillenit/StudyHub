@@ -238,11 +238,6 @@ function BuiltinCourseAppInner({ courseShellLoad = false, novaCourses, onGoHub }
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
   useEffect(() => {
-    window.addEventListener("studyhub-open-settings", openSettings);
-    return () => window.removeEventListener("studyhub-open-settings", openSettings);
-  }, [openSettings]);
-
-  useEffect(() => {
     if (splitOpen) setSettingsOpen(false);
   }, [splitOpen]);
 
