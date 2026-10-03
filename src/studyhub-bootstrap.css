@@ -9858,7 +9858,6 @@ html.dn-overlay body {
   z-index: 1;
   width: 2px;
   background: var(--sh-text-strong);
-  box-shadow: 0 0 6px 1px var(--sh-text-strong);
   opacity: 0;
   transition: opacity 200ms;
 }
@@ -9949,6 +9948,11 @@ html.dn-overlay body {
 /* Recharge: grows out from the center with bright edges */
 .sh-shield[data-charging] :is(.sh-shield-fill, .sh-shield-glow) {
   transition: width 1.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.sh-shield[data-charging] .sh-shield-trail {
+  visibility: hidden;
+  transition: none;
 }
 
 .sh-shield[data-charging] .sh-shield-fill::before,

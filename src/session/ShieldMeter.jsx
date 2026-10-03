@@ -4,13 +4,16 @@ import { HEALTH_MAX, SHIELD_MAX, shieldStatus } from "./shield.js";
 const HIT_MS = 1000;
 const RECHARGE_MS = 1600;
 
-/** Halo-style shield bar + health chunks. Hit effects re-trigger on every new `state` object. */
+/** Halo-style shield bar + health chunks. Hit/recharge effects play on each new `state` object, never on mount. */
 export function ShieldMeter({ state, label = null }) {
   const [hit, setHit] = useState(0);
-  const [settled, setSettled] = useState(null);
+  const [settled, setSettled] = useState(state);
+  const prev = useRef(state);
   const hitTimer = useRef(0);
 
   useEffect(() => {
+    if (prev.current === state) return undefined;
+    prev.current = state;
     if (state.last === "hit" || state.last === "down") {
       setHit((h) => (h === 1 ? 2 : 1));
       clearTimeout(hitTimer.current);
