@@ -1,5 +1,10 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { DECK_MODES, filterDeck } from "../../study/flashcards/deckModes.js";
+import { DeckList, DeckModeChips } from "../../study/flashcards/DeckList.jsx";
+import { useDeckCards } from "../../study/flashcards/useDeckCards.js";
+import { sessionOrder } from "../../session/cardRun.js";
+import { isCardDue } from "../../study/sm2.js";
+import { shortCourse } from "../../features/dashboard/courseLabel.js";
 
 const FlashcardDeck = lazy(() => import("../../study/flashcards/FlashcardDeck.jsx"));
 const UserCourseTipTapNotesEditor = lazy(() => import("../UserCourseTipTapNotesEditor.jsx"));
@@ -275,15 +280,11 @@ export default function CourseContentArea({
   onRemoveGlossaryTerm,
   onGradesChange,
   onUpdateContentData,
-  flashcardEditTriggerRef,
+  flashcardAddTriggerRef,
+  onGoHub,
 }) {
-  const userFlashcards = Array.isArray(course?.flashcards) ? course.flashcards : [];
-  const localFlashcardEditRef = useRef(null);
-
-  useEffect(() => {
-    if (!flashcardEditTriggerRef) return;
-    flashcardEditTriggerRef.current = () => localFlashcardEditRef.current?.();
-  }, [flashcardEditTriggerRef]);
+  const deck = useDeckCards({ cards: course?.flashcards, onSaveCards });
+  const [sessionIds, setSessionIds] = useState(null);
 
   const mapDefinitions = (fn) =>
     onUpdateContentData?.(
@@ -383,10 +384,25 @@ export default function CourseContentArea({
     );
   }, [course?.glossary, currentModule?.id, onRemoveGlossaryTerm]);
 
-  const filteredCount = useMemo(
-    () => filterDeck(userFlashcards, sourceFilter, currentModule?.id, { examFor }).length,
-    [userFlashcards, sourceFilter, currentModule?.id, examFor]
+  const filteredCards = useMemo(
+    () => filterDeck(deck.cards, sourceFilter, currentModule?.id, { examFor }),
+    [deck.cards, sourceFilter, currentModule?.id, examFor]
   );
+  const moduleTitles = useMemo(() => new Map((course?.modules || []).map((m) => [m.id, m.title || m.label])), [course?.modules]);
+  const courseShort = shortCourse(course?.courseCode || course?.name) || course?.name || "Course";
+  const startSession = () => setSessionIds(sessionOrder(filteredCards, (c) => isCardDue(c, { examDate: examFor?.(c) })));
+  const deckSession = sessionIds
+    ? {
+        cardIds: sessionIds,
+        crumb: `${courseShort} · ${sourceFilter === "module" && currentModule ? currentModule.title || currentModule.label : "Flashcards"}`,
+        onExit: () => setSessionIds(null),
+        onToday: () => {
+          setSessionIds(null);
+          onGoHub?.("today");
+        },
+        topicOf: (c) => moduleTitles.get(c.moduleId) || courseShort,
+      }
+    : null;
 
   const CourseView = COURSE_VIEWS[activeItem];
   if (CourseView) {
@@ -405,39 +421,33 @@ export default function CourseContentArea({
         {mainTab === "content" ? (
           activeItem === "qz-deck" ? (
             <>
-              {userFlashcards.length > 0 ? (
+              {deck.cards.length > 0 ? (
                 <div className="sh-deck-modes">
-                  <div className="sh-deck-chips" role="group" aria-label="Deck mode">
-                    {DECK_MODES.map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        className={`sh-deck-chip${sourceFilter === opt.id ? " is-active" : ""}`}
-                        aria-pressed={sourceFilter === opt.id}
-                        onClick={() => onSourceFilterChange?.(opt.id)}
-                      >
-                        {opt.label}
-                        {opt.id === "due" && dueCount > 0 ? <span className="sh-deck-chip-count"> · {dueCount}</span> : null}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="sh-deck-count">
-                    {filteredCount}/{userFlashcards.length} cards · {dueCount} due
-                  </div>
+                  <DeckModeChips modes={DECK_MODES} value={sourceFilter} onChange={onSourceFilterChange} dueCount={dueCount} />
                 </div>
               ) : null}
-              <Suspense fallback={null}>
-                <FlashcardDeck
-                  key={`${course?.id}-qz`}
-                  cards={userFlashcards}
-                  courseId={course?.uuid || course?.id}
-                  moduleId={currentModule?.id}
-                  showMasteryButtons
-                  sourceFilter={sourceFilter}
-                  onSaveCards={onSaveCards}
-                  editTriggerRef={localFlashcardEditRef}
-                />
-              </Suspense>
+              <DeckList
+                cards={filteredCards}
+                examFor={examFor}
+                onStart={startSession}
+                onAdd={(front, back) => deck.addCard(front, back, currentModule?.id)}
+                onEdit={deck.editCard}
+                onDelete={deck.deleteCard}
+                addTriggerRef={flashcardAddTriggerRef}
+                emptyLabel={deck.cards.length ? "No cards in this mode." : "No cards yet. Add one, or import slides to build a deck."}
+              />
+              {deckSession ? (
+                <Suspense fallback={null}>
+                  <FlashcardDeck
+                    cards={course?.flashcards}
+                    courseId={course?.uuid || course?.id}
+                    moduleId={currentModule?.id}
+                    sourceFilter={sourceFilter}
+                    onSaveCards={onSaveCards}
+                    session={deckSession}
+                  />
+                </Suspense>
+              ) : null}
             </>
           ) : (
             <div className="main-content">{renderContentData(currentModule?.contentData)}</div>

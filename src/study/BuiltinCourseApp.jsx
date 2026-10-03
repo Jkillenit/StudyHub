@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { STORAGE, loadJson, saveJson } from "../lib/storage.js";
 import { FONT_STEPS } from "../constants/fontSteps.js";
 import { STUDY_CHAPTERS } from "./chapters.js";
@@ -14,13 +14,19 @@ import SideDrawer from "../shell/SideDrawer.jsx";
 import CourseHeader from "../hub/components/CourseHeader.jsx";
 import { builtinCourseNav } from "../hub/courseNav.js";
 import { studyBreadcrumbChapter } from "./chapterUiMeta.js";
-import { FlashcardDeckProvider, useFlashcardDeckContext } from "./flashcards/FlashcardDeckContext.jsx";
-import { loadFlashcardDeck } from "./flashcards/flashcardPersistence.js";
-import { masteryPercent } from "./sm2.js";
+import { useDeckCards } from "./flashcards/useDeckCards.js";
+import { DeckList, DeckModeChips } from "./flashcards/DeckList.jsx";
+import { DECK_MODES, filterDeck } from "./flashcards/deckModes.js";
+import { SEED_FLASHCARDS } from "./flashcards/seedCards.js";
+import { getDueCards, isCardDue, masteryPercent } from "./sm2.js";
+import { sessionOrder } from "../session/cardRun.js";
 import { ChapterContentSkeleton } from "./ChapterContentSkeleton.jsx";
 import { useDelayedSkeletonVisible } from "../hooks/useDelayedSkeletonVisible.js";
-import Form from "react-bootstrap/Form";
 import { isTypingTarget, paletteOpen } from "../lib/hotkeys.js";
+
+const FlashcardDeck = lazy(() => import("./flashcards/FlashcardDeck.jsx"));
+const BUILTIN_DECK_MODES = DECK_MODES.filter((m) => ["all", "due", "weak"].includes(m.id));
+const builtinTopic = (c) => c.chapter || c.source || "OM 300";
 
 function htmlToPlainText(html) {
   const div = document.createElement("div");
@@ -53,8 +59,11 @@ const TABS = [
   { id: "notes", label: "Notes" },
 ];
 
-function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange, novaCourses }) {
-  const { panelApi } = useFlashcardDeckContext();
+function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange, novaCourses, onGoHub }) {
+  const deck = useDeckCards();
+  const [deckMode, setDeckMode] = useState("all");
+  const [sessionIds, setSessionIds] = useState(null);
+  const addCardRef = useRef(null);
   const { setBreadcrumb, setApiLive, setCourseNav } = useShell();
   const { splitOpen, closeSplit } = useGlossarySplit();
   const [active, setActive] = useState("ch1");
@@ -64,7 +73,6 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange,
   const [notesAutosaveStatus, setNotesAutosaveStatus] = useState("local");
   const [materialsOpen, setMaterialsOpen] = useState(false);
   const [exportStatus, setExportStatus] = useState("EXPORT ↗");
-  const [deckTick, setDeckTick] = useState(0);
   const notesEditorRef = useRef(null);
   const exportTimerRef = useRef(null);
 
@@ -133,14 +141,21 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange,
   const current = STUDY_CHAPTERS.find((c) => c.id === active);
   const fontScale = FONT_STEPS[fontStep];
 
-  useEffect(() => {
-    const onUpdated = () => setDeckTick((n) => n + 1);
-    window.addEventListener("studyhub-flashcards-updated", onUpdated);
-    return () => window.removeEventListener("studyhub-flashcards-updated", onUpdated);
-  }, []);
-  /* panelApi is republished whenever the open deck's cards change, so ratings refresh the line too. */
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const masteryPct = useMemo(() => masteryPercent(loadFlashcardDeck()), [deckTick, panelApi]);
+  const masteryPct = useMemo(() => masteryPercent(deck.cards), [deck.cards]);
+  const deckCards = useMemo(() => filterDeck(deck.cards, deckMode), [deck.cards, deckMode]);
+  const deckDue = useMemo(() => getDueCards(deck.cards).length, [deck.cards]);
+  const deckSession = sessionIds
+    ? {
+        cardIds: sessionIds,
+        crumb: "OM 300 · Flashcards",
+        onExit: () => setSessionIds(null),
+        onToday: () => {
+          setSessionIds(null);
+          onGoHub?.("today");
+        },
+        topicOf: builtinTopic,
+      }
+    : null;
 
   const toggleModule = useCallback((id) => {
     setDisabledIds((prev) => {
@@ -306,12 +321,11 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange,
   const menu = [
     { label: "Materials", onClick: () => setMaterialsOpen(true) },
     { label: "Course settings…", onClick: openSettings },
-    ...(onDeck && panelApi
+    ...(onDeck
       ? [
           { divider: true },
-          { label: panelApi.showAdd ? "Close add card" : "Add card", onClick: () => panelApi.setShowAdd((s) => !s) },
-          { label: `Restore seed deck (${panelApi.seedLen})`, onClick: panelApi.restoreSeed },
-          { label: "Delete current card", danger: true, disabled: panelApi.n === 0, onClick: panelApi.deleteCurrent },
+          { label: "Add card", onClick: () => addCardRef.current?.() },
+          { label: `Restore seed deck (${SEED_FLASHCARDS.length})`, onClick: deck.restoreSeed },
         ]
       : []),
   ];
@@ -346,42 +360,9 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange,
             masteryPct={masteryPct}
             menu={menu}
           />
-          {onDeck && mainTab === "content" && panelApi ? (
+          {onDeck && mainTab === "content" && deck.cards.length ? (
             <div className="sh-deck-modes">
-              <div className="sh-deck-count">LOCAL · {panelApi.n} CARDS</div>
-              {panelApi.showAdd ? (
-                <div className="sh-deck-add">
-                  <Form.Control
-                    size="sm"
-                    className="sh-input mono"
-                    value={panelApi.newFront}
-                    onChange={(e) => panelApi.setNewFront(e.target.value)}
-                    placeholder="FRONT"
-                  />
-                  <Form.Control
-                    as="textarea"
-                    rows={3}
-                    className="sh-input font-sans"
-                    value={panelApi.newBack}
-                    onChange={(e) => panelApi.setNewBack(e.target.value)}
-                    placeholder="BACK"
-                    style={{ resize: "vertical", fontSize: 14 }}
-                  />
-                  <div className="d-flex gap-2">
-                    <button
-                      type="button"
-                      className="sh-btn-primary"
-                      disabled={!panelApi.newFront.trim() || !panelApi.newBack.trim()}
-                      onClick={panelApi.addCard}
-                    >
-                      SAVE
-                    </button>
-                    <button type="button" className="sh-btn-ghost sh-deck-add-btn" onClick={() => panelApi.setShowAdd(false)}>
-                      CANCEL
-                    </button>
-                  </div>
-                </div>
-              ) : null}
+              <DeckModeChips modes={BUILTIN_DECK_MODES} value={deckMode} onChange={setDeckMode} dueCount={deckDue} />
             </div>
           ) : null}
           <div className="sh-main-body" key={`${active}-${mainTab}`}>
@@ -392,6 +373,23 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange,
                 {mainTab === "content" ? (
                   showContentSkeleton ? (
                     <ChapterContentSkeleton />
+                  ) : onDeck ? (
+                    <div className={contentEnterClass}>
+                      <DeckList
+                        cards={deckCards}
+                        onStart={() => setSessionIds(sessionOrder(deckCards, (c) => isCardDue(c)))}
+                        onAdd={(front, back) => deck.addCard(front, back)}
+                        onEdit={deck.editCard}
+                        onDelete={deck.deleteCard}
+                        addTriggerRef={addCardRef}
+                        emptyLabel={deck.cards.length ? "No cards in this mode." : "Deck is empty. Add a card, or restore the seed deck from the ··· menu."}
+                      />
+                      {deckSession ? (
+                        <Suspense fallback={null}>
+                          <FlashcardDeck sourceFilter={deckMode} session={deckSession} />
+                        </Suspense>
+                      ) : null}
+                    </div>
                   ) : !hasContent ? (
                     <div className={`sh-main-empty-wrap ${contentEnterClass}`}>
                       <pre className="sh-empty-ascii-box">{`┌──────────────────────┐
@@ -487,12 +485,10 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange,
   );
 }
 
-export function BuiltinCourseApp({ courseShellLoad = false, onActiveChapterChange, novaCourses }) {
+export function BuiltinCourseApp({ courseShellLoad = false, onActiveChapterChange, novaCourses, onGoHub }) {
   return (
     <GlossarySplitProvider>
-      <FlashcardDeckProvider>
-        <BuiltinCourseAppInner courseShellLoad={courseShellLoad} onActiveChapterChange={onActiveChapterChange} novaCourses={novaCourses} />
-      </FlashcardDeckProvider>
+      <BuiltinCourseAppInner courseShellLoad={courseShellLoad} onActiveChapterChange={onActiveChapterChange} novaCourses={novaCourses} onGoHub={onGoHub} />
     </GlossarySplitProvider>
   );
 }

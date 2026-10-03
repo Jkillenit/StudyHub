@@ -801,11 +801,6 @@ html[data-motion="reduced"] .sh-rail .sh-rail-subnav {
   padding-top: 20px;
 }
 
-.sh-course .drill-card {
-  min-height: 280px;
-  margin: 16px 0 0;
-}
-
 .sh-course-title .sh-inline-edit-input,
 .sh-course-crumb .sh-inline-edit-input {
   width: 100%;
@@ -861,22 +856,169 @@ html[data-motion="reduced"] .sh-rail .sh-rail-subnav {
   color: var(--sh-warn);
 }
 
-.sh-deck-count {
+/* Deck list: inline browse / edit view of a course deck */
+.sh-deck-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--sh-border);
+}
+
+.sh-deck-list-count {
   font-family: var(--sh-font-mono);
   font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
   color: var(--sh-text-3);
 }
 
-.sh-deck-add {
+.sh-deck-list-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.sh-deck-list-empty {
+  margin: 16px 0 0;
+  font-size: 14px;
+  color: var(--sh-text-2);
+}
+
+.sh-deck-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sh-deck-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--sh-border);
+}
+
+.sh-deck-row--editing {
+  display: block;
+}
+
+.sh-deck-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sh-deck-row-front {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sh-text);
+  overflow-wrap: anywhere;
+}
+
+.sh-deck-row-back {
+  font-size: 12.5px;
+  color: var(--sh-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sh-deck-row-meta {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+}
+
+.sh-deck-row-exam {
+  letter-spacing: 0.06em;
+  color: var(--sh-accent-2);
+}
+
+.sh-deck-row-due {
+  min-width: 34px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--sh-text-3);
+}
+
+.sh-deck-row-due.is-due {
+  color: var(--sh-accent);
+}
+
+.sh-deck-row-tools {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.sh-deck-row:hover .sh-deck-row-tools,
+.sh-deck-row:focus-within .sh-deck-row-tools {
+  opacity: 1;
+}
+
+.sh-deck-row-tools button {
+  padding: 2px 6px;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  color: var(--sh-text-2);
+  background: transparent;
+  border: 0;
+  transition: color 150ms ease;
+}
+
+.sh-deck-row-tools button:hover {
+  color: var(--sh-accent);
+}
+
+.sh-deck-row-tools .sh-deck-row-delete:hover {
+  color: var(--sh-danger-text);
+}
+
+.sh-deck-show-all {
+  margin-top: 12px;
+  padding: 0;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sh-accent);
+  background: transparent;
+  border: 0;
+}
+
+.sh-deck-editor {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 10px;
+  padding: 12px 0;
 }
 
-.sh-deck-add-btn {
-  width: auto;
-  margin: 0;
+.sh-deck-editor .sh-inline-edit-input {
+  padding: 8px 10px;
+  font-size: 14px;
+  border-color: var(--sh-border-strong);
+  resize: vertical;
+}
+
+.sh-deck-editor .sh-inline-edit-input:focus {
+  border-color: var(--sh-accent-line);
+}
+
+.sh-deck-editor-actions {
+  display: flex;
+  gap: 8px;
+}
+
+html[data-motion="reduced"] :is(.sh-deck-row-tools, .sh-deck-row-tools button) {
+  transition: none;
 }
 
 /* OM 300 glossary reader inside the drawer: the drawer supplies the title, close and scroll */
@@ -1944,63 +2086,6 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   border-left: 1px solid var(--sh-border);
 }
 
-/* User course flashcard card — match OM 300 style */
-.sh-app-usercourse .drill-card-body,
-.sh-app-usercourse .drill-card .card-term,
-.sh-app-usercourse .drill-card p,
-.sh-app-usercourse .drill-card h1,
-.sh-app-usercourse .drill-card h2,
-.sh-app-usercourse .drill-card h3 {
-  font-family: var(--sh-font-body) !important;
-  font-size: clamp(20px, 3vw, 32px) !important;
-  font-weight: 500 !important;
-  color: var(--sh-text) !important;
-  text-align: center !important;
-  text-wrap: balance !important;
-}
-
-.sh-app-usercourse .drill-card-body > *:first-child,
-.sh-app-usercourse .drill-card-body .drill-term,
-.sh-app-usercourse .drill-card-body p,
-.sh-app-usercourse .drill-card-body span,
-.sh-app-usercourse .drill-card-body div:not(.drill-card-footer) {
-  font-family: var(--sh-font-body) !important;
-  font-size: clamp(20px, 3vw, 32px) !important;
-  font-weight: 500 !important;
-  color: var(--sh-text) !important;
-  text-align: center !important;
-  line-height: 1.3 !important;
-  text-shadow: none !important;
-  -webkit-text-stroke: 0 !important;
-}
-
-.drill-term {
-  font-family: var(--sh-font-body) !important;
-  font-size: clamp(18px, 2.5vw, 28px) !important;
-  font-weight: 500 !important;
-  color: var(--sh-text) !important;
-  text-align: center !important;
-  text-wrap: balance !important;
-  max-width: 55ch !important;
-  line-height: 1.4 !important;
-  letter-spacing: 0 !important;
-  text-transform: none !important;
-  -webkit-text-stroke: 0 !important;
-  text-shadow: none !important;
-}
-
-/* Nuclear override for any heading inside the card area */
-.drill-card h1,
-.drill-card h2,
-.drill-card h3,
-.drill-card h4,
-.drill-card strong,
-.drill-card b {
-  font-size: inherit !important;
-  font-weight: 500 !important;
-  color: var(--sh-text) !important;
-}
-
 .sh-formula-block .def-term {
   font-family: var(--sh-font-mono);
   font-size: 13px;
@@ -2406,352 +2491,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   color: var(--sh-accent-hover);
 }
 
-/* ─── OM 300 flashcard drill ─── */
-.drill-root {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  background: transparent;
-}
-
-.drill-header {
-  height: 32px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  border-bottom: 1px solid var(--sh-border);
-  padding: 0 20px;
-  gap: 12px;
-}
-
-.drill-header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.drill-header-ch {
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
-  color: var(--sh-accent);
-  flex-shrink: 0;
-}
-
-.drill-header-type {
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
-  color: var(--sh-text-3);
-  flex-shrink: 0;
-}
-
-.drill-header-spacer {
-  flex: 1;
-}
-
-.drill-header-progress {
-  font-size: 11px;
-  color: var(--sh-text-2);
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-}
-
-.drill-empty {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 24px 16px;
-  min-height: 200px;
-}
-
-.drill-empty-msg {
-  font-size: 11px;
-  color: var(--sh-text-3);
-  text-align: center;
-  margin: 0;
-}
-
-.drill-card {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--sh-panel);
-  border: 1px solid var(--sh-border);
-  border-left: 3px solid var(--sh-accent);
-  margin: 16px 20px 0;
-  position: relative;
-  overflow: hidden;
-  cursor: pointer;
-  text-align: left;
-  padding: 0;
-  transition: border-left-color 80ms linear;
-}
-
-.drill-card:focus-visible {
-  outline: 1px solid var(--sh-accent);
-  outline-offset: 2px;
-}
-
-.drill-card--flipped {
-  border-left-color: var(--sh-accent);
-}
-
-.drill-card-body-wrap {
-  flex: 1;
-  min-height: 0;
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.drill-card-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 40px;
-  min-height: 0;
-}
-
-.drill-card-body--backface {
-  align-items: flex-start;
-  justify-content: flex-start;
-}
-
-.drill-slide-stack {
-  position: relative;
-  flex: 1;
-  width: 100%;
-  min-height: 160px;
-}
-
-.drill-slide-layer {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 40px;
-}
-
-.drill-slide-exit--next {
-  animation: drill-slide-exit-next 120ms linear forwards;
-}
-
-.drill-slide-enter--next {
-  animation: drill-slide-enter-next 120ms linear forwards;
-}
-
-.drill-slide-exit--prev {
-  animation: drill-slide-exit-prev 120ms linear forwards;
-}
-
-.drill-slide-enter--prev {
-  animation: drill-slide-enter-prev 120ms linear forwards;
-}
-
-@keyframes drill-slide-exit-next {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-105%);
-  }
-}
-
-@keyframes drill-slide-enter-next {
-  from {
-    transform: translateX(105%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes drill-slide-exit-prev {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(105%);
-  }
-}
-
-@keyframes drill-slide-enter-prev {
-  from {
-    transform: translateX(-105%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-.drill-face--front {
-  font-size: clamp(20px, 3vw, 32px);
-  font-weight: 500;
-  color: var(--sh-text);
-  text-align: center;
-  text-wrap: balance;
-  max-width: 60ch;
-  width: 100%;
-}
-
-.drill-face--back {
-  font-size: 15px;
-  color: var(--sh-text-2);
-  line-height: 1.7;
-  text-align: left;
-  max-width: 65ch;
-  align-self: flex-start;
-  width: 100%;
-}
-
-.drill-card-body .drill-face--back {
-  align-self: flex-start;
-}
-
-.drill-card-footer {
-  height: 28px;
-  flex-shrink: 0;
-  border-top: 1px solid var(--sh-border);
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  gap: 12px;
-}
-
-.drill-card-track {
-  flex: 1;
-  height: 2px;
-  background: var(--sh-border);
-  position: relative;
-}
-
-.drill-card-fill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 2px;
-  background: var(--sh-accent);
-  transition: width 120ms linear;
-}
-
-.drill-card-face-label {
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
-  color: var(--sh-text-3);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  flex-shrink: 0;
-}
-
-.drill-card-face-label--back {
-  color: var(--sh-accent);
-}
-
-.drill-mastery {
-  flex-shrink: 0;
-}
-
-.drill-mastery-inner {
-  display: flex;
-  gap: 12px;
-  padding: 12px 20px 0;
-  justify-content: center;
-}
-
-.drill-btn-know {
-  background: var(--sh-accent);
-  color: var(--sh-accent-ink);
-  font-family: var(--sh-font-mono);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  border: none;
-  padding: 10px 32px;
-  cursor: pointer;
-  border-radius: 0;
-  min-width: 160px;
-  transition: background-color 60ms linear;
-}
-
-.drill-btn-know:hover:not(:disabled) {
-  background: var(--sh-accent-hover);
-}
-
-.drill-btn-again {
-  background: transparent;
-  border: 1px solid var(--sh-warn);
-  color: var(--sh-warn);
-  font-family: var(--sh-font-mono);
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 10px 32px;
-  cursor: pointer;
-  border-radius: 0;
-  min-width: 160px;
-  transition: color 60ms linear, border-color 60ms linear, background-color 60ms linear;
-}
-
-.drill-btn-again:hover:not(:disabled) {
-  background: transparent;
-  border-color: var(--sh-danger);
-  color: var(--sh-danger);
-}
-
-.drill-mastery-stats {
-  text-align: center;
-  font-size: 11px;
-  color: var(--sh-text-3);
-  margin: 8px 0 0;
-  font-variant-numeric: tabular-nums;
-}
-
-.drill-mastery-stats-gap {
-  margin-left: 1rem;
-}
-
-.drill-nav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 24px;
-  padding: 10px 20px 0;
-  flex-shrink: 0;
-}
-
-.drill-nav-btn {
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--sh-text-3);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 4px 8px;
-  transition: color 60ms linear;
-}
-
-.drill-nav-btn:hover:not(:disabled) {
-  color: var(--sh-text-2);
-}
-
-.drill-nav-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
+/* Keyboard hint line under practice questions */
 .drill-nav-hint {
   font-size: 11px;
   color: var(--sh-text-3);
@@ -2760,92 +2500,6 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   padding: 6px 20px 16px;
   margin: 0;
   flex-shrink: 0;
-}
-
-.sh-session-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 32px;
-  max-width: 480px;
-  margin: 0 auto;
-  height: 100%;
-  justify-content: center;
-}
-
-.sh-session-stats {
-  background: var(--sh-panel);
-  border: 1px solid var(--sh-border);
-  border-left: 3px solid var(--sh-accent);
-  padding: 0;
-}
-
-.sh-stat-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--sh-border);
-}
-
-.sh-stat-row:last-child {
-  border-bottom: none;
-}
-
-.sh-stat-divider {
-  height: 1px;
-  background: var(--sh-border);
-}
-
-.sh-stat-label {
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: var(--sh-text-3);
-  text-transform: uppercase;
-}
-
-.sh-stat-value {
-  font-family: var(--sh-font-mono);
-  font-size: 18px;
-  color: var(--sh-text);
-}
-
-.sh-stat-know {
-  color: var(--sh-accent) !important;
-}
-
-.sh-stat-again {
-  color: var(--sh-warn) !important;
-}
-
-.sh-session-next {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.sh-next-review-text {
-  font-size: 13px;
-  color: var(--sh-text-2);
-}
-
-.sh-session-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-}
-
-.drill-deck-restore {
-  border-color: var(--sh-text-3) !important;
-  color: var(--sh-text-3) !important;
-  background: transparent !important;
-}
-
-.drill-deck-restore:hover:not(:disabled) {
-  border-color: var(--sh-border) !important;
-  color: var(--sh-text-2) !important;
-  background: transparent !important;
 }
 
 .letter-spacing {
@@ -3605,61 +3259,6 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-chapter-skel-line--75 {
   width: 75%;
   margin-bottom: 0;
-}
-
-/* Flashcard drill area skeleton */
-.drill-card-skel {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--sh-panel);
-  border: 1px solid var(--sh-border);
-  border-left: 3px solid var(--sh-border-strong);
-  margin: 16px 20px 0;
-  overflow: hidden;
-}
-
-.drill-card-skel-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;
-  padding: 32px;
-  min-height: 160px;
-}
-
-.drill-card-skel-term {
-  height: 24px;
-  width: 220px;
-}
-
-.drill-card-skel-sub {
-  height: 12px;
-  width: 120px;
-}
-
-.drill-card-skel-footer {
-  height: 28px;
-  border-top: 1px solid var(--sh-border);
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.drill-card-skel-track {
-  flex: 1;
-  height: 2px;
-}
-
-.drill-card-skel-label {
-  height: 10px;
-  width: 40px;
-  flex-shrink: 0;
 }
 
 /* —— Command palette (⌘K) —— */
@@ -4761,18 +4360,6 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 
 .sh-card-action-btn--delete:hover {
   color: var(--sh-danger);
-}
-
-/* Flashcard edit overlay */
-.sh-card-edit-overlay {
-  position: absolute;
-  inset: 0;
-  background: var(--sh-panel-solid);
-  padding: 20px 24px;
-  display: flex;
-  flex-direction: column;
-  z-index: 10;
-  border: 1px solid var(--sh-accent);
 }
 
 /* Grade component editing */
@@ -10196,6 +9783,207 @@ html[data-motion="reduced"] :is(.sh-session-esc, .sh-session-progress) {
   font-size: 11px;
   letter-spacing: 0.08em;
   color: var(--sh-text-2);
+}
+
+/* Flashcard session: card front / back and the four rating tiles */
+.sh-flashcard {
+  display: flex;
+  flex-direction: column;
+  min-height: 180px;
+}
+
+.sh-flashcard[data-side="front"] {
+  cursor: pointer;
+}
+
+.sh-flashcard-exam {
+  flex-shrink: 0;
+  color: var(--sh-accent-2);
+}
+
+.sh-flashcard-face {
+  animation: sh-flashcard-in 160ms ease-out;
+}
+
+.sh-flashcard-face--front {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px 8px 20px;
+  text-align: center;
+}
+
+.sh-flashcard-term {
+  margin: 0;
+  font-family: var(--sh-font-body);
+  font-size: 29px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  color: var(--sh-text);
+}
+
+.sh-flashcard-hint {
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--sh-text-3);
+}
+
+.sh-flashcard-face--back {
+  padding-top: 14px;
+}
+
+.sh-flashcard-face--back .sh-flashcard-term {
+  padding-bottom: 14px;
+  font-size: 22px;
+  border-bottom: 1px solid var(--sh-border);
+}
+
+.sh-flashcard-def {
+  margin: 14px 0 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--sh-text);
+  overflow-wrap: anywhere;
+}
+
+.sh-flashcard-def:has(strong) {
+  color: var(--sh-text-2);
+}
+
+.sh-flashcard-def strong {
+  font-weight: 600;
+  color: var(--sh-text);
+}
+
+.sh-flashcard-example {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--sh-text-2);
+  background: var(--sh-panel);
+  border-left: 2px solid var(--sh-accent-2);
+}
+
+.sh-flashcard-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.sh-flashcard-keys {
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  color: var(--sh-text-3);
+  white-space: nowrap;
+}
+
+.sh-flashcard-chip {
+  margin-left: auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 9px;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  color: var(--sh-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: 1px solid var(--sh-border-strong);
+}
+
+.sh-flashcard-chip i {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  background: var(--sh-warn);
+}
+
+.sh-ratings {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.sh-rating {
+  --rating-edge: var(--sh-accent);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 12px 12px 14px;
+  text-align: left;
+  background: var(--sh-panel-solid);
+  border: 1px solid var(--sh-border-strong);
+  border-top: 2px solid var(--rating-edge);
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.sh-rating:hover {
+  background: var(--sh-accent-soft);
+}
+
+.sh-rating[data-rating="again"] {
+  --rating-edge: var(--sh-danger);
+}
+
+.sh-rating[data-rating="hard"] {
+  --rating-edge: var(--sh-warn);
+}
+
+.sh-rating[data-rating="easy"] {
+  --rating-edge: var(--sh-accent-2);
+}
+
+.sh-rating-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sh-text);
+}
+
+.sh-rating-key {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  color: var(--sh-text-3);
+}
+
+.sh-rating-interval {
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  color: var(--sh-text-3);
+}
+
+@keyframes sh-flashcard-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+html[data-motion="reduced"] .sh-flashcard-face {
+  animation: none;
+}
+
+html[data-motion="reduced"] .sh-rating {
+  transition: none;
 }
 
 /* Session results */

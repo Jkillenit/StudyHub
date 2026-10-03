@@ -12,7 +12,6 @@ const Ch12 = lazy(() => import("./sections/Ch12.jsx"));
 const Ch16 = lazy(() => import("./sections/Ch16.jsx"));
 const FinalReview = lazy(() => import("./final/FinalReview.jsx"));
 const Formulas = lazy(() => import("./sections/Formulas.jsx"));
-const Flashcards = lazy(() => import("./flashcards/FlashcardDeck.jsx"));
 
 const byId = {
   ch1: Ch1,
@@ -26,7 +25,6 @@ const byId = {
   ch16: Ch16,
   final: FinalReview,
   formulas: Formulas,
-  flashcards: Flashcards,
 };
 
 export function hasStudySectionContent(sectionId) {

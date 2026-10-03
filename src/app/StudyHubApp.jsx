@@ -397,6 +397,7 @@ function StudyHubAppInner() {
                   courseShellLoad={courseShellLoad}
                   onActiveChapterChange={handleBuiltinActiveChapterChange}
                   novaCourses={userCoursesList}
+                  onGoHub={goHub}
                 />
               )}
               {activeUserCourse && courseId !== "builtin" && (
@@ -406,6 +407,7 @@ function StudyHubAppInner() {
                   onDeleteCourse={deleteUserCourse}
                   onActiveChapterChange={handleUserCourseActiveChapterChange}
                   novaCourses={userCoursesList}
+                  onGoHub={goHub}
                 />
               )}
             </div>

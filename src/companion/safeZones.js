@@ -6,7 +6,6 @@ const AVOID_SELECTOR = [
   "select",
   "[contenteditable='true']",
   ".ProseMirror",
-  ".drill-card",
   "video",
   "iframe",
   ".sh-novabar",

@@ -37,12 +37,12 @@ const TABS = [
   { id: "grades", label: "Grades" },
 ];
 
-export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, onActiveChapterChange, novaCourses }) {
+export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, onActiveChapterChange, novaCourses, onGoHub }) {
   const { setBreadcrumb, setCourseNav } = useShell();
   const courseRef = useRef(course);
   courseRef.current = course;
   const mountedRef = useRef(true);
-  const flashcardEditTriggerRef = useRef(null);
+  const flashcardAddTriggerRef = useRef(null);
   const toastTimerRef = useRef(null);
 
   const [renamingCourse, setRenamingCourse] = useState(false);
@@ -518,7 +518,7 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, onActive
             },
           },
         ]),
-    ...(onDeck ? [{ label: "Edit card", onClick: () => flashcardEditTriggerRef.current?.() }] : []),
+    ...(onDeck ? [{ label: "Add card", onClick: () => flashcardAddTriggerRef.current?.() }] : []),
     ...(materialCount ? [{ label: `Materials · ${materialCount} file${materialCount === 1 ? "" : "s"}`, disabled: true }] : []),
     { divider: true },
     {
@@ -586,7 +586,8 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, onActive
             dueCount={dueCount}
             examFor={examFor}
             onSaveCards={handleSaveCards}
-            flashcardEditTriggerRef={flashcardEditTriggerRef}
+            flashcardAddTriggerRef={flashcardAddTriggerRef}
+            onGoHub={onGoHub}
             reviewMeta={reviewMeta}
             enhancing={enhancing}
             onEnhanceReview={handleEnhanceReview}
