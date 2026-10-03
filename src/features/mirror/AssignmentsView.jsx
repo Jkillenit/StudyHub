@@ -3,6 +3,7 @@ import { daysFromToday, dueLabel } from "../dashboard/dateLabels.js";
 import { AssignmentForm } from "./AssignmentForm.jsx";
 import { KindTag } from "../dashboard/KindTag.jsx";
 import { openInBlackboard } from "./openInBlackboard.js";
+import { courseStore } from "../../db/courseStore.js";
 
 function groupAssignments(rows) {
   const overdue = [];
@@ -89,8 +90,7 @@ export function AssignmentsView({ courseUuid }) {
   const notify = () => window.dispatchEvent(new CustomEvent("studyhub-mirror-changed", { detail: { courseUuid } }));
 
   const toggle = async (a) => {
-    await window.studyHub?.db?.assignments?.setCompleted?.({ uuid: a.uuid, completed: !a.completed });
-    notify();
+    await courseStore.setAssignmentCompleted(a.uuid, !a.completed);
   };
 
   const remove = async (a) => {

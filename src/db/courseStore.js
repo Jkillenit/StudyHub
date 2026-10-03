@@ -1,3 +1,5 @@
+import { recordMark } from "../session/rounds.js";
+
 const db = window.studyHub?.db;
 
 function safeJsonParse(str, fallback) {
@@ -332,6 +334,13 @@ export const courseStore = {
   async setAssignmentCompleted(uuid, completed = true) {
     const res = await db?.assignments?.setCompleted?.({ uuid, completed });
     window.dispatchEvent(new CustomEvent("studyhub-mirror-changed", { detail: { assignmentUuid: uuid } }));
+    if (completed && res?.success) {
+      try {
+        await recordMark();
+      } catch {
+        /* a missed mark never undoes the completion */
+      }
+    }
     return res;
   },
 
