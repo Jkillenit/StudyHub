@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { isTypingTarget, paletteOpen } from "../lib/hotkeys.js";
+import { usePack } from "../shell/pack.js";
 import { earnedMedals } from "./shield.js";
+import { earnedPowerUps } from "./powerups.js";
+import { PowerUpDrop } from "./PowerUpDrop.jsx";
 import { formatDuration, resultSummary } from "./results.js";
 import { MARKS_PER_ROUND, recordMark } from "./rounds.js";
 
@@ -10,6 +13,7 @@ const MEDAL_ICON = { unbroken: "◆", perfect: "✓" };
 export function SessionResults({ crumb, shield, stats, comeBack = 0, deltas = [], missedCount = 0, extra = null, onReviewMissed, onAnother, onToday }) {
   const markRef = useRef(null);
   const [tally, setTally] = useState(null);
+  const zombies = usePack() === "zombies";
 
   useEffect(() => {
     let alive = true;
@@ -36,7 +40,8 @@ export function SessionResults({ crumb, shield, stats, comeBack = 0, deltas = []
   }, []);
 
   const accuracy = stats.answered ? Math.round((stats.correct / stats.answered) * 100) : 0;
-  const medals = earnedMedals(stats);
+  const medals = zombies ? [] : earnedMedals(stats);
+  const powerUps = zombies && tally ? earnedPowerUps({ ...stats, closedRound: tally.closedRound }) : [];
   const filled = tally ? (tally.closedRound ? MARKS_PER_ROUND : tally.inRound) : 0;
 
   return (
@@ -89,6 +94,14 @@ export function SessionResults({ crumb, shield, stats, comeBack = 0, deltas = []
                 <span className="sh-medal-detail">{m.detail}</span>
               </span>
             </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {powerUps.length ? (
+        <ul className="sh-results-powerups" aria-label="Power-ups">
+          {powerUps.map((p, i) => (
+            <PowerUpDrop key={p.id} powerUp={p} index={i} lead={i === 0} />
           ))}
         </ul>
       ) : null}

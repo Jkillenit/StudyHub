@@ -260,11 +260,14 @@ const VERT = /* glsl */ `
 uniform float uTime;
 uniform float uGlitch;
 uniform float uHeight;
+uniform float uRestH;
 varying vec2 vUv;
 varying vec3 vN;
 varying float vH;
+varying vec3 vRest;
 void main() {
   vUv = uv;
+  vRest = position / uRestH;
   #include <beginnormal_vertex>
   #include <morphinstance_vertex>
   #include <morphnormal_vertex>
@@ -295,12 +298,53 @@ uniform float uGlow;
 uniform float uFade;
 uniform vec3 uColor;
 uniform vec3 uHot;
+uniform float uZombie;
+uniform float uFlicker;
+uniform vec3 uEyeColor;
+uniform float uEye;
+uniform float uWear;
 varying vec2 vUv;
 varying vec3 vN;
 varying float vH;
+varying vec3 vRest;
+float hash3(vec3 p) {
+  p = fract(p * 0.3183099 + 0.1);
+  p *= 17.0;
+  return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+float vnoise(vec3 p) {
+  vec3 i = floor(p);
+  vec3 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(mix(hash3(i), hash3(i + vec3(1.0, 0.0, 0.0)), f.x), mix(hash3(i + vec3(0.0, 1.0, 0.0)), hash3(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
+    mix(mix(hash3(i + vec3(0.0, 0.0, 1.0)), hash3(i + vec3(1.0, 0.0, 1.0)), f.x), mix(hash3(i + vec3(0.0, 1.0, 1.0)), hash3(i + vec3(1.0, 1.0, 1.0)), f.x), f.y),
+    f.z);
+}
 void main() {
   vec4 tex = uHasMap > 0.5 ? texture2D(map, vUv) : vec4(1.0);
   if (tex.a < uCut) discard;
+  /* Zombies pack wear, in rest-pose space (height 1, T-pose arms along x) so it sticks to her as she moves. */
+  float burn = 0.0;
+  float bare = 0.0;
+  if (uZombie > 0.5 && uWear > 0.5) {
+    vec3 r = vRest;
+    float w = 0.0;
+    if (uWear < 1.5) {
+      /* Suit torn off raggedly at mid-shin and mid-forearm; the limb below shows through faded. */
+      float jag = vnoise(vec3(r.x * 55.0, r.y * 9.0, r.z * 55.0)) * 0.05;
+      float hem = max(0.17 + jag - r.y, abs(r.x) - 0.33 + jag);
+      bare = step(0.0, hem);
+      burn = smoothstep(0.012, 0.0, abs(hem));
+      if (r.y < 0.78 || abs(r.x) > 0.13) w = 0.36 + 0.14 * bare;
+    } else {
+      w = 0.8 * smoothstep(0.885, 0.84, r.y);
+    }
+    float n = vnoise(r * 16.0) * 0.65 + vnoise(r * 70.0) * 0.35;
+    float cut = w * 0.6;
+    if (n < cut) discard;
+    if (w > 0.0) burn = max(burn, smoothstep(cut + 0.08, cut, n));
+  }
   if (uDepthOnly > 0.5) {
     gl_FragColor = vec4(0.0);
     return;
@@ -313,6 +357,22 @@ void main() {
   vec3 col = uColor * (0.3 + 1.1 * lum) + uHot * fres * (0.45 + 0.2 * uGlow) + uHot * band * 0.3;
   float a = clamp((0.6 + 0.3 * lum + fres * 0.55 + band * 0.2) * scan * flick * uFade, 0.0, 1.0);
   a *= min(1.0, tex.a * 1.5);
+  if (uZombie > 0.5) {
+    if (uEye > 0.5) {
+      col = uEyeColor * (uEye > 1.5 ? 0.9 : 1.3 + 0.8 * lum);
+      a = clamp(tex.a * 1.5, 0.0, 1.0) * uFade;
+    } else {
+      float grime = smoothstep(0.4, 0.75, vnoise(vRest * 7.0 + 3.1));
+      float streak = smoothstep(0.5, 0.85, vnoise(vec3(vRest.x * 34.0, vRest.y * 3.0, vRest.z * 34.0)));
+      col *= 1.0 - (0.6 * grime + 0.4 * streak) * (uWear > 0.5 ? 1.0 : 0.45);
+      col *= 1.0 - 0.45 * bare;
+      a *= 1.0 - 0.55 * bare;
+      col = mix(col, uEyeColor * 1.3, burn * 0.85);
+      a = max(a, burn * 0.9 * uFade);
+    }
+    col *= uFlicker;
+    a *= mix(1.0, uFlicker, 0.6);
+  }
   gl_FragColor = vec4(col * a, a);
 }
 `;
@@ -422,7 +482,14 @@ export class NovaStage {
       uFade: { value: 1 },
       uColor: { value: new THREE.Color() },
       uHot: { value: new THREE.Color() },
+      uRestH: { value: 1 },
+      uZombie: { value: 0 },
+      uFlicker: { value: 1 },
+      uEyeColor: { value: new THREE.Color() },
     };
+    this.flicker = { at: -Infinity, next: 0 };
+    this.onPack = () => this.refreshColors();
+    window.addEventListener("studyhub-pack-changed", this.onPack);
     this.yaw = 0;
     this.look = { x: 0, y: 0, at: 0 };
     this.proc = null;
@@ -448,6 +515,8 @@ export class NovaStage {
   refreshColors() {
     this.uniforms.uColor.value.copy(cssColor(this.state.rampant ? "--sh-danger" : "--sh-accent", "--sh-accent"));
     this.uniforms.uHot.value.copy(cssColor("--sh-text", "--sh-accent"));
+    this.uniforms.uZombie.value = document.documentElement.dataset.pack === "zombies" ? 1 : 0;
+    this.uniforms.uEyeColor.value.copy(cssColor("--sh-accent-2", "--sh-accent"));
     for (const set of Object.values(this.propMats || {})) {
       set.fill.color.copy(this.uniforms.uColor.value);
       set.dim.color.copy(this.uniforms.uColor.value);
@@ -649,8 +718,11 @@ export class NovaStage {
     const colorMats = new Map();
     const depthMats = new Map();
     this.meshes = [];
+    let restH = 0;
     this.vrm.scene.traverse((o) => {
       if (!o.isMesh) return;
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      restH = Math.max(restH, o.geometry.boundingBox.max.y);
       const src = Array.isArray(o.material) ? o.material : [o.material];
       const color = [];
       const depth = [];
@@ -662,6 +734,9 @@ export class NovaStage {
         if (!colorMats.has(m)) {
           const outline = !!m.isOutline;
           const layered = !!m.transparent && !m.alphaTest;
+          const name = m.name || "";
+          const eye = /EyeIris|EyeHighlight/i.test(name) ? 1 : /EyeWhite/i.test(name) ? 2 : 0;
+          const wear = /_HAIR/i.test(name) ? 2 : /Body_\d+_SKIN|_CLOTH/i.test(name) ? 1 : 0;
           const make = (depthOnly) =>
             new THREE.ShaderMaterial({
               uniforms: {
@@ -670,6 +745,8 @@ export class NovaStage {
                 uHasMap: { value: m.map ? 1 : 0 },
                 uCut: { value: m.alphaTest || (layered ? 0.02 : 0.5) },
                 uDepthOnly: { value: depthOnly ? 1 : 0 },
+                uEye: { value: eye },
+                uWear: { value: wear },
               },
               vertexShader: VERT,
               fragmentShader: FRAG,
@@ -689,6 +766,22 @@ export class NovaStage {
       }
       this.meshes.push({ mesh: o, color: Array.isArray(o.material) ? color : color[0], depth: Array.isArray(o.material) ? depth : depth[0] });
     });
+    this.uniforms.uRestH.value = restH || 1;
+  }
+
+  /** Zombies pack: every few seconds the projection stutters for a moment. Steady under reduced motion. */
+  stepFlicker(now) {
+    if (!this.uniforms.uZombie.value || this.state.still) return 1;
+    const f = this.flicker;
+    if (now >= f.next) {
+      f.at = now;
+      f.next = now + 3500 + Math.random() * 5000;
+    }
+    const t = now - f.at;
+    if (t < 50) return 0.35;
+    if (t < 110) return 1;
+    if (t < 200) return 0.55;
+    return 1;
   }
 
   /** Rest-pose world data for the arm bones, used by the arms-behind-back layer. */
@@ -966,6 +1059,7 @@ export class NovaStage {
     if (s.staticNoise) glitching = Math.max(glitching, Math.sin(now / 700) > 0.97 ? 0.5 : 0.07);
     this.uniforms.uGlitch.value = Math.max(glitching, s.glitchUntil > now ? 1 : 0);
     this.uniforms.uGlow.value = s.glow;
+    this.uniforms.uFlicker.value = this.stepFlicker(now);
     this.uniforms.uFade.value += ((s.asleep ? 0.6 : s.drowsy ? 0.8 : 1) - this.uniforms.uFade.value) * Math.min(1, dt * 3);
 
     this.vrm.update(dt);
@@ -1194,6 +1288,7 @@ export class NovaStage {
     this.stop();
     window.removeEventListener("focus", this.onFocus);
     window.removeEventListener("blur", this.onBlur);
+    window.removeEventListener("studyhub-pack-changed", this.onPack);
     if (this.vrm) VRMUtils.deepDispose(this.vrm.scene);
     for (const m of this.meshes || []) {
       for (const mat of [m.color, m.depth].flat()) mat.dispose();

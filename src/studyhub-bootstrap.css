@@ -11080,7 +11080,311 @@ html[data-motion="reduced"] :is(.sh-setup-step, .sh-setup-input, .sh-setup-skip)
 }
 
 /* ── Zombies Nova ── */
+/* The pack outranks level tints: the 3D shader already renders in the pack colors, and the portraits are re-tinted from blue. */
+html[data-pack="zombies"] .nv-3d:not(.nv-rampant) .nv-3d-canvas {
+  filter: brightness(calc(0.85 + var(--nv-glow) * 0.3))
+    drop-shadow(0 0 5px color-mix(in srgb, var(--sh-accent) 45%, transparent))
+    drop-shadow(0 0 2px color-mix(in srgb, var(--sh-accent-2) 25%, transparent));
+  animation: none;
+}
+html[data-pack="zombies"] .nv-sprite:not(.nv-rampant) .nv-frame {
+  filter: hue-rotate(140deg) saturate(1.5) sepia(0.2) contrast(1.1) brightness(calc(0.75 + var(--nv-glow) * 0.35))
+    drop-shadow(0 0 6px color-mix(in srgb, var(--sh-accent) 45%, transparent))
+    drop-shadow(0 0 2px color-mix(in srgb, var(--sh-accent-2) 35%, transparent));
+  animation: nv-zombie-flicker 6.5s steps(1, end) infinite;
+}
+html[data-pack="zombies"] :is(.nv-base, .nv-beam) {
+  filter: none;
+}
+@keyframes nv-zombie-flicker {
+  0%,
+  100% {
+    opacity: 0.95;
+  }
+  41% {
+    opacity: 0.4;
+  }
+  42% {
+    opacity: 0.95;
+  }
+  43% {
+    opacity: 0.6;
+  }
+  44% {
+    opacity: 0.95;
+  }
+  77% {
+    opacity: 0.82;
+  }
+  78% {
+    opacity: 0.95;
+  }
+}
+html[data-motion="reduced"][data-pack="zombies"] .nv-sprite .nv-frame {
+  animation: none;
+}
 
 /* ── Zombies backdrop ── */
 
+.sh-zb {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.sh-zb-map,
+.sh-zb-embers {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.sh-zb-map {
+  color: var(--sh-accent-2);
+  opacity: 0.09;
+}
+
+.sh-zb-map * {
+  vector-effect: non-scaling-stroke;
+}
+
+.sh-zb-faint {
+  opacity: 0.55;
+}
+
+.sh-zb-knock {
+  stroke: var(--sh-bg);
+}
+
+.sh-zb-label {
+  font-family: var(--sh-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.sh-zb-fog {
+  position: absolute;
+  width: 80vmax;
+  height: 80vmax;
+  will-change: transform;
+}
+
+.sh-zb-fog-1 {
+  left: -25vmax;
+  top: 10vh;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--sh-text-3) 10%, transparent), transparent);
+  animation: sh-zb-drift-1 90s ease-in-out infinite alternate;
+}
+
+.sh-zb-fog-2 {
+  right: -30vmax;
+  top: -30vmax;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--sh-accent-2) 7%, transparent), transparent);
+  animation: sh-zb-drift-2 120s ease-in-out infinite alternate;
+}
+
+.sh-zb-fog-3 {
+  left: 20vw;
+  bottom: -45vmax;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--sh-accent) 6%, transparent), transparent);
+  animation: sh-zb-drift-3 105s ease-in-out infinite alternate;
+}
+
+@keyframes sh-zb-drift-1 {
+  to {
+    transform: translate(18vw, -8vh);
+  }
+}
+
+@keyframes sh-zb-drift-2 {
+  to {
+    transform: translate(-14vw, 12vh);
+  }
+}
+
+@keyframes sh-zb-drift-3 {
+  to {
+    transform: translate(-16vw, -6vh);
+  }
+}
+
+html[data-motion="reduced"] .sh-zb-fog {
+  animation: none;
+}
+
+@media print {
+  .sh-zb {
+    display: none !important;
+  }
+}
+
 /* ── Power-ups and tally ── */
+.sh-tally {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--sh-text-3);
+}
+
+.sh-tally b {
+  font-weight: 400;
+}
+
+.sh-tally-marks {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.sh-tally i {
+  display: block;
+  width: 2px;
+  height: 11px;
+  background: var(--sh-track);
+  transform: skewX(-12deg);
+}
+
+.sh-tally i[data-on] {
+  background: var(--sh-text-2);
+}
+
+.sh-tally--rail {
+  gap: 3px;
+}
+
+.sh-tally--rail b {
+  margin-left: 5px;
+}
+
+.sh-home {
+  position: relative;
+}
+
+.sh-home-strip {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.sh-tally--corner {
+  position: absolute;
+  top: 14px;
+  right: 22px;
+  z-index: 4;
+  gap: 12px;
+  font-family: var(--sh-font-display);
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  color: var(--sh-accent);
+  text-shadow: 0 0 12px color-mix(in oklab, var(--sh-accent) 50%, transparent);
+  pointer-events: none;
+}
+
+.sh-tally--corner .sh-tally-marks {
+  gap: 5px;
+}
+
+.sh-tally--corner i {
+  width: 3px;
+  height: 22px;
+  background: color-mix(in oklab, var(--sh-accent) 16%, transparent);
+}
+
+.sh-tally--corner i[data-on] {
+  background: var(--sh-accent);
+  box-shadow: 0 0 8px color-mix(in oklab, var(--sh-accent) 50%, transparent);
+}
+
+@media (max-width: 900px) {
+  .sh-tally--corner {
+    display: none;
+  }
+}
+
+.sh-results-powerups {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  margin: 18px 0 0;
+  padding: 6px 0 0 4px;
+}
+
+.sh-powerup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  animation: sh-pu-in 520ms cubic-bezier(0.3, 1.6, 0.5, 1) both;
+  animation-delay: calc(var(--pu-i, 0) * 120ms);
+}
+
+.sh-powerup[data-lead] {
+  animation: sh-pu-in 520ms cubic-bezier(0.3, 1.6, 0.5, 1) both, sh-pu-hop 1.6s ease-in-out 520ms infinite;
+}
+
+.sh-powerup-icon {
+  width: 46px;
+  height: 46px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--sh-power);
+  background: color-mix(in oklab, var(--sh-power) 8%, transparent);
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--sh-power);
+}
+
+.sh-powerup-label {
+  font-family: var(--sh-font-display);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  color: var(--sh-power);
+}
+
+.sh-powerup[data-lead] .sh-powerup-icon {
+  box-shadow: 0 0 22px 4px color-mix(in oklab, var(--sh-power) 35%, transparent);
+}
+
+.sh-powerup[data-lead] .sh-powerup-label {
+  text-shadow: 0 0 10px color-mix(in oklab, var(--sh-power) 60%, transparent);
+}
+
+.sh-results:has(.sh-powerup) .sh-results-tally i[data-new] {
+  box-shadow: none;
+}
+
+@keyframes sh-pu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sh-pu-hop {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+html[data-motion="reduced"] .sh-powerup,
+html[data-motion="reduced"] .sh-powerup[data-lead] {
+  animation: none;
+}

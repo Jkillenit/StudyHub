@@ -1,6 +1,8 @@
 import { useEffect, useMemo } from "react";
 import { publishToday } from "../../nova/director.js";
 import { NovaBar } from "../../shell/NovaBar.jsx";
+import { usePack } from "../../shell/pack.js";
+import { RoundTally } from "../../shell/RoundTally.jsx";
 import { ITEM_TYPES } from "./priority.js";
 import { runTodayAction } from "./runAction.js";
 import { briefingContext, homeLine } from "./briefing.js";
@@ -23,8 +25,9 @@ function cardEdge(item, i) {
 /** The Pure home: one line, the message box, and tonight's top three. */
 export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }) {
   const { loaded, view } = useTodayModel(refreshKey);
+  const pack = usePack();
 
-  const line = useMemo(() => (view ? homeLine(view, { now: new Date(), dueText }) : []), [view]);
+  const line = useMemo(() => (view ? homeLine(view, { now: new Date(), dueText }) : []), [view, pack]);
   const briefingFacts = useMemo(() => (view ? briefingContext(view, { now: new Date(), dueText }) : null), [view]);
   useEffect(() => {
     if (briefingFacts) publishToday(briefingFacts);
@@ -34,6 +37,10 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
 
   return (
     <section className="sh-home" aria-label="Today" aria-busy={!loaded || undefined} data-tour-id="today-dashboard">
+      <div className="sh-home-strip">
+        <RoundTally variant="strip" />
+      </div>
+      {pack === "zombies" ? <RoundTally variant="corner" /> : null}
       <div className="sh-home-col">
         <h1 className="sh-home-mark">
           <Hex />

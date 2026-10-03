@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { loadJson, saveJson } from "../lib/storage.js";
 import { isTypingTarget, paletteOpen } from "../lib/hotkeys.js";
+import { RoundTally } from "./RoundTally.jsx";
 import { useShell } from "./ShellContext.jsx";
 
 const PIN_KEY = "sh-rail-pinned";
@@ -208,7 +209,14 @@ export function AppRail({ onHub, hubView, courseId, courses, onNavigate, onOpenC
 
         <div className="sh-rail-group">
           <RailItem icon="yours" label="Make it yours" onClick={() => onNavigate("settings", { tab: "theme" })} />
-          <RailItem icon="settings" label="Settings" active={onHub && hubView === "settings"} onClick={() => onNavigate("settings", { tab: "general" })} data-tour-id="titlebar-scout" />
+          <RailItem
+            icon="settings"
+            label="Settings"
+            hint={<RoundTally variant="rail" />}
+            active={onHub && hubView === "settings"}
+            onClick={() => onNavigate("settings", { tab: "general" })}
+            data-tour-id="titlebar-scout"
+          />
         </div>
       </div>
     </nav>

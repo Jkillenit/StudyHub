@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useReducedMotion } from "./motion.js";
 import { usePack } from "./pack.js";
 import { AMBIENT_LINES, ambientAlpha, ambientY } from "./ambient.js";
+import { ZombiesBackdrop } from "./ZombiesBackdrop.jsx";
 
 export function AmbientBackground() {
   const ref = useRef(null);
@@ -61,5 +62,10 @@ export function AmbientBackground() {
     };
   }, [reduced, pack]);
 
-  return <canvas ref={ref} className="sh-ambient" aria-hidden="true" />;
+  return (
+    <>
+      {pack === "zombies" && <ZombiesBackdrop />}
+      <canvas ref={ref} className="sh-ambient" aria-hidden="true" />
+    </>
+  );
 }
