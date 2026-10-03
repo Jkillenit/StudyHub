@@ -176,14 +176,14 @@ All "Plan" layout unless noted. Shells may show real data where it already exist
 | Course workspace | breadcrumb, title, tabs CONTENT/NOTES/GLOSSARY/GRADES, mastery line (aqua→magenta), definitions two-column list (medium confidence = amber square; low = NEEDS REVIEW), formula block (magenta left rule), numbered sections (mono aqua 01 02), `...` course menu, slide-over drawer for glossary/settings, deck mode chips; mastery = flashcard mastery for both course types |
 | Decks | "N cards due · ~M min" + Review all due; grouped by course with exam date header; rows: name, cards due, mastery bar, exam countdown |
 | Grades hub | rows per course: current grade (mono, amber when at risk) + letter, trend sparkline, next step ("Need 84 on the midterm to reach B"); What if… opens the calculator |
-| Calendar | week grid, today aqua top edge; due = aqua edge, exam = magenta, Nova study blocks = dashed; Month toggle; Nova shrunk |
+| Calendar | week grid (week starts Monday), today aqua top edge; due = aqua edge, exam = magenta, completed dimmed; Week/Month toggle; Nova shrunk. Nova study blocks (dashed) are deferred until there is a study-plan data source |
 | Session | section 3 |
-| First-run setup | no sidebar; steps 01 NAME · 02 BLACKBOARD · 03 MAKE IT YOURS · 04 TOUR; Nova center stage; Michroma headline; privacy points (read only, stays on this computer, no account) |
+| First-run setup | replaces Nova's bubble onboarding (no greeting bubble alongside it); shown until the companion is onboarded; no sidebar; steps 01 NAME · 02 BLACKBOARD · 03 MAKE IT YOURS · 04 TOUR; Nova center stage; Michroma headline; privacy points (read only, stays on this computer, no account); a "Skip setup" link finishes it at any step |
 | Settings | tabs General · Nova · Make it yours · Blackboard · Backup · AI key |
-| Backup | status line, Back up now, weekly auto (keeps 4), folder, Restore (backs up first) |
+| Backup | status line ("Last backup … · 7 kept · daily"); daily auto backup in the app data folder, keeps 7; Back up now; Open folder; Restore (backs up first); Save a copy… link. Browser build: disabled, "Backups run in the desktop app" |
 | Command palette | restyled to tokens (cut-corner panel, mono key hints) |
 
-Screens with no backing feature yet (Backup actions, setup steps, Make it yours) ship as shells
+Screens with no backing feature yet (Make it yours, the Zombies pack) ship as shells
 wired to existing handlers where they exist, inert otherwise, and are filled in by REL-002 /
 REL-003 / C.10.
 
@@ -202,8 +202,8 @@ celebration effects; layout never changes. Stored as a UI pref (localStorage).
 ## 6. Systems carried by the UI
 
 - **Rounds:** each completed session or Today item adds a tally mark; 5 marks = next round.
-  Shown in the top strip, rail, and results. For now only completed sessions add marks; Today
-  items adding marks is deferred to Plan 5 (screen shells).
+  Shown in the top strip, rail, and results. Completing a Today or assignment item (marking it
+  done anywhere: Today, Calendar, Assignments) adds a mark, same as finishing a session.
 - **Medals** (Nova pack) / **power-ups** (Zombies pack) on results and completions.
 - **Shield meter** in sessions (3.1).
 - Completing work never changes a grade until it is graded.

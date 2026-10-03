@@ -38,14 +38,14 @@ export const FAQ = [
   {
     id: "calendar",
     q: "Is there a calendar?",
-    a: "Yep. Calendar in the top bar has a month view. You can add your own items too.",
-    keywords: ["calendar", "month", "schedule", "date", "plan"],
+    a: "Yep. Calendar in the sidebar has a week view and a month view, with exams marked. You can add your own items too.",
+    keywords: ["calendar", "month", "week", "schedule", "date", "plan"],
     pointTo: "nav-calendar",
   },
   {
     id: "flashcards",
     q: "How do flashcards work here?",
-    a: "Open a course, then Flashcard Deck under Study and hit Start session. Space flips, 1–4 rates each card, and spaced repetition decides when you see it again.",
+    a: "Decks in the sidebar shows what's due in every course; hit Review. Inside a course it's Flashcard Deck under Study, then Start session. Space flips, 1–4 rates each card, and spaced repetition decides when you see it again.",
     keywords: ["flashcard", "flashcards", "deck", "review", "drill", "spaced", "repetition", "sm2", "study"],
     pointTo: "course-drill",
     route: "course",
@@ -70,10 +70,9 @@ export const FAQ = [
   {
     id: "grades",
     q: "Where are my grades?",
-    a: "Today's Standing gauges show each class grade against your target. Click one, or open a course's Grades tab, for the full breakdown and a what-if calculator.",
+    a: "Grades in the sidebar lists every class grade and the score you need next. What if… opens a course's full breakdown and calculator.",
     keywords: ["grade", "grades", "score", "gpa", "calculator", "what", "if", "percent"],
-    pointTo: "course-tabs",
-    route: "course",
+    pointTo: "nav-grades",
   },
   {
     id: "progress",
@@ -113,7 +112,7 @@ export const FAQ = [
   {
     id: "scout-settings",
     q: "How do I change or hide you?",
-    a: "Open Settings from the gear in the top bar, then Nova settings. You can turn me off, slow me down, resize me, mute me, or change my projection color.",
+    a: "Open Settings at the bottom of the sidebar, then the Nova tab and Nova settings. You can turn me off, slow me down, resize me, mute me, or change my projection color.",
     keywords: ["hide", "nova", "scout", "settings", "turn", "off", "move", "size", "sound", "mute", "color", "annoying", "stop"],
     pointTo: "titlebar-scout",
   },

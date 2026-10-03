@@ -26,8 +26,20 @@
     {
       "targetId": "nav-calendar",
       "title": "Calendar",
-      "text": "A month view of everything due. You can add your own due dates there too.",
-      "placement": "bottom"
+      "text": "A week or month view of everything due, exams marked. You can add your own due dates there too.",
+      "placement": "right"
+    },
+    {
+      "targetId": "nav-decks",
+      "title": "Decks",
+      "text": "Every flashcard deck with what's due and how much has stuck. Review all due starts with the most urgent class.",
+      "placement": "right"
+    },
+    {
+      "targetId": "nav-grades",
+      "title": "Grades",
+      "text": "Every class grade in one list, with the score you need next. What if… opens the calculator.",
+      "placement": "right"
     },
     {
       "targetId": "hub-courses",
@@ -59,8 +71,8 @@
     {
       "targetId": "titlebar-scout",
       "title": "Settings",
-      "text": "The gear opens Settings: reduce motion, my settings, and the AI key. Click me any time for quizzes, help, or the course tour. I don't bite. Usually.",
-      "placement": "bottom",
+      "text": "Settings: motion, my settings, Blackboard, daily backups and the AI key. Click me any time for quizzes, help, or the course tour. I don't bite. Usually.",
+      "placement": "right",
       "route": "hub"
     }
   ]

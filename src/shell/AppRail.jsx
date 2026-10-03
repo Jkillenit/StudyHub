@@ -160,8 +160,8 @@ export function AppRail({ onHub, hubView, courseId, courses, onNavigate, onOpenC
           />
           <RailItem icon="today" label="Today" active={onHub && (hubView === "today" || hubView === "plan")} onClick={() => onNavigate("today")} />
           <RailItem icon="calendar" label="Calendar" active={onHub && hubView === "calendar"} onClick={() => onNavigate("calendar")} data-tour-id="nav-calendar" />
-          <RailItem icon="decks" label="Decks" active={onHub && hubView === "decks"} onClick={() => onNavigate("decks")} />
-          <RailItem icon="grades" label="Grades" active={onHub && hubView === "grades"} onClick={() => onNavigate("grades")} />
+          <RailItem icon="decks" label="Decks" active={onHub && hubView === "decks"} onClick={() => onNavigate("decks")} data-tour-id="nav-decks" />
+          <RailItem icon="grades" label="Grades" active={onHub && hubView === "grades"} onClick={() => onNavigate("grades")} data-tour-id="nav-grades" />
         </div>
 
         <div className="sh-rail-divider" />
@@ -208,7 +208,7 @@ export function AppRail({ onHub, hubView, courseId, courses, onNavigate, onOpenC
 
         <div className="sh-rail-group">
           <RailItem icon="yours" label="Make it yours" onClick={() => onNavigate("settings", { tab: "theme" })} />
-          <RailItem icon="settings" label="Settings" onClick={() => onNavigate("settings", { tab: "general" })} data-tour-id="titlebar-scout" />
+          <RailItem icon="settings" label="Settings" active={onHub && hubView === "settings"} onClick={() => onNavigate("settings", { tab: "general" })} data-tour-id="titlebar-scout" />
         </div>
       </div>
     </nav>

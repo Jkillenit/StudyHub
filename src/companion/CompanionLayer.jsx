@@ -385,14 +385,19 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     };
   }, []);
 
-  /* First run is the setup screen (src/features/setup), so she never greets with bubbles here. */
+  /* First run is the setup screen (src/features/setup), so she never greets with bubbles here,
+     and skips the launch line for that visit even if setup closes before it would fire. */
   const appear = useCallback(() => {
     setBubble(null);
     setMood("neutral");
     force("idle");
     if (!houseAt()) jumpTo(home());
     sfx("appear");
-    later(() => void api.current.sayOpener?.(), DAY_HELLO_DELAY_MS);
+    const firstRun = !stateRef.current?.onboarded;
+    later(() => {
+      if (firstRun) openerDoneRef.current = true;
+      else void api.current.sayOpener?.();
+    }, DAY_HELLO_DELAY_MS);
   }, [force, jumpTo, home, houseAt, sfx, later]);
 
   useEffect(() => {

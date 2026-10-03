@@ -10589,6 +10589,14 @@ html[data-motion="reduced"] .sh-calw-day {
 }
 
 /* ── Settings screen ── */
+.sh-settings-screen > .sh-hud-title {
+  font-family: var(--sh-font-display);
+  font-weight: 400;
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .sh-settings-tabs {
   flex-wrap: wrap;
   margin-bottom: 4px;

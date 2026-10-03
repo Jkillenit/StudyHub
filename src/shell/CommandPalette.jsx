@@ -236,6 +236,26 @@ export function CommandPalette({
         run: () => actionsRef.current.onGoToHub(),
       },
       {
+        key: "act-decks",
+        group: "actions",
+        icon: "→",
+        primary: "Go to Decks",
+        sub: "Cards due by course",
+        shortcut: null,
+        visible: true,
+        run: () => actionsRef.current.onGoToHub("decks"),
+      },
+      {
+        key: "act-grades",
+        group: "actions",
+        icon: "→",
+        primary: "Go to Grades",
+        sub: "Standing and what you need next",
+        shortcut: null,
+        visible: true,
+        run: () => actionsRef.current.onGoToHub("grades"),
+      },
+      {
         key: "act-new",
         group: "actions",
         icon: "→",
@@ -264,6 +284,19 @@ export function CommandPalette({
         shortcut: null,
         visible: true,
         run: () => actionsRef.current.onOpenSettings(),
+      },
+      {
+        key: "act-backup-now",
+        group: "actions",
+        icon: "→",
+        primary: "Back up now",
+        sub: "Save today's backup, then show Backup settings",
+        shortcut: null,
+        visible: typeof window.studyHub?.app?.backup?.now === "function",
+        run: async () => {
+          await window.studyHub.app.backup.now().catch(() => null);
+          actionsRef.current.onGoToHub("settings", { tab: "backup" });
+        },
       },
       {
         key: "act-export",

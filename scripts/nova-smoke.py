@@ -1,4 +1,4 @@
-"""Nova smoke test: load, menu, Ask Nova + focus, quiz, drag, toggle.
+"""Nova smoke test: load, first-run setup skip, menu, Ask Nova + focus, quiz, drag, toggle.
 
 Run from the repo root (PowerShell):
   $env:PYTHONIOENCODING="utf-8"; python .agents/skills/webapp-testing/scripts/with_server.py --server "npm run dev" --port 5173 --timeout 60 -- python scripts/nova-smoke.py
@@ -80,13 +80,22 @@ def check_load(page):
 
 def check_onboard(page):
     """In a plain browser there is no window.studyHub, so companion state (read from the
-    settings bridge, not localStorage) starts at defaults and Nova runs first-launch onboarding.
-    Click through it: skip name, skip birthday, nothing to avoid, decline the tour."""
-    for label in ["SKIP", "SKIP", "NOTHING, BRING IT", "I'VE GOT IT"]:
-        btn = page.locator(".sc-bubble-btn", has_text=label).first
-        btn.wait_for(state="visible", timeout=15000)
-        btn.click()
-    page.wait_for_selector(".sc-bubble-btn", state="detached", timeout=10000)
+    settings bridge, not localStorage) starts at defaults and the first-run setup screen shows.
+    Skip setup must close it, with Nova back in her lane and no greeting bubble."""
+    page.wait_for_selector(".sh-setup", state="visible", timeout=10000)
+    page.locator(".sh-setup-done").click()
+    page.wait_for_selector(".sh-setup", state="detached", timeout=5000)
+    page.wait_for_selector(".sh-rail", timeout=5000)
+    page.wait_for_timeout(4000)  # past her launch-line delay
+    if page.locator(".sc-bubble").count() and page.locator(".sc-bubble").first.is_visible():
+        raise RuntimeError("Nova greeted with a bubble after setup")
+    lane = page.locator(".sh-nova-lane").bounding_box()
+    nova = center(page, SCOUT)
+    if not lane or not nova:
+        raise RuntimeError(f"no lane ({lane}) or Nova ({nova}) after setup")
+    x, y = nova
+    if not (lane["x"] <= x <= lane["x"] + lane["width"] and lane["y"] <= y <= lane["y"] + lane["height"]):
+        raise RuntimeError(f"Nova at {nova} is outside her lane {lane}")
 
 
 def check_menu(page):
