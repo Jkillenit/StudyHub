@@ -2,7 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { parseSyllabus } from "../../syllabus/syllabusParser";
 import { courseStore } from "../../db/courseStore.js";
 import InlineEdit from "./InlineEdit";
-import { currentGrade as weightedGrade, hasScore, neededAverage } from "../../features/grades/gradeMath.js";
+import {
+  averageScore,
+  currentGrade as weightedGrade,
+  hasScore,
+  letterFor,
+  neededAverage,
+  normalized,
+  totalWeight,
+} from "../../features/grades/gradeMath.js";
 import { neededScores } from "../../features/today/priority.js";
 import { NeedBadge } from "../../features/today/NeedBadge.jsx";
 import { dueLabel } from "../../features/dashboard/dateLabels.js";
@@ -18,15 +26,6 @@ function gradeColor(pct) {
   return "var(--sh-danger)";
 }
 
-export function getCurrentLetter(grade, scale) {
-  if (grade === null || grade === undefined || !scale) return null;
-  const grades = Object.entries(scale).sort((a, b) => b[1] - a[1]);
-  for (const [letter, threshold] of grades) {
-    if (grade >= threshold) return letter;
-  }
-  return "F";
-}
-
 function neededColor(needed) {
   if (needed <= 70) return "var(--sh-accent)";
   if (needed <= 85) return "var(--sh-accent)";
@@ -37,7 +36,7 @@ function neededColor(needed) {
 function GradeScaleDisplay({ scale, currentGrade }) {
   if (!scale) return null;
   const grades = Object.entries(scale).sort((a, b) => b[1] - a[1]);
-  const currentLetter = getCurrentLetter(currentGrade, scale);
+  const currentLetter = letterFor(currentGrade, scale);
   const rows = grades.some(([letter]) => letter === "F") ? grades : [...grades, ["F", 0]];
   return (
     <div className="sh-grade-scale">
@@ -127,10 +126,10 @@ function HypotheticalEngine({ components, gradingScale, target }) {
   const unscored = components.filter((c) => !hasScore(c));
   if (scored.length === 0 || unscored.length === 0) return null;
 
-  const needed = neededAverage(components, target);
+  const needed = neededAverage(normalized(components), target);
   const isPossible = needed !== null && needed <= 100;
   const isAlreadyAchieved = needed !== null && needed <= 0;
-  const letter = getCurrentLetter(target, gradingScale) || `${target}%`;
+  const letter = (gradingScale && letterFor(target, gradingScale)) || `${target}%`;
 
   return (
     <div className="sh-hypothetical">
@@ -219,10 +218,9 @@ function WhatIfSimulator({ components }) {
   if (unscored.length === 0) return null;
 
   const simFor = (key) => simScores[key] ?? 80;
-  const projectedGrade = components.reduce((sum, c, i) => {
-    const score = hasScore(c) ? Number(c.score) : simFor(keyOf(c, i));
-    return sum + score * Number(c.weight || 0);
-  }, 0);
+  const projectedGrade = weightedGrade(
+    components.map((c, i) => (hasScore(c) ? c : { ...c, score: simFor(keyOf(c, i)) }))
+  );
 
   return (
     <div className="sh-whatif">
@@ -257,17 +255,14 @@ function WhatIfSimulator({ components }) {
 
 function GradeDropCalculator({ components }) {
   if (!components.some(hasScore)) return null;
-  const contribution = (c) => (hasScore(c) ? Number(c.score) : 0) * Number(c.weight || 0);
-  const totalGrade = components.reduce((sum, c) => sum + contribution(c), 0);
+  const current = weightedGrade(components);
   const impacts = components
     .map((c, i) => ({ c, i }))
     .filter(({ c }) => hasScore(c))
-    .map(({ c, i }) => ({
-      key: keyOf(c, i),
-      name: c.name,
-      gradeWithZero: totalGrade - contribution(c),
-      impact: contribution(c),
-    }))
+    .map(({ c, i }) => {
+      const gradeWithZero = weightedGrade(components.map((x) => (x === c ? { ...x, score: 0 } : x)));
+      return { key: keyOf(c, i), name: c.name, gradeWithZero, impact: current - gradeWithZero };
+    })
     .sort((a, b) => b.impact - a.impact);
   return (
     <div className="sh-drop-calc">
@@ -289,7 +284,7 @@ function GradeDropCalculator({ components }) {
   );
 }
 
-function ComponentRow({ component, index, onScoreChange, onUpdate, onDelete }) {
+function ComponentRow({ component, index, weightSum, onScoreChange, onUpdate, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const [subEntries, setSubEntries] = useState([]);
   const [newLabel, setNewLabel] = useState("");
@@ -309,8 +304,7 @@ function ComponentRow({ component, index, onScoreChange, onUpdate, onDelete }) {
   const applySubAverage = (rows) => {
     setSubEntries(rows);
     if (!rows.length) return;
-    const avg = rows.reduce((sum, entry) => sum + Number(entry.score || 0), 0) / rows.length;
-    onScoreChange(index, String(Math.round(avg * 10) / 10));
+    onScoreChange(index, String(averageScore(rows)));
   };
 
   async function addSubEntry() {
@@ -331,8 +325,9 @@ function ComponentRow({ component, index, onScoreChange, onUpdate, onDelete }) {
     applySubAverage(subEntries.filter((entry) => entry.id !== id));
   }
 
-  const contrib = hasScore(component) ? Number(component.score) * Number(component.weight || 0) : null;
-  const dropImpact = contrib !== null ? contrib : Number(component.weight || 0) * 80;
+  const share = weightSum > 0 ? Number(component.weight || 0) / weightSum : 0;
+  const contrib = hasScore(component) ? Number(component.score) * share : null;
+  const dropImpact = contrib !== null ? contrib : share * 80;
 
   return (
     <>
@@ -439,7 +434,7 @@ function ComponentRow({ component, index, onScoreChange, onUpdate, onDelete }) {
                 AVERAGE
               </span>
               <span className="mono" style={{ fontSize: 12 }}>
-                {(subEntries.reduce((sum, entry) => sum + Number(entry.score || 0), 0) / subEntries.length).toFixed(1)}
+                {averageScore(subEntries).toFixed(1)}
               </span>
             </div>
           ) : null}
@@ -723,7 +718,7 @@ export default function GradesTab({ course, onComponentsChange }) {
     );
   }
 
-  const totalWeight = components.reduce((sum, c) => sum + Number(c.weight || 0), 0);
+  const weightSum = totalWeight(components);
 
   return (
     <div className="sh-grades-view">
@@ -745,7 +740,7 @@ export default function GradesTab({ course, onComponentsChange }) {
           {currentGrade !== null ? `${currentGrade.toFixed(1)}%` : "—"}
         </span>
         {currentGrade !== null && gradingScale ? (
-          <span className="sh-grade-letter">{getCurrentLetter(currentGrade, gradingScale)}</span>
+          <span className="sh-grade-letter">{letterFor(currentGrade, gradingScale)}</span>
         ) : null}
         <span className="sh-grade-label">{currentGrade !== null ? "CURRENT GRADE" : "NO SCORES YET"}</span>
       </div>
@@ -765,6 +760,7 @@ export default function GradesTab({ course, onComponentsChange }) {
             key={keyOf(component, i)}
             component={component}
             index={i}
+            weightSum={weightSum}
             onScoreChange={handleScoreChange}
             onUpdate={updateComponent}
             onDelete={deleteComponent}
@@ -775,10 +771,10 @@ export default function GradesTab({ course, onComponentsChange }) {
           <span className="sh-grades-col sh-grades-col--name mono">TOTAL</span>
           <span
             className="sh-grades-col sh-grades-col--weight mono"
-            style={{ color: Math.abs(totalWeight - 1) > 0.01 ? "var(--sh-warn)" : undefined }}
-            title={Math.abs(totalWeight - 1) > 0.01 ? "Weights do not add up to 100%" : undefined}
+            style={{ color: Math.abs(weightSum - 1) > 0.01 ? "var(--sh-warn)" : undefined }}
+            title={Math.abs(weightSum - 1) > 0.01 ? "Weights do not add up to 100%" : undefined}
           >
-            {(totalWeight * 100).toFixed(0)}%
+            {(weightSum * 100).toFixed(0)}%
           </span>
           <span className="sh-grades-col sh-grades-col--score" />
           <span className="sh-grades-col sh-grades-col--contribution mono" style={{ color: gradeColor(currentGrade) }}>
