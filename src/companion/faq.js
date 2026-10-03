@@ -54,7 +54,7 @@ export const FAQ = [
   {
     id: "practice-test",
     q: "Can I take a practice test?",
-    a: "Inside a course, pick Practice Test under Drill. Choose modules, question count and format, then go.",
+    a: "Inside a course, pick Practice Test under Study. Choose modules, question count and format, then go.",
     keywords: ["practice", "test", "exam", "quiz", "questions", "mock"],
     pointTo: "course-drill",
     route: "course",
@@ -62,7 +62,7 @@ export const FAQ = [
   {
     id: "study-guide",
     q: "How do I make a study guide?",
-    a: "Study Guide under Drill builds a printable guide from the modules you pick, plus a time estimate for your exam.",
+    a: "Study Guide under Study builds a printable guide from the modules you pick, plus a time estimate for your exam.",
     keywords: ["study", "guide", "print", "exam", "review", "summary", "estimate"],
     pointTo: "course-drill",
     route: "course",
@@ -78,7 +78,7 @@ export const FAQ = [
   {
     id: "progress",
     q: "How do I see my progress?",
-    a: "Progress under Drill shows your review history, mastery per module, and recent sessions.",
+    a: "Progress under Study shows your review history, mastery per module, and recent sessions.",
     keywords: ["progress", "stats", "mastery", "history", "streak"],
     pointTo: "course-drill",
     route: "course",
