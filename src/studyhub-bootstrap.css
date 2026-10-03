@@ -111,7 +111,7 @@ html[data-pack="zombies"] {
   --sh-text: #F7F1EC;
   --sh-text-strong: #FFFFFF;
   --sh-text-2: #B9ADA4;
-  --sh-text-3: #83766D;
+  --sh-text-3: #8E8178;
 
   --sh-accent: #FF4D4F;
   --sh-accent-hover: #FF7F80;
@@ -11213,6 +11213,7 @@ html[data-motion="reduced"][data-pack="zombies"] .nv-sprite .nv-frame {
 
 html[data-motion="reduced"] .sh-zb-fog {
   animation: none;
+  will-change: auto;
 }
 
 @media print {
@@ -11301,10 +11302,9 @@ html[data-motion="reduced"] .sh-zb-fog {
 
 .sh-tally--corner i[data-on] {
   background: var(--sh-accent);
-  box-shadow: 0 0 8px color-mix(in oklab, var(--sh-accent) 50%, transparent);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
   .sh-tally--corner {
     display: none;
   }

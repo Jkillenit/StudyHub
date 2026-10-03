@@ -4,17 +4,26 @@
  */
 import { ITEM_TYPES, formatPct } from "./priority.js";
 import { line } from "../../companion/character.js";
+import { getPack } from "../../shell/pack.js";
 
 const WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
 const countWord = (n) => WORDS[n] || String(n);
 const JUST_UNDER = 3;
 
+/* Home re-renders on every Today reload; keep the picked variant until the pack changes. */
+const picked = new Map();
+function stableLine(key) {
+  const id = `${getPack()}:${key}`;
+  if (!picked.has(id)) picked.set(id, line(key));
+  return picked.get(id);
+}
+
 export function greeting(date) {
   const h = new Date(date).getHours();
-  if (h < 5) return line("home.late");
-  if (h < 12) return line("home.morning");
-  if (h < 17) return line("home.afternoon");
-  return line("home.evening");
+  if (h < 5) return stableLine("home.late");
+  if (h < 12) return stableLine("home.morning");
+  if (h < 17) return stableLine("home.afternoon");
+  return stableLine("home.evening");
 }
 
 function timeOf(iso) {
@@ -26,7 +35,7 @@ function lowerFirst(s) {
 }
 
 function taskSentence(tonight, dueText) {
-  if (!tonight.length) return line("home.clear");
+  if (!tonight.length) return stableLine("home.clear");
   const today = tonight.filter((it) => it.daysUntil === 0);
   if (today.length >= 2) {
     const courses = new Set(today.map((it) => it.courseLabel));

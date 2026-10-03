@@ -773,6 +773,7 @@ export class NovaStage {
   stepFlicker(now) {
     if (!this.uniforms.uZombie.value || this.state.still) return 1;
     const f = this.flicker;
+    if (!f.next) f.next = now + 3500;
     if (now >= f.next) {
       f.at = now;
       f.next = now + 3500 + Math.random() * 5000;
