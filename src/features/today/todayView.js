@@ -3,6 +3,7 @@
  * priority engine's ranking and standing math and only decides what goes in which panel.
  */
 import { shortCourse } from "../dashboard/courseLabel.js";
+import { letterFor } from "../grades/gradeMath.js";
 import { ITEM_TYPES, PRIORITY_CONFIG, courseStanding, daysUntil, formatPct, rankToday } from "./priority.js";
 
 export const TONIGHT_MAX = 3;
@@ -10,17 +11,9 @@ export const WEEK_DAYS = 7;
 export const WEEK_LIST_MAX = 4;
 export const STANDING_MAX = 3;
 
-const DEFAULT_SCALE = Object.freeze({ A: 90, B: 80, C: 70, D: 60 });
 const DAY_MS = 86400000;
 
-/** Letter for a percentage on a { letter: minPercent } scale; the default is a plain 90/80/70/60 split. */
-export function letterFor(grade, scale) {
-  if (grade == null) return null;
-  const s = scale && Object.keys(scale).length ? scale : DEFAULT_SCALE;
-  const sorted = Object.entries(s).sort((a, b) => b[1] - a[1]);
-  for (const [letter, min] of sorted) if (grade >= min) return letter;
-  return "F";
-}
+export { letterFor };
 
 export function courseLabel(course) {
   return shortCourse(course?.courseCode || course?.name) || course?.name || "";

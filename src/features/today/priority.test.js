@@ -180,7 +180,15 @@ describe("itemShare", () => {
 
   it("assumes a minimum item count per category when points are unknown", () => {
     const sparse = course({ components: [{ uuid: "hw", name: "Homework", category: "homework", weight: 0.3, pointsTotal: 0, itemCount: 2 }] });
-    expect(itemShare(asg({ componentUuid: "hw" }), sparse).share).toBeCloseTo(0.3 / PRIORITY_CONFIG.minItemsPerComponent.homework);
+    expect(itemShare(asg({ componentUuid: "hw" }), sparse).share).toBeCloseTo(1 / PRIORITY_CONFIG.minItemsPerComponent.homework);
+  });
+
+  it("rescales weights that sum to under 100%", () => {
+    const under = course({ components: [
+      { uuid: "a", name: "A", weight: 0.4, pointsTotal: 0, itemCount: 1 },
+      { uuid: "b", name: "B", weight: 0.4, pointsTotal: 0, itemCount: 1 },
+    ] });
+    expect(itemShare(asg({ componentUuid: "b" }), under).share).toBeCloseTo(0.5);
   });
 
   it("uses the whole weight for a single-item component", () => {
@@ -235,6 +243,7 @@ describe("rankToday", () => {
     const components = [
       { uuid: "hw", name: "Homework", weight: 0.1, pointsTotal: 0, itemCount: 10 },
       { uuid: "pr", name: "Project", weight: 0.3, pointsTotal: 0, itemCount: 1 },
+      { uuid: "ex", name: "Exams", weight: 0.6, pointsTotal: 0, itemCount: 2 },
     ];
     const items = rank([
       course({

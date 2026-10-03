@@ -7,7 +7,15 @@
  *   EXAM_PREP   an exam within the horizon (the exam itself is never also an ASSIGNMENT)
  *   GRADE_RISK  a course whose current grade is under its target with weight still open
  */
-import { currentGrade, hasScore, neededAverage, neededOnItem, remainingWeight } from "../grades/gradeMath.js";
+import {
+  currentGrade,
+  hasScore,
+  neededAverage,
+  neededOnItem,
+  normalized,
+  remainingWeight,
+  totalWeight,
+} from "../grades/gradeMath.js";
 
 export const PRIORITY_CONFIG = Object.freeze({
   horizonDays: 14,
@@ -79,16 +87,6 @@ function targetOf(course, config) {
   return Number.isFinite(t) ? t : config.defaultTarget;
 }
 
-function totalWeight(components) {
-  return components.reduce((sum, c) => sum + (Number(c.weight) || 0), 0);
-}
-
-/** Weights scaled to sum to 1, so a syllabus that lists 90% (or 110%) still yields a sane needed average. */
-function normalized(components) {
-  const total = totalWeight(components);
-  return total > 0 ? components.map((c) => ({ ...c, weight: (Number(c.weight) || 0) / total })) : components;
-}
-
 /**
  * { current, target, gap, neededAvg, pressure }. gap > 0 means under target; current is null with no
  * scores; neededAvg is the average needed on the open weight (null when nothing is open).
@@ -116,7 +114,7 @@ export function itemShare(assignment, course, config = PRIORITY_CONFIG) {
   const components = course.components || [];
   const comp = components.find((c) => c.uuid === assignment.componentUuid);
   if (comp && Number(comp.weight) > 0) {
-    const w = Number(comp.weight) / Math.max(totalWeight(components), 1);
+    const w = Number(comp.weight) / totalWeight(components);
     const pts = Number(assignment.pointsPossible);
     if (pts > 0 && comp.pointsTotal >= pts) return { share: (w * pts) / comp.pointsTotal, known: true };
     const minItems = config.minItemsPerComponent[comp.category] ?? config.minItemsPerComponent.other;
