@@ -2,8 +2,13 @@ import { useEffect, useState } from "react";
 import { courseStore } from "../../db/courseStore.js";
 import { loadCompanionState, saveCompanionState } from "../../companion/companionStore.js";
 import { known, memoryMap } from "../../companion/memory/derive.js";
+import { setPack, usePack } from "../../shell/pack.js";
 
 const STEPS = ["NAME", "BLACKBOARD", "MAKE IT YOURS", "TOUR"];
+const SETUP_PACKS = [
+  { id: "nova", name: "Nova", meta: "Aqua and magenta" },
+  { id: "zombies", name: "Zombies", meta: "Red and amber" },
+];
 const MAX_NAME = 40;
 
 /**
@@ -14,6 +19,7 @@ export function SetupScreen({ onDone }) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
   const [named, setNamed] = useState(false);
+  const pack = usePack();
   const bb = window.studyHub?.blackboard;
   const [bbStatus, setBbStatus] = useState({ loggedIn: false });
   const [bbOpened, setBbOpened] = useState(false);
@@ -131,14 +137,18 @@ export function SetupScreen({ onDone }) {
         <h1 className="sh-setup-title">Make it yours</h1>
         <p className="sh-setup-sub">Pick a look. Packs change colors and my voice, never where things are.</p>
         <div className="sh-setup-packs">
-          <button type="button" className="sh-setup-pack" aria-pressed="true">
-            <span className="sh-setup-pack-name">Nova</span>
-            <span className="sh-setup-pack-meta mono">Selected</span>
-          </button>
-          <button type="button" className="sh-setup-pack" disabled>
-            <span className="sh-setup-pack-name">Zombies</span>
-            <span className="sh-setup-pack-meta mono">Coming soon</span>
-          </button>
+          {SETUP_PACKS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className={`sh-setup-pack sh-setup-pack--${p.id}`}
+              aria-pressed={p.id === pack}
+              onClick={() => setPack(p.id)}
+            >
+              <span className="sh-setup-pack-name">{p.name}</span>
+              <span className="sh-setup-pack-meta mono">{p.id === pack ? "Selected" : p.meta}</span>
+            </button>
+          ))}
         </div>
         <div className="sh-setup-actions">
           <button type="button" className="sh-btn-primary sh-setup-next" onClick={() => setStep(3)}>

@@ -1,10 +1,12 @@
 import { useEffect, useRef } from "react";
 import { useReducedMotion } from "./motion.js";
+import { usePack } from "./pack.js";
 import { AMBIENT_LINES, ambientAlpha, ambientY } from "./ambient.js";
 
 export function AmbientBackground() {
   const ref = useRef(null);
   const reduced = useReducedMotion();
+  const pack = usePack();
 
   useEffect(() => {
     const canvas = ref.current;
@@ -57,7 +59,7 @@ export function AmbientBackground() {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
     };
-  }, [reduced]);
+  }, [reduced, pack]);
 
   return <canvas ref={ref} className="sh-ambient" aria-hidden="true" />;
 }

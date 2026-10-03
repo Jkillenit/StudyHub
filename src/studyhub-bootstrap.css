@@ -47,6 +47,14 @@
   /* Alabama crimson, for game-day tags and Nova's game-day doodle. */
   --sh-crimson: #C8102E;
   --sh-crimson-glow: #FF3355;
+  /* power-up green: only power-up drops use it */
+  --sh-power: #7CFF6B;
+
+  /* pack picker swatches: each pack's own colors, whichever pack is active */
+  --sh-pack-nova-1: #4CF0E8;
+  --sh-pack-nova-2: #FF4FD8;
+  --sh-pack-zombies-1: #FF4D4F;
+  --sh-pack-zombies-2: #FFB23F;
 
   /* type */
   --sh-font-body: "Geist Sans", system-ui, sans-serif;
@@ -86,6 +94,36 @@
   --bs-border-radius-xxl: 0;
   --bs-border-radius-2xl: 0;
   --bs-border-radius-pill: 0;
+}
+
+/* Zombies flavor pack: token values only; derived color-mix() tokens follow. */
+html[data-pack="zombies"] {
+  --sh-bg: #0A0706;
+  --sh-side: #070504;
+  --sh-panel: rgba(21, 16, 13, 0.72);
+  --sh-panel-strong: #15100D;
+  --sh-panel-solid: #15100D;
+  --sh-border: rgba(255, 236, 222, 0.08);
+  --sh-border-strong: rgba(255, 236, 222, 0.15);
+  --sh-track: rgba(255, 236, 222, 0.08);
+  --sh-scrim: rgba(10, 7, 6, 0.72);
+
+  --sh-text: #F7F1EC;
+  --sh-text-strong: #FFFFFF;
+  --sh-text-2: #B9ADA4;
+  --sh-text-3: #83766D;
+
+  --sh-accent: #FF4D4F;
+  --sh-accent-hover: #FF7F80;
+  --sh-accent-press: #D93B3D;
+  --sh-accent-ink: #1A0505;
+  --sh-link: #FF9C9D;
+  --sh-accent-2: #FFB23F;
+
+  --sh-warn: #FFD27A;
+  --sh-warn-text: #FFE2A8;
+  --sh-danger: #E0312F;
+  --sh-danger-text: #FF6B69;
 }
 
 ::selection {
@@ -10681,15 +10719,26 @@ html[data-motion="reduced"] .sh-calw-day {
   padding: 14px;
   border: 1px solid var(--sh-border);
   border-top: 2px solid var(--sh-border);
+  border-radius: 0;
   background: var(--sh-panel-strong);
+  font: inherit;
+  text-align: left;
+  color: var(--sh-text);
+  cursor: pointer;
+  transition: border-color 150ms linear;
 }
 
-.sh-settings-pack--active {
+.sh-settings-pack:hover {
+  border-color: var(--sh-border-strong);
+}
+
+.sh-settings-pack--active,
+.sh-settings-pack--active:hover {
   border-top-color: var(--sh-accent);
 }
 
-.sh-settings-pack[aria-disabled="true"] {
-  opacity: 0.55;
+html[data-motion="reduced"] .sh-settings-pack {
+  transition: none;
 }
 
 .sh-settings-pack-swatch {
@@ -10704,19 +10753,19 @@ html[data-motion="reduced"] .sh-calw-day {
 }
 
 .sh-settings-pack--nova .sh-settings-pack-swatch i:first-child {
-  background: var(--sh-accent);
+  background: var(--sh-pack-nova-1);
 }
 
 .sh-settings-pack--nova .sh-settings-pack-swatch i:last-child {
-  background: var(--sh-accent-2);
+  background: var(--sh-pack-nova-2);
 }
 
 .sh-settings-pack--zombies .sh-settings-pack-swatch i:first-child {
-  background: var(--sh-danger);
+  background: var(--sh-pack-zombies-1);
 }
 
 .sh-settings-pack--zombies .sh-settings-pack-swatch i:last-child {
-  background: var(--sh-warn);
+  background: var(--sh-pack-zombies-2);
 }
 
 .sh-settings-pack-name {
@@ -10964,17 +11013,16 @@ html[data-nova="off"] .sh-setup-floor {
   border: 1px solid var(--sh-border);
   border-radius: 0;
   color: var(--sh-text);
-  cursor: default;
+  cursor: pointer;
+}
+
+.sh-setup-pack:hover {
+  border-color: var(--sh-border-strong);
 }
 
 .sh-setup-pack[aria-pressed="true"] {
   border-color: var(--sh-accent-line);
   box-shadow: inset 0 2px 0 var(--sh-accent);
-}
-
-.sh-setup-pack:disabled {
-  color: var(--sh-text-3);
-  cursor: not-allowed;
 }
 
 .sh-setup-pack-name {
@@ -11030,3 +11078,9 @@ html[data-nova="off"] .sh-setup-floor {
 html[data-motion="reduced"] :is(.sh-setup-step, .sh-setup-input, .sh-setup-skip) {
   transition: none;
 }
+
+/* ── Zombies Nova ── */
+
+/* ── Zombies backdrop ── */
+
+/* ── Power-ups and tally ── */

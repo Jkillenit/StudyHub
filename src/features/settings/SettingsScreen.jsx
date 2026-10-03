@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useShell } from "../../shell/ShellContext.jsx";
 import { setMotionPref, useMotionPref, useReducedMotion } from "../../shell/motion.js";
+import { setPack, usePack } from "../../shell/pack.js";
 import { NovaMemoryView } from "../../companion/NovaMemoryView.jsx";
 import { BackupTab } from "./BackupTab.jsx";
 import { BlackboardTab } from "./BlackboardTab.jsx";
@@ -116,26 +117,36 @@ function NovaTab() {
 }
 
 const PACKS = [
-  { id: "nova", name: "Nova", blurb: "Aqua and magenta on true black. Medals on every clean round.", active: true },
-  { id: "zombies", name: "Zombies", blurb: "Warm dark, red and amber. Power-ups drop when you finish.", active: false },
+  { id: "nova", name: "Nova", blurb: "Aqua and magenta on true black. Medals on every clean round." },
+  { id: "zombies", name: "Zombies", blurb: "Warm dark, red and amber. Power-ups drop when you finish." },
 ];
 
 function ThemeTab() {
+  const pack = usePack();
   return (
     <section className="sh-settings-section">
       <div className="sh-settings-section-label">FLAVOR PACK</div>
       <div className="sh-settings-packs">
-        {PACKS.map((p) => (
-          <div key={p.id} className={`sh-settings-pack sh-settings-pack--${p.id}${p.active ? " sh-settings-pack--active" : ""}`} aria-disabled={!p.active}>
-            <div className="sh-settings-pack-swatch" aria-hidden>
-              <i />
-              <i />
-            </div>
-            <div className="sh-settings-pack-name">{p.name}</div>
-            <p className="sh-settings-hint">{p.blurb}</p>
-            <span className="sh-settings-pack-state">{p.active ? "Active" : "Coming soon"}</span>
-          </div>
-        ))}
+        {PACKS.map((p) => {
+          const active = p.id === pack;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              className={`sh-settings-pack sh-settings-pack--${p.id}${active ? " sh-settings-pack--active" : ""}`}
+              aria-pressed={active}
+              onClick={() => setPack(p.id)}
+            >
+              <span className="sh-settings-pack-swatch" aria-hidden>
+                <i />
+                <i />
+              </span>
+              <span className="sh-settings-pack-name">{p.name}</span>
+              <span className="sh-settings-hint">{p.blurb}</span>
+              <span className="sh-settings-pack-state">{active ? "Active" : "Use this pack"}</span>
+            </button>
+          );
+        })}
       </div>
     </section>
   );

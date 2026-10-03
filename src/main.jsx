@@ -12,7 +12,9 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "./studyhub-bootstrap.css";
 import "./index.css";
 import { applyStoredMotionPref } from "./shell/motion.js";
+import { applyStoredPack } from "./shell/pack.js";
 
 applyStoredMotionPref();
+applyStoredPack();
 
 createRoot(document.getElementById("root")).render(<StudyHubApp />);
