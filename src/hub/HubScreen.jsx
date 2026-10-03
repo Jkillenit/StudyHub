@@ -189,7 +189,7 @@ export function HubScreen({ view = "today", settingsTab, onSettingsTab, onNaviga
       />
     );
   } else if (view === "decks") screen = <DecksScreen userCourses={userCourses} onOpenCourse={openCourseTab} />;
-  else if (view === "grades") screen = <GradesScreen userCourses={userCourses} onOpenCourse={openCourseTab} />;
+  else if (view === "grades") screen = <GradesScreen onOpenCourse={openCourseTab} />;
   else if (view === "settings") screen = <SettingsScreen tab={settingsTab} onTab={onSettingsTab} />;
 
   return (

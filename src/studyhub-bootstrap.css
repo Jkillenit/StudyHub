@@ -8834,17 +8834,6 @@ html[data-motion="reduced"] :is(.sh-home-card, .sh-home-link) {
   background: var(--sh-danger-soft);
 }
 
-.sh-settings-status {
-  display: block;
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--sh-text-3);
-}
-
-.sh-settings-status--on {
-  color: var(--sh-accent);
-}
-
 /* Nova grows and shrinks around her feet when she enters or leaves her home window */
 .sc-grow {
   display: block;
