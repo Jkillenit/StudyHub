@@ -209,7 +209,7 @@ function NeedsReviewSection({ items, onEdit, onDelete }) {
   return (
     <div className="sh-needs-review">
       <button className="sh-needs-review-toggle" onClick={() => setOpen((o) => !o)}>
-        <span className="sh-section-label" style={{ color: "var(--sh-warn)", marginBottom: 0 }}>
+        <span className="sh-section-label" style={{ color: "var(--sh-warn)", margin: 0 }}>
           NEEDS REVIEW — {items.length} TERM{items.length !== 1 ? "S" : ""}
         </span>
         <span className="sh-expand-btn" style={{ color: "var(--sh-warn)" }}>

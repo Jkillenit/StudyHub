@@ -2187,11 +2187,17 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   gap: 8px;
 }
 
-.sh-plan-col {
+/* Containers only on row lists: inline-size containment traps position:fixed descendants */
+.sh-content-section,
+.sh-needs-review-body {
   container-type: inline-size;
 }
 
-@container (max-width: 699px) {
+.sh-content-section > .sh-section-label:first-child {
+  margin-top: 8px;
+}
+
+@container (max-width: 639px) {
   .sh-pptx-card,
   .sh-glossary-card {
     grid-template-columns: 1fr;
