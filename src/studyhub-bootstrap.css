@@ -1625,50 +1625,61 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 
 /* ─── Definition cards (replaces Bootstrap cards for content) ─── */
 .sh-section-label {
-  font-family: var(--sh-font-hud);
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: 0.18em;
-  color: var(--sh-accent);
+  font-family: var(--sh-font-mono);
+  font-weight: 400;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--sh-text-3);
   text-transform: uppercase;
-  margin: 20px 0 10px;
+  margin: 24px 0 8px;
   scroll-margin-top: 12px;
 }
 
+/* Content rows: flat, separated by hairlines */
 .def-card {
-  background: var(--sh-panel);
-  border: 1px solid var(--sh-border);
-  border-left: 3px solid var(--sh-accent);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--sh-border);
   border-radius: 0;
-  padding: 10px 14px;
-  margin-bottom: 8px;
+  padding: 12px 0;
+  margin: 0;
   cursor: default;
 }
 
-.def-card__title {
+.def-card__title,
+.def-term {
   font-family: var(--sh-font-body);
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--sh-text);
-  margin-bottom: 5px;
 }
 
-.def-card__body {
+.def-card__title {
+  margin-bottom: 4px;
+}
+
+.def-card__body,
+.def-body {
   font-family: var(--sh-font-body);
-  font-size: 12px;
+  font-size: 14px;
   color: var(--sh-text-2);
   line-height: 1.6;
   cursor: default;
 }
 
-.def-card--formula {
-  border-left-color: var(--sh-warn);
+.def-card--formula,
+.sh-formula-block {
+  background: color-mix(in oklab, var(--sh-accent-2) 6%, transparent);
+  border: none;
+  border-left: 2px solid var(--sh-accent-2);
+  padding: 10px 14px;
+  margin: 8px 0;
 }
 
 .def-card--formula .def-card__label {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  color: var(--sh-warn);
+  color: var(--sh-accent-2);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   margin-bottom: 6px;
@@ -1677,12 +1688,59 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .def-card--formula pre,
 .def-card--formula .formula-pre {
   font-family: var(--sh-font-mono);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--sh-text);
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.65;
+}
+
+.sh-numlist,
+.sh-bulletlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: sh-num;
+}
+
+.sh-numlist > li,
+.sh-bulletlist > li {
+  padding: 3px 0 3px 32px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--sh-text-2);
+}
+
+.sh-numlist > li {
+  counter-increment: sh-num;
+}
+
+.sh-numlist > li::before,
+.sh-bulletlist > li::before {
+  display: inline-block;
+  width: 32px;
+  margin-left: -32px;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+}
+
+.sh-numlist > li::before {
+  content: counter(sh-num, decimal-leading-zero);
+  color: var(--sh-accent);
+}
+
+.sh-bulletlist > li::before {
+  content: "—";
+  color: var(--sh-text-3);
+}
+
+.sh-plan-col :is(.def-body, .def-card__body, .sh-content-body, .sh-content-body p, .sh-markdown-preview) {
+  max-width: none;
+}
+
+.sh-course .sh-main-body :is(h1, h2, h3, h4) {
+  color: var(--sh-text);
 }
 
 /* ─── Glossary inline ─── */
@@ -1982,14 +2040,10 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   color: var(--sh-text) !important;
 }
 
-.sh-formula-block {
-  border-left-color: var(--sh-warn) !important;
-}
-
 .sh-formula-block .def-term {
-  color: var(--sh-text);
   font-family: var(--sh-font-mono);
   font-size: 13px;
+  font-weight: 400;
 }
 
 .sh-content-section {
@@ -1997,42 +2051,29 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 }
 
 .sh-section-block {
-  background: var(--sh-panel);
-  border: 1px solid var(--sh-border);
-  border-left: 3px solid var(--sh-accent);
-  padding: 0;
   margin-bottom: 8px;
 }
 
 .sh-section-item {
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
   gap: 12px;
-  padding: 8px 14px;
+  padding: 8px 0;
   border-bottom: 1px solid var(--sh-border);
-}
-
-.sh-section-item:last-child {
-  border-bottom: none;
-}
-
-.sh-section-item--numbered {
-  align-items: center;
 }
 
 .sh-item-number {
   font-family: var(--sh-font-mono);
   font-size: 11px;
   color: var(--sh-accent);
-  min-width: 24px;
+  min-width: 20px;
   flex-shrink: 0;
-  opacity: 0.8;
 }
 
 .sh-item-text {
-  font-size: 13px;
-  color: var(--sh-text);
-  line-height: 1.5;
+  font-size: 14px;
+  color: var(--sh-text-2);
+  line-height: 1.6;
   flex: 1;
 }
 
@@ -2050,15 +2091,13 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 }
 
 .sh-item-sublabel {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--sh-text);
 }
 
 .sh-item-sublabel + .sh-item-text {
-  color: var(--sh-text-2);
-  font-size: 12px;
-  padding-left: 12px;
+  padding-left: 16px;
 }
 
 .sh-section-expand {
@@ -2066,8 +2105,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   width: 100%;
   background: transparent;
   border: none;
-  border-top: 1px solid var(--sh-border);
-  padding: 7px 14px;
+  padding: 7px 0;
   font-family: var(--sh-font-mono);
   font-size: 11px;
   letter-spacing: 0.08em;
@@ -2114,21 +2152,56 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   margin-bottom: 10px;
 }
 
-.sh-tier-medium {
-  border-left-color: var(--sh-accent) !important;
-  border-left-width: 3px !important;
-  opacity: 0.85;
+.sh-tier-mark {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 8px;
+  vertical-align: middle;
+  background: var(--sh-warn);
 }
 
-.sh-tier-low {
-  border-left-color: var(--sh-border) !important;
+.sh-tier-low .def-term {
+  color: var(--sh-text-2);
 }
 
-.sh-pptx-card .def-card-header {
+/* Definition / glossary rows: term column + definition column, stacked in narrow columns */
+.sh-pptx-card,
+.sh-glossary-card {
+  display: grid;
+  grid-template-columns: 32% 1fr;
+  column-gap: 16px;
+  align-items: baseline;
+}
+
+.sh-glossary-card .def-body,
+.sh-glossary-card .sh-glossary-meta {
+  grid-column: 2;
+}
+
+.sh-pptx-card .def-card-header,
+.sh-glossary-card .def-card-header {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 5px;
+  gap: 8px;
+}
+
+.sh-plan-col {
+  container-type: inline-size;
+}
+
+@container (max-width: 699px) {
+  .sh-pptx-card,
+  .sh-glossary-card {
+    grid-template-columns: 1fr;
+    row-gap: 4px;
+  }
+
+  .sh-glossary-card .def-body,
+  .sh-glossary-card .sh-glossary-meta {
+    grid-column: 1;
+  }
 }
 
 .sh-confidence-dot {
@@ -2168,7 +2241,6 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 
 .sh-glossary-card--other {
   opacity: 0.6;
-  border-left-color: var(--sh-accent);
 }
 
 .sh-glossary-meta {

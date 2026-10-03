@@ -1,16 +1,15 @@
 export function FormulaBox({ children }) {
   return (
-    <div className="def-card def-card--formula mb-2">
+    <div className="def-card def-card--formula">
       <div className="def-card__label">FORMULA</div>
       <pre className="formula-pre mb-0">{children}</pre>
     </div>
   );
 }
 
-export function Card({ title, children, accent }) {
-  const border = accent ? { borderLeftColor: accent } : undefined;
+export function Card({ title, children }) {
   return (
-    <div className="def-card mb-2" style={border}>
+    <div className="def-card">
       {title ? <div className="def-card__title">{title}</div> : null}
       <div className="def-card__body">{children}</div>
     </div>
@@ -45,9 +44,9 @@ export function Grid2({ children }) {
 
 export function BulletList({ items }) {
   return (
-    <ul style={{ paddingLeft: 18, margin: 0 }}>
+    <ul className="sh-bulletlist">
       {items.map((item, i) => (
-        <li key={i} className="font-sans" style={{ fontSize: 12, color: "var(--sh-text-2)", lineHeight: 1.75, marginBottom: 2 }}>
+        <li key={i} className="font-sans">
           {item}
         </li>
       ))}
@@ -57,9 +56,9 @@ export function BulletList({ items }) {
 
 export function NumList({ items }) {
   return (
-    <ol style={{ paddingLeft: 18, margin: 0 }}>
+    <ol className="sh-numlist">
       {items.map((item, i) => (
-        <li key={i} className="font-sans" style={{ fontSize: 12, color: "var(--sh-text-2)", lineHeight: 1.75, marginBottom: 2 }}>
+        <li key={i} className="font-sans">
           {item}
         </li>
       ))}

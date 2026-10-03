@@ -101,27 +101,14 @@ function DefinitionCard({ item, onEdit, onDelete }) {
   }
 
   return (
-    <div
-      className={`def-card sh-pptx-card sh-tier-${tier}`}
-      style={{
-        borderLeftWidth: 3,
-        borderLeftColor: tier === "low" ? "var(--sh-border)" : "var(--sh-accent)",
-        opacity: tier === "low" ? 0.75 : 1,
-      }}
-    >
+    <div className={`def-card sh-pptx-card sh-tier-${tier}`}>
       <div className="def-card-header">
-        <div className="def-term" style={{ opacity: tier === "high" ? 1 : tier === "medium" ? 0.85 : 0.6 }}>
+        <div className="def-term">
           {item.term}
+          {tier === "medium" ? <span className="sh-tier-mark" title="medium confidence — verify this term" /> : null}
           {item.enhancedByAI ? <span className="sh-ai-badge">✦ AI</span> : null}
         </div>
         <div className="sh-card-actions">
-          {tier !== "high" ? (
-            <div
-              className="sh-confidence-dot"
-              title={`${tier} confidence — verify this term`}
-              style={{ background: tier === "medium" ? "var(--sh-warn)" : "var(--sh-text-3)" }}
-            />
-          ) : null}
           <button className="sh-card-action-btn" onClick={() => setIsEditing(true)} title="Edit">
             ✎
           </button>
