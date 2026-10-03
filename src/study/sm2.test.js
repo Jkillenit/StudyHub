@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { daysUntilExam, examForCard, examReadyPercent, getDueCards, isCardDue, localDateString, sm2 } from "./sm2.js";
+import { RATINGS, daysUntilExam, examForCard, examReadyPercent, getDueCards, intervalLabel, isCardDue, localDateString, previewIntervals, sm2 } from "./sm2.js";
 
 const NOW = new Date(2026, 9, 5, 9, 0);
 const day = (n) => localDateString(new Date(2026, 9, 5 + n, 12));
@@ -115,5 +115,34 @@ describe("examReadyPercent", () => {
   it("is the share of cards whose latest rating is 3 or higher", () => {
     expect(examReadyPercent([{ lastGrade: 5 }, { lastGrade: 3 }, { lastGrade: 0 }, {}])).toBe(50);
     expect(examReadyPercent([])).toBe(0);
+  });
+});
+
+describe("previewIntervals", () => {
+  const card = { repetitions: 2, intervalDays: 6, easeFactor: 2.5 };
+
+  it("maps the four ratings to SM-2 grades", () => {
+    expect(RATINGS.map((r) => [r.label, r.grade, r.key])).toEqual([
+      ["Again", 1, "1"],
+      ["Hard", 3, "2"],
+      ["Good", 4, "3"],
+      ["Easy", 5, "4"],
+    ]);
+  });
+
+  it("shows each rating's next interval", () => {
+    expect(previewIntervals(card, { now: NOW }).map((p) => p.label)).toEqual(["1 day", "15 days", "15 days", "15 days"]);
+  });
+
+  it("marks intervals capped by an exam", () => {
+    const p = previewIntervals(card, { examDate: "2026-10-10", now: NOW });
+    expect(p.map((x) => x.label)).toEqual(["1 day", "4 days · before exam", "4 days · before exam", "4 days · before exam"]);
+    expect(p[0].beforeExam).toBe(false);
+  });
+
+  it("labels singular and plural days", () => {
+    expect(intervalLabel(1)).toBe("1 day");
+    expect(intervalLabel(6)).toBe("6 days");
+    expect(intervalLabel(3, true)).toBe("3 days · before exam");
   });
 });

@@ -75,6 +75,26 @@ export function sm2(card, grade, { examDate = null, now = new Date() } = {}) {
   };
 }
 
+export const RATINGS = Object.freeze([
+  { id: "again", label: "Again", grade: 1, key: "1" },
+  { id: "hard", label: "Hard", grade: 3, key: "2" },
+  { id: "good", label: "Good", grade: 4, key: "3" },
+  { id: "easy", label: "Easy", grade: 5, key: "4" },
+]);
+
+export function intervalLabel(days, beforeExam = false) {
+  return `${days} ${days === 1 ? "day" : "days"}${beforeExam ? " · before exam" : ""}`;
+}
+
+/** What each rating would schedule, for the rating buttons. Pure: calls sm2 without writing. */
+export function previewIntervals(card, { examDate = null, now = new Date() } = {}) {
+  return RATINGS.map((r) => {
+    const days = sm2(card, r.grade, { examDate, now }).intervalDays;
+    const beforeExam = !!examDate && days < sm2(card, r.grade, { now }).intervalDays;
+    return { ...r, days, beforeExam, label: intervalLabel(days, beforeExam) };
+  });
+}
+
 /**
  * Due today or overdue (never-reviewed cards are due). With an exam date, a card not reviewed since
  * the final window opened is also due once the window is open, whatever its next review date.
