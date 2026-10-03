@@ -92,7 +92,7 @@ drain 650ms after 450ms, recharge 1.5s.
 - **Pin** button and **Ctrl B** pin it open in-flow. Inside a course it is pinned by default
   and the course expands into its modules (01 Requirements, 02 Use cases…).
 - Collapsed rail hides labels, section header, round tally, attention dot.
-- Inside a course the course keeps its own module list beside the collapsed rail until step 3.
+- Inside a course the rail is pinned by default and lists the course's items under the active course (modules, then Course and Study groups; OM 300: modules, Reference, Study).
 
 ### 2.2 Home ("Pure")
 
@@ -169,7 +169,7 @@ All "Plan" layout unless noted. Shells may show real data where it already exist
 | Screen | Content |
 |---|---|
 | Home | 2.2 |
-| Course workspace | breadcrumb, title, tabs CONTENT/NOTES/GLOSSARY/GRADES, mastery line (aqua→magenta), definitions two-column list (medium confidence = amber square; low = NEEDS REVIEW), formula block (magenta left rule), numbered sections (mono aqua 01 02) |
+| Course workspace | breadcrumb, title, tabs CONTENT/NOTES/GLOSSARY/GRADES, mastery line (aqua→magenta), definitions two-column list (medium confidence = amber square; low = NEEDS REVIEW), formula block (magenta left rule), numbered sections (mono aqua 01 02), `...` course menu, slide-over drawer for glossary/settings, deck mode chips; mastery = flashcard mastery for both course types |
 | Decks | "N cards due · ~M min" + Review all due; grouped by course with exam date header; rows: name, cards due, mastery bar, exam countdown |
 | Grades hub | rows per course: current grade (mono, amber when at risk) + letter, trend sparkline, next step ("Need 84 on the midterm to reach B"); What if… opens the calculator |
 | Calendar | week grid, today aqua top edge; due = aqua edge, exam = magenta, Nova study blocks = dashed; Month toggle; Nova shrunk |

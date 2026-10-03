@@ -12,7 +12,7 @@ function todayLabel() {
 export function TitleBar({ onHub = true }) {
   const { breadcrumb } = useShell();
   const api = getElectronApi();
-  const crumb = !onHub && breadcrumb.length > 1 ? breadcrumb.slice(1).join(" › ") : null;
+  const center = onHub ? todayLabel() : breadcrumb.filter(Boolean).join(" · ");
 
   const [maximized, setMaximized] = useState(false);
 
@@ -31,15 +31,9 @@ export function TitleBar({ onHub = true }) {
 
   return (
     <header className="sh-titlebar" onDoubleClick={(e) => e.target === e.currentTarget && api?.maximizeWindow?.()}>
-      <div className="sh-titlebar-left">
-        {crumb ? (
-          <span className="sh-titlebar-crumb" title={crumb}>
-            {crumb}
-          </span>
-        ) : null}
-      </div>
+      <div className="sh-titlebar-left" />
 
-      <span className="sh-titlebar-date">{todayLabel()}</span>
+      <span className="sh-titlebar-date">{center}</span>
 
       <div className="sh-titlebar-right">
         {api ? (

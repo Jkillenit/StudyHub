@@ -1,27 +1,17 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 
 const ShellContext = createContext(null);
 
 export function ShellProvider({ children }) {
   const [breadcrumb, setBreadcrumb] = useState(() => ["STUDY HUB"]);
-  const [statusLeft, setStatusLeft] = useState(() => []);
-  const [statusRight, setStatusRight] = useState(() => []);
   const [apiLive, setApiLive] = useState(false);
   const [courseNav, setCourseNav] = useState(null);
   const [prompt, setPrompt] = useState(null);
-
-  const setStatusBar = useCallback((parts) => {
-    setStatusLeft(parts?.left ?? []);
-    setStatusRight(parts?.right ?? []);
-  }, []);
 
   const value = useMemo(
     () => ({
       breadcrumb,
       setBreadcrumb,
-      statusLeft,
-      statusRight,
-      setStatusBar,
       apiLive,
       setApiLive,
       courseNav,
@@ -29,7 +19,7 @@ export function ShellProvider({ children }) {
       prompt,
       setPrompt,
     }),
-    [apiLive, breadcrumb, statusLeft, statusRight, setStatusBar, courseNav, prompt]
+    [apiLive, breadcrumb, courseNav, prompt]
   );
 
   return <ShellContext.Provider value={value}>{children}</ShellContext.Provider>;

@@ -3,7 +3,6 @@ import { ShellProvider, useShell } from "../shell/ShellContext.jsx";
 import { TitleBar } from "../components/TitleBar.jsx";
 import { AppRail } from "../shell/AppRail.jsx";
 import { shortCourse } from "../features/dashboard/courseLabel.js";
-import { StatusBar } from "../shell/TilingChrome.jsx";
 import { CommandPalette } from "../shell/CommandPalette.jsx";
 import { AmbientBackground } from "../shell/AmbientBackground.jsx";
 import { BuiltinCourseApp } from "../study/BuiltinCourseApp.jsx";
@@ -326,7 +325,7 @@ function StudyHubAppInner() {
   const userCoursesList = useMemo(() => userCourses.filter((c) => c.type !== "builtin"), [userCourses]);
   const activeUserCourse = userCoursesList.find((c) => c.id === courseId);
   const onHub = courseId === null;
-  const novaPlace = onHub ? (hubView === "calendar" ? "tuck" : "lane") : "free";
+  const novaPlace = onHub && hubView === "calendar" ? "tuck" : "lane";
   const railCourses = useMemo(
     () => [{ id: "builtin", code: "OM 300" }, ...userCoursesList.map((c) => ({ id: c.id, code: shortCourse(c.courseCode || c.name) || c.name }))],
     [userCoursesList]
@@ -392,27 +391,24 @@ function StudyHubAppInner() {
               onExpressComplete={onHubExpressComplete}
             />
           ) : (
-            <>
-              <div className="sh-shell-body">
-                {courseId === "builtin" && (
-                  <BuiltinCourseApp
-                    courseShellLoad={courseShellLoad}
-                    onActiveChapterChange={handleBuiltinActiveChapterChange}
-                    novaCourses={userCoursesList}
-                  />
-                )}
-                {activeUserCourse && courseId !== "builtin" && (
-                  <UserCourseApp
-                    course={activeUserCourse}
-                    onChangeCourse={saveCourse}
-                    onDeleteCourse={deleteUserCourse}
-                    onActiveChapterChange={handleUserCourseActiveChapterChange}
-                    novaCourses={userCoursesList}
-                  />
-                )}
-              </div>
-              <StatusBar />
-            </>
+            <div className="sh-shell-body">
+              {courseId === "builtin" && (
+                <BuiltinCourseApp
+                  courseShellLoad={courseShellLoad}
+                  onActiveChapterChange={handleBuiltinActiveChapterChange}
+                  novaCourses={userCoursesList}
+                />
+              )}
+              {activeUserCourse && courseId !== "builtin" && (
+                <UserCourseApp
+                  course={activeUserCourse}
+                  onChangeCourse={saveCourse}
+                  onDeleteCourse={deleteUserCourse}
+                  onActiveChapterChange={handleUserCourseActiveChapterChange}
+                  novaCourses={userCoursesList}
+                />
+              )}
+            </div>
           )}
         </ErrorBoundary>
       </div>

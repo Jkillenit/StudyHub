@@ -663,7 +663,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   ];
   const mainItems = [
     { id: "quiz", label: "QUIZ ME", icon: "✦", onClick: () => startQuiz() },
-    { id: "layout", label: "REARRANGE", icon: "▦", onClick: () => setMenuPage("layout") },
+    ...(onHub ? [{ id: "layout", label: "REARRANGE", icon: "▦", onClick: () => setMenuPage("layout") }] : []),
     { id: "tour", label: "SHOW ME AROUND", icon: "◎", onClick: contextualTour },
     { id: "help", label: "ASK NOVA", icon: "›", onClick: startHelp },
     {

@@ -5,7 +5,7 @@
     {
       "targetId": "course-modules",
       "title": "Modules",
-      "text": "Each module is a lecture or chapter: slides, notes and glossary. Arrow keys flip between them.",
+      "text": "Each module is a lecture or chapter, listed right here in the sidebar. Arrow keys flip between them.",
       "placement": "right",
       "route": "course"
     },
@@ -33,8 +33,8 @@
     {
       "targetId": "course-context",
       "title": "Mastery",
-      "text": "How much of this deck you've actually retained, and how many cards are due right now.",
-      "placement": "left",
+      "text": "How much of this course's deck you've actually retained. It climbs as cards stick.",
+      "placement": "bottom",
       "route": "course"
     }
   ]
