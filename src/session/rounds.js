@@ -19,18 +19,21 @@ async function readMarks() {
   try {
     return Math.max(0, Number(JSON.parse((await settings.get(KEY)) || "0")) || 0);
   } catch {
-    return 0;
+    return null;
   }
 }
 
 export async function loadRounds() {
-  const marks = await readMarks();
+  const marks = (await readMarks()) ?? memoryMarks;
   return { marks, ...roundInfo(marks) };
 }
 
+/** A failed read never overwrites the stored tally. */
 export async function recordMark() {
-  const result = addMark(await readMarks());
+  const stored = await readMarks();
+  const result = addMark(stored ?? memoryMarks);
   memoryMarks = result.marks;
+  if (stored == null && window.studyHub?.db?.settings?.get) return result;
   try {
     await window.studyHub?.db?.settings?.set?.({ key: KEY, value: JSON.stringify(result.marks) });
   } catch {
