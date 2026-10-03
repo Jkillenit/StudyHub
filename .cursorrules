@@ -40,19 +40,22 @@ electron/
  bbPreload.cjs         Blackboard window bridge
  aiConfig.cjs          API key (safeStorage)
  anthropicClient.cjs   Claude calls
+ maintenance.cjs       Daily backups (keep 7), restore, app info, updater
 
 src/
- app/StudyHubApp.jsx   Root app, course state, routing
- features/             Feature modules (today, import, dashboard, calendar,
-                       practice, web, commons UI)
- features/today/       Priority engine (pure, unit-tested) + Today screen
- hub/                  User course view (UserCourseApp + components/)
+ app/StudyHubApp.jsx   Root app, course state, routing, first-run setup gate
+ features/             Feature modules (today, decks, grades, settings, setup,
+                       dashboard/calendar, import, practice, web, commons UI)
+ features/today/       Priority engine (pure, unit-tested) + Home/Today screens
+ hub/                  HubScreen (hub views) + user course view (UserCourseApp)
  study/                OM 300 built-in course, FlashcardDeck, sm2.js
- companion/            Nova 3D companion, quiz panel, tours, XP
+ session/              Session shell, shield meter, results, rounds, power-ups
+ companion/            Nova 3D companion, quiz panel, tours, XP, voice packs
  pptx/ ai/ syllabus/   Import pipelines
  db/courseStore.js     Data access layer (renderer's only DB entry point)
  commons/              Commons client
- shell/                Command palette, ShellContext
+ shell/                Rail, title bar, command palette, ShellContext,
+                       motion.js, pack.js, ambient background
  studyhub-bootstrap.css  ONLY CSS file
 
 supabase/              Commons SQL schema, RLS, edge functions
@@ -65,11 +68,13 @@ NEVER hardcode colors, fonts, radii or shadows. ALWAYS use tokens
  Surfaces: --sh-bg --sh-side --sh-panel --sh-panel-strong --sh-panel-solid (floating UI)
  Lines: --sh-border --sh-border-strong --sh-track
  Accent: --sh-accent --sh-accent-soft --sh-accent-line --sh-accent-hover
- Secondary: --sh-accent-2 (magenta) for chamfer corners, ambient lines, auras ONLY
+ Secondary: --sh-accent-2 (magenta) ONLY for chamfer/card corner marks, ambient
+  lines, auras, exam tags/edges, the mastery/progress gradient end, formula rule
  States: --sh-warn(-soft/-line) --sh-danger(-soft/-line)
+ Power-ups: --sh-power (green) only on power-up drops
  Text: --sh-text --sh-text-2 --sh-text-3 (never dimmer than text-3)
  Shape: radius is 0 everywhere; --sh-cut chamfer; --sh-shadow-panel --sh-glow-accent
-Aqua (--sh-accent) is the only interactive accent. No terminal green.
+--sh-accent (aqua in Nova, red in Zombies) is the only interactive accent. No terminal green.
 Glow only on the single most important element on screen.
 
 Typography (fonts bundled via @fontsource, never a CDN):
@@ -81,7 +86,16 @@ Typography (fonts bundled via @fontsource, never a CDN):
 Motion: respect html[data-motion="reduced"] (set from Settings or the OS via
 src/shell/motion.js). Never use @media (prefers-reduced-motion) directly.
 
-Tab/nav active state: border-bottom only (2px solid var(--sh-accent)), never full border.
+Tab active state: border-bottom only (2px solid var(--sh-accent)); vertical nav:
+2px left border. Never a full border.
+
+Flavor packs ("Make it yours"): src/shell/pack.js sets html[data-pack]
+("nova" default | "zombies"), stored in localStorage studyHub.v2.prefs.pack.
+A pack overrides TOKEN VALUES only (html[data-pack="zombies"] block after :root),
+plus art layers, Nova's shader look, voice lines (src/companion/packs/) and
+celebrations (medals vs power-ups). Layout never changes between packs. Never
+write per-component pack colors; anything reading tokens in JS (ambient canvas,
+Nova shader) must refresh on the studyhub-pack-changed event.
 
 ## IPC PATTERN
 Main: ipcMain.handle('namespace:action', async (_, args) => {})
@@ -120,11 +134,19 @@ NEVER require() Node modules in renderer. NEVER use remote module.
 UserCourseApp module tabs: CONTENT | NOTES | GLOSSARY | GRADES
  plus QZ-01 as a DRILL sidebar item.
 Active sidebar state: 'module:{uuid}' | 'qz-deck' | null. Never array index.
-Definition cards: high (full green), medium (muted green + amber dot),
- low (border only, NEEDS REVIEW section).
-Section blocks: numbered (01 02 in mono green), bullets (— prefix),
+Definition list: high confidence plain, medium = amber square marker,
+ low = NEEDS REVIEW section.
+Section blocks: numbered (01 02 in mono aqua), bullets (— prefix),
  deflist (term above, definition indented).
 Show 4 items by default, expand for more. Collapsible threshold: 120 chars.
+Hub views (hubView): today | plan | calendar | decks | grades | settings | courses.
+ Settings tabs: general | nova | theme | blackboard | backup | ai.
+Sessions (quiz + flashcards) render inside SessionShell (sets html[data-session],
+ collapses the rail, Nova moves to the session lane). Nothing may open a second
+ session while one is open. Ratings Again/Hard/Good/Easy = keys 1-4 = SM-2 grades
+ 1/3/4/5. Shield: misses hit shields first; health drops only while shields are down.
+Rounds: 5 marks per round in SQLite settings key session.rounds (recordMark);
+ completed sessions and newly completed assignments add a mark.
 
 ## KEYBOARD HANDLERS
 Flashcard drill: check palette closed, useCallback, cleanup in effect,
@@ -156,7 +178,9 @@ Every code change must:
 - Bullet 2"
 
 ## CURRENT STATUS
-See docs/ROADMAP.md. Shipped: Phase 0, Mirror v1, Study suite v1, Nova C.1–C.6c.
+See docs/ROADMAP.md. Shipped: Phase 0, Mirror v1, Study suite v1, Nova C.1–C.6c,
+UI overhaul (Phase 2.2x: rail shell, Pure home, course workspace, Nova session,
+screen shells, Nova + Zombies packs).
 Plan (Today-first pivot, 2026-09): 1 Mirror + Today (priority engine, ranked
 Today, needed score) → 2 Exam prep (exam-aware SM-2, exam_modules, Nova
 sessions) → 3 Alpha (onboarding, backup, auto-update, 20–30 users) → Later,
