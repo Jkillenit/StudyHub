@@ -10,12 +10,11 @@ import { BURST_MS, RETURN_AWAY_MS, TALK_MS_PER_CHAR } from "../layer/constants.j
  */
 export function useNovaInput(
   core,
-  { visibleNow, mode, bubble, flying, size, tour, housedRef, stagesDoneRef, wokeByRef, closeHelp, startHelp, endTour, dockPoint }
+  { visibleNow, mode, bubble, flying, size, tour, housedRef, stagesDoneRef, wokeByRef, closeHelp, startHelp, endTour }
 ) {
   const {
     stateRef,
     modeRef,
-    navRef,
     api,
     send,
     force,
@@ -199,10 +198,6 @@ export function useNovaInput(
       if (e.key === "Escape" && modeRef.current === "help") closeHelp();
     };
     const onResize = () => {
-      if (modeRef.current === "quiz" && !navRef.current.session) {
-        jumpTo(dockPoint());
-        return;
-      }
       const s = sizeRef.current;
       const c = clampPoint(posRef.current, s);
       if (c.x !== posRef.current.x || c.y !== posRef.current.y) jumpTo(c);
@@ -213,7 +208,7 @@ export function useNovaInput(
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("resize", onResize);
     };
-  }, [endTour, closeHelp, jumpTo, posRef, dockPoint]);
+  }, [endTour, closeHelp, jumpTo, posRef]);
 
   const prevSizeRef = useRef(size);
   useEffect(() => {

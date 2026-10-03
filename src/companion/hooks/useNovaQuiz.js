@@ -4,13 +4,12 @@ import { levelForXp, isRampant } from "../companionStore.js";
 import { loadFlashcardDeck, persistFlashcardDeck } from "../../study/flashcards/flashcardPersistence.js";
 import { courseStore } from "../../db/courseStore.js";
 import { cardKey, runAwards } from "../lightRun.js";
-import { clampPoint } from "../safeZones.js";
 import { builtinCourse } from "../layer/geometry.js";
-import { BUILTIN_ID, ENGAGED_SPEED, QUIZ_W } from "../layer/constants.js";
+import { BUILTIN_ID } from "../layer/constants.js";
 
-/** Quiz: she docks beside the quiz panel, reacts to each answer, and saves the run. */
+/** Quiz: she runs it from her session lane, reacts to each answer, and saves the run. */
 export function useNovaQuiz(core, { courses, awardXp, returnHome, setHelp, setMarks, onUpdateCourse }) {
-  const { stateRef, modeRef, navRef, send, setBubble, say, setMood, update, cancel, flyTo, sizeRef, setFacing, setAnchor, sfx, playGesture, flashReaction } = core;
+  const { stateRef, navRef, api, housedRef, send, setBubble, say, setMood, update, cancel, setAnchor, sfx, playGesture, flashReaction } = core;
   const [glow, setGlow] = useState(1);
   const [quizDeck, setQuizDeck] = useState("all");
   const [builtinCards, setBuiltinCards] = useState(loadFlashcardDeck);
@@ -22,14 +21,8 @@ export function useNovaQuiz(core, { courses, awardXp, returnHome, setHelp, setMa
     [courses, builtinCards]
   );
 
-  const dockPoint = useCallback(() => {
-    const s = sizeRef.current;
-    const panelLeft = window.innerWidth - 16 - QUIZ_W;
-    return clampPoint({ x: panelLeft - s - 18, y: 110 }, s);
-  }, []);
-
   const startQuiz = useCallback(
-    async (deckId) => {
+    (deckId) => {
       const nav = navRef.current;
       const fresh = loadFlashcardDeck();
       setBuiltinCards(fresh);
@@ -46,17 +39,11 @@ export function useNovaQuiz(core, { courses, awardXp, returnHome, setHelp, setMa
       setQuizDeck(deck);
       setGlow(1);
       setMood("excited");
-      if (navRef.current.session) {
-        say(line("quizStart"));
-        return;
-      }
-      const ok = await flyTo(dockPoint(), { speed: ENGAGED_SPEED });
-      if (!ok || modeRef.current !== "quiz") return;
-      setFacing(1);
-      setAnchor({ h: "left", v: "below" });
+      /* Off in the page somewhere: snap into her lane (the session lane re-houses her if it isn't up yet). */
+      if (!housedRef.current) api.current.houseAt?.();
       say(line("quizStart"));
     },
-    [cancel, send, flyTo, dockPoint, setFacing, say, update]
+    [cancel, send, say, update]
   );
 
   const onQuizAnswer = useCallback(
@@ -201,5 +188,5 @@ export function useNovaQuiz(core, { courses, awardXp, returnHome, setHelp, setMa
     void returnHome(220);
   }, [send, returnHome]);
 
-  return { quizDeck, glow, quizCourses, lastTierRef, startQuiz, dockPoint, onQuizAnswer, onQuizFinish, closeQuiz };
+  return { quizDeck, glow, quizCourses, lastTierRef, startQuiz, onQuizAnswer, onQuizFinish, closeQuiz };
 }

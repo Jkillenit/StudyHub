@@ -5,13 +5,12 @@ import { shortCourse } from "../features/dashboard/courseLabel.js";
 
 export const RUN_MODES = [
   { id: "quick", label: "QUICK RUN", blurb: "5–10 due cards. No timer." },
-  { id: "streak", label: "STREAK RUN", blurb: "Keep going until your third miss." },
+  { id: "streak", label: "STREAK RUN", blurb: "Keep going until your health runs out." },
   { id: "weak", label: "WEAK SPOTS", blurb: "Your 10 shakiest cards. Hints encouraged." },
   { id: "clock", label: "BEAT THE CLOCK", blurb: "60 seconds, multiple choice, speed bonus." },
 ];
 
 export const CLOCK_SECONDS = 60;
-export const STREAK_LIVES = 3;
 const MIN_MC = 4;
 
 export const cardKey = (c) => c?.uuid || c?.id;

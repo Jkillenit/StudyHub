@@ -29,7 +29,6 @@ export const MOVE = {
 };
 export const ENGAGED_SPEED = 420;
 export const BUBBLE_W = 290;
-export const QUIZ_W = 380;
 export const NUDGE_FIRST_MS = 90 * 1000;
 export const NUDGE_COOLDOWN_MS = 10 * 60 * 1000;
 export const NUDGE_MAX_PER_SESSION = 4;

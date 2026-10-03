@@ -12,7 +12,7 @@ let owner = 0;
  * While mounted the rail stays collapsed and Nova moves to her session lane. Escape is the
  * child panel's job; the shell only renders the Esc button.
  */
-export function SessionShell({ kind, crumb, shield = null, counter = null, progress = null, onExit, children }) {
+export function SessionShell({ kind, crumb, shield = null, shieldLabel = null, counter = null, progress = null, onExit, children }) {
   const { setSession } = useShell();
   const [round, setRound] = useState(null);
 
@@ -45,7 +45,7 @@ export function SessionShell({ kind, crumb, shield = null, counter = null, progr
     <section className="sh-session" data-sprite-avoid aria-label="Study session">
       <header className="sh-session-strip">
         <span className="sh-session-crumb">{crumb}</span>
-        <div className="sh-session-meter">{shield ? <ShieldMeter state={shield} /> : null}</div>
+        <div className="sh-session-meter">{shield ? <ShieldMeter state={shield} label={shieldLabel} /> : null}</div>
         <div className="sh-session-right">
           {right ? <span className="sh-session-count">{right}</span> : null}
           <button type="button" className="sh-session-esc" onClick={onExit} aria-label="End session">

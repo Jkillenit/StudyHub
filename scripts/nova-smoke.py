@@ -22,7 +22,7 @@ STATE = {"enabled": True, "onboarded": True, "askedName": True, "askedMore": Tru
 SCOUT = ".sc-scout:not(.sc-scout--hidden)"
 SCOUT_BTN = ".sc-scout:not(.sc-scout--hidden) .sc-scout-btn"
 MENU = ".sc-menu"
-QUIZ = ".sc-quiz"
+QUIZ = ".sh-session-panel"
 SETTINGS = ".sc-settings"
 
 errors = []
@@ -117,7 +117,7 @@ def check_quiz(page):
     open_menu(page)
     page.locator(f"{MENU} .sc-menu-item", has_text="QUIZ ME").click()
     page.wait_for_selector(QUIZ, state="visible", timeout=5000)
-    page.locator(f'{QUIZ} [aria-label="Close quiz"]').click()
+    page.locator('.sh-session [aria-label="End session"]').click()
     page.wait_for_selector(QUIZ, state="detached", timeout=5000)
 
 

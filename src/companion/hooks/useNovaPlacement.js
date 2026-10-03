@@ -76,8 +76,10 @@ export function useNovaPlacement(core, { baseSize, enabled, stageActive }) {
     markStage(true);
     awayRef.current = { stops: 0, goal: randInt(HOME_AWAY_STOPS) };
     awayFromSpotRef.current = false;
+    refreshAnchor();
     return true;
-  }, [jumpTo]);
+  }, [jumpTo, refreshAnchor]);
+  api.current.houseAt = houseAt;
 
   /** Shrink back to normal size where she stands, feet and center kept in place. */
   const leaveHome = useCallback(() => {
@@ -164,6 +166,8 @@ export function useNovaPlacement(core, { baseSize, enabled, stageActive }) {
     let t = 0;
     const tryHome = () => {
       if (housedRef.current) return;
+      /* A quiz runs from the session lane: snap straight in. */
+      if (modeRef.current === "quiz" && !dragRef.current && houseAt()) return;
       /* Busy, asleep, or engaged (e.g. falling after the window resized): try again once she's settled. */
       if (!AUTONOMOUS.has(modeRef.current) || busy() || dragRef.current) {
         t = window.setTimeout(tryHome, HOME_RETURN_DELAY_MS);
@@ -173,7 +177,7 @@ export function useNovaPlacement(core, { baseSize, enabled, stageActive }) {
     };
     t = window.setTimeout(tryHome, HOME_RETURN_DELAY_MS);
     return () => window.clearTimeout(t);
-  }, [stageActive, enabled, leaveHome, busy]);
+  }, [stageActive, enabled, leaveHome, busy, houseAt]);
 
   /* Keep her sized and standing on the home floor as the window reflows. */
   useEffect(() => {

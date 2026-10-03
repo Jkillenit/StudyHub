@@ -67,8 +67,8 @@ import { useNovaInput } from "./hooks/useNovaInput.js";
 
 const Nova3D = lazy(() => import("./nova3d/Nova3D.jsx"));
 
-/** In a session she quizzes from her lane instead of walking out to dock beside the panel. */
-const leavesHomeFor = (next, session) => !HOME_MODES.has(next) && !(next === "quiz" && session);
+/** Every quiz runs in a session, so she quizzes from her lane instead of walking out of it. */
+const leavesHomeFor = (next) => !HOME_MODES.has(next) && next !== "quiz";
 
 /**
  * Nova's overlay. Lives above the app in a portal; only Nova, her bubbles and menus take
@@ -160,7 +160,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const stageActive = (place === "lane" || place === "session") && laneShown;
   const onToday = onHub && (hubView === "today" || hubView === "plan");
   const navRef = useRef({});
-  navRef.current = { courses, activeCourseId, onHub, onGoHub, onOpenCourse, stageActive, onToday, session: place === "session" };
+  navRef.current = { courses, activeCourseId, onHub, onGoHub, onOpenCourse, stageActive, onToday };
 
   const lastActivityRef = useRef(Date.now());
   /** Last pointer, key, wheel or touch input; she only acts on her own after IDLE_START_MS of none. */
@@ -223,7 +223,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     const next = transition(modeRef.current, event);
     if (next !== modeRef.current) {
       if (modeRef.current === "brief") stageRef.current.abort();
-      if (housedRef.current && leavesHomeFor(next, navRef.current.session)) api.current.leaveHome?.();
+      if (housedRef.current && leavesHomeFor(next)) api.current.leaveHome?.();
       /* A tour, quiz, help answer or nudge may have taken her elsewhere; the next input brings her back. */
       if (AUTONOMOUS.has(next) && ENGAGED_MODES.has(modeRef.current) && !housedRef.current) awayFromSpotRef.current = true;
       modeRef.current = next;
@@ -234,7 +234,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   const force = useCallback((next) => {
     if (modeRef.current === "brief" && next !== "brief") stageRef.current.abort();
-    if (housedRef.current && leavesHomeFor(next, navRef.current.session)) api.current.leaveHome?.();
+    if (housedRef.current && leavesHomeFor(next)) api.current.leaveHome?.();
     modeRef.current = next;
     setMode(next);
   }, []);
@@ -432,7 +432,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     send("HIDE");
   }, [cancel, send]);
 
-  const { quizDeck, glow, quizCourses, lastTierRef, startQuiz, dockPoint, onQuizAnswer, onQuizFinish, closeQuiz } = useNovaQuiz(core, { courses, awardXp, returnHome, setHelp, setMarks, onUpdateCourse });
+  const { quizDeck, glow, quizCourses, lastTierRef, startQuiz, onQuizAnswer, onQuizFinish, closeQuiz } = useNovaQuiz(core, { courses, awardXp, returnHome, setHelp, setMarks, onUpdateCourse });
 
   const { sync, syncRef, offline } = useNovaSync(core, { flashReaction, sfx });
 
@@ -546,7 +546,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     closeHelp,
     startHelp,
     endTour,
-    dockPoint,
   });
 
   /* ---------- settings ---------- */
@@ -861,6 +860,10 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           onAnswer={onQuizAnswer}
           onFinish={onQuizFinish}
           onClose={closeQuiz}
+          onToday={() => {
+            closeQuiz();
+            onGoHub?.("today");
+          }}
         />
       ) : null}
       {settingsOpen ? (

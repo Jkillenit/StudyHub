@@ -183,6 +183,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange,
   useEffect(() => {
     const onKey = (e) => {
       if (isTypingTarget(e.target) || paletteOpen()) return;
+      if (document.documentElement.dataset.session != null) return;
       if (active === "flashcards" && mainTab === "content") return;
       if (e.key === "ArrowLeft") goChapter(-1);
       if (e.key === "ArrowRight") goChapter(1);
@@ -194,6 +195,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange,
   useEffect(() => {
     const onKey = (e) => {
       if (isTypingTarget(e.target) || paletteOpen()) return;
+      if (document.documentElement.dataset.session != null) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "r") {
         e.preventDefault();
         markCurrentComplete();

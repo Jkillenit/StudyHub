@@ -458,6 +458,7 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, onActive
     const onKey = (e) => {
       if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return;
       if (document.querySelector('.sh-palette, .sh-cmd-palette, [data-palette="true"]')) return;
+      if (document.documentElement.dataset.session != null) return;
       if (!activeItem?.startsWith("module:")) return;
       if (e.key === "ArrowLeft") goChapter(-1);
       if (e.key === "ArrowRight") goChapter(1);
