@@ -95,6 +95,10 @@ contextBridge.exposeInMainWorld("studyHub", {
     backup: {
       create: () => ipcRenderer.invoke("app:backup:create"),
       restore: () => ipcRenderer.invoke("app:backup:restore"),
+      /** @returns {Promise<{ last: string|null, count: number, dir: string }>} */
+      status: () => ipcRenderer.invoke("app:backup:status"),
+      now: () => ipcRenderer.invoke("app:backup:now"),
+      openFolder: () => ipcRenderer.invoke("app:backup:openFolder"),
     },
     update: {
       check: () => ipcRenderer.invoke("app:update:check"),

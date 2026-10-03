@@ -15,7 +15,6 @@ import { transition, AUTONOMOUS } from "./machine.js";
 import {
   clampPoint,
   defaultHome,
-  groundPlatform,
   platformBelow,
   standOn,
 } from "./safeZones.js";
@@ -66,6 +65,8 @@ import { useNovaAutonomy } from "./hooks/useNovaAutonomy.js";
 import { useNovaInput } from "./hooks/useNovaInput.js";
 
 const Nova3D = lazy(() => import("./nova3d/Nova3D.jsx"));
+/** The first-run tour waits for the setup screen to close and Today to mount. */
+const SETUP_TOUR_DELAY_MS = 700;
 
 /** Every quiz runs in a session, so she quizzes from her lane instead of walking out of it. */
 const leavesHomeFor = (next) => !HOME_MODES.has(next) && next !== "quiz";
@@ -157,10 +158,11 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     };
   }, [place]);
   /* Lane visibility is part of it so widening the window (or unpinning the rail) walks her back in. */
-  const stageActive = (place === "lane" || place === "session") && laneShown;
+  const inSetup = place === "setup";
+  const stageActive = ((place === "lane" || place === "session") && laneShown) || inSetup;
   const onToday = onHub && (hubView === "today" || hubView === "plan");
   const navRef = useRef({});
-  navRef.current = { courses, activeCourseId, onHub, onGoHub, onOpenCourse, stageActive, onToday };
+  navRef.current = { courses, activeCourseId, onHub, onGoHub, onOpenCourse, stageActive, onToday, inSetup };
 
   const lastActivityRef = useRef(Date.now());
   /** Last pointer, key, wheel or touch input; she only acts on her own after IDLE_START_MS of none. */
@@ -178,7 +180,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   reducedRef.current = reduced;
   /** Focus mode ends at this time (0 = off); she stays quiet like quiet mode until then. */
   const focusRef = useRef(0);
-  const quietNow = () => !!stateRef.current?.quiet || focusRef.current > Date.now();
+  /** The setup screen does the talking, so she keeps still and silent there too. */
+  const quietNow = () => !!stateRef.current?.quiet || focusRef.current > Date.now() || !!navRef.current.inSetup;
   const canAct = useCallback(
     () =>
       !tuckedRef.current &&
@@ -338,6 +341,17 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   /* ---------- home window on Today: big inside it, normal size everywhere else ---------- */
 
+  /* Leaving setup: step quietly out of its stage onto her spot (declared before the placement
+     hook so its "left home" fall and landing quip don't fire); she walks into the lane from there. */
+  const prevPlaceRef = useRef(place);
+  useEffect(() => {
+    const was = prevPlaceRef.current;
+    prevPlaceRef.current = place;
+    if (was !== "setup" || place === "setup" || !housedRef.current) return;
+    api.current.leaveHome();
+    jumpTo(home());
+  }, [place, jumpTo, home]);
+
   const { housed, size, growRef, awayRef, houseAt, leaveHome, returnHome } = useNovaPlacement(core, { baseSize, enabled, stageActive });
   sizeRef.current = size;
 
@@ -371,42 +385,21 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     };
   }, []);
 
-  const appear = useCallback(
-    async (greet) => {
-      setBubble(null);
-      setMood("neutral");
-      if (!greet) {
-        force("idle");
-        if (!houseAt()) jumpTo(home());
-        sfx("appear");
-        later(() => void api.current.sayOpener?.(), DAY_HELLO_DELAY_MS);
-        return;
-      }
-      force("idle");
-      send("GREET");
-      setMood("excited");
-      jumpTo({ x: window.innerWidth + 10, y: window.innerHeight * 0.45 });
-      const s = sizeRef.current;
-      const spot = use3dRef.current
-        ? standOn(groundPlatform(), window.innerWidth * 0.6, s)
-        : clampPoint({ x: window.innerWidth * 0.6, y: window.innerHeight * 0.38 }, s);
-      const ok = await flyTo(spot, { speed: 380 });
-      if (!ok || modeRef.current !== "greet") return;
-      if (use3dRef.current) {
-        platRef.current = groundPlatform();
-        playGesture("wave");
-      }
-      setMood("happy");
-      api.current.greet();
-    },
-    [force, send, jumpTo, flyTo, home, houseAt, sfx, playGesture, busy, say, refreshAnchor]
-  );
+  /* First run is the setup screen (src/features/setup), so she never greets with bubbles here. */
+  const appear = useCallback(() => {
+    setBubble(null);
+    setMood("neutral");
+    force("idle");
+    if (!houseAt()) jumpTo(home());
+    sfx("appear");
+    later(() => void api.current.sayOpener?.(), DAY_HELLO_DELAY_MS);
+  }, [force, jumpTo, home, houseAt, sfx, later]);
 
   useEffect(() => {
     if (!cstate || startedRef.current) return;
     if (cstate.enabled && body === "loading") return;
     startedRef.current = true;
-    if (cstate.enabled) void appear(!cstate.onboarded);
+    if (cstate.enabled) appear();
   }, [cstate, appear, body]);
 
   useEffect(() => {
@@ -422,6 +415,18 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const ensureRouteVia = useCallback((...a) => api.current.ensureRoute(...a), []);
   const { help, setHelp, startHelp, closeHelp, showMe, openAnswer } = useNovaHelp(core, { setMarks, ensureRoute: ensureRouteVia });
   const { tour, setTour, tourRef, ensureRoute, endTour, goStep, startTour } = useNovaTour(core, { setMarks, awardXp, setHelp, mode });
+
+  /* The setup screen finished (see SetupScreen): she owns the saved state, so she marks it. */
+  useEffect(() => {
+    const onSetupDone = (e) => {
+      if (!stateRef.current) return;
+      e.preventDefault();
+      update({ onboarded: true, ...(e.detail?.named ? { askedName: true } : {}) });
+      if (e.detail?.tour) later(() => startTour("first-run"), SETUP_TOUR_DELAY_MS);
+    };
+    window.addEventListener("studyhub-setup-done", onSetupDone);
+    return () => window.removeEventListener("studyhub-setup-done", onSetupDone);
+  }, [update, later, startTour]);
 
   /* ---------- menu actions ---------- */
 
@@ -444,7 +449,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   /* ---------- what she remembers ---------- */
 
-  const { memoryActions } = useNovaMemoryVoice(core, { startQuiz, startTour, returnHome });
+  const { memoryActions } = useNovaMemoryVoice(core, { startQuiz });
 
   /* ---------- clicking & dragging Nova ---------- */
 
@@ -555,7 +560,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       if ("enabled" in patch) {
         update(patch);
         if (patch.enabled) {
-          if (modeRef.current === "hidden") void appear(false);
+          if (modeRef.current === "hidden") appear();
         } else {
           if (tourRef.current) {
             tourRef.current.cleanup?.();
@@ -664,9 +669,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     { id: "l-menu", label: "BACK", icon: "‹", onClick: () => setMenuPage("main") },
   ];
   const mainItems = [
-    ...(place === "session" ? [] : [{ id: "quiz", label: "QUIZ ME", icon: "✦", onClick: () => startQuiz() }]),
-    ...(onHub ? [{ id: "layout", label: "REARRANGE", icon: "▦", onClick: () => setMenuPage("layout") }] : []),
-    ...(place === "session" ? [] : [{ id: "tour", label: "SHOW ME AROUND", icon: "◎", onClick: contextualTour }]),
+    ...(place === "session" || inSetup ? [] : [{ id: "quiz", label: "QUIZ ME", icon: "✦", onClick: () => startQuiz() }]),
+    ...(onHub && !inSetup ? [{ id: "layout", label: "REARRANGE", icon: "▦", onClick: () => setMenuPage("layout") }] : []),
+    ...(place === "session" || inSetup ? [] : [{ id: "tour", label: "SHOW ME AROUND", icon: "◎", onClick: contextualTour }]),
     { id: "help", label: "ASK NOVA", icon: "›", onClick: startHelp },
     {
       id: "quiet",
@@ -876,7 +881,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           onReplayWelcome={() => {
             setSettingsOpen(false);
             update({ onboarded: false, enabled: true });
-            void appear(true);
+            if (modeRef.current === "hidden") appear();
+            window.dispatchEvent(new Event("studyhub-open-setup"));
           }}
         />
       ) : null}

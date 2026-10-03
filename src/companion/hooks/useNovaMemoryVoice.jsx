@@ -4,21 +4,21 @@ import { AUTONOMOUS } from "../machine.js";
 import { maySpeak } from "../attention.js";
 import { clockLabel, dayPart } from "../idleDirector.js";
 import { maybeRephrase } from "../memory/rephrase.js";
-import { MEMORY_LINES, pickLine } from "../memory/lines.js";
+import { pickLine } from "../memory/lines.js";
 import { NameForm } from "../NameForm.jsx";
 import { BirthdayForm, MONTHS, NeverBugForm } from "../OnboardForms.jsx";
 import { openCourseView } from "../../features/today/courseView.js";
 import { blockedWhen } from "../../features/today/blocked.js";
 import { ONBOARD_BEAT_MS } from "../layer/constants.js";
 
-/** What she remembers: getting to know them, the launch line, memory lines and mid-visit news. */
-export function useNovaMemoryVoice(core, { startQuiz, startTour, returnHome }) {
-  const { stateRef, modeRef, navRef, api, send, setBubble, say, setMood, refreshAnchor, later, memory, update, busy, bubbleRef, sfx, playGesture, openerDoneRef, lastTypingRef, lastStudyRef, quietNow, dragRef } = core;
+/** What she remembers: getting to know them, the launch line, memory lines and mid-visit news. First run is the setup screen. */
+export function useNovaMemoryVoice(core, { startQuiz }) {
+  const { stateRef, modeRef, navRef, api, setBubble, say, setMood, refreshAnchor, later, memory, update, busy, bubbleRef, sfx, playGesture, openerDoneRef, lastTypingRef, lastStudyRef, quietNow, dragRef } = core;
 
-  /** Asks once what to call them. `intro` is her first-launch hello; `after` runs once they answer or skip. */
-  api.current.askName = ({ intro = false, after = null } = {}) => {
+  /** Asks once what to call them. `after` runs once they answer or skip. */
+  api.current.askName = ({ after = null } = {}) => {
     update({ askedName: true });
-    const ask = intro ? { text: MEMORY_LINES.introName[0] } : pickLine("askName", {});
+    const ask = pickLine("askName", {});
     const done = () => {
       if (!stateRef.current?.askedMore) api.current.askMore(after);
       else if (after) after();
@@ -73,43 +73,6 @@ export function useNovaMemoryVoice(core, { startQuiz, startTour, returnHome }) {
           onSkip={neverBug}
         />
       ),
-    });
-  };
-
-  api.current.greet = () => {
-    openerDoneRef.current = true;
-    if (!memory.fact("name")) {
-      api.current.askName({ intro: true, after: () => api.current.offerTour({ introduced: true }) });
-      return;
-    }
-    api.current.offerTour();
-  };
-
-  api.current.offerTour = ({ introduced = false } = {}) => {
-    const name = memory.fact("name")?.name;
-    const text = name ? line("tourOffer", { name }) : line(introduced ? "tourOfferAnon" : "firstLaunch");
-    say(text, {
-      sticky: true,
-      actions: [
-        { label: "TAKE THE TOUR", primary: true, autoFocus: true, onClick: () => startTour("first-run") },
-        {
-          label: "MAYBE LATER",
-          onClick: () => {
-            update({ onboarded: true });
-            send("CLOSE");
-            say(line("tourSkip"));
-          },
-        },
-        {
-          label: "I'VE GOT IT",
-          onClick: () => {
-            update({ onboarded: true });
-            send("CLOSE");
-            say(line("dismissed"));
-            void returnHome(200);
-          },
-        },
-      ],
     });
   };
 

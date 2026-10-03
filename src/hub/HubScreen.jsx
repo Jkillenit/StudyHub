@@ -165,7 +165,7 @@ export function HubScreen({ view = "today", settingsTab, onSettingsTab, onNaviga
   /** OM 300 has no deck/grades deep link, so it just opens. */
   const openCourseTab = (id, opts) => {
     const tab = opts?.tab;
-    if (!tab || id === "builtin") onOpenCourse(id);
+    if (!tab || (id === "builtin" && tab !== "drill")) onOpenCourse(id);
     else openCourseView(onOpenCourse, id, tab === "drill" ? { item: "qz-deck" } : { tab });
   };
 

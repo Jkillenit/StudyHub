@@ -23,6 +23,7 @@ import { sessionOrder } from "../session/cardRun.js";
 import { ChapterContentSkeleton } from "./ChapterContentSkeleton.jsx";
 import { useDelayedSkeletonVisible } from "../hooks/useDelayedSkeletonVisible.js";
 import { isTypingTarget, paletteOpen } from "../lib/hotkeys.js";
+import { takePendingCourseView } from "../features/today/courseView.js";
 
 const FlashcardDeck = lazy(() => import("./flashcards/FlashcardDeck.jsx"));
 const BUILTIN_DECK_MODES = DECK_MODES.filter((m) => ["all", "due", "weak"].includes(m.id));
@@ -66,7 +67,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, novaCourses, onGoHub }
   const addCardRef = useRef(null);
   const { setBreadcrumb, setApiLive, setCourseNav } = useShell();
   const { splitOpen, closeSplit } = useGlossarySplit();
-  const [active, setActive] = useState("ch1");
+  const [active, setActive] = useState(() => (takePendingCourseView("builtin")?.item === "qz-deck" ? "flashcards" : "ch1"));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mainTab, setMainTab] = useState("content");
   const [notesTick, setNotesTick] = useState(0);

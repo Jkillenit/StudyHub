@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { app, ipcMain, dialog } = require("electron");
+const { app, ipcMain, dialog, shell } = require("electron");
 const Database = require("better-sqlite3");
 const { getDb, getDbPath, closeDb } = require("./database.cjs");
 
@@ -16,18 +16,49 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** One rolling backup per day, pruned to the last KEEP_DAILY_BACKUPS. */
-async function runDailyBackup() {
+const DAILY_BACKUP_RE = /^studyhub-\d{4}-\d{2}-\d{2}\.db$/;
+
+function dailyBackupFiles(dir) {
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => DAILY_BACKUP_RE.test(f))
+    .sort()
+    .reverse();
+}
+
+/** Newest daily backup time (file mtime) and how many are kept. */
+function readBackupStatus(dir) {
+  const files = dailyBackupFiles(dir);
+  let last = null;
+  files.forEach((f) => {
+    try {
+      const mtime = fs.statSync(path.join(dir, f)).mtimeMs;
+      if (last === null || mtime > last) last = mtime;
+    } catch {
+      /* vanished between readdir and stat */
+    }
+  });
+  return { last: last === null ? null : new Date(last).toISOString(), count: files.length, dir };
+}
+
+/** One rolling backup per day, pruned to the last KEEP_DAILY_BACKUPS. `overwrite` replaces today's file. */
+async function runDailyBackup({ overwrite = false } = {}) {
   const dir = backupDir();
   fs.mkdirSync(dir, { recursive: true });
   const target = path.join(dir, `studyhub-${today()}.db`);
-  if (!fs.existsSync(target)) await getDb().backup(target);
-  const files = fs
-    .readdirSync(dir)
-    .filter((f) => /^studyhub-\d{4}-\d{2}-\d{2}\.db$/.test(f))
-    .sort()
-    .reverse();
-  files.slice(KEEP_DAILY_BACKUPS).forEach((f) => {
+  if (!fs.existsSync(target)) {
+    await getDb().backup(target);
+  } else if (overwrite) {
+    const tmp = `${target}.tmp`;
+    try {
+      await getDb().backup(tmp);
+      fs.renameSync(tmp, target);
+    } finally {
+      if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+    }
+  }
+  dailyBackupFiles(dir).slice(KEEP_DAILY_BACKUPS).forEach((f) => {
     try {
       fs.unlinkSync(path.join(dir, f));
     } catch {
@@ -93,6 +124,23 @@ function registerMaintenanceHandlers(getMainWindow) {
     return { ok: true, filePath };
   });
 
+  ipcMain.handle("app:backup:status", () => readBackupStatus(backupDir()));
+
+  ipcMain.handle("app:backup:now", async () => {
+    try {
+      await runDailyBackup({ overwrite: true });
+      return { ok: true, ...readBackupStatus(backupDir()) };
+    } catch (err) {
+      return { ok: false, error: err?.message || String(err) };
+    }
+  });
+
+  ipcMain.handle("app:backup:openFolder", async () => {
+    fs.mkdirSync(backupDir(), { recursive: true });
+    const error = await shell.openPath(backupDir());
+    return error ? { ok: false, error } : { ok: true };
+  });
+
   ipcMain.handle("app:backup:restore", async () => {
     const win = getMainWindow();
     const { canceled, filePaths } = await dialog.showOpenDialog(win ?? undefined, {
@@ -147,4 +195,4 @@ function registerMaintenanceHandlers(getMainWindow) {
   });
 }
 
-module.exports = { registerMaintenanceHandlers };
+module.exports = { registerMaintenanceHandlers, readBackupStatus };

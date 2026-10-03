@@ -4561,8 +4561,8 @@ button.sh-today-row-main:hover {
   border: 1px solid var(--sh-border);
 }
 .sh-today-tag--exam {
-  color: var(--sh-warn);
-  border-color: var(--sh-warn);
+  color: var(--sh-accent-2);
+  border-color: var(--sh-accent-2);
 }
 .sh-today-tag--quiz {
   color: var(--sh-accent);
@@ -4837,9 +4837,10 @@ button.sh-today-row-main:hover {
 .sh-cal-head {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 16px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--sh-border);
 }
 .sh-cal-month {
   font-family: var(--sh-font-mono);
@@ -4882,11 +4883,15 @@ button.sh-today-row-main:hover {
 .sh-cal-day--outside {
   opacity: 0.4;
 }
+.sh-cal-day--today {
+  box-shadow: inset 0 2px 0 var(--sh-accent);
+}
 .sh-cal-day--today .sh-cal-date {
   color: var(--sh-accent);
 }
 .sh-cal-day--selected {
-  border-color: var(--sh-accent);
+  border-color: var(--sh-accent-line);
+  background: var(--sh-panel-strong);
 }
 .sh-cal-date {
   font-family: var(--sh-font-mono);
@@ -4897,21 +4902,22 @@ button.sh-today-row-main:hover {
   font-size: 11px;
   line-height: 1.3;
   color: var(--sh-text);
-  background: var(--sh-accent-soft);
-  padding: 0 3px;
+  background: var(--sh-panel-strong);
+  padding: 0 4px 0 5px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sh-cal-chip--exam {
-  box-shadow: inset 2px 0 0 var(--sh-warn);
-}
-.sh-cal-chip--quiz {
+.sh-cal-chip--due {
   box-shadow: inset 2px 0 0 var(--sh-accent);
 }
+.sh-cal-chip--exam {
+  box-shadow: inset 2px 0 0 var(--sh-accent-2);
+}
 .sh-cal-chip--done {
-  opacity: 0.45;
+  color: var(--sh-text-3);
   text-decoration: line-through;
+  box-shadow: inset 2px 0 0 var(--sh-border-strong);
 }
 .sh-cal-more {
   font-family: var(--sh-font-mono);
@@ -8613,48 +8619,9 @@ html[data-motion="reduced"] :is(.sh-home-card, .sh-home-link) {
 }
 
 /* Settings */
-.sh-settings {
-  position: fixed;
-  top: calc(var(--sh-topbar-h) + 8px);
-  right: 16px;
-  z-index: 9500;
-  width: 340px;
-  box-sizing: border-box;
-  padding: 16px 18px 8px;
-  border-radius: var(--sh-radius-lg);
-  border: 1px solid var(--sh-border-strong);
-  background: var(--sh-panel-solid);
-  box-shadow: var(--sh-shadow-panel);
-}
-
-.sh-settings-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-
-.sh-settings-close {
-  border: none;
-  background: none;
-  padding: 0 4px;
-  font-size: 20px;
-  line-height: 1;
-  color: var(--sh-text-2);
-  cursor: pointer;
-}
-
-.sh-settings-close:hover {
-  color: var(--sh-text);
-}
-
 .sh-settings-section {
   padding: 14px 0;
   border-top: 1px solid var(--sh-border);
-}
-
-.sh-settings-head + .sh-settings-section {
-  border-top: none;
 }
 
 .sh-settings-section-label {
@@ -8916,8 +8883,7 @@ html[data-motion="reduced"] :is(.sh-home-card, .sh-home-link) {
 }
 
 @media print {
-  .sh-titlebar,
-  .sh-settings {
+  .sh-titlebar {
     display: none !important;
   }
 }
@@ -10251,11 +10217,819 @@ html[data-motion="reduced"] :is(.sh-quiz-mode, .sh-quiz-option, .sh-quiz-deck, .
 }
 
 /* ── Decks screen ── */
+.sh-decks-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sh-decks-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 6px;
+}
+
+.sh-decks-title {
+  margin: 0 0 6px;
+  font-family: var(--sh-font-display);
+  font-weight: 400;
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sh-text);
+}
+
+.sh-decks-sum {
+  margin: 0;
+  font-size: 14px;
+  color: var(--sh-text-2);
+}
+
+.sh-decks-num {
+  font-family: var(--sh-font-mono);
+  color: var(--sh-accent);
+}
+
+.sh-decks-empty p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--sh-text-2);
+}
+
+.sh-decks-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--sh-border);
+}
+
+.sh-decks-course {
+  margin: 0;
+  font-family: var(--sh-font-body);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--sh-text);
+}
+
+.sh-decks-exam {
+  padding: 3px 8px;
+  border: 1px solid var(--sh-accent-2-line);
+  background: var(--sh-accent-2-soft);
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--sh-accent-2);
+}
+
+.sh-decks-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sh-decks-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(120px, 180px) auto;
+  align-items: center;
+  gap: 16px;
+  padding-top: 12px;
+}
+
+.sh-decks-row-name {
+  font-size: 14px;
+  color: var(--sh-text);
+}
+
+.sh-decks-due {
+  font-family: var(--sh-font-mono);
+  font-size: 12.5px;
+  color: var(--sh-text-3);
+}
+
+.sh-decks-due b {
+  font-weight: 500;
+  color: var(--sh-accent);
+}
+
+.sh-decks-due--none b {
+  color: var(--sh-text-3);
+}
+
+.sh-decks-mastery {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sh-decks-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--sh-track);
+}
+
+.sh-decks-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--sh-accent), var(--sh-accent-2));
+}
+
+.sh-decks-pct {
+  min-width: 34px;
+  text-align: right;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  color: var(--sh-text-2);
+}
+
+.sh-decks-review {
+  height: 32px;
+}
 
 /* ── Grades screen ── */
+.sh-ghub-title {
+  margin: 0;
+  font-family: var(--sh-font-display);
+  font-weight: 400;
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sh-text-strong);
+}
+
+.sh-ghub-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--sh-border);
+}
+
+.sh-ghub-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px 92px auto;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--sh-border);
+}
+
+.sh-ghub-main {
+  min-width: 0;
+}
+
+.sh-ghub-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--sh-text);
+}
+
+.sh-ghub-next {
+  margin-top: 4px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--sh-text-2);
+}
+
+.sh-ghub-row--risk .sh-ghub-next {
+  color: var(--sh-warn-text);
+}
+
+.sh-ghub-spark {
+  display: block;
+  width: 96px;
+  height: 28px;
+}
+
+.sh-ghub-spark polyline {
+  fill: none;
+  stroke: var(--sh-accent);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.sh-ghub-grade {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
+  font-family: var(--sh-font-mono);
+}
+
+.sh-ghub-pct {
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--sh-text-strong);
+}
+
+.sh-ghub-row--risk .sh-ghub-pct {
+  color: var(--sh-warn);
+}
+
+.sh-ghub-letter {
+  font-size: 14px;
+  color: var(--sh-text-2);
+}
+
+.sh-ghub-whatif {
+  padding: 6px 12px;
+  border: 1px solid var(--sh-border-strong);
+  border-radius: 0;
+  background: transparent;
+  color: var(--sh-accent);
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.sh-ghub-whatif:hover {
+  border-color: var(--sh-accent-line);
+  background: var(--sh-accent-soft);
+}
+
+.sh-ghub-whatif:focus-visible {
+  outline: 1px solid var(--sh-accent);
+  outline-offset: 2px;
+}
+
+html[data-motion="reduced"] .sh-ghub-whatif {
+  transition: none;
+}
 
 /* ── Calendar week ── */
+.sh-cal-modes {
+  display: flex;
+}
+
+.sh-cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 6px;
+}
+
+.sh-calw-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.sh-calw-day {
+  min-height: 260px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 0 6px 8px;
+  background: var(--sh-bg);
+  border: 1px solid var(--sh-border);
+  border-top: 2px solid transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.sh-calw-day:hover {
+  background: var(--sh-panel-strong);
+}
+
+.sh-calw-day--selected {
+  background: var(--sh-panel-strong);
+  border-color: var(--sh-accent-line);
+}
+
+.sh-calw-day--today {
+  border-top-color: var(--sh-accent);
+}
+
+.sh-calw-dayhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 8px 0 6px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--sh-border);
+  font-family: var(--sh-font-mono);
+}
+
+.sh-calw-weekday {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--sh-text-3);
+}
+
+.sh-calw-date {
+  font-size: 17px;
+  color: var(--sh-text-2);
+}
+
+.sh-calw-day--today :is(.sh-calw-weekday, .sh-calw-date) {
+  color: var(--sh-accent);
+}
+
+.sh-calw-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding: 4px 6px 5px 8px;
+  background: var(--sh-panel-strong);
+  border-left: 2px solid var(--sh-accent);
+}
+
+.sh-calw-item--exam {
+  border-left-color: var(--sh-accent-2);
+}
+
+.sh-calw-item--done {
+  border-left-color: var(--sh-border-strong);
+}
+
+.sh-calw-time,
+.sh-calw-course {
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--sh-text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sh-calw-title {
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--sh-text);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sh-calw-item--done .sh-calw-title {
+  color: var(--sh-text-3);
+  text-decoration: line-through;
+}
+
+html[data-motion="reduced"] .sh-calw-day {
+  transition: none;
+}
 
 /* ── Settings screen ── */
+.sh-settings-tabs {
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--sh-border);
+}
+
+.sh-settings-body > .sh-settings-section:first-child {
+  border-top: none;
+}
+
+.sh-settings-screen .sh-settings-section-label {
+  font-family: var(--sh-font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.sh-settings-kv {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 14px;
+  color: var(--sh-text-2);
+}
+
+.sh-settings-mono {
+  font-family: var(--sh-font-mono);
+  font-size: 12.5px;
+  color: var(--sh-text-2);
+}
+
+.sh-settings-on {
+  color: var(--sh-accent);
+}
+
+.sh-settings-screen .sh-settings-kv + .sh-settings-hint {
+  margin-top: 8px;
+}
+
+.sh-settings-status-line {
+  margin: 0 0 6px;
+  font-family: var(--sh-font-mono);
+  font-size: 14px;
+  color: var(--sh-text);
+}
+
+.sh-settings-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.sh-settings-buttons :is(.sh-btn-accent, .sh-btn-outline, .sh-btn-quiet) {
+  height: 40px;
+}
+
+.sh-settings-screen :is(.sh-btn-outline, .sh-btn-quiet, .sh-settings-link):disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.sh-settings-screen .sh-btn-outline:disabled:hover {
+  border-color: var(--sh-border-strong);
+  color: var(--sh-text);
+}
+
+.sh-settings-actions {
+  margin-top: 14px;
+}
+
+.sh-settings-msg {
+  margin: 10px 0 0;
+  font-family: var(--sh-font-mono);
+  font-size: 12.5px;
+  color: var(--sh-accent);
+}
+
+.sh-settings-msg--error {
+  color: var(--sh-danger);
+}
+
+.sh-settings-packs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sh-settings-pack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--sh-border);
+  border-top: 2px solid var(--sh-border);
+  background: var(--sh-panel-strong);
+}
+
+.sh-settings-pack--active {
+  border-top-color: var(--sh-accent);
+}
+
+.sh-settings-pack[aria-disabled="true"] {
+  opacity: 0.55;
+}
+
+.sh-settings-pack-swatch {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.sh-settings-pack-swatch i {
+  width: 18px;
+  height: 18px;
+}
+
+.sh-settings-pack--nova .sh-settings-pack-swatch i:first-child {
+  background: var(--sh-accent);
+}
+
+.sh-settings-pack--nova .sh-settings-pack-swatch i:last-child {
+  background: var(--sh-accent-2);
+}
+
+.sh-settings-pack--zombies .sh-settings-pack-swatch i:first-child {
+  background: var(--sh-danger);
+}
+
+.sh-settings-pack--zombies .sh-settings-pack-swatch i:last-child {
+  background: var(--sh-warn);
+}
+
+.sh-settings-pack-name {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--sh-text);
+}
+
+.sh-settings-pack .sh-settings-hint {
+  margin: 0;
+  flex: 1;
+}
+
+.sh-settings-pack-state {
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sh-text-3);
+}
+
+.sh-settings-pack--active .sh-settings-pack-state {
+  color: var(--sh-accent);
+}
 
 /* ── Setup screen ── */
+.sh-setup {
+  position: relative;
+}
+
+.sh-setup-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 560px) clamp(260px, 28vw, 380px);
+  justify-content: center;
+  align-content: center;
+  align-items: center;
+  gap: 56px;
+  padding: 32px 40px 72px;
+}
+
+/* Nova's stage: CompanionLayer stands her on the floor at full home size */
+.sh-setup-stage {
+  position: relative;
+  height: min(520px, calc(100vh - var(--sh-topbar-h) - 160px));
+  min-height: 280px;
+  pointer-events: none;
+}
+
+.sh-setup-floor {
+  position: absolute;
+  left: 15%;
+  right: 15%;
+  bottom: 0;
+  height: 2px;
+  background: var(--sh-accent);
+}
+
+.sh-setup-floor::before {
+  content: "";
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  bottom: 0;
+  height: 96px;
+  background: radial-gradient(ellipse at 50% 100%, var(--sh-accent-soft), transparent 70%);
+}
+
+html[data-nova="off"] .sh-setup-floor {
+  display: none;
+}
+
+.sh-setup-steps {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 22px;
+  margin: 0 0 32px;
+  padding: 0;
+  border-bottom: 1px solid var(--sh-border);
+}
+
+.sh-setup-steps li {
+  margin-bottom: -1px;
+}
+
+.sh-setup-step {
+  display: block;
+  padding: 8px 0;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--sh-text-3);
+  cursor: pointer;
+  transition: color 150ms linear;
+}
+
+.sh-setup-step:disabled {
+  cursor: default;
+}
+
+.sh-setup-step[data-done] {
+  color: var(--sh-text-2);
+}
+
+.sh-setup-step[data-done]:hover {
+  color: var(--sh-text);
+}
+
+.sh-setup-step[aria-current="step"] {
+  color: var(--sh-accent);
+  border-bottom-color: var(--sh-accent);
+}
+
+.sh-setup-title {
+  margin: 0;
+  font-family: var(--sh-font-display);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sh-text);
+  overflow-wrap: anywhere;
+}
+
+.sh-setup-sub {
+  max-width: 500px;
+  margin: 14px 0 0;
+  font-family: var(--sh-font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--sh-text-2);
+}
+
+.sh-setup-name,
+.sh-setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 28px;
+}
+
+.sh-setup-name > button,
+.sh-setup-actions > button {
+  height: 40px;
+  padding: 0 18px;
+}
+
+.sh-setup-input {
+  flex: 1;
+  min-width: 200px;
+  height: 40px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  background: var(--sh-panel-solid);
+  border: 1px solid var(--sh-border-strong);
+  border-radius: 0;
+  font-family: var(--sh-font-body);
+  font-size: 14px;
+  color: var(--sh-text);
+  caret-color: var(--sh-accent);
+  transition: border-color 150ms linear;
+}
+
+.sh-setup-input::placeholder {
+  color: var(--sh-text-3);
+}
+
+.sh-setup-input:focus-visible {
+  outline: none;
+  border-color: var(--sh-accent);
+}
+
+.sh-setup-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 0 0;
+  font-size: 12.5px;
+  color: var(--sh-text-3);
+}
+
+.sh-setup-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: var(--sh-text-3);
+}
+
+.sh-setup-status--on {
+  color: var(--sh-accent);
+}
+
+.sh-setup-status--on::before {
+  background: var(--sh-accent);
+}
+
+.sh-setup .sh-setup-status + .sh-setup-actions {
+  margin-top: 16px;
+}
+
+.sh-setup-fine {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: 22px 0 0;
+  padding: 0;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--sh-text-3);
+}
+
+.sh-setup-fine li::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 8px;
+  vertical-align: 1px;
+  background: var(--sh-accent);
+}
+
+.sh-setup-packs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.sh-setup-pack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  text-align: left;
+  background: var(--sh-panel);
+  border: 1px solid var(--sh-border);
+  border-radius: 0;
+  color: var(--sh-text);
+  cursor: default;
+}
+
+.sh-setup-pack[aria-pressed="true"] {
+  border-color: var(--sh-accent-line);
+  box-shadow: inset 0 2px 0 var(--sh-accent);
+}
+
+.sh-setup-pack:disabled {
+  color: var(--sh-text-3);
+  cursor: not-allowed;
+}
+
+.sh-setup-pack-name {
+  font-family: var(--sh-font-body);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.sh-setup-pack-meta {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sh-text-3);
+}
+
+.sh-setup-pack[aria-pressed="true"] .sh-setup-pack-meta {
+  color: var(--sh-accent);
+}
+
+.sh-setup-skip {
+  position: absolute;
+  right: 24px;
+  bottom: 20px;
+  padding: 4px 0;
+  background: none;
+  border: 0;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sh-text-3);
+  cursor: pointer;
+  transition: color 150ms linear;
+}
+
+.sh-setup-skip:hover {
+  color: var(--sh-text-2);
+}
+
+@media (max-width: 999px) {
+  .sh-setup-body {
+    grid-template-columns: minmax(0, 560px);
+    align-content: start;
+    gap: 8px;
+  }
+
+  .sh-setup-stage {
+    order: -1;
+    height: 260px;
+    min-height: 0;
+  }
+}
+
+html[data-motion="reduced"] :is(.sh-setup-step, .sh-setup-input, .sh-setup-skip) {
+  transition: none;
+}
