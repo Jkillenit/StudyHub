@@ -9742,3 +9742,313 @@ html.dn-overlay body {
   text-transform: uppercase;
   overflow-wrap: anywhere;
 }
+
+/* Shield meter: continuous shield bar (drains from both ends) over 10 health chunks */
+.sh-shield {
+  position: relative;
+  width: 300px;
+  padding-top: 2px;
+  user-select: none;
+}
+
+.sh-shield-scale {
+  position: relative;
+  height: 6px;
+  margin: 0 8px 3px;
+  background:
+    linear-gradient(90deg, var(--sh-border-strong) 0 1px, transparent 1px) 0 100% / 10% 3px repeat-x,
+    linear-gradient(90deg, var(--sh-border-strong) 0 1px, transparent 1px) 0 100% / 50% 6px repeat-x;
+}
+
+.sh-shield-scale::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  height: 6px;
+  background: var(--sh-border-strong);
+}
+
+.sh-shield-body {
+  position: relative;
+}
+
+.sh-shield-glow {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  box-shadow: var(--sh-glow-accent);
+  transition: width 120ms ease-out;
+}
+
+.sh-shield-frame {
+  position: relative;
+  height: 14px;
+  box-sizing: border-box;
+  padding: 1px;
+  background: var(--sh-accent-line);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 8px 100%);
+}
+
+.sh-shield-in {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--sh-accent) 5%, var(--sh-bg));
+  clip-path: polygon(0.7px 0, calc(100% - 0.7px) 0, calc(100% - 7.6px) 100%, 7.6px 100%);
+}
+
+.sh-shield-trail,
+.sh-shield-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+}
+
+.sh-shield-trail {
+  background: color-mix(in srgb, var(--sh-text) 35%, transparent);
+  transition: width 650ms cubic-bezier(0.5, 0, 0.75, 0) 450ms;
+}
+
+.sh-shield-fill {
+  overflow: hidden;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--sh-accent) 25%, var(--sh-text-strong)) 0,
+    var(--sh-accent-hover) 28%,
+    var(--sh-accent) 58%,
+    var(--sh-accent-press) 100%
+  );
+  transition: width 120ms ease-out;
+}
+
+.sh-shield-ripple {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(9px 2.5px at 50% 30%, color-mix(in srgb, var(--sh-text-strong) 45%, transparent), transparent) 0 0 / 24px 100% repeat-x,
+    radial-gradient(16px 3px at 50% 78%, color-mix(in srgb, var(--sh-accent-ink) 35%, transparent), transparent) 0 0 / 40px 100% repeat-x;
+  animation: sh-shield-ripple 3s linear infinite;
+}
+
+.sh-shield-sweep {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 30%;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--sh-text-strong) 60%, transparent), transparent);
+  transform: translateX(-100%);
+  animation: sh-shield-sweep 6s ease-in-out infinite;
+}
+
+.sh-shield-fill::before,
+.sh-shield-fill::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 2px;
+  background: var(--sh-text-strong);
+  box-shadow: 0 0 6px 1px var(--sh-text-strong);
+  opacity: 0;
+  transition: opacity 200ms;
+}
+
+.sh-shield-fill::before {
+  left: 0;
+}
+
+.sh-shield-fill::after {
+  right: 0;
+}
+
+.sh-shield-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: var(--sh-text-strong);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sh-shield-health {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 5px;
+}
+
+.sh-shield-health i {
+  width: 18px;
+  height: 6px;
+  box-sizing: border-box;
+  border: 1px solid var(--sh-danger);
+  background: var(--sh-danger);
+  transform: skewX(-20deg);
+  transition: background-color 160ms;
+}
+
+.sh-shield-health i[data-lost] {
+  background: transparent;
+}
+
+.sh-shield-readout {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 6px;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--sh-text-3);
+}
+
+.sh-shield-readout b {
+  font-weight: 500;
+  color: var(--sh-text);
+}
+
+.sh-shield-readout .sh-shield-hp {
+  color: var(--sh-danger);
+}
+
+/* Hit: flash, shake, faster ripple. data-hit alternates 1/2 so back-to-back hits restart the keyframes. */
+.sh-shield[data-hit="1"] {
+  animation: sh-shield-shake-1 240ms linear;
+}
+
+.sh-shield[data-hit="2"] {
+  animation: sh-shield-shake-2 240ms linear;
+}
+
+.sh-shield[data-hit="1"] .sh-shield-flash {
+  animation: sh-shield-flash-1 100ms ease-out;
+}
+
+.sh-shield[data-hit="2"] .sh-shield-flash {
+  animation: sh-shield-flash-2 100ms ease-out;
+}
+
+.sh-shield[data-hit] .sh-shield-ripple {
+  animation-duration: 0.8s;
+}
+
+/* Recharge: grows out from the center with bright edges */
+.sh-shield[data-charging] :is(.sh-shield-fill, .sh-shield-glow) {
+  transition: width 1.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.sh-shield[data-charging] .sh-shield-fill::before,
+.sh-shield[data-charging] .sh-shield-fill::after {
+  opacity: 1;
+}
+
+/* Shields down: frame pulses red, last chunk blinks */
+.sh-shield[data-down] .sh-shield-frame {
+  background: var(--sh-danger-line);
+  animation: sh-shield-alarm 2s ease-in-out infinite;
+}
+
+.sh-shield[data-down] .sh-shield-in {
+  background: color-mix(in oklab, var(--sh-danger) 18%, var(--sh-bg));
+}
+
+.sh-shield[data-down] .sh-shield-scale,
+.sh-shield[data-down] .sh-shield-scale::after {
+  --sh-border-strong: var(--sh-danger-line);
+}
+
+.sh-shield[data-down] .sh-shield-health i[data-last] {
+  animation: sh-shield-blink 1s steps(1, end) infinite;
+}
+
+.sh-shield[data-down] :is(.sh-shield-status, .sh-shield-readout b) {
+  color: var(--sh-danger);
+}
+
+@keyframes sh-shield-ripple {
+  to {
+    background-position: 48px 0, -80px 0;
+  }
+}
+
+@keyframes sh-shield-sweep {
+  0%,
+  70% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(340%);
+  }
+}
+
+@keyframes sh-shield-flash-1 {
+  from {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes sh-shield-flash-2 {
+  from {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes sh-shield-shake-1 {
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(1px); }
+}
+
+@keyframes sh-shield-shake-2 {
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(1px); }
+}
+
+@keyframes sh-shield-alarm {
+  50% {
+    background: var(--sh-danger);
+  }
+}
+
+@keyframes sh-shield-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+html[data-motion="reduced"] .sh-shield,
+html[data-motion="reduced"] .sh-shield *,
+html[data-motion="reduced"] .sh-shield-fill::before,
+html[data-motion="reduced"] .sh-shield-fill::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+html[data-motion="reduced"] :is(.sh-shield-ripple, .sh-shield-sweep, .sh-shield-flash),
+html[data-motion="reduced"] .sh-shield-fill::before,
+html[data-motion="reduced"] .sh-shield-fill::after {
+  display: none;
+}
