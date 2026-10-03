@@ -128,7 +128,8 @@ rests and how big she is change.
   portrait in the message box glyph; her line replaces the placeholder.
 - **Moved:** drag anywhere, or she walks to point at something (e.g. the top card); dashed ghost
   marks home; returns on timeout or double-click.
-- **Session:** steps forward full size beside the session panel.
+- **Session:** Nova steps into a larger session lane on the right (≥1100px), full size beside
+  the session panel.
 - Existing safe-zone logic is updated so content column + bar are her no-go zones.
 
 ## 3. Nova session (quiz, drill, flashcards)
@@ -139,10 +140,13 @@ Nova gives the calm focus-card layout. Sidebar stays a rail.
 - **Top strip:** course · topic (left) · shield meter (center) · card/question n/N and `Esc`
   (right) · thin aqua→magenta progress line.
 - **Quiz:** multiple choice rows with key badges; Lock in / Hint / Skip. Keys: 1–n, Enter, H, Esc.
+  Skip moves on ungraded: no SM-2 write, no shield change, not counted as answered. Modes
+  (Quick, Streak, Weak spots, Clock) all end when health reaches 0; Quick/Weak also end when
+  out of cards, Clock when time runs out.
 - **Flashcards:** card with aqua/magenta corner marks; front = term + exam tag ("EXAM IN 5
   DAYS") + exam chip; Space flips; back = definition, example (magenta rule); ratings Again /
-  Hard / Good / Easy (1–4) each showing the next interval from existing SM-2 ("3 days · before
-  exam"). Existing keyboard rules (palette check, 200ms flip debounce, ignore keys in flight)
+  Hard / Good / Easy (1–4, SM-2 grades 1 / 3 / 4 / 5) each showing the next interval from
+  existing SM-2 ("3 days · before exam"). Existing keyboard rules (palette check, 200ms flip debounce, ignore keys in flight)
   stay.
 - **Results ("ROUND N COMPLETE"):** Michroma title, one-line summary, stats strip (accuracy,
   shield at end, best streak, time), medals, mastery change per topic, round tally gains a new
@@ -198,7 +202,8 @@ celebration effects; layout never changes. Stored as a UI pref (localStorage).
 ## 6. Systems carried by the UI
 
 - **Rounds:** each completed session or Today item adds a tally mark; 5 marks = next round.
-  Shown in the top strip, rail, and results.
+  Shown in the top strip, rail, and results. For now only completed sessions add marks; Today
+  items adding marks is deferred to Plan 5 (screen shells).
 - **Medals** (Nova pack) / **power-ups** (Zombies pack) on results and completions.
 - **Shield meter** in sessions (3.1).
 - Completing work never changes a grade until it is graded.

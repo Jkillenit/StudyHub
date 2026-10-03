@@ -59,7 +59,7 @@ const TABS = [
   { id: "notes", label: "Notes" },
 ];
 
-function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange, novaCourses, onGoHub }) {
+function BuiltinCourseAppInner({ courseShellLoad = false, novaCourses, onGoHub }) {
   const deck = useDeckCards();
   const [deckMode, setDeckMode] = useState("all");
   const [sessionIds, setSessionIds] = useState(null);
@@ -113,10 +113,6 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange,
   useEffect(() => {
     saveJson(STORAGE.comfortable, comfortable);
   }, [comfortable]);
-
-  useEffect(() => {
-    onActiveChapterChange?.(active);
-  }, [active, onActiveChapterChange]);
 
   useEffect(() => {
     if (mainTab !== "notes") setExportStatus("EXPORT ↗");
@@ -485,10 +481,10 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange,
   );
 }
 
-export function BuiltinCourseApp({ courseShellLoad = false, onActiveChapterChange, novaCourses, onGoHub }) {
+export function BuiltinCourseApp({ courseShellLoad = false, novaCourses, onGoHub }) {
   return (
     <GlossarySplitProvider>
-      <BuiltinCourseAppInner courseShellLoad={courseShellLoad} onActiveChapterChange={onActiveChapterChange} novaCourses={novaCourses} onGoHub={onGoHub} />
+      <BuiltinCourseAppInner courseShellLoad={courseShellLoad} novaCourses={novaCourses} onGoHub={onGoHub} />
     </GlossarySplitProvider>
   );
 }

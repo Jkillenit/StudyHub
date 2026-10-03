@@ -60,7 +60,6 @@ export function CommandPalette({
   onExport,
   onImportFile,
   onMarkChapterReviewed,
-  builtinActiveChapter,
 }) {
   const [query, setQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -354,7 +353,7 @@ export function CommandPalette({
     ].filter((a) => a.visible);
 
     return { courseRows, chapterRows, referenceRows, termRows, actionRows };
-  }, [mounted, userCourses, courseId, builtinActiveChapter, layoutBefore]);
+  }, [mounted, userCourses, courseId, layoutBefore]);
 
   const indexRows = useMemo(() => {
     if (!allRows) return { groups: [], flat: [] };

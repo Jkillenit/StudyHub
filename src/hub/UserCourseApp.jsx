@@ -37,7 +37,7 @@ const TABS = [
   { id: "grades", label: "Grades" },
 ];
 
-export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, onActiveChapterChange, novaCourses, onGoHub }) {
+export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, novaCourses, onGoHub }) {
   const { setBreadcrumb, setCourseNav } = useShell();
   const courseRef = useRef(course);
   courseRef.current = course;
@@ -114,10 +114,6 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, onActive
   }, [course?.uuid, course?.id]);
 
   const reviewMeta = (c.pptxReviewBlocks || {})[active] || null;
-
-  useEffect(() => {
-    onActiveChapterChange?.(active);
-  }, [active, onActiveChapterChange]);
 
   useEffect(() => {
     const onNav = (e) => {

@@ -70,17 +70,13 @@ function StudyHubAppInner() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [hubView, setHubView] = useState("today");
   const [courseShellLoad, setCourseShellLoad] = useState(false);
-  const [paletteChapterMeta, setPaletteChapterMeta] = useState(() => ({ courseId: null, chapterId: null }));
 
   useEffect(() => {
     if (courseId != null) saveJson(HUB_KEYS.lastCourse, courseId);
   }, [courseId]);
 
   useEffect(() => {
-    if (courseId === null) {
-      setBreadcrumb(["STUDY HUB"]);
-      setPaletteChapterMeta({ courseId: null, chapterId: null });
-    }
+    if (courseId === null) setBreadcrumb(["STUDY HUB"]);
   }, [courseId, setBreadcrumb]);
 
   useEffect(() => {
@@ -349,19 +345,6 @@ function StudyHubAppInner() {
     return () => bb.offCourseDetected?.(handleCourseDetected);
   }, [activeUserCourse, userCourses, updateCourse]);
 
-  const handleBuiltinActiveChapterChange = useCallback((ch) => {
-    setPaletteChapterMeta((prev) => (prev.courseId === "builtin" && prev.chapterId === ch ? prev : { courseId: "builtin", chapterId: ch }));
-  }, []);
-  const handleUserCourseActiveChapterChange = useCallback(
-    (ch) => {
-      if (!activeUserCourse?.id) return;
-      setPaletteChapterMeta((prev) =>
-        prev.courseId === activeUserCourse.id && prev.chapterId === ch ? prev : { courseId: activeUserCourse.id, chapterId: ch }
-      );
-    },
-    [activeUserCourse?.id]
-  );
-
   return (
     <div data-bs-theme="dark" className="sh-app-root sh-app-shell">
       <AmbientBackground />
@@ -395,7 +378,6 @@ function StudyHubAppInner() {
               {courseId === "builtin" && (
                 <BuiltinCourseApp
                   courseShellLoad={courseShellLoad}
-                  onActiveChapterChange={handleBuiltinActiveChapterChange}
                   novaCourses={userCoursesList}
                   onGoHub={goHub}
                 />
@@ -405,7 +387,6 @@ function StudyHubAppInner() {
                   course={activeUserCourse}
                   onChangeCourse={saveCourse}
                   onDeleteCourse={deleteUserCourse}
-                  onActiveChapterChange={handleUserCourseActiveChapterChange}
                   novaCourses={userCoursesList}
                   onGoHub={goHub}
                 />
@@ -428,7 +409,6 @@ function StudyHubAppInner() {
         onExport={exportHub}
         onImportFile={importHub}
         onMarkChapterReviewed={() => window.dispatchEvent(new CustomEvent("studyhub-mark-chapter-reviewed"))}
-        builtinActiveChapter={paletteChapterMeta.courseId === "builtin" ? paletteChapterMeta.chapterId : null}
       />
       {novaPlace === "lane" || novaPlace === "session" ? <NovaLane session={novaPlace === "session"} /> : null}
       <AiAssistantPanel open={aiOpen} onClose={() => setAiOpen(false)} />
