@@ -5769,11 +5769,12 @@ button.sh-today-row-main:hover {
   #root,
   .sh-app-root,
   .sh-shell-body,
-  .sh-workspace,
-  .sh-main,
+  .sh-plan,
+  .sh-plan-col,
   .sh-main-body {
     height: auto !important;
     max-height: none !important;
+    max-width: none !important;
     overflow: visible !important;
     display: block !important;
     background: Canvas !important;
