@@ -1,6 +1,6 @@
 import CourseMenu from "./CourseMenu.jsx";
 
-export default function CourseHeader({ crumb, title, titleNode, tag, tabs = [], activeTab, onTab, masteryPct, menu }) {
+export default function CourseHeader({ crumb, title, titleNode, tag, tabs = [], activeTab, onTab, tabsExtra, masteryPct, menu }) {
   const [strong, rest] = crumb || [];
   const pct = masteryPct == null ? null : Math.max(0, Math.min(100, Math.round(masteryPct)));
 
@@ -34,6 +34,7 @@ export default function CourseHeader({ crumb, title, titleNode, tag, tabs = [], 
               {t.dot ? <span className="sh-tab-dot" aria-hidden /> : null}
             </button>
           ))}
+          {tabsExtra}
         </div>
       ) : null}
       {pct == null ? null : (

@@ -29,12 +29,6 @@ export function studySidebarPrefix(id) {
   return PREFIX[id] || String(id).toUpperCase();
 }
 
-export function studyPrefixClassName(id) {
-  if (id === "final" || id === "formulas") return "ch-num ch-num--amber";
-  if (id === "flashcards") return "ch-num ch-num--cyan";
-  return "ch-num";
-}
-
 export function studyBreadcrumbChapter(id, label) {
   if (id === "ch1") return "CH·01–02";
   return studySidebarPrefix(id);

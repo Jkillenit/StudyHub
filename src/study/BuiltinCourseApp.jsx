@@ -9,13 +9,18 @@ import { getStudyChapterNote, studyNoteHasVisibleBody } from "./chapterNotesStor
 import { MaterialsOffcanvas } from "./MaterialsOffcanvas.jsx";
 import { ChapterNotesEditorBody } from "./ChapterNotesEditorBody.jsx";
 import { useShell } from "../shell/ShellContext.jsx";
-import { STUDY_SIDEBAR_GROUPS, studyBreadcrumbChapter, studyPrefixClassName, studySidebarPrefix } from "./chapterUiMeta.js";
+import { NovaBar } from "../shell/NovaBar.jsx";
+import SideDrawer from "../shell/SideDrawer.jsx";
+import CourseHeader from "../hub/components/CourseHeader.jsx";
+import { builtinCourseNav } from "../hub/courseNav.js";
+import { studyBreadcrumbChapter } from "./chapterUiMeta.js";
 import { FlashcardDeckProvider, useFlashcardDeckContext } from "./flashcards/FlashcardDeckContext.jsx";
+import { loadFlashcardDeck } from "./flashcards/flashcardPersistence.js";
+import { masteryPercent } from "./sm2.js";
 import { ChapterContentSkeleton } from "./ChapterContentSkeleton.jsx";
-import { CourseSidebarSkeleton } from "./CourseSidebarSkeleton.jsx";
 import { useDelayedSkeletonVisible } from "../hooks/useDelayedSkeletonVisible.js";
 import Form from "react-bootstrap/Form";
-import { isTypingTarget } from "../lib/hotkeys.js";
+import { isTypingTarget, paletteOpen } from "../lib/hotkeys.js";
 
 function htmlToPlainText(html) {
   const div = document.createElement("div");
@@ -43,20 +48,23 @@ function htmlToPlainText(html) {
   return div.textContent.replace(/\n{3,}/g, "\n\n").trim();
 }
 
-function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange }) {
+const TABS = [
+  { id: "content", label: "Content" },
+  { id: "notes", label: "Notes" },
+];
+
+function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange, novaCourses }) {
   const { panelApi } = useFlashcardDeckContext();
-  const { setBreadcrumb, setStatusBar, setApiLive } = useShell();
+  const { setBreadcrumb, setApiLive, setCourseNav } = useShell();
   const { splitOpen, closeSplit } = useGlossarySplit();
   const [active, setActive] = useState("ch1");
-  const [search, setSearch] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mainTab, setMainTab] = useState("content");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [ctxCollapsed, setCtxCollapsed] = useState(false);
   const [notesTick, setNotesTick] = useState(0);
   const [notesAutosaveStatus, setNotesAutosaveStatus] = useState("local");
   const [materialsOpen, setMaterialsOpen] = useState(false);
   const [exportStatus, setExportStatus] = useState("EXPORT ↗");
+  const [deckTick, setDeckTick] = useState(0);
   const notesEditorRef = useRef(null);
   const exportTimerRef = useRef(null);
 
@@ -115,14 +123,6 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
     [disabledIds]
   );
 
-  const filteredChapters = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return visibleChapters;
-    return visibleChapters.filter(
-      (c) => c.title.toLowerCase().includes(q) || c.label.toLowerCase().includes(q)
-    );
-  }, [visibleChapters, search]);
-
   useEffect(() => {
     if (!visibleChapters.length) return;
     if (!visibleChapters.some((c) => c.id === active)) {
@@ -132,9 +132,15 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
 
   const current = STUDY_CHAPTERS.find((c) => c.id === active);
   const fontScale = FONT_STEPS[fontStep];
-  const completedCount = [...completedIds].filter((id) => visibleChapters.some((c) => c.id === id)).length;
-  const totalVisible = visibleChapters.length;
-  const masteryPct = totalVisible ? Math.round((completedCount / totalVisible) * 100) : 0;
+
+  useEffect(() => {
+    const onUpdated = () => setDeckTick((n) => n + 1);
+    window.addEventListener("studyhub-flashcards-updated", onUpdated);
+    return () => window.removeEventListener("studyhub-flashcards-updated", onUpdated);
+  }, []);
+  /* panelApi is republished whenever the open deck's cards change, so ratings refresh the line too. */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const masteryPct = useMemo(() => masteryPercent(loadFlashcardDeck()), [deckTick, panelApi]);
 
   const toggleModule = useCallback((id) => {
     setDisabledIds((prev) => {
@@ -164,19 +170,19 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
 
   const goChapter = useCallback(
     (delta) => {
-      const list = filteredChapters;
+      const list = visibleChapters;
       if (!list.length) return;
       let i = list.findIndex((c) => c.id === active);
       if (i < 0) i = 0;
       const ni = (i + delta + list.length) % list.length;
       startTransition(() => setActive(list[ni].id));
     },
-    [filteredChapters, active, startTransition]
+    [visibleChapters, active, startTransition]
   );
 
   useEffect(() => {
     const onKey = (e) => {
-      if (isTypingTarget(e.target)) return;
+      if (isTypingTarget(e.target) || paletteOpen()) return;
       if (active === "flashcards" && mainTab === "content") return;
       if (e.key === "ArrowLeft") goChapter(-1);
       if (e.key === "ArrowRight") goChapter(1);
@@ -187,7 +193,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
 
   useEffect(() => {
     const onKey = (e) => {
-      if (isTypingTarget(e.target)) return;
+      if (isTypingTarget(e.target) || paletteOpen()) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "r") {
         e.preventDefault();
         markCurrentComplete();
@@ -201,8 +207,8 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
     const onNav = (e) => {
       const d = e.detail;
       if (d?.courseId === "builtin" && d?.chapterId) {
-        /* Same path as sidebar chapter click — no startTransition — keeps useTransition
-         * pending state aligned with sidebar/palette so skeleton timers always reset. */
+        /* Same path as a rail chapter click — no startTransition — keeps useTransition
+         * pending state aligned with rail/palette so skeleton timers always reset. */
         setActive(d.chapterId);
         setMainTab("content");
       }
@@ -211,11 +217,20 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
     return () => window.removeEventListener("studyhub-navigate-chapter", onNav);
   }, []);
 
+  const openSettings = useCallback(() => {
+    closeSplit();
+    setSettingsOpen(true);
+  }, [closeSplit]);
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+
   useEffect(() => {
-    const onSettings = () => setSettingsOpen(true);
-    window.addEventListener("studyhub-open-settings", onSettings);
-    return () => window.removeEventListener("studyhub-open-settings", onSettings);
-  }, []);
+    window.addEventListener("studyhub-open-settings", openSettings);
+    return () => window.removeEventListener("studyhub-open-settings", openSettings);
+  }, [openSettings]);
+
+  useEffect(() => {
+    if (splitOpen) setSettingsOpen(false);
+  }, [splitOpen]);
 
   useEffect(() => {
     const onMark = () => markCurrentComplete();
@@ -239,12 +254,20 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
     setBreadcrumb(["OM 300", "EXAM 4 STUDY GUIDE", ch]);
   }, [active, current, setBreadcrumb]);
 
+  const navGroups = useMemo(
+    () => builtinCourseNav({ chapters: visibleChapters, completedIds: [...completedIds] }),
+    [visibleChapters, completedIds]
+  );
+  const selectNav = useCallback((id) => {
+    setActive(id);
+    setMainTab("content");
+  }, []);
+
   useEffect(() => {
-    setStatusBar({
-      left: ["●", "OM 300", `${completedCount}/${totalVisible}`, current?.label ?? ""],
-      right: [mainTab === "notes" ? "NOTES" : "CONTENT", "LOCAL"],
-    });
-  }, [completedCount, totalVisible, current, mainTab, setStatusBar]);
+    setCourseNav({ courseId: "builtin", groups: navGroups, activeId: active, onSelect: selectNav });
+  }, [navGroups, active, selectNav, setCourseNav]);
+
+  useEffect(() => () => setCourseNav(null), [setCourseNav]);
 
   const chapterHasNotes = useMemo(
     () => studyNoteHasVisibleBody(getStudyChapterNote(active)),
@@ -253,11 +276,6 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
   const hasContent = useMemo(() => hasStudySectionContent(active), [active]);
 
   const contentLineHeight = comfortable ? 1.75 : 1.55;
-
-  const filteredByGroup = useCallback(
-    (ids) => ids.map((id) => STUDY_CHAPTERS.find((c) => c.id === id)).filter(Boolean).filter((c) => filteredChapters.some((x) => x.id === c.id)),
-    [filteredChapters]
-  );
 
   const exportNotes = useCallback(async () => {
     const editor = notesEditorRef.current;
@@ -280,87 +298,40 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
     exportTimerRef.current = window.setTimeout(() => setExportStatus("EXPORT ↗"), 2000);
   }, []);
 
+  const onDeck = active === "flashcards";
+  const navPrefix = navGroups.flatMap((g) => g.items).find((it) => it.id === active)?.prefix ?? "";
+
+  const menu = [
+    { label: "Materials", onClick: () => setMaterialsOpen(true) },
+    { label: "Course settings…", onClick: openSettings },
+    ...(onDeck && panelApi
+      ? [
+          { divider: true },
+          { label: panelApi.showAdd ? "Close add card" : "Add card", onClick: () => panelApi.setShowAdd((s) => !s) },
+          { label: `Restore seed deck (${panelApi.seedLen})`, onClick: panelApi.restoreSeed },
+          { label: "Delete current card", danger: true, disabled: panelApi.n === 0, onClick: panelApi.deleteCurrent },
+        ]
+      : []),
+  ];
+
   return (
     <>
       <style>{`
         @media print {
-          .sh-sidebar, .sh-ctx, .sh-topbar, .sh-statusbar, .offcanvas { display: none !important; }
+          .sh-rail, .sh-plan-dock, .sh-drawer, .sh-topbar, .sh-statusbar, .offcanvas { display: none !important; }
           body { background: white !important; color: black !important; }
         }
       `}</style>
-      <div className="sh-workspace">
-        <aside className={`sh-sidebar sh-scroll-hover ${sidebarCollapsed ? "collapsed" : ""}`}>
-          <div className="sh-sidebar-head">
-            <div className="sh-sidebar-label">ACTIVE COURSE</div>
-            <div className="sh-sidebar-course">OM 300</div>
-            <div className="sh-sidebar-meta mono">EXAM 4 · {totalVisible} MODULES</div>
-          </div>
-          <div className="sh-sidebar-search">
-            <span className="sh-sidebar-search-prefix" aria-hidden>
-              ›
-            </span>
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="FILTER"
-              aria-label="Filter modules"
-            />
-          </div>
-          <div className="sh-sidebar-scroll sh-scroll-hover">
-            {STUDY_SIDEBAR_GROUPS.map((g) => {
-              const rows = filteredByGroup(g.ids);
-              if (!rows.length) return null;
-              return (
-                <div key={g.key}>
-                  <div className="sh-sidebar-section-label">{g.label}</div>
-                  {rows.map((ch) => {
-                    const isAct = active === ch.id;
-                    const done = completedIds.has(ch.id);
-                    return (
-                      <button
-                        key={ch.id}
-                        type="button"
-                        className={`ch-item ${isAct ? "active" : ""} ${done ? "ch-item--complete" : ""}`}
-                        onClick={() => {
-                          setActive(ch.id);
-                          setMainTab("content");
-                        }}
-                      >
-                        <span className={studyPrefixClassName(ch.id)}>{studySidebarPrefix(ch.id)}</span>
-                        <span className="ch-title">{ch.title}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        </aside>
-
-        <main className="sh-main">
-          <div className="sh-main-header">
-            <div className="sh-title-row">
-              <h1 className="sh-main-title">{current?.title ?? "—"}</h1>
-              <span className="sh-ch-tag">{studySidebarPrefix(active)}</span>
-            </div>
-            <div className="sh-tab-row">
-              <button
-                type="button"
-                className={`sh-tab ${mainTab === "content" ? "active" : ""}`}
-                onClick={() => setMainTab("content")}
-              >
-                CONTENT
-              </button>
-              <button
-                type="button"
-                className={`sh-tab ${mainTab === "notes" ? "active" : ""}`}
-                onClick={() => setMainTab("notes")}
-              >
-                NOTES
-                {chapterHasNotes ? " ·" : ""}
-              </button>
-              {mainTab === "notes" ? (
+      <div className="sh-plan sh-course sh-app-builtin">
+        <div className="sh-plan-col">
+          <CourseHeader
+            crumb={["OM 300", current ? `${navPrefix} ${current.title}` : ""]}
+            title={current?.title ?? "—"}
+            tabs={onDeck ? [] : TABS.map((t) => (t.id === "notes" ? { ...t, dot: chapterHasNotes } : t))}
+            activeTab={mainTab}
+            onTab={setMainTab}
+            tabsExtra={
+              mainTab === "notes" ? (
                 <button
                   type="button"
                   className={`sh-export-btn ${exportStatus === "COPIED" ? "copied" : ""}`}
@@ -368,13 +339,50 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
                 >
                   {exportStatus}
                 </button>
+              ) : null
+            }
+            masteryPct={masteryPct}
+            menu={menu}
+          />
+          {onDeck && mainTab === "content" && panelApi ? (
+            <div className="sh-deck-modes">
+              <div className="sh-deck-count">LOCAL · {panelApi.n} CARDS</div>
+              {panelApi.showAdd ? (
+                <div className="sh-deck-add">
+                  <Form.Control
+                    size="sm"
+                    className="sh-input mono"
+                    value={panelApi.newFront}
+                    onChange={(e) => panelApi.setNewFront(e.target.value)}
+                    placeholder="FRONT"
+                  />
+                  <Form.Control
+                    as="textarea"
+                    rows={3}
+                    className="sh-input font-sans"
+                    value={panelApi.newBack}
+                    onChange={(e) => panelApi.setNewBack(e.target.value)}
+                    placeholder="BACK"
+                    style={{ resize: "vertical", fontSize: 14 }}
+                  />
+                  <div className="d-flex gap-2">
+                    <button
+                      type="button"
+                      className="sh-btn-primary"
+                      disabled={!panelApi.newFront.trim() || !panelApi.newBack.trim()}
+                      onClick={panelApi.addCard}
+                    >
+                      SAVE
+                    </button>
+                    <button type="button" className="sh-btn-ghost sh-deck-add-btn" onClick={() => panelApi.setShowAdd(false)}>
+                      CANCEL
+                    </button>
+                  </div>
+                </div>
               ) : null}
             </div>
-          </div>
-          <div
-            className={`sh-main-body sh-scroll-hover ${active === "flashcards" && mainTab === "content" ? "sh-main-body--drill" : ""}`}
-            key={`${active}-${mainTab}`}
-          >
+          ) : null}
+          <div className="sh-main-body" key={`${active}-${mainTab}`}>
             {shellSkelVis ? (
               <ChapterContentSkeleton />
             ) : (
@@ -392,7 +400,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
                     </div>
                   ) : (
                     <div
-                      className={`font-sans ${contentEnterClass} ${active === "flashcards" ? "sh-section-body--drill" : ""}`}
+                      className={`font-sans ${contentEnterClass}`}
                       style={{ fontSize: `calc(15px * ${fontScale})`, lineHeight: contentLineHeight }}
                     >
                       <StudySectionBody sectionId={active} />
@@ -413,177 +421,75 @@ function BuiltinCourseAppInner({ courseShellLoad = false, onActiveChapterChange 
               </>
             )}
           </div>
-        </main>
-
-        <aside className={`sh-ctx sh-scroll-hover ${ctxCollapsed ? "collapsed" : ""}`}>
-          <div className="sh-ctx-scroll sh-scroll-hover">
-            <GlossaryContextBlock />
-
-            <div className="ctx-section">
-              <div className="ctx-label">MASTERY</div>
-              <div className="d-flex align-items-center gap-2 mb-1">
-                <div className="sh-meter-track flex-grow-1">
-                  <div className="sh-meter-fill" style={{ width: `${masteryPct}%` }} />
-                </div>
-                <span className="mono" style={{ fontSize: 11, color: "var(--sh-accent)" }}>
-                  {masteryPct}%
-                </span>
-              </div>
-              <div className="sh-kv-row mono">
-                <span className="sh-kv-key">DONE</span>
-                <span className="sh-kv-val sh-kv-val--active">
-                  {completedCount}/{totalVisible}
-                </span>
-              </div>
-            </div>
-
-            <div className="ctx-section">
-              <div className="ctx-label">SHORTCUTS</div>
-              <div className="kbd-row">
-                <span>Chapter</span>
-                <span className="kbd">← →</span>
-              </div>
-              <div className="kbd-row">
-                <span>Reviewed</span>
-                <span className="kbd">⌘R</span>
-              </div>
-              <div className="kbd-row">
-                <span>Commands</span>
-                <span className="kbd">⌘K</span>
-              </div>
-            </div>
-
-            <div className="ctx-section">
-              <div className="ctx-label">QUICK</div>
-              <button type="button" className="sh-btn-ghost ctx-btn" onClick={() => setMaterialsOpen(true)}>
-                MATERIALS
-              </button>
-              <button type="button" className="sh-btn-ghost ctx-btn" onClick={() => setSettingsOpen((v) => !v)}>
-                {settingsOpen ? "CLOSE SETTINGS" : "SETTINGS"}
-              </button>
-              <button type="button" className="sh-btn-ghost ctx-btn ctx-btn--utility" onClick={() => setSidebarCollapsed((v) => !v)}>
-                {sidebarCollapsed ? "SHOW SIDEBAR" : "HIDE SIDEBAR"}
-              </button>
-              <button type="button" className="sh-btn-ghost ctx-btn ctx-btn--utility" onClick={() => setCtxCollapsed((v) => !v)}>
-                {ctxCollapsed ? "SHOW PANEL" : "HIDE PANEL"}
-              </button>
-              {splitOpen ? (
-                <button type="button" className="sh-btn-ghost" onClick={closeSplit}>
-                  CLOSE GLOSSARY
-                </button>
-              ) : null}
-            </div>
-
-            {settingsOpen ? (
-              <div className="ctx-section border-0">
-                <div className="ctx-label">ADD COURSE</div>
-                <button
-                  type="button"
-                  className="sh-btn-ghost ctx-btn"
-                  onClick={() => {
-                    window.dispatchEvent(new CustomEvent("studyhub-open-welcome"));
-                  }}
-                >
-                  ADD NEW COURSE (WELCOME)
-                </button>
-                <div className="ctx-label mt-3">MODULE VISIBILITY</div>
-                <div className="d-flex flex-column gap-1 mb-2">
-                  {STUDY_CHAPTERS.map((ch) => {
-                    const enabled = !disabledIds.has(ch.id);
-                    const onlyOne = STUDY_CHAPTERS.length - disabledIds.size <= 1 && enabled;
-                    return (
-                      <label key={ch.id} className="mono d-flex align-items-center gap-2" style={{ fontSize: 11, cursor: onlyOne ? "not-allowed" : "pointer" }}>
-                        <input type="checkbox" checked={enabled} disabled={onlyOne} onChange={() => toggleModule(ch.id)} />
-                        <span style={{ color: "var(--sh-text-2)" }}>
-                          {ch.label} — {ch.title}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-                <button type="button" className="sh-btn-ghost mb-1" onClick={resetModules}>
-                  SHOW ALL
-                </button>
-                <button type="button" className="sh-btn-ghost mb-2" onClick={clearProgress}>
-                  CLEAR COMPLETION
-                </button>
-                <label className="mono d-flex align-items-center gap-2 mb-2" style={{ fontSize: 11 }}>
-                  <input type="checkbox" checked={comfortable} onChange={(e) => setComfortable(e.target.checked)} />
-                  COMFORT SPACING
-                </label>
-                <div className="d-flex align-items-center gap-2 mono" style={{ fontSize: 11 }}>
-                  <span className="sh-kv-key">TEXT</span>
-                  <button type="button" className="sh-btn-ghost" style={{ width: "auto", margin: 0, padding: "4px 8px" }} disabled={fontStep <= 0} onClick={() => setFontStep((s) => Math.max(0, s - 1))}>
-                    A−
-                  </button>
-                  <button type="button" className="sh-btn-ghost" style={{ width: "auto", margin: 0, padding: "4px 8px" }} disabled={fontStep >= FONT_STEPS.length - 1} onClick={() => setFontStep((s) => Math.min(FONT_STEPS.length - 1, s + 1))}>
-                    A+
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
-            {active === "flashcards" && panelApi ? (
-              <details className="ctx-section ctx-deck-collapsible border-0" open>
-                <summary className="ctx-label ctx-deck-summary">DECK</summary>
-                <div className="ctx-deck-inner">
-                  <p className="ctx-deck-count mono">LOCAL · {panelApi.n} CARDS</p>
-                  <button type="button" className="sh-btn-ghost ctx-btn mb-2" onClick={() => panelApi.setShowAdd((s) => !s)}>
-                    {panelApi.showAdd ? "CLOSE ADD CARD" : "+ ADD CARD"}
-                  </button>
-                  {panelApi.showAdd ? (
-                    <div className="d-flex flex-column gap-2 mb-3">
-                      <Form.Control
-                        size="sm"
-                        className="sh-input mono"
-                        value={panelApi.newFront}
-                        onChange={(e) => panelApi.setNewFront(e.target.value)}
-                        placeholder="FRONT"
-                      />
-                      <Form.Control
-                        as="textarea"
-                        rows={3}
-                        className="sh-input font-sans"
-                        value={panelApi.newBack}
-                        onChange={(e) => panelApi.setNewBack(e.target.value)}
-                        placeholder="BACK"
-                        style={{ resize: "vertical", fontSize: 14 }}
-                      />
-                      <button
-                        type="button"
-                        className="sh-btn-primary align-self-start"
-                        disabled={!panelApi.newFront.trim() || !panelApi.newBack.trim()}
-                        onClick={panelApi.addCard}
-                      >
-                        SAVE
-                      </button>
-                    </div>
-                  ) : null}
-                  <button type="button" className="sh-btn-ghost drill-deck-restore mb-2" onClick={panelApi.restoreSeed}>
-                    RESTORE SEED ({panelApi.seedLen})
-                  </button>
-                  {panelApi.n > 0 ? (
-                    <button type="button" className="sh-btn-ghost sh-btn-danger-ghost" onClick={panelApi.deleteCurrent}>
-                      DELETE CURRENT CARD
-                    </button>
-                  ) : null}
-                </div>
-              </details>
-            ) : null}
-          </div>
-        </aside>
+        </div>
+        <div className="sh-plan-dock">
+          <NovaBar courses={novaCourses} placeholder={current ? `Message Nova about ${current.title}…` : undefined} />
+        </div>
       </div>
+
+      <SideDrawer open={splitOpen} title="GLOSSARY" onClose={closeSplit}>
+        <GlossaryContextBlock />
+      </SideDrawer>
+
+      <SideDrawer open={settingsOpen && !splitOpen} title="COURSE SETTINGS" onClose={closeSettings}>
+        <div>
+          <div className="ctx-label">ADD COURSE</div>
+          <button
+            type="button"
+            className="sh-btn-ghost ctx-btn"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("studyhub-open-welcome"));
+            }}
+          >
+            ADD NEW COURSE (WELCOME)
+          </button>
+          <div className="ctx-label mt-3">MODULE VISIBILITY</div>
+          <div className="d-flex flex-column gap-1 mb-2">
+            {STUDY_CHAPTERS.map((ch) => {
+              const enabled = !disabledIds.has(ch.id);
+              const onlyOne = STUDY_CHAPTERS.length - disabledIds.size <= 1 && enabled;
+              return (
+                <label key={ch.id} className="mono d-flex align-items-center gap-2" style={{ fontSize: 11, cursor: onlyOne ? "not-allowed" : "pointer" }}>
+                  <input type="checkbox" checked={enabled} disabled={onlyOne} onChange={() => toggleModule(ch.id)} />
+                  <span style={{ color: "var(--sh-text-2)" }}>
+                    {ch.label} — {ch.title}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          <button type="button" className="sh-btn-ghost mb-1" onClick={resetModules}>
+            SHOW ALL
+          </button>
+          <button type="button" className="sh-btn-ghost mb-2" onClick={clearProgress}>
+            CLEAR COMPLETION
+          </button>
+          <label className="mono d-flex align-items-center gap-2 mb-2" style={{ fontSize: 11 }}>
+            <input type="checkbox" checked={comfortable} onChange={(e) => setComfortable(e.target.checked)} />
+            COMFORT SPACING
+          </label>
+          <div className="d-flex align-items-center gap-2 mono" style={{ fontSize: 11 }}>
+            <span className="sh-kv-key">TEXT</span>
+            <button type="button" className="sh-btn-ghost" style={{ width: "auto", margin: 0, padding: "4px 8px" }} disabled={fontStep <= 0} onClick={() => setFontStep((s) => Math.max(0, s - 1))}>
+              A−
+            </button>
+            <button type="button" className="sh-btn-ghost" style={{ width: "auto", margin: 0, padding: "4px 8px" }} disabled={fontStep >= FONT_STEPS.length - 1} onClick={() => setFontStep((s) => Math.min(FONT_STEPS.length - 1, s + 1))}>
+              A+
+            </button>
+          </div>
+        </div>
+      </SideDrawer>
 
       <MaterialsOffcanvas show={materialsOpen} onHide={() => setMaterialsOpen(false)} />
     </>
   );
 }
 
-export function BuiltinCourseApp({ courseShellLoad = false, onActiveChapterChange }) {
+export function BuiltinCourseApp({ courseShellLoad = false, onActiveChapterChange, novaCourses }) {
   return (
     <GlossarySplitProvider>
       <FlashcardDeckProvider>
-        <BuiltinCourseAppInner courseShellLoad={courseShellLoad} onActiveChapterChange={onActiveChapterChange} />
+        <BuiltinCourseAppInner courseShellLoad={courseShellLoad} onActiveChapterChange={onActiveChapterChange} novaCourses={novaCourses} />
       </FlashcardDeckProvider>
     </GlossarySplitProvider>
   );

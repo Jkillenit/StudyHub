@@ -395,7 +395,11 @@ function StudyHubAppInner() {
             <>
               <div className="sh-shell-body">
                 {courseId === "builtin" && (
-                  <BuiltinCourseApp courseShellLoad={courseShellLoad} onActiveChapterChange={handleBuiltinActiveChapterChange} />
+                  <BuiltinCourseApp
+                    courseShellLoad={courseShellLoad}
+                    onActiveChapterChange={handleBuiltinActiveChapterChange}
+                    novaCourses={userCoursesList}
+                  />
                 )}
                 {activeUserCourse && courseId !== "builtin" && (
                   <UserCourseApp

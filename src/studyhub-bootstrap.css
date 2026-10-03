@@ -163,7 +163,6 @@ h4,
 .sh-section-title,
 .sh-section-label,
 .main-title,
-.sh-main-title,
 .def-term,
 .def-card__title,
 .flashcard-term {
@@ -175,8 +174,7 @@ h4,
 .progress-counter,
 .sh-stat,
 .ch-num,
-.sb-item,
-.sh-kv-val {
+.sb-item {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }
@@ -894,6 +892,33 @@ html[data-motion="reduced"] .sh-rail .sh-rail-subnav {
   color: var(--sh-text-3);
 }
 
+.sh-deck-add {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.sh-deck-add-btn {
+  width: auto;
+  margin: 0;
+}
+
+/* OM 300 glossary reader inside the drawer: the drawer supplies the title, close and scroll */
+.sh-drawer .ctx-section {
+  padding: 0;
+  border-bottom: none;
+}
+
+.sh-drawer .sh-ctx-glossary-head {
+  display: none;
+}
+
+.sh-drawer .sh-ctx-scroll {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
 /* Right slide-over drawer */
 .sh-drawer {
   position: fixed;
@@ -1264,280 +1289,6 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   box-shadow: none !important;
 }
 
-.sh-workspace {
-  flex: 1;
-  display: flex;
-  flex-direction: row;
-  min-height: 0;
-  min-width: 0;
-}
-
-/* ─── Sidebar 210px ─── */
-.sh-sidebar {
-  flex: 0 0 210px;
-  width: 210px;
-  background: var(--sh-panel);
-  border-right: 1px solid var(--sh-border);
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  transition: flex-basis 180ms linear, width 180ms linear, opacity 180ms linear, border-color 180ms linear;
-  overflow: hidden;
-}
-
-.sh-sidebar.collapsed {
-  flex-basis: 0;
-  width: 0;
-  opacity: 0;
-  border-right-color: transparent;
-  pointer-events: none;
-}
-
-.sh-sidebar-head {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--sh-border);
-  flex-shrink: 0;
-}
-
-.sh-sidebar-label {
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  color: var(--sh-text-3);
-  text-transform: uppercase;
-  margin-bottom: 4px;
-}
-
-.sh-sidebar-course {
-  font-family: var(--sh-font-body);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--sh-text);
-  line-height: 1.3;
-}
-
-.sh-sidebar-meta {
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
-  color: var(--sh-text-2);
-  margin-top: 4px;
-}
-
-.sh-sidebar-search {
-  margin: 8px 10px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  background: var(--sh-bg);
-  border: 1px solid var(--sh-border);
-  border-radius: var(--sh-radius-xs);
-  transition: border-color 120ms linear, background-color 120ms linear, color 120ms linear;
-}
-
-.sh-sidebar-search:hover:not(:focus-within) {
-  transition: border-color 60ms linear, background-color 60ms linear, color 60ms linear;
-  border-color: var(--sh-border-strong);
-}
-
-.sh-sidebar-search:focus-within {
-  transition: none;
-  border-color: var(--sh-accent);
-}
-
-.sh-sidebar-search-prefix {
-  font-family: var(--sh-font-mono);
-  font-size: 12px;
-  color: var(--sh-accent);
-  flex-shrink: 0;
-}
-
-.sh-sidebar-search input {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  background: transparent;
-  color: var(--sh-text-2);
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
-  outline: none;
-  caret-color: var(--sh-accent);
-}
-
-.sh-sidebar-search input::placeholder {
-  color: var(--sh-text-3);
-}
-
-.sh-sidebar-scroll {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
-}
-
-.sh-sidebar-section-label {
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: var(--sh-text-3);
-  text-transform: uppercase;
-  padding: 6px 12px 3px;
-}
-
-.ch-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-left: 2px solid transparent;
-  cursor: pointer;
-  transition: background-color 120ms linear, color 120ms linear, border-color 120ms linear;
-  background: transparent;
-  border-top: none;
-  border-right: none;
-  border-bottom: none;
-  width: 100%;
-  text-align: left;
-  color: inherit;
-  font: inherit;
-}
-
-.ch-item:hover:not(.active):not(:disabled):not([aria-disabled="true"]) {
-  transition: background-color 60ms linear, color 60ms linear, border-color 60ms linear;
-  background: var(--sh-panel-strong);
-}
-
-.ch-item.active {
-  transition: none;
-  border-left-color: var(--sh-accent);
-  background: var(--sh-accent-soft);
-}
-
-.ch-item.active .ch-title {
-  color: var(--sh-text);
-}
-
-.ch-item.active .ch-num {
-  opacity: 1;
-}
-
-.ch-item .ch-title {
-  flex: 1;
-  min-width: 0;
-}
-
-.ch-item--complete .ch-num {
-  color: var(--sh-text-3);
-  opacity: 1;
-}
-
-.ch-item--complete .ch-title {
-  color: var(--sh-text-3);
-}
-
-.ch-item--complete::after {
-  content: "✓";
-  font-size: 11px;
-  color: var(--sh-accent);
-  opacity: 0.5;
-  margin-left: auto;
-  font-family: var(--sh-font-mono);
-}
-
-.ch-item.active.ch-item--complete .ch-num {
-  color: var(--sh-accent);
-  opacity: 1;
-}
-
-.ch-item.active.ch-item--complete .ch-title {
-  color: var(--sh-text);
-}
-
-.ch-item.active.ch-item--complete::after {
-  opacity: 0.35;
-}
-
-.sh-workspace--cyan .ch-item--complete .ch-num {
-  color: var(--sh-text-3);
-}
-
-.sh-workspace--cyan .ch-item.active.ch-item--complete .ch-num {
-  color: var(--sh-accent);
-}
-
-.ch-item:disabled,
-.ch-item[aria-disabled="true"],
-.ch-item.ch-item--disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-
-.ch-num {
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
-  color: var(--sh-accent);
-  opacity: 0.7;
-  min-width: 40px;
-  flex-shrink: 0;
-}
-
-.ch-num--amber {
-  color: var(--sh-warn);
-}
-
-.ch-num--cyan {
-  color: var(--sh-accent);
-}
-
-.ch-title {
-  font-family: var(--sh-font-body);
-  font-size: 12px;
-  color: var(--sh-text-2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ─── Main ─── */
-.sh-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  background: transparent;
-  min-height: 0;
-}
-
-.sh-main-header {
-  border-bottom: 1px solid var(--sh-border);
-  padding: 12px 20px 0;
-  flex-shrink: 0;
-}
-
-.sh-title-row {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.sh-main-title {
-  font-family: var(--sh-font-body);
-  font-size: 18px;
-  font-weight: 500;
-  color: var(--sh-text);
-  margin: 0;
-  line-height: 1.2;
-}
-
-.sh-ch-tag {
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: var(--sh-accent);
-  text-transform: uppercase;
-}
-
 .sh-tab-row {
   display: flex;
   gap: 0;
@@ -1610,27 +1361,6 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   opacity: 0;
 }
 
-/* ─── Context 220px ─── */
-.sh-ctx {
-  flex: 0 0 220px;
-  width: 220px;
-  background: var(--sh-panel);
-  border-left: 1px solid var(--sh-border);
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  transition: flex-basis 180ms linear, width 180ms linear, opacity 180ms linear, border-color 180ms linear;
-  overflow: hidden;
-}
-
-.sh-ctx.collapsed {
-  flex-basis: 0;
-  width: 0;
-  opacity: 0;
-  border-left-color: transparent;
-  pointer-events: none;
-}
-
 .sh-ctx-scroll {
   flex: 1;
   overflow-y: auto;
@@ -1651,53 +1381,8 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   margin-bottom: 8px;
 }
 
-.sh-meter-track {
-  width: 100%;
-  height: 3px;
-  background: var(--sh-border);
-  border-radius: 0;
-  overflow: hidden;
-}
-
-.sh-meter-fill {
-  height: 3px;
-  background: var(--sh-accent);
-  border-radius: 0;
-}
-
-.sh-kv-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
-  margin-bottom: 4px;
-}
-
 .sh-kv-key {
   color: var(--sh-text-3);
-}
-
-.sh-kv-val {
-  color: var(--sh-text-2);
-}
-
-.sh-kv-val--active {
-  color: var(--sh-accent);
-}
-
-.sh-kv-val--warn {
-  color: var(--sh-warn);
-}
-
-.kbd-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 3px 0;
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
-  color: var(--sh-text-2);
 }
 
 .kbd {
@@ -2240,21 +1925,6 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   border-left: 1px solid var(--sh-border);
 }
 
-/* User course workspace */
-.sh-workspace--cyan .ch-item.active {
-  border-left-color: var(--sh-accent);
-  background: var(--sh-accent-soft);
-}
-
-.sh-workspace--cyan .ch-num {
-  color: var(--sh-accent);
-}
-
-.sh-workspace--cyan .sh-tab.active {
-  color: var(--sh-accent);
-  border-bottom-color: var(--sh-accent);
-}
-
 /* User course flashcard card — match OM 300 style */
 .sh-app-usercourse .drill-card-body,
 .sh-app-usercourse .drill-card .card-term,
@@ -2535,14 +2205,6 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   color: var(--sh-danger);
 }
 
-.sh-workspace--cyan .sh-ch-tag {
-  color: var(--sh-accent);
-}
-
-.sh-workspace--cyan .sh-sidebar-search:focus-within {
-  border-color: var(--sh-accent);
-}
-
 /* ─── UI-008: Bootstrap buttons (dark theme) ─── */
 [data-bs-theme="dark"] .btn {
   transition: background-color 120ms linear, color 120ms linear, border-color 120ms linear;
@@ -2706,21 +2368,6 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 }
 
 /* ─── OM 300 flashcard drill ─── */
-.sh-main-body--drill {
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  min-height: 0;
-}
-
-.sh-section-body--drill {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
 .drill-root {
   flex: 1;
   min-height: 0;
@@ -3148,30 +2795,6 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
-}
-
-.ctx-deck-collapsible {
-  padding-top: 6px;
-}
-
-.ctx-deck-summary {
-  cursor: pointer;
-  user-select: none;
-  list-style: none;
-}
-
-.ctx-deck-summary::-webkit-details-marker {
-  display: none;
-}
-
-.ctx-deck-inner {
-  padding-top: 8px;
-}
-
-.ctx-deck-count {
-  font-size: 11px;
-  color: var(--sh-text-3);
-  margin: 0 0 8px;
 }
 
 .drill-deck-restore {
@@ -3943,67 +3566,6 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-chapter-skel-line--75 {
   width: 75%;
   margin-bottom: 0;
-}
-
-/* Course shell sidebar skeleton */
-.sh-course-sidebar-skel {
-  padding: 0 0 8px;
-}
-
-.sh-course-sidebar-skel-head {
-  padding: 12px 12px 0;
-}
-
-.sh-course-sidebar-skel-micro {
-  height: 9px;
-  width: 80px;
-  margin-bottom: 6px;
-}
-
-.sh-course-sidebar-skel-name {
-  height: 14px;
-  width: 120px;
-  margin-bottom: 4px;
-}
-
-.sh-course-sidebar-skel-sub {
-  height: 10px;
-  width: 100px;
-}
-
-.sh-course-sidebar-skel-filter {
-  height: 28px;
-  margin: 8px 10px;
-}
-
-.sh-course-sidebar-skel-rows {
-  padding: 4px 0;
-}
-
-.sh-course-sidebar-skel-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-}
-
-.sh-course-sidebar-skel-ch {
-  height: 10px;
-  width: 32px;
-  flex-shrink: 0;
-}
-
-.sh-course-sidebar-skel-title {
-  height: 12px;
-  flex: 1;
-  min-width: 0;
-}
-
-.sh-course-sidebar-skel-divider {
-  height: 9px;
-  width: 60px;
-  margin: 6px 12px 3px;
-  opacity: 0.5;
 }
 
 /* Flashcard drill area skeleton */
@@ -6192,8 +5754,6 @@ button.sh-today-row-main:hover {
 
 @media print {
   .sh-no-print,
-  .sh-sidebar,
-  .sh-ctx,
   .sh-topbar,
   .sh-statusbar,
   .sh-titlebar,
