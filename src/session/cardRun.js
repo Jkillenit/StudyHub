@@ -54,5 +54,15 @@ export function rateCard(run, grade, { nextReview = null } = {}) {
   };
 }
 
+/** Skips ids whose card is gone (deleted mid-session); `end` is true when none are left. */
+export function skipMissing(run, exists) {
+  if (!run || run.done) return { run, end: false };
+  let index = run.index;
+  while (index < run.order.length && !exists(run.order[index])) index += 1;
+  if (index === run.index) return { run, end: false };
+  const end = index >= run.order.length;
+  return { run: { ...run, index, done: end }, end };
+}
+
 /** Leaving early: results when anything was rated, otherwise just close. */
 export const cardRunEnd = (run) => (run?.rated ? "results" : "close");

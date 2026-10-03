@@ -8,7 +8,7 @@ import { courseStore } from "../../db/courseStore.js";
 import { isTypingTarget, paletteOpen } from "../../lib/hotkeys.js";
 import { SessionShell } from "../../session/SessionShell.jsx";
 import { SessionResults } from "../../session/SessionResults.jsx";
-import { cardRunEnd, currentCardId, rateCard, sessionOrder, startCardRun } from "../../session/cardRun.js";
+import { cardRunEnd, currentCardId, rateCard, sessionOrder, skipMissing, startCardRun } from "../../session/cardRun.js";
 import { masteryDeltas } from "../../session/results.js";
 
 const FLIP_GUARD_MS = 200;
@@ -72,6 +72,7 @@ export default function FlashcardDeck({ cards: externalCards = null, onSaveCards
   const ratingRef = useRef(false);
   const sessionIdRef = useRef(newSessionId());
   const loggedRef = useRef(false);
+  const panelRef = useRef(null);
   const beforeRef = useRef(null);
   if (!beforeRef.current) {
     const ids = new Set(session.cardIds);
@@ -84,6 +85,11 @@ export default function FlashcardDeck({ cards: externalCards = null, onSaveCards
   const exam = card && isUserDeck ? examForCard(card, exams) : null;
   const examDays = exam ? daysUntilExam(exam.dueDate) : null;
   const previews = useMemo(() => (card ? previewIntervals(card, { examDate }) : []), [card, examDate]);
+
+  /* The deck list button that started the session keeps focus behind the portal; take it. */
+  useEffect(() => {
+    if (screen === "play") panelRef.current?.focus({ preventScroll: true });
+  }, [screen, run.startedAt, card == null]);
 
   const logSession = useCallback(
     (r) => {
@@ -113,6 +119,18 @@ export default function FlashcardDeck({ cards: externalCards = null, onSaveCards
     },
     [logSession]
   );
+
+  useEffect(() => {
+    if (screen !== "play" || cardsById.has(currentCardId(run))) return;
+    const { run: next, end } = skipMissing(run, (id) => cardsById.has(id));
+    if (next === run) return;
+    runRef.current = next;
+    setRun(next);
+    setFlipped(false);
+    if (!end) return;
+    if (cardRunEnd(next) === "results") finish(next);
+    else session.onExit();
+  }, [screen, run, cardsById, finish, session]);
 
   const restart = useCallback(
     (ids) => {
@@ -197,11 +215,11 @@ export default function FlashcardDeck({ cards: externalCards = null, onSaveCards
       const k = e.key.toLowerCase();
       const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
       const flipKey = e.key === " " || e.key === "Enter";
-      if (flipKey && e.target?.closest?.("button")) return;
+      if (flipKey && e.target?.closest?.(".sh-session button")) return;
       let handled = true;
-      if (e.key === "Escape") quit();
+      if (ratingRef.current) handled = e.key === "Escape" || (plain && (flipKey || /^[1-4ka]$/.test(k)));
+      else if (e.key === "Escape") quit();
       else if (screen !== "play" || !plain) handled = false;
-      else if (ratingRef.current) handled = flipKey || /^[1-4ka]$/.test(k);
       else if (flipKey) flip();
       else if (flipped && /^[1-4]$/.test(k)) void rate(RATINGS[Number(k) - 1].grade);
       else if (flipped && k === "k") void rate(4);
@@ -236,6 +254,8 @@ export default function FlashcardDeck({ cards: externalCards = null, onSaveCards
       {card ? (
         <>
           <div
+            ref={panelRef}
+            tabIndex={-1}
             className="sh-session-panel sh-flashcard"
             data-sprite-avoid
             data-side={flipped ? "back" : "front"}

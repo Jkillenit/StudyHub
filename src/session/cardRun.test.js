@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardRunEnd, currentCardId, rateCard, sessionOrder, startCardRun } from "./cardRun.js";
+import { cardRunEnd, currentCardId, rateCard, sessionOrder, skipMissing, startCardRun } from "./cardRun.js";
 import { initShield } from "./shield.js";
 
 const rate = (run, grade, nextReview = "2026-10-04") => rateCard(run, grade, { nextReview });
@@ -78,6 +78,28 @@ describe("rateCard", () => {
     const again = rate(run, 1);
     expect(again.run).toBe(run);
     expect(again.end).toBe(false);
+  });
+});
+
+describe("skipMissing", () => {
+  it("moves past ids that no longer exist", () => {
+    const run = startCardRun(["a", "gone", "c"]);
+    const after = rate(run, 4).run;
+    const { run: next, end } = skipMissing(after, (id) => id !== "gone");
+    expect(end).toBe(false);
+    expect(currentCardId(next)).toBe("c");
+  });
+
+  it("returns the same run when the current card exists", () => {
+    const run = startCardRun(["a", "b"]);
+    expect(skipMissing(run, () => true).run).toBe(run);
+  });
+
+  it("ends the run when nothing is left", () => {
+    const after = rate(startCardRun(["a", "gone"]), 4).run;
+    const { run, end } = skipMissing(after, (id) => id === "a");
+    expect(end).toBe(true);
+    expect(run.done).toBe(true);
   });
 });
 

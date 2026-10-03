@@ -60,7 +60,6 @@ export function CommandPalette({
   onExport,
   onImportFile,
   onMarkChapterReviewed,
-  onShuffleDeck,
   builtinActiveChapter,
 }) {
   const [query, setQuery] = useState("");
@@ -128,7 +127,7 @@ export function CommandPalette({
 
   /* Parent passes fresh inline callbacks every render; reading them at run time keeps them out of the memo deps. */
   const actionsRef = useRef(null);
-  actionsRef.current = { onSelectCourse, onNavigateCourseChapter, onGoToHub, onGoToHubAndNewCourse, onPickImportFiles, onOpenSettings, onExport, onMarkChapterReviewed, onShuffleDeck };
+  actionsRef.current = { onSelectCourse, onNavigateCourseChapter, onGoToHub, onGoToHubAndNewCourse, onPickImportFiles, onOpenSettings, onExport, onMarkChapterReviewed };
 
   const allRows = useMemo(() => {
     if (!mounted) return null;
@@ -226,8 +225,6 @@ export function CommandPalette({
     }
 
     const inCourse = courseId !== null;
-    const shuffleVisible = courseId === "builtin" && builtinActiveChapter === "flashcards";
-
     const actionRows = [
       {
         key: "act-hub",
@@ -310,16 +307,6 @@ export function CommandPalette({
         shortcut: "⌘R",
         visible: inCourse,
         run: () => actionsRef.current.onMarkChapterReviewed(),
-      },
-      {
-        key: "act-shuffle",
-        group: "actions",
-        icon: "→",
-        primary: "Shuffle Deck",
-        sub: "Randomize flashcard order",
-        shortcut: null,
-        visible: shuffleVisible,
-        run: () => actionsRef.current.onShuffleDeck(),
       },
       ...[
         ["briefing", "Layout: Briefing", "Tonight up top, grades and week below"],

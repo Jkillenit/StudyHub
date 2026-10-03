@@ -9796,6 +9796,10 @@ html[data-motion="reduced"] :is(.sh-session-esc, .sh-session-progress) {
   cursor: pointer;
 }
 
+.sh-flashcard:focus {
+  outline: none;
+}
+
 .sh-flashcard-exam {
   flex-shrink: 0;
   color: var(--sh-accent-2);

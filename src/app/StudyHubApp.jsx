@@ -428,7 +428,6 @@ function StudyHubAppInner() {
         onExport={exportHub}
         onImportFile={importHub}
         onMarkChapterReviewed={() => window.dispatchEvent(new CustomEvent("studyhub-mark-chapter-reviewed"))}
-        onShuffleDeck={() => window.dispatchEvent(new CustomEvent("studyhub-shuffle-flashcards"))}
         builtinActiveChapter={paletteChapterMeta.courseId === "builtin" ? paletteChapterMeta.chapterId : null}
       />
       {novaPlace === "lane" || novaPlace === "session" ? <NovaLane session={novaPlace === "session"} /> : null}
