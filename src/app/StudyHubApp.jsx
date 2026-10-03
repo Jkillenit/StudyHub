@@ -88,7 +88,7 @@ function StudyHubAppInner() {
     const toHub = () => setCourseId(null);
     const openAi = () => setAiOpen(true);
     const onKey = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k" && document.documentElement.dataset.session == null) {
         e.preventDefault();
         setPaletteOpen(true);
       }

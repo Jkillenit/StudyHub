@@ -47,11 +47,11 @@ export function SessionResults({ crumb, shield, stats, comeBack = 0, deltas = []
           <h2 className="sh-results-title">{tally ? (tally.closedRound ? `ROUND ${tally.closedRound} COMPLETE` : "SESSION COMPLETE") : "\u00a0"}</h2>
         </div>
         {tally ? (
-          <div className="sh-results-tally" aria-label={`Round ${tally.round}: ${filled} of ${MARKS_PER_ROUND} sessions`}>
+          <div className="sh-results-tally" aria-label={`Round ${tally.closedRound ?? tally.round}: ${filled} of ${MARKS_PER_ROUND} sessions`}>
             {Array.from({ length: MARKS_PER_ROUND }, (_, i) => (
               <i key={i} data-on={i < filled || undefined} data-new={i === filled - 1 || undefined} />
             ))}
-            <span>ROUND {tally.round}</span>
+            <span>ROUND {tally.closedRound ?? tally.round}</span>
           </div>
         ) : null}
       </div>

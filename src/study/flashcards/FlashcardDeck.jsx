@@ -150,6 +150,7 @@ export default function FlashcardDeck({ cards: externalCards = null, onSaveCards
   );
 
   const quit = useCallback(() => {
+    if (ratingRef.current) return;
     if (screen === "end") session.onExit();
     else if (cardRunEnd(runRef.current) === "results") finish(runRef.current);
     else session.onExit();

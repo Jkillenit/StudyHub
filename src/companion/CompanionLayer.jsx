@@ -664,9 +664,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     { id: "l-menu", label: "BACK", icon: "‹", onClick: () => setMenuPage("main") },
   ];
   const mainItems = [
-    { id: "quiz", label: "QUIZ ME", icon: "✦", onClick: () => startQuiz() },
+    ...(place === "session" ? [] : [{ id: "quiz", label: "QUIZ ME", icon: "✦", onClick: () => startQuiz() }]),
     ...(onHub ? [{ id: "layout", label: "REARRANGE", icon: "▦", onClick: () => setMenuPage("layout") }] : []),
-    { id: "tour", label: "SHOW ME AROUND", icon: "◎", onClick: contextualTour },
+    ...(place === "session" ? [] : [{ id: "tour", label: "SHOW ME AROUND", icon: "◎", onClick: contextualTour }]),
     { id: "help", label: "ASK NOVA", icon: "›", onClick: startHelp },
     {
       id: "quiet",

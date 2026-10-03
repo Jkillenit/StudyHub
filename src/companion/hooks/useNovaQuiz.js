@@ -23,6 +23,7 @@ export function useNovaQuiz(core, { courses, awardXp, returnHome, setHelp, setMa
 
   const startQuiz = useCallback(
     (deckId) => {
+      if (document.documentElement.dataset.session != null) return;
       const nav = navRef.current;
       const fresh = loadFlashcardDeck();
       setBuiltinCards(fresh);
