@@ -45,7 +45,7 @@ export const FAQ = [
   {
     id: "flashcards",
     q: "How do flashcards work here?",
-    a: "Open a course, then Flashcard Deck under Drill. Rate each card and spaced repetition decides when you see it again.",
+    a: "Open a course, then Flashcard Deck under Study and hit Start session. Space flips, 1–4 rates each card, and spaced repetition decides when you see it again.",
     keywords: ["flashcard", "flashcards", "deck", "review", "drill", "spaced", "repetition", "sm2", "study"],
     pointTo: "course-drill",
     route: "course",
