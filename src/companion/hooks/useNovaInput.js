@@ -15,6 +15,7 @@ export function useNovaInput(
   const {
     stateRef,
     modeRef,
+    navRef,
     api,
     send,
     force,
@@ -198,7 +199,7 @@ export function useNovaInput(
       if (e.key === "Escape" && modeRef.current === "help") closeHelp();
     };
     const onResize = () => {
-      if (modeRef.current === "quiz") {
+      if (modeRef.current === "quiz" && !navRef.current.session) {
         jumpTo(dockPoint());
         return;
       }

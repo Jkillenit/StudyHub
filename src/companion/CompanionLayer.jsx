@@ -67,6 +67,9 @@ import { useNovaInput } from "./hooks/useNovaInput.js";
 
 const Nova3D = lazy(() => import("./nova3d/Nova3D.jsx"));
 
+/** In a session she quizzes from her lane instead of walking out to dock beside the panel. */
+const leavesHomeFor = (next, session) => !HOME_MODES.has(next) && !(next === "quiz" && session);
+
 /**
  * Nova's overlay. Lives above the app in a portal; only Nova, her bubbles and menus take
  * pointer events. Mounted by StudyHubApp once the launch splash is gone.
@@ -154,10 +157,10 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     };
   }, [place]);
   /* Lane visibility is part of it so widening the window (or unpinning the rail) walks her back in. */
-  const stageActive = place === "lane" && laneShown;
+  const stageActive = (place === "lane" || place === "session") && laneShown;
   const onToday = onHub && (hubView === "today" || hubView === "plan");
   const navRef = useRef({});
-  navRef.current = { courses, activeCourseId, onHub, onGoHub, onOpenCourse, stageActive, onToday };
+  navRef.current = { courses, activeCourseId, onHub, onGoHub, onOpenCourse, stageActive, onToday, session: place === "session" };
 
   const lastActivityRef = useRef(Date.now());
   /** Last pointer, key, wheel or touch input; she only acts on her own after IDLE_START_MS of none. */
@@ -220,7 +223,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     const next = transition(modeRef.current, event);
     if (next !== modeRef.current) {
       if (modeRef.current === "brief") stageRef.current.abort();
-      if (housedRef.current && !HOME_MODES.has(next)) api.current.leaveHome?.();
+      if (housedRef.current && leavesHomeFor(next, navRef.current.session)) api.current.leaveHome?.();
       /* A tour, quiz, help answer or nudge may have taken her elsewhere; the next input brings her back. */
       if (AUTONOMOUS.has(next) && ENGAGED_MODES.has(modeRef.current) && !housedRef.current) awayFromSpotRef.current = true;
       modeRef.current = next;
@@ -231,7 +234,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   const force = useCallback((next) => {
     if (modeRef.current === "brief" && next !== "brief") stageRef.current.abort();
-    if (housedRef.current && !HOME_MODES.has(next)) api.current.leaveHome?.();
+    if (housedRef.current && leavesHomeFor(next, navRef.current.session)) api.current.leaveHome?.();
     modeRef.current = next;
     setMode(next);
   }, []);

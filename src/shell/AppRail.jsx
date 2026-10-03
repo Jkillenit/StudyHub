@@ -107,10 +107,10 @@ function CourseSubNav({ nav }) {
 }
 
 export function AppRail({ onHub, hubView, courseId, courses, onNavigate, onOpenCourse, onSearch, onOpenSettings }) {
-  const { courseNav } = useShell();
+  const { courseNav, session } = useShell();
   const [pinnedHub, setPinnedHub] = useState(() => loadJson(PIN_KEY, false) === true);
   const [pinnedCourse, setPinnedCourse] = useState(() => loadJson(PIN_COURSE_KEY, true) !== false);
-  const showPinned = onHub ? pinnedHub : pinnedCourse;
+  const showPinned = !session && (onHub ? pinnedHub : pinnedCourse);
   const togglePinned = useCallback(() => (onHub ? setPinnedHub : setPinnedCourse)((v) => !v), [onHub]);
 
   useEffect(() => {
@@ -130,7 +130,7 @@ export function AppRail({ onHub, hubView, courseId, courses, onNavigate, onOpenC
   const kbd = typeof navigator !== "undefined" && /Mac|iPhone|iPod|iPad/i.test(navigator.platform || "") ? "⌘ K" : "Ctrl K";
 
   return (
-    <nav className={`sh-rail${showPinned ? " sh-rail--pinned" : ""}`} aria-label="Main">
+    <nav className={`sh-rail${showPinned ? " sh-rail--pinned" : ""}${session ? " sh-rail--session" : ""}`} aria-label="Main">
       <div className="sh-rail-panel">
         <div className="sh-rail-logo">
           <button type="button" className="sh-rail-brand" onClick={() => onNavigate("today")} title="Today">

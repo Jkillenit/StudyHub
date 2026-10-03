@@ -51,7 +51,7 @@ function ApiStatusSync() {
 }
 
 function StudyHubAppInner() {
-  const { setBreadcrumb } = useShell();
+  const { setBreadcrumb, session } = useShell();
   const {
     courses: userCourses,
     loaded,
@@ -325,7 +325,7 @@ function StudyHubAppInner() {
   const userCoursesList = useMemo(() => userCourses.filter((c) => c.type !== "builtin"), [userCourses]);
   const activeUserCourse = userCoursesList.find((c) => c.id === courseId);
   const onHub = courseId === null;
-  const novaPlace = onHub && hubView === "calendar" ? "tuck" : "lane";
+  const novaPlace = session ? "session" : onHub && hubView === "calendar" ? "tuck" : "lane";
   const railCourses = useMemo(
     () => [{ id: "builtin", code: "OM 300" }, ...userCoursesList.map((c) => ({ id: c.id, code: shortCourse(c.courseCode || c.name) || c.name }))],
     [userCoursesList]
@@ -429,7 +429,7 @@ function StudyHubAppInner() {
         onShuffleDeck={() => window.dispatchEvent(new CustomEvent("studyhub-shuffle-flashcards"))}
         builtinActiveChapter={paletteChapterMeta.courseId === "builtin" ? paletteChapterMeta.chapterId : null}
       />
-      {novaPlace === "lane" ? <NovaLane /> : null}
+      {novaPlace === "lane" || novaPlace === "session" ? <NovaLane session={novaPlace === "session"} /> : null}
       <AiAssistantPanel open={aiOpen} onClose={() => setAiOpen(false)} />
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       {splashPhase === "done" ? (

@@ -7,6 +7,8 @@ export function ShellProvider({ children }) {
   const [apiLive, setApiLive] = useState(false);
   const [courseNav, setCourseNav] = useState(null);
   const [prompt, setPrompt] = useState(null);
+  /** `{ kind: "quiz" | "cards" }` while a SessionShell is mounted, else null. */
+  const [session, setSession] = useState(null);
 
   const value = useMemo(
     () => ({
@@ -18,8 +20,10 @@ export function ShellProvider({ children }) {
       setCourseNav,
       prompt,
       setPrompt,
+      session,
+      setSession,
     }),
-    [apiLive, breadcrumb, courseNav, prompt]
+    [apiLive, breadcrumb, courseNav, prompt, session]
   );
 
   return <ShellContext.Provider value={value}>{children}</ShellContext.Provider>;

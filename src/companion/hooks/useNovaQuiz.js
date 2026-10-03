@@ -46,6 +46,10 @@ export function useNovaQuiz(core, { courses, awardXp, returnHome, setHelp, setMa
       setQuizDeck(deck);
       setGlow(1);
       setMood("excited");
+      if (navRef.current.session) {
+        say(line("quizStart"));
+        return;
+      }
       const ok = await flyTo(dockPoint(), { speed: ENGAGED_SPEED });
       if (!ok || modeRef.current !== "quiz") return;
       setFacing(1);
