@@ -174,7 +174,9 @@ CHECKS = [
 
 def main():
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        # Real GPU on Windows: SwiftShader renders Nova at ~13fps and stalls every action.
+        gpu = ["--ignore-gpu-blocklist", "--enable-gpu", "--use-angle=d3d11"] if sys.platform == "win32" else []
+        browser = p.chromium.launch(headless=True, args=gpu)
         page = browser.new_page(viewport={"width": 1400, "height": 900})
         page.add_init_script(f"window.localStorage.setItem('companion.state', {json.dumps(json.dumps(STATE))});")
         page.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
