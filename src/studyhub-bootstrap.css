@@ -1074,7 +1074,7 @@ html[data-nova="off"] .sh-nova-lane-floor {
 .sh-nova-lane--session {
   right: 32px;
   bottom: 24px;
-  width: 300px;
+  width: clamp(300px, 30vw, 420px);
   height: min(560px, calc(100vh - var(--sh-topbar-h) - 120px));
 }
 

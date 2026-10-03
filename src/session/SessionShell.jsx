@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useShell } from "../shell/ShellContext.jsx";
 import { ShieldMeter } from "./ShieldMeter.jsx";
 import { loadRounds } from "./rounds.js";
+
+/** The most recently mounted shell owns `session`; an older one unmounting leaves it alone. */
+let owner = 0;
 
 /**
  * Full-window frame for a quiz or flashcard session, laid over the page in `.sh-frame-main`.
@@ -13,11 +16,13 @@ export function SessionShell({ kind, crumb, shield = null, counter = null, progr
   const { setSession } = useShell();
   const [round, setRound] = useState(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const id = ++owner;
     setSession({ kind });
     const root = document.documentElement;
     root.dataset.session = "";
     return () => {
+      if (owner !== id) return;
       setSession(null);
       delete root.dataset.session;
     };

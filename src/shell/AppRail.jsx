@@ -116,13 +116,13 @@ export function AppRail({ onHub, hubView, courseId, courses, onNavigate, onOpenC
   useEffect(() => {
     const onKey = (e) => {
       if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== "b") return;
-      if (isTypingTarget(e.target) || paletteOpen()) return;
+      if (session || isTypingTarget(e.target) || paletteOpen()) return;
       e.preventDefault();
       togglePinned();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [togglePinned]);
+  }, [togglePinned, session]);
 
   useEffect(() => saveJson(PIN_KEY, pinnedHub), [pinnedHub]);
   useEffect(() => saveJson(PIN_COURSE_KEY, pinnedCourse), [pinnedCourse]);
