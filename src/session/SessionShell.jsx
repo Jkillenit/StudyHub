@@ -31,10 +31,13 @@ export function SessionShell({ kind, crumb, shield = null, shieldLabel = null, c
   useEffect(() => {
     let alive = true;
     void loadRounds().then((r) => {
-      if (alive) setRound(r.round);
+      if (alive) setRound((cur) => cur ?? r.round);
     });
+    const onRounds = (e) => setRound(e.detail.round);
+    window.addEventListener("studyhub-rounds-changed", onRounds);
     return () => {
       alive = false;
+      window.removeEventListener("studyhub-rounds-changed", onRounds);
     };
   }, []);
 

@@ -33,6 +33,7 @@ export async function recordMark() {
   const stored = await readMarks();
   const result = addMark(stored ?? memoryMarks);
   memoryMarks = result.marks;
+  window.dispatchEvent(new CustomEvent("studyhub-rounds-changed", { detail: result }));
   if (stored == null && window.studyHub?.db?.settings?.get) return result;
   try {
     await window.studyHub?.db?.settings?.set?.({ key: KEY, value: JSON.stringify(result.marks) });

@@ -13,12 +13,14 @@ import {
   pickCards,
   pointsFor,
   reviewCard,
+  shuffle,
   sm2Grade,
 } from "./lightRun.js";
 import { isTypingTarget, paletteOpen } from "../lib/hotkeys.js";
 import { SessionShell } from "../session/SessionShell.jsx";
 import { SessionResults } from "../session/SessionResults.jsx";
-import { applyAnswer, initShield, isDepleted } from "../session/shield.js";
+import { initShield, isDepleted } from "../session/shield.js";
+import { finiteMode as finite, quizStep } from "../session/quizRun.js";
 import { masteryDeltas } from "../session/results.js";
 
 const FLIP_GUARD_MS = 200;
@@ -26,7 +28,6 @@ const CLOCK_ADVANCE_MS = 450;
 const TYPE_LABEL = { mc: "MULTIPLE CHOICE", typed: "TYPE THE ANSWER", flip: "FLIP CARD" };
 
 const modeLabel = (id) => RUN_MODES.find((m) => m.id === id)?.label || "";
-const finite = (mode) => mode === "quick" || mode === "weak";
 
 /** Answered cards whose next review is tomorrow. */
 function comeBackCount(reviewed) {
@@ -75,7 +76,7 @@ export function QuizPanel({ courses, initialDeck = "all", highScores = {}, onAns
   const startRun = useCallback(
     (mode = modeId, id = deck?.id || "all", only = null) => {
       const pool = deckCards(courses, id);
-      const queue = only ? pool.filter((c) => only.includes(cardKey(c))).sort(() => Math.random() - 0.5) : pickCards(pool, mode);
+      const queue = only ? shuffle(pool.filter((c) => only.includes(cardKey(c)))) : pickCards(pool, mode);
       if (!queue.length) return;
       const t = Date.now();
       window.clearTimeout(advanceRef.current);
@@ -138,34 +139,23 @@ export function QuizPanel({ courses, initialDeck = "all", highScores = {}, onAns
     setScreen("end");
   }, [onFinish, onClose]);
 
-  /** Moves to the next question, or ends the run when a rule says so. */
-  const advance = useCallback(
-    (r) => {
+  /** Applies a `quizStep` event: the next question, results, or closing an untouched run. */
+  const step = useCallback(
+    (event) => {
       window.clearTimeout(advanceRef.current);
-      const outOfCards = finite(r.mode) && r.index + 1 >= r.queue.length;
-      const outOfTime = r.mode === "clock" && Date.now() >= r.endsAt;
-      if (isDepleted(r.shield) || outOfCards || outOfTime) {
-        if (r.answered) finish();
-        else onClose();
-        return;
+      const { run: r, end } = quizStep(runRef.current, event);
+      if (end === "results") finish();
+      else if (end === "close") onClose();
+      else if (r !== runRef.current) {
+        setTyped("");
+        setRun(r);
       }
-      const index = r.index + 1;
-      const card = r.queue[index % r.queue.length];
-      setTyped("");
-      setRun({ ...r, index, q: buildQuestion(card, r.pool, r.mode, index), hint: null, selected: null, revealed: false, result: null, qStartedAt: Date.now() });
     },
     [finish, onClose]
   );
 
-  const next = useCallback(() => {
-    const r = runRef.current;
-    if (r?.result && !r.summary) advance(r);
-  }, [advance]);
-
-  const skip = useCallback(() => {
-    const r = runRef.current;
-    if (r && !r.result && !r.summary) advance(r);
-  }, [advance]);
+  const next = useCallback(() => step({ type: "next" }), [step]);
+  const skip = useCallback(() => step({ type: "skip" }), [step]);
 
   const answer = useCallback(
     ({ correct, partial = false, picked = null }) => {
@@ -174,33 +164,10 @@ export function QuizPanel({ courses, initialDeck = "all", highScores = {}, onAns
       const usedHint = !!r.hint;
       const elapsedMs = r.mode === "clock" ? Date.now() - r.qStartedAt : null;
       const points = correct ? pointsFor({ streak: r.streak, hint: usedHint, partial, elapsedMs }) : 0;
-      const streak = correct ? r.streak + 1 : 0;
       const grade = sm2Grade({ correct, hint: usedHint, partial });
       const fields = reviewCard(r.q.card, grade);
-      const key = cardKey(r.q.card);
-      const refresh = (c) => (cardKey(c) === key ? { ...c, ...fields } : c);
-      onAnswer?.({ card: r.q.card, grade, fields, correct, partial, hint: usedHint, streak, answer: r.q.answer });
-      const courseUuids = new Set(r.courseUuids);
-      courseUuids.add(r.q.card.courseUuid);
-      const shield = applyAnswer(r.shield, correct);
-      let queue = r.queue.map(refresh);
-      if (shield.last === "health" && finite(r.mode)) queue = [...queue, queue[r.index % queue.length]];
-      const nextRun = {
-        ...r,
-        queue,
-        pool: r.pool.map(refresh),
-        score: r.score + points,
-        streak,
-        best: Math.max(r.best, streak),
-        answered: r.answered + 1,
-        correct: r.correct + (correct ? 1 : 0),
-        misses: correct || r.misses.some((m) => m.key === key) ? r.misses : [...r.misses, { key, front: r.q.card.front, back: r.q.card.back }],
-        dates: [...r.dates, fields.next_review],
-        reviewed: { ...r.reviewed, [key]: fields.next_review },
-        courseUuids,
-        shield,
-        result: { correct, partial, picked, points },
-      };
+      const { run: nextRun } = quizStep(r, { type: "answer", correct, partial, picked, points, fields });
+      onAnswer?.({ card: r.q.card, grade, fields, correct, partial, hint: usedHint, streak: nextRun.streak, answer: r.q.answer });
       setRun(nextRun);
       if (r.mode === "clock") {
         runRef.current = nextRun;
@@ -242,10 +209,9 @@ export function QuizPanel({ courses, initialDeck = "all", highScores = {}, onAns
   }, []);
 
   const quit = useCallback(() => {
-    const r = runRef.current;
-    if (screen === "play" && r?.answered) finish();
+    if (screen === "play") step({ type: "quit" });
     else onClose();
-  }, [screen, finish, onClose]);
+  }, [screen, step, onClose]);
 
   /* Beat the Clock countdown. */
   useEffect(() => {
@@ -382,7 +348,7 @@ function RewardLine({ score, reward = {} }) {
 function Setup({ decks, deck, onDeck, modeId, onMode, uniqueBacks, highScores, onStart }) {
   if (!deck || !deck.total) {
     return (
-      <div className="sh-session-panel">
+      <div className="sh-session-panel" data-sprite-avoid>
         <h2 className="sh-quiz-heading">Quiz me</h2>
         <p className="sh-quiz-empty">No flashcards yet. Import some slides and I&apos;ll have something to quiz you on.</p>
       </div>
@@ -391,7 +357,7 @@ function Setup({ decks, deck, onDeck, modeId, onMode, uniqueBacks, highScores, o
   const clockOk = uniqueBacks >= 4;
   const canStart = modeId !== "clock" || clockOk;
   return (
-    <div className="sh-session-panel">
+    <div className="sh-session-panel" data-sprite-avoid>
       <h2 className="sh-quiz-heading">Quiz me</h2>
       <label className="sh-quiz-label" htmlFor="sh-quiz-deck">
         Deck
@@ -450,7 +416,7 @@ function Play({ run, now, typed, showCourse, onTyped, onSubmitTyped, onSelect, o
   else keys = "Enter to check";
 
   return (
-    <div className="sh-session-panel" role="group" aria-label="Quiz question">
+    <div className="sh-session-panel" data-sprite-avoid role="group" aria-label="Quiz question">
       <div className="sh-quiz-head">
         <span>
           {TYPE_LABEL[q.type]}

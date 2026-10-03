@@ -101,7 +101,7 @@ export function SessionResults({ crumb, shield, stats, comeBack = 0, deltas = []
               <span className="sh-results-bar" aria-hidden="true">
                 <i style={{ width: `${d.after}%` }} />
               </span>
-              <span className={`sh-results-delta${d.delta ? "" : " sh-results-delta--flat"}`}>
+              <span className={`sh-results-delta${d.delta > 0 ? "" : " sh-results-delta--flat"}`}>
                 {d.delta > 0 ? `+${d.delta}%` : d.delta < 0 ? `${d.delta}%` : "±0%"}
               </span>
             </li>

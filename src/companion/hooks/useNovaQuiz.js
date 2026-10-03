@@ -9,7 +9,7 @@ import { BUILTIN_ID } from "../layer/constants.js";
 
 /** Quiz: she runs it from her session lane, reacts to each answer, and saves the run. */
 export function useNovaQuiz(core, { courses, awardXp, returnHome, setHelp, setMarks, onUpdateCourse }) {
-  const { stateRef, navRef, api, housedRef, send, setBubble, say, setMood, update, cancel, setAnchor, sfx, playGesture, flashReaction } = core;
+  const { stateRef, navRef, api, housedRef, send, setBubble, say, setMood, update, cancel, sfx, playGesture, flashReaction } = core;
   const [glow, setGlow] = useState(1);
   const [quizDeck, setQuizDeck] = useState("all");
   const [builtinCards, setBuiltinCards] = useState(loadFlashcardDeck);
@@ -73,7 +73,6 @@ export function useNovaQuiz(core, { courses, awardXp, returnHome, setHelp, setMa
       }
 
       setGlow((g) => Math.max(0, Math.min(character.glowLevels, g + (correct ? 1 : -1))));
-      setAnchor({ h: "left", v: "below" });
       if (correct) {
         setMood(streak >= 3 ? "excited" : "happy");
         flashReaction("bounce");

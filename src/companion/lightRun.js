@@ -15,7 +15,7 @@ const MIN_MC = 4;
 
 export const cardKey = (c) => c?.uuid || c?.id;
 
-function shuffle(list) {
+export function shuffle(list) {
   const a = [...list];
   for (let i = a.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));

@@ -199,6 +199,7 @@ export default function FlashcardDeck({
   const ratingRef = useRef(false);
   const cardsRef = useRef(null);
   const sessionRef = useRef(null);
+  const rootRef = useRef(null);
   if (!sessionRef.current) sessionRef.current = newSession();
   cardsRef.current = cards;
 
@@ -483,6 +484,7 @@ export default function FlashcardDeck({
   const handleKeyDown = useCallback(
     (e) => {
       if (document.querySelector('.sh-palette, .sh-cmd-palette, [data-palette="true"]')) return;
+      if (document.documentElement.dataset.session != null && !rootRef.current?.closest(".sh-session")) return;
       if (isTypingTarget(document.activeElement) || editingCard || showSummary) return;
       if (slide || flipPhase || ratingRef.current) {
         if (e.key === " " || e.key === "Enter") e.preventDefault();
@@ -556,7 +558,7 @@ export default function FlashcardDeck({
           : "NO CARDS HERE";
 
   return (
-    <div className="drill-root font-sans">
+    <div ref={rootRef} className="drill-root font-sans">
       <header className="drill-header">
         <div className="drill-header-left">
           <span className="drill-header-ch">{chapterTag}</span>

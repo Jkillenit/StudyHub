@@ -130,7 +130,7 @@ export function AppRail({ onHub, hubView, courseId, courses, onNavigate, onOpenC
   const kbd = typeof navigator !== "undefined" && /Mac|iPhone|iPod|iPad/i.test(navigator.platform || "") ? "⌘ K" : "Ctrl K";
 
   return (
-    <nav className={`sh-rail${showPinned ? " sh-rail--pinned" : ""}${session ? " sh-rail--session" : ""}`} aria-label="Main">
+    <nav className={`sh-rail${showPinned ? " sh-rail--pinned" : ""}${session ? " sh-rail--session" : ""}`} aria-label="Main" inert={session ? "" : undefined}>
       <div className="sh-rail-panel">
         <div className="sh-rail-logo">
           <button type="button" className="sh-rail-brand" onClick={() => onNavigate("today")} title="Today">
