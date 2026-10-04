@@ -58,7 +58,7 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, novaCour
   const [active, setActive] = useState(c.activeModuleId);
   const [activeItem, setActiveItem] = useState(`module:${c.activeModuleId}`);
   const { importPptx, error: pptxError, reset: resetPptx } = usePptxImport();
-  const { badges: mirrorBadges, exams, examFor } = useCourseMirror(c.uuid || c.id);
+  const { badges: mirrorBadges, exams, examFor, loaded: mirrorLoaded } = useCourseMirror(c.uuid || c.id);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -576,6 +576,7 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, novaCour
             />
           )}
           <CourseContentArea
+            key={c.uuid || c.id}
             course={c}
             currentModule={currentModule}
             mainTab={mainTab}
@@ -588,8 +589,10 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, novaCour
             dueCount={dueCount}
             exams={exams}
             examFor={examFor}
+            examsLoaded={mirrorLoaded}
             examRequest={examRequest}
             onExamRequestDone={clearExamRequest}
+            onToast={showToast}
             onSaveCards={handleSaveCards}
             flashcardAddTriggerRef={flashcardAddTriggerRef}
             onGoHub={onGoHub}

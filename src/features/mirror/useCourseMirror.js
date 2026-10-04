@@ -7,7 +7,8 @@ const EMPTY = { badges: { unread: 0, dueSoon: 0 }, exams: [] };
 
 /**
  * One load of a course's announcements, assignments and exam scopes: sidebar badges, upcoming exams
- * and `examFor(card)` (the date of the nearest exam covering that card, or null).
+ * and `examFor(card)` (the date of the nearest exam covering that card, or null). `loaded` turns true
+ * once this course's first load lands.
  */
 export function useCourseMirror(courseUuid) {
   const [state, setState] = useState(EMPTY);
@@ -24,7 +25,7 @@ export function useCourseMirror(courseUuid) {
         courseStore.getAssignments(courseUuid),
         courseStore.getExamScopes(courseUuid),
       ]);
-      if (alive) setState({ badges: mirrorBadges(ann, asg), exams: upcomingExams(asg, scopes) });
+      if (alive) setState({ badges: mirrorBadges(ann, asg), exams: upcomingExams(asg, scopes), loadedFor: courseUuid });
     };
     const onCourseEvent = (e) => {
       if (!e.detail?.courseUuid || e.detail.courseUuid === courseUuid) void load();
@@ -44,5 +45,5 @@ export function useCourseMirror(courseUuid) {
 
   const { exams } = state;
   const examFor = useCallback((card) => examForCard(card, exams)?.dueDate ?? null, [exams]);
-  return { badges: state.badges, exams, examFor };
+  return { badges: state.badges, exams, examFor, loaded: !!courseUuid && state.loadedFor === courseUuid };
 }

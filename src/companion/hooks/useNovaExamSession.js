@@ -33,7 +33,7 @@ export function useNovaExamSession(core) {
       const id = ++latest;
       const said = await maybeRephrase(text, vars);
       const m = modeRef.current;
-      if (id !== latest || !stateRef.current?.enabled || !(AUTONOMOUS.has(m) || m === "sleep")) return;
+      if (id !== latest || !stateRef.current?.enabled || quietRef.current() || !(AUTONOMOUS.has(m) || m === "sleep")) return;
       if (m === "sleep") send("WAKE");
       setMood(MOOD[key] || "neutral");
       if (key === "examEndReady") playGesture("kiss");

@@ -269,8 +269,10 @@ export default function CourseContentArea({
   dueCount = 0,
   exams,
   examFor = null,
+  examsLoaded = false,
   examRequest = null,
   onExamRequestDone,
+  onToast,
   onSaveCards,
   reviewMeta,
   enhancing,
@@ -390,23 +392,35 @@ export default function CourseContentArea({
     [deck.cards, sourceFilter, currentModule?.id, examFor]
   );
   const moduleTitles = useMemo(() => new Map((course?.modules || []).map((m) => [m.id, m.title || m.label])), [course?.modules]);
+  const onDeckView = mainTab === "content" && activeItem === "qz-deck";
   useEffect(() => {
-    if (!examRequest || activeItem !== "qz-deck") return;
-    if (sessionIds) {
+    if (onDeckView) return;
+    setSessionIds(null);
+    setSessionExam(null);
+  }, [onDeckView]);
+  useEffect(() => {
+    if (!examRequest) return;
+    if (!onDeckView || sessionIds) {
       onExamRequestDone?.();
       return;
     }
     const exam = (exams || []).find((e) => e.uuid === examRequest);
-    if (!exam) return;
+    if (!exam) {
+      if (!examsLoaded) return;
+      onExamRequestDone?.();
+      onToast?.("That exam isn't on the calendar anymore.");
+      return;
+    }
     onExamRequestDone?.();
     const ids = pickExamCards(deck.cards, exam, { isDue: (c) => isCardDue(c, { examDate: examFor?.(c) }) });
     if (!ids.length) {
       emitExamSession({ phase: "open", key: "examNoCards", vars: { title: exam.title } });
+      onToast?.(`No flashcards cover ${exam.title} yet.`);
       return;
     }
     setSessionExam(exam);
     setSessionIds(ids);
-  }, [examRequest, activeItem, sessionIds, exams, deck.cards, examFor, onExamRequestDone]);
+  }, [examRequest, onDeckView, sessionIds, exams, examsLoaded, deck.cards, examFor, onExamRequestDone, onToast]);
   const courseShort = shortCourse(course?.courseCode || course?.name) || course?.name || "Course";
   const startSession = () => {
     setSessionExam(null);
