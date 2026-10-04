@@ -23,6 +23,7 @@ import {
 } from "../features/import/courseBuilders.js";
 import { bodyToHtml, htmlToPlainText, plainTextToHtml } from "../lib/notesBody.js";
 import { useCourseMirror } from "../features/mirror/useCourseMirror.js";
+import { courseStore } from "../db/courseStore.js";
 import { takePendingCourseView } from "../features/today/courseView.js";
 import { isTypingTarget } from "../lib/hotkeys.js";
 
