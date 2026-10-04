@@ -128,9 +128,17 @@ per-category minimum); unmatched items use a per-kind default and show no weight
   whole course. Syllabus rules ("Exam 1: Chapters 1-4", "Final: cumulative") are stored on the course
   and matched to module titles at read time, so later imports are picked up. The study guide's COVERS
   row is the picker; it shows where the scope came from and can reset a pick to the syllabus.
-- **2.3 Nova runs the session** (EXAM-003): opening line from a local template built from DB
+- ✓ **2.3 Nova runs the session** (EXAM-003): opening line from a local template built from DB
   facts (Haiku may rephrase); 10–20 exam cards, due first; logged to `study_sessions`; end
   summary with cards done, exam ready % change, suggested next session.
+  Shipped notes: START REVIEW on a Today exam opens the course's full-window flashcard session with
+  the exam's cards: due first (shuffled, at most 20), topped up to 10 with not-ready cards (never
+  rated first, then lowest grade); a smaller scope runs whole, an empty one leaves the deck list up
+  and Nova says so. Nova speaks the opening and closing lines from her lane via the
+  `studyhub-exam-session` event (Zombies has its own lines). Results show READY before → after and the
+  next session; on exam day "Exam today" wins over "Exam-ready". Another round re-picks exam cards.
+  Sessions log `kind = 'exam'` with `study_sessions.exam_uuid` (migration 12); ready history isn't
+  stored. Nova's quiz has no exam mode yet; head-anchored staging is C.7 (B1b).
 - Practice tests scoped to an exam (reuses PT-001).
 
 **Exit criteria**: exam prep on Today launches a Nova session with exam-scoped cards.

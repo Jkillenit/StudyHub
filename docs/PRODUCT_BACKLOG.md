@@ -41,6 +41,7 @@ Tags: `local-first` (no API/cloud), `AI-optional`, `AI-required`, `cloud` (Commo
 | TODAY-002 | Ranked Today: top 5 with reason + action, empty states, persisted target in calculator (Phase 1.2) |
 | TODAY-003 | Needed score on next major item and final, NEED badge, pressure-based risk (Phase 1.3) |
 | UI-005 | UI overhaul: rail shell, Pure home, Plan layout, course workspace, Nova session (shield meter, results, rounds), Decks screen, Grades hub, Calendar week/month, Settings tabs incl. Backup, First-run setup, Nova/Zombies flavor packs (Phases 2.22–2.28) |
+| EXAM-003 | Nova runs the exam session: Today exam opens 10–20 exam-scoped cards, template opening/closing lines (Haiku may rephrase), ready % change + next session on results, logged with `exam_uuid` (Phase 2.30) |
 
 ## Phase 1 — Mirror + Today (carried)
 
@@ -55,7 +56,6 @@ Tags: `local-first` (no API/cloud), `AI-optional`, `AI-required`, `cloud` (Commo
 |----|---------|--------|------|------|------|
 | EXAM-001 | Exam-aware SM-2 cap, final-48h coverage, exam ready % | 5 | 3 | 2 d | `local-first` |
 | EXAM-002 | `exam_modules` join table, syllabus parse, module picker fallback | 4 | 2 | 1.5 d | `local-first` |
-| EXAM-003 | Nova runs the exam session: template opening line (Haiku may rephrase), 10–20 cards, end summary | 5 | 3 | 3 d | `local-first` `AI-optional` |
 | FR-001 | Formula practice generators (EOQ, SPC, …) | 5 | 4 | 3–6 wk | `local-first` |
 
 ## Phase 3 — Alpha
@@ -88,9 +88,7 @@ behavior is covered by `npm run check:db`. Line refs are approximate. Est. cut =
 
 | ID | Issue | Fix | Est. cut | Risk / tradeoff |
 |----|-------|-----|----------|-----------------|
-| TD-05 | `FlashcardDeckContext` pushes draft `newFront/newBack` from deck to `BuiltinCourseApp` panel → 2 full renders per keystroke | Keep draft state in the panel form; deck exposes commands only | ~20 | Low |
 | TD-06 | Hotkey guard shared via `lib/hotkeys.js` (done, Phase 2.18). Left: `BuiltinCourseApp` has 4 identical localStorage effects and an `execCommand` clipboard fallback | `usePersistedState`; drop the fallback (Electron has `navigator.clipboard`) | ~25 | Low |
-| TD-09 | `FlashcardDeck` copies `externalCards` into state → 3 renders per rating; `completedCount` O(n²) | `useMemo` for user decks; Set lookup | ~8 | Depends on stable `externalCards` (fixed in 2.10) |
 | TD-12 | `nova.vrm` 15.5 MB + `clips.json` 1.1 MB base64 loaded up front | meshopt-compress VRM (gltf-transform), ship clips as binary | ~12 MB payload | Needs asset pipeline + visual check |
 
 ## Parked
