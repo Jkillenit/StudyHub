@@ -88,11 +88,9 @@ behavior is covered by `npm run check:db`. Line refs are approximate. Est. cut =
 
 | ID | Issue | Fix | Est. cut | Risk / tradeoff |
 |----|-------|-----|----------|-----------------|
-| TD-03 | Duplicate fetches: `useCourseExams` runs in both `UserCourseApp` and `FlashcardDeck`, plus `useMirrorBadges` → 3× `assignments.getByCourse` per course open/sync. `hasGrades` state mirrors DB. ~40 raw `window.studyHub.db` calls bypass `courseStore` (rule violation) | Pass `examFor` down as a prop; one `useCourseMirror(uuid)` hook; `courseStore.grades.*` wrappers | ~20 + 4–6 fewer IPC calls | `FlashcardDeck` is also used by OM 300 with null course → no-op default |
 | TD-05 | `FlashcardDeckContext` pushes draft `newFront/newBack` from deck to `BuiltinCourseApp` panel → 2 full renders per keystroke | Keep draft state in the panel form; deck exposes commands only | ~20 | Low |
 | TD-06 | Hotkey guard shared via `lib/hotkeys.js` (done, Phase 2.18). Left: `BuiltinCourseApp` has 4 identical localStorage effects and an `execCommand` clipboard fallback | `usePersistedState`; drop the fallback (Electron has `navigator.clipboard`) | ~25 | Low |
 | TD-07 | Inline styles fighting CSS: `DefinitionCard` tier borders vs `.sh-tier-*`, `GradeScaleDisplay` vs `.sh-grade-scale-row--current`, 8× `gradeColor` inline, runtime `<style>@media print` in two apps | Tone classes + print rules in `studyhub-bootstrap.css` | ~40 | Visual regressions; untangle `!important` |
-| TD-08 | `GradesTab` loads the whole Today snapshot for `HoldTarget` and reloads all 5 queries after every structural edit; sub-entry average computed twice | Refetch only components + grade items; derive HoldTarget inputs | ~3 fewer IPC calls per edit | `neededScores` needs assignment shares |
 | TD-09 | `FlashcardDeck` copies `externalCards` into state → 3 renders per rating; `completedCount` O(n²) | `useMemo` for user decks; Set lookup | ~8 | Depends on stable `externalCards` (fixed in 2.10) |
 | TD-12 | `nova.vrm` 15.5 MB + `clips.json` 1.1 MB base64 loaded up front | meshopt-compress VRM (gltf-transform), ship clips as binary | ~12 MB payload | Needs asset pipeline + visual check |
 

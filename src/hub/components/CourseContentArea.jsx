@@ -270,6 +270,7 @@ export default function CourseContentArea({
   sourceFilter,
   onSourceFilterChange,
   dueCount = 0,
+  exams,
   examFor = null,
   onSaveCards,
   reviewMeta,
@@ -444,6 +445,8 @@ export default function CourseContentArea({
                     moduleId={currentModule?.id}
                     sourceFilter={sourceFilter}
                     onSaveCards={onSaveCards}
+                    exams={exams}
+                    examFor={examFor || undefined}
                     session={deckSession}
                   />
                 </Suspense>

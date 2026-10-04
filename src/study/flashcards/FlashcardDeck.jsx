@@ -3,7 +3,6 @@ import { RATINGS, daysUntilExam, examForCard, isCardDue, localDateString, previe
 import { emitStudyEvent } from "../../companion/studyEvents.js";
 import { filterDeck } from "./deckModes.js";
 import { cardKey, useDeckCards } from "./useDeckCards.js";
-import { useCourseExams } from "../../features/study/useCourseExams.js";
 import { courseStore } from "../../db/courseStore.js";
 import { isTypingTarget, paletteOpen } from "../../lib/hotkeys.js";
 import { SessionShell } from "../../session/SessionShell.jsx";
@@ -12,6 +11,8 @@ import { cardRunEnd, currentCardId, rateCard, sessionOrder, skipMissing, startCa
 import { masteryDeltas } from "../../session/results.js";
 
 const FLIP_GUARD_MS = 200;
+const NO_EXAMS = [];
+const NO_EXAM = () => null;
 
 function newSessionId() {
   return `session_${Date.now()}`;
@@ -58,9 +59,17 @@ function Definition({ text, emphasize }) {
  * `onExit` closes it, `onToday` goes home, `topicOf(card)` groups the results' mastery change.
  * Storage follows useDeckCards: user decks also write SM-2 to SQLite via db.mastery.
  */
-export default function FlashcardDeck({ cards: externalCards = null, onSaveCards = null, courseId = null, moduleId = null, sourceFilter = "all", session }) {
+export default function FlashcardDeck({
+  cards: externalCards = null,
+  onSaveCards = null,
+  courseId = null,
+  moduleId = null,
+  sourceFilter = "all",
+  exams = NO_EXAMS,
+  examFor = NO_EXAM,
+  session,
+}) {
   const { cards, cardsRef, isUserDeck, commit } = useDeckCards({ cards: externalCards, onSaveCards });
-  const { exams, examFor } = useCourseExams(isUserDeck ? courseId : null);
   const [run, setRun] = useState(() => startCardRun(session.cardIds));
   const [screen, setScreen] = useState("play");
   const [flipped, setFlipped] = useState(false);

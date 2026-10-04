@@ -1,7 +1,8 @@
 import { deckBreakdown } from "../progress/deckBreakdown.js";
 import { daysFromToday } from "../dashboard/dateLabels.js";
-import { daysUntilExam, examReadyPercent, getDueCards } from "../../study/sm2.js";
+import { examReadyPercent, getDueCards } from "../../study/sm2.js";
 import { courseStore } from "../../db/courseStore.js";
+import { upcomingExams } from "../mirror/courseMirror.js";
 
 /** Reviews a card typically needs before it is exam-ready, by SM-2 bucket. */
 export const REVIEWS_TO_READY = { fresh: 4, weak: 3, learning: 2, mastered: 0.3 };
@@ -14,16 +15,7 @@ export async function loadUpcomingExams(courseUuid) {
     courseStore.getAssignments(courseUuid),
     courseStore.getExamScopes(courseUuid),
   ]);
-  return (Array.isArray(rows) ? rows : [])
-    .filter((a) => a.kind === "exam" && !a.completed && (daysUntilExam(a.due_date) ?? -1) >= 0)
-    .sort((a, b) => a.due_date.localeCompare(b.due_date))
-    .map((a) => ({
-      uuid: a.uuid,
-      title: a.title,
-      dueDate: a.due_date,
-      moduleIds: scopes[a.uuid]?.moduleIds || [],
-      scopeSource: scopes[a.uuid]?.source || "course",
-    }));
+  return upcomingExams(rows, scopes);
 }
 
 export function cardsInScope(cards, moduleIds) {

@@ -582,13 +582,24 @@ export default function GradesTab({ course, onComponentsChange }) {
     return () => window.removeEventListener("studyhub-bb-synced", onSynced);
   }, [courseUuid]);
 
+  /** After an edit: components, BB matches and the HOLD YOUR TARGET snapshot. Scale and target don't change. */
+  const refreshAfterEdit = useCallback(async () => {
+    const [rows, items, today] = await Promise.all([
+      courseStore.getGradeComponents(courseUuid),
+      courseStore.getBbGradeItems(courseUuid),
+      courseStore.loadTodayData(courseUuid),
+    ]);
+    setComponents(rows);
+    setBbItems(items);
+    setSnapshot(today?.courses?.[0] || null);
+  }, [courseUuid]);
+
   const assignBbItem = useCallback(
     async (bbId, componentUuid) => {
-      const res = await courseStore.setBbItemComponent({ courseUuid, bbId, componentUuid });
-      if (Array.isArray(res?.items)) setBbItems(res.items);
-      setComponents(await courseStore.getGradeComponents(courseUuid));
+      await courseStore.setBbItemComponent({ courseUuid, bbId, componentUuid });
+      await refreshAfterEdit();
     },
-    [courseUuid]
+    [courseUuid, refreshAfterEdit]
   );
 
   useEffect(
@@ -615,10 +626,13 @@ export default function GradesTab({ course, onComponentsChange }) {
       });
       if (bbItemsRef.current.length) {
         await courseStore.applyBbGrades(courseUuid);
-        setReloadKey((k) => k + 1);
+        await refreshAfterEdit();
+      } else {
+        const today = await courseStore.loadTodayData(courseUuid);
+        setSnapshot(today?.courses?.[0] || null);
       }
     },
-    [courseUuid, onComponentsChange]
+    [courseUuid, onComponentsChange, refreshAfterEdit]
   );
 
   const handleScoreChange = useCallback(

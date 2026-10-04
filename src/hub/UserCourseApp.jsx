@@ -14,7 +14,6 @@ import { hasApiKey } from "../ai/apiKeyUtils.js";
 import { enhanceWithClaude } from "../ai/pptxEnhancer.js";
 import { mergeEnhancedOutput } from "../ai/mergeEnhancedOutput.js";
 import { getDueCards, masteryPercent } from "../study/sm2.js";
-import { useCourseExams } from "../features/study/useCourseExams.js";
 import {
   addTermsToGlossary,
   applyOutputToCourse,
@@ -23,7 +22,7 @@ import {
   mergeFlashcards,
 } from "../features/import/courseBuilders.js";
 import { bodyToHtml, htmlToPlainText, plainTextToHtml } from "../lib/notesBody.js";
-import { useMirrorBadges } from "../features/mirror/useMirrorBadges.js";
+import { useCourseMirror } from "../features/mirror/useCourseMirror.js";
 import { takePendingCourseView } from "../features/today/courseView.js";
 import { isTypingTarget } from "../lib/hotkeys.js";
 
@@ -55,7 +54,7 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, novaCour
   const [active, setActive] = useState(c.activeModuleId);
   const [activeItem, setActiveItem] = useState(`module:${c.activeModuleId}`);
   const { importPptx, error: pptxError, reset: resetPptx } = usePptxImport();
-  const mirrorBadges = useMirrorBadges(c.uuid || c.id);
+  const { badges: mirrorBadges, exams, examFor } = useCourseMirror(c.uuid || c.id);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -106,11 +105,18 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, novaCour
 
   useEffect(() => {
     const uuid = course?.uuid || course?.id;
-    if (!uuid) return;
-    courseStore
-      .getGradeComponents(uuid)
-      .then((rows) => setHasGrades(Array.isArray(rows) && rows.length > 0))
-      .catch(() => setHasGrades(false));
+    if (!uuid) return undefined;
+    const load = () =>
+      courseStore
+        .getGradeComponents(uuid)
+        .then((rows) => setHasGrades(Array.isArray(rows) && rows.length > 0))
+        .catch(() => setHasGrades(false));
+    const onSynced = (e) => {
+      if (e.detail?.courseUuid === uuid) load();
+    };
+    load();
+    window.addEventListener("studyhub-bb-synced", onSynced);
+    return () => window.removeEventListener("studyhub-bb-synced", onSynced);
   }, [course?.uuid, course?.id]);
 
   const reviewMeta = (c.pptxReviewBlocks || {})[active] || null;
@@ -361,7 +367,6 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, novaCour
     () => (c.glossary || []).filter((g) => g.confidence !== "low").map((g) => ({ term: g.term, definition: g.definition })),
     [c.glossary]
   );
-  const { examFor } = useCourseExams(c.uuid || c.id);
   const dueCount = useMemo(() => getDueCards(c.flashcards || [], { examFor }).length, [c.flashcards, examFor]);
   const masteryPct = useMemo(() => masteryPercent(c.flashcards || []), [c.flashcards]);
   const chNum = (id) => `CH·${String(c.modules.findIndex((x) => x.id === id) + 1).padStart(2, "0")}`;
@@ -580,6 +585,7 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, novaCour
             sourceFilter={sourceFilter}
             onSourceFilterChange={setSourceFilter}
             dueCount={dueCount}
+            exams={exams}
             examFor={examFor}
             onSaveCards={handleSaveCards}
             flashcardAddTriggerRef={flashcardAddTriggerRef}
