@@ -1,16 +1,12 @@
+import { startOfLocalDay } from "../../lib/dates.js";
+
 const DAY_MS = 86400000;
 
-function startOfLocalDay(d) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
-/** Whole local days from today to `iso` (negative = past). */
-export function daysFromToday(iso) {
+/** Whole local days from `now` (default today) to `iso` (negative = past). */
+export function daysFromToday(iso, now = new Date()) {
   const t = new Date(iso);
   if (Number.isNaN(t.getTime())) return null;
-  return Math.round((startOfLocalDay(t) - startOfLocalDay(new Date())) / DAY_MS);
+  return Math.round((startOfLocalDay(t) - startOfLocalDay(now)) / DAY_MS);
 }
 
 export function dueLabel(iso) {

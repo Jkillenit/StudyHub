@@ -1,14 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { createRequire } from "node:module";
 import { EXAM_SCHEDULE, examReadyPercent, isCardDue as rendererIsCardDue, localDateString } from "../src/study/sm2.js";
+import { daysBetween, localDayKey } from "../src/lib/dates.js";
 
-const { FINAL_WINDOW_DAYS, READY_GRADE, examCardStats, isCardDue } = createRequire(import.meta.url)("./examCards.cjs");
+const examCards = createRequire(import.meta.url)("./examCards.cjs");
+const { FINAL_WINDOW_DAYS, READY_GRADE, examCardStats, isCardDue } = examCards;
 
 const NOW = new Date(2026, 9, 5, 9, 0);
 const day = (n) => localDateString(new Date(2026, 9, 5 + n, 12));
 const examIn = (n) => new Date(2026, 9, 5 + n, 10, 0).toISOString();
 
 describe("examCards parity with sm2.js", () => {
+  it("shares local date math with src/lib/dates.js", () => {
+    for (const d of [new Date(2026, 9, 5, 13, 30), new Date(2026, 9, 31, 23, 59), new Date(2026, 2, 8, 0, 30)]) {
+      expect(examCards.localDateString(d)).toBe(localDayKey(d));
+    }
+    for (const exam of ["2026-10-12", new Date(2026, 9, 31, 10).toISOString(), new Date(2026, 10, 1, 0, 30)]) {
+      expect(examCards.daysUntilExam(exam, NOW)).toBe(daysBetween(exam, NOW));
+    }
+  });
+
   it("shares the schedule constants", () => {
     expect(FINAL_WINDOW_DAYS).toBe(EXAM_SCHEDULE.finalWindowDays);
     expect(READY_GRADE).toBe(EXAM_SCHEDULE.readyGrade);

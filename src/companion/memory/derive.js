@@ -5,6 +5,7 @@
  */
 import { courseStanding } from "../../features/today/priority.js";
 import { shortCourse } from "../../features/dashboard/courseLabel.js";
+import { localDayKey } from "../../lib/dates.js";
 
 /** Sessions needed before she claims a study-time or session-length pattern. */
 export const PATTERN_MIN_SESSIONS = 5;
@@ -28,10 +29,7 @@ export function courseName(row) {
 }
 
 /** Local YYYY-MM-DD. */
-export function localDay(date) {
-  const d = new Date(date);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+export const localDay = (date) => localDayKey(date);
 
 function addDays(day, n) {
   const [y, m, d] = day.split("-").map(Number);

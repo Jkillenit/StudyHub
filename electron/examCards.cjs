@@ -69,4 +69,4 @@ function courseCards(db, courseId) {
     }));
 }
 
-module.exports = { FINAL_WINDOW_DAYS, READY_GRADE, isCardDue, examCardStats, courseCards };
+module.exports = { FINAL_WINDOW_DAYS, READY_GRADE, isCardDue, examCardStats, courseCards, localDateString, daysUntilExam };

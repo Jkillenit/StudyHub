@@ -16,6 +16,7 @@ import {
   remainingWeight,
   totalWeight,
 } from "../grades/gradeMath.js";
+import { daysBetween, localDayKey } from "../../lib/dates.js";
 
 export const PRIORITY_CONFIG = Object.freeze({
   horizonDays: 14,
@@ -47,26 +48,10 @@ export const PRIORITY_CONFIG = Object.freeze({
 
 export const ITEM_TYPES = Object.freeze({ ASSIGNMENT: "ASSIGNMENT", EXAM_PREP: "EXAM_PREP", GRADE_RISK: "GRADE_RISK" });
 
-const DAY_MS = 86400000;
-
-function dayIndex(value) {
-  const d = new Date(value);
-  return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / DAY_MS);
-}
-
 /** Calendar days from `now` to `date` in local time: 0 today, 1 tomorrow, -1 yesterday. */
 export function daysUntil(date, now) {
   if (!date) return null;
-  const t = new Date(date).getTime();
-  if (Number.isNaN(t)) return null;
-  return dayIndex(date) - dayIndex(now);
-}
-
-function localDayKey(now, offset) {
-  const d = new Date(now);
-  d.setHours(12, 0, 0, 0);
-  d.setDate(d.getDate() + offset);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return daysBetween(date, now);
 }
 
 /** Blocked days (YYYY-MM-DD) from today up to, not including, the due day. */

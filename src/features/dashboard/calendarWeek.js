@@ -1,8 +1,7 @@
 /** Calendar date helpers. Weeks run Monday–Sunday, all in local time. */
+import { localDayKey } from "../../lib/dates.js";
 
-export function dayKey(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+export const dayKey = (d) => localDayKey(d);
 
 function addDays(d, n) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);

@@ -1,10 +1,7 @@
+import { dayNumber, localDayKey } from "../lib/dates.js";
+
 /** Local calendar date (YYYY-MM-DD). Review scheduling is by the student's day, not UTC. */
-export function localDateString(date = new Date()) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
+export const localDateString = (date) => localDayKey(date);
 
 export const EXAM_SCHEDULE = Object.freeze({
   /** Every exam card is reviewed at least once from this many days before the exam through exam day. */
@@ -12,18 +9,6 @@ export const EXAM_SCHEDULE = Object.freeze({
   /** Latest rating at or above this counts toward exam ready %. */
   readyGrade: 3,
 });
-
-const DAY_MS = 86400000;
-
-/** Local day number. Bare YYYY-MM-DD strings are local dates, not UTC midnight. */
-function dayNumber(value) {
-  if (value == null || value === "") return null;
-  const bare = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value));
-  if (bare) return Date.UTC(+bare[1], +bare[2] - 1, +bare[3]) / DAY_MS;
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / DAY_MS;
-}
 
 /** Calendar days from `now` to the exam: 0 on exam day, negative after it, null without a date. */
 export function daysUntilExam(examDate, now = new Date()) {

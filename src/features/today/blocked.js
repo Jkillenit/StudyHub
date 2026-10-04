@@ -3,6 +3,7 @@
  * Nova's memory as `blocked:YYYY-MM-DD`; the priority engine treats them as no working time.
  */
 import { ITEM_TYPES } from "./priority.js";
+import { localDayKey } from "../../lib/dates.js";
 
 export const BLOCK_REASONS = Object.freeze([
   { id: "drill", label: "Drill" },
@@ -11,10 +12,7 @@ export const BLOCK_REASONS = Object.freeze([
   { id: "busy", label: "Busy" },
 ]);
 
-export function dayKey(date) {
-  const d = new Date(date);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+export const dayKey = (date) => localDayKey(date);
 
 function fromKey(key) {
   const [y, m, d] = key.split("-").map(Number);

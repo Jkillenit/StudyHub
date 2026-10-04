@@ -4,6 +4,7 @@
  */
 import { shortCourse } from "../dashboard/courseLabel.js";
 import { letterFor } from "../grades/gradeMath.js";
+import { localDayKey, startOfLocalDay } from "../../lib/dates.js";
 import { ITEM_TYPES, PRIORITY_CONFIG, courseStanding, daysUntil, formatPct, rankToday } from "./priority.js";
 
 export const TONIGHT_MAX = 3;
@@ -56,12 +57,6 @@ export function tonightReason(item) {
   if (item.examReady != null) parts.push(`${item.examReady}% exam ready`);
   if (item.blockedBefore > 0) parts.push(`moved up: ${item.blockedBefore} blocked day${item.blockedBefore === 1 ? "" : "s"}`);
   return parts.filter(Boolean);
-}
-
-function startOfDay(d) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
 }
 
 /**
@@ -125,10 +120,10 @@ export function buildTodayView(data, { now, scales = {}, config = PRIORITY_CONFI
     .sort((x, y) => x.days - y.days || String(x.a.dueDate).localeCompare(String(y.a.dueDate)))
     .map(({ a, c, days }) => ({ uuid: a.uuid, title: a.title, courseUuid: c.uuid, courseLabel: courseLabel(c), daysLate: -days, url: a.url || null }));
 
-  const today0 = startOfDay(at);
+  const today0 = startOfLocalDay(at);
   const days = Array.from({ length: WEEK_DAYS }, (_, i) => {
     const d = new Date(today0.getTime() + i * DAY_MS + 12 * 3600000);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const key = localDayKey(today0, i);
     return {
       offset: i,
       key,
