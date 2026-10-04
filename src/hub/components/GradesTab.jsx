@@ -5,9 +5,11 @@ import InlineEdit from "./InlineEdit";
 import {
   averageScore,
   currentGrade as weightedGrade,
+  gradeTone,
   hasScore,
   letterFor,
   neededAverage,
+  neededTone,
   normalized,
   totalWeight,
 } from "../../features/grades/gradeMath.js";
@@ -17,21 +19,6 @@ import { dueLabel } from "../../features/dashboard/dateLabels.js";
 
 const SCORE_SAVE_DEBOUNCE_MS = 600;
 const keyOf = (c, i) => c.uuid || (c.id != null ? `id${c.id}` : `new${i}`);
-
-function gradeColor(pct) {
-  if (pct === null || pct === undefined) return "var(--sh-text-3)";
-  if (pct >= 90) return "var(--sh-accent)";
-  if (pct >= 80) return "var(--sh-accent)";
-  if (pct >= 70) return "var(--sh-warn)";
-  return "var(--sh-danger)";
-}
-
-function neededColor(needed) {
-  if (needed <= 70) return "var(--sh-accent)";
-  if (needed <= 85) return "var(--sh-accent)";
-  if (needed <= 95) return "var(--sh-warn)";
-  return "var(--sh-danger)";
-}
 
 function GradeScaleDisplay({ scale, currentGrade }) {
   if (!scale) return null;
@@ -46,13 +33,8 @@ function GradeScaleDisplay({ scale, currentGrade }) {
           const isCurrent = letter === currentLetter;
           return (
             <div key={letter} className={`sh-grade-scale-row ${isCurrent ? "sh-grade-scale-row--current" : ""}`}>
-              <span className="sh-grade-scale-letter" style={{ color: isCurrent ? "var(--sh-accent)" : "var(--sh-text-3)" }}>
-                {letter}
-              </span>
-              <span
-                className="sh-grade-scale-threshold mono"
-                style={{ color: isCurrent ? "var(--sh-text)" : "var(--sh-text-3)" }}
-              >
+              <span className="sh-grade-scale-letter">{letter}</span>
+              <span className="sh-grade-scale-threshold mono">
                 {letter === "F" && !threshold ? "below" : `${threshold}%+`}
               </span>
               {isCurrent ? <span className="sh-grade-scale-indicator">{"<- YOU ARE HERE"}</span> : null}
@@ -151,7 +133,7 @@ function HypotheticalEngine({ components, gradingScale, target }) {
           <div className="sh-hyp-breakdown">
             <div className="sh-hyp-summary">
               You need an average of{" "}
-              <span className="sh-hyp-score" style={{ color: neededColor(needed) }}>
+              <span className={`sh-hyp-score sh-tone--${neededTone(needed)}`}>
                 {needed.toFixed(1)}%
               </span>{" "}
               across remaining components to get a {letter}.
@@ -160,7 +142,7 @@ function HypotheticalEngine({ components, gradingScale, target }) {
               {unscored.map((component, i) => (
                 <div key={keyOf(component, i)} className="sh-hyp-row">
                   <span className="sh-hyp-name">{component.name}</span>
-                  <span className="sh-hyp-needed mono" style={{ color: neededColor(needed) }}>
+                  <span className={`sh-hyp-needed mono sh-tone--${neededTone(needed)}`}>
                     {needed.toFixed(1)}%
                   </span>
                 </div>
@@ -245,7 +227,7 @@ function WhatIfSimulator({ components }) {
       </div>
       <div className="sh-whatif-projected">
         <span className="sh-grade-label">PROJECTED GRADE</span>
-        <span className="sh-whatif-grade" style={{ color: gradeColor(projectedGrade) }}>
+        <span className={`sh-whatif-grade sh-tone--${gradeTone(projectedGrade)}`}>
           {projectedGrade.toFixed(1)}%
         </span>
       </div>
@@ -271,10 +253,10 @@ function GradeDropCalculator({ components }) {
         {impacts.map((item) => (
           <div key={item.key} className="sh-drop-row">
             <span className="sh-drop-name">{item.name}</span>
-            <span className="sh-drop-result mono" style={{ color: gradeColor(item.gradeWithZero) }}>
+            <span className={`sh-drop-result mono sh-tone--${gradeTone(item.gradeWithZero)}`}>
               {item.gradeWithZero.toFixed(1)}%
             </span>
-            <span className="sh-drop-delta mono" style={{ color: "var(--sh-danger)", opacity: 0.7 }}>
+            <span className="sh-drop-delta mono">
               -{item.impact.toFixed(1)}
             </span>
           </div>
@@ -373,10 +355,7 @@ function ComponentRow({ component, index, weightSum, onScoreChange, onUpdate, on
               title={subEntries.length > 0 ? `Average of ${subEntries.length} entries` : undefined}
             />
           </span>
-          <span
-            className="sh-grades-col sh-grades-col--contribution mono"
-            style={{ color: contrib !== null ? "var(--sh-text)" : "var(--sh-text-3)" }}
-          >
+          <span className={`sh-grades-col sh-grades-col--contribution mono${contrib === null ? " sh-tone--none" : ""}`}>
             {contrib !== null ? contrib.toFixed(2) : "—"}
           </span>
           <button className="sh-grades-delete-btn" onClick={() => onDelete(index)} title="Delete component">
@@ -386,8 +365,8 @@ function ComponentRow({ component, index, weightSum, onScoreChange, onUpdate, on
         {hasScore(component) ? (
           <div className="sh-score-bar-wrap">
             <div
-              className="sh-score-bar"
-              style={{ width: `${Math.min(100, Number(component.score))}%`, background: gradeColor(Number(component.score)) }}
+              className={`sh-score-bar sh-tone--${gradeTone(Number(component.score))}`}
+              style={{ width: `${Math.min(100, Number(component.score))}%` }}
             />
           </div>
         ) : null}
@@ -422,7 +401,6 @@ function ComponentRow({ component, index, weightSum, onScoreChange, onUpdate, on
               onKeyDown={(event) => {
                 if (event.key === "Enter") void addSubEntry();
               }}
-              style={{ width: 70 }}
             />
             <button className="sh-btn-ghost sh-btn-xs" onClick={() => void addSubEntry()}>
               + ADD
@@ -430,10 +408,8 @@ function ComponentRow({ component, index, weightSum, onScoreChange, onUpdate, on
           </div>
           {subEntries.length > 0 ? (
             <div className="sh-subentry-avg">
-              <span className="sh-section-label" style={{ fontSize: 11 }}>
-                AVERAGE
-              </span>
-              <span className="mono" style={{ fontSize: 12 }}>
+              <span className="sh-section-label">AVERAGE</span>
+              <span className="mono">
                 {averageScore(subEntries).toFixed(1)}
               </span>
             </div>
@@ -465,7 +441,7 @@ function BbGradeRow({ item, components, onAssign }) {
   return (
     <div className="sh-drop-row">
       <span className="sh-drop-name">{item.name}</span>
-      <span className="sh-drop-result mono" style={{ color: gradeColor(pct) }}>
+      <span className={`sh-drop-result mono sh-tone--${gradeTone(pct)}`}>
         {item.score != null ? `${item.score}${item.points_possible ? ` / ${item.points_possible}` : ""}` : "—"}
         {pct != null ? ` · ${pct}%` : ""}
       </span>
@@ -515,7 +491,7 @@ function BlackboardGradebook({ items, components, onAssign }) {
           <div key={group.key} className="sh-bb-group">
             <div className="sh-bb-group-head">
               <span className="sh-bb-group-name">{group.label}</span>
-              <span className="mono" style={{ color: gradeColor(pct) }}>
+              <span className={`mono sh-tone--${gradeTone(pct)}`}>
                 {pct != null ? `${pct}%` : ""}
               </span>
             </div>
@@ -732,6 +708,7 @@ export default function GradesTab({ course, onComponentsChange }) {
   }
 
   const weightSum = totalWeight(components);
+  const weightOff = Math.abs(weightSum - 1) > 0.01;
 
   return (
     <div className="sh-grades-view">
@@ -743,13 +720,13 @@ export default function GradesTab({ course, onComponentsChange }) {
       </div>
 
       {status ? (
-        <div className="sh-grades-status" style={{ color: status.startsWith("Found") ? "var(--sh-accent)" : "var(--sh-warn)" }}>
+        <div className={`sh-grades-status${status.startsWith("Found") ? " sh-grades-status--ok" : ""}`}>
           {status}
         </div>
       ) : null}
 
       <div className="sh-current-grade">
-        <span className="sh-grade-value" style={{ color: gradeColor(currentGrade) }}>
+        <span className={`sh-grade-value sh-tone--${gradeTone(currentGrade)}`}>
           {currentGrade !== null ? `${currentGrade.toFixed(1)}%` : "—"}
         </span>
         {currentGrade !== null && gradingScale ? (
@@ -783,14 +760,13 @@ export default function GradesTab({ course, onComponentsChange }) {
         <div className="sh-grades-row sh-grades-row--total">
           <span className="sh-grades-col sh-grades-col--name mono">TOTAL</span>
           <span
-            className="sh-grades-col sh-grades-col--weight mono"
-            style={{ color: Math.abs(weightSum - 1) > 0.01 ? "var(--sh-warn)" : undefined }}
-            title={Math.abs(weightSum - 1) > 0.01 ? "Weights do not add up to 100%" : undefined}
+            className={`sh-grades-col sh-grades-col--weight mono${weightOff ? " sh-tone--warn" : ""}`}
+            title={weightOff ? "Weights do not add up to 100%" : undefined}
           >
             {(weightSum * 100).toFixed(0)}%
           </span>
           <span className="sh-grades-col sh-grades-col--score" />
-          <span className="sh-grades-col sh-grades-col--contribution mono" style={{ color: gradeColor(currentGrade) }}>
+          <span className={`sh-grades-col sh-grades-col--contribution mono sh-tone--${gradeTone(currentGrade)}`}>
             {currentGrade !== null ? `${currentGrade.toFixed(1)}%` : "—"}
           </span>
           <span className="sh-grades-col sh-grades-col--actions" />

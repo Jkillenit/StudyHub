@@ -44,10 +44,6 @@ const VISIBLE_DEFAULT = 4;
 
 const itemText = (item) => (item && typeof item === "object" ? String(item.text ?? item.label ?? "") : String(item ?? ""));
 
-function confidenceColor(g) {
-  return g.confidence === "high" ? "var(--sh-accent)" : g.confidence === "medium" ? "var(--sh-warn)" : "var(--sh-text-3)";
-}
-
 function DefinitionCard({ item, onEdit, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -240,7 +236,7 @@ function GlossaryCard({ g, onRemove, muted = false }) {
     <div className={`def-card sh-glossary-card ${muted ? "sh-glossary-card--other" : ""}`}>
       <div className="def-card-header">
         <div className="def-term">{g.term}</div>
-        <div className="sh-confidence-dot" style={{ background: confidenceColor(g) }} />
+        <div className={`sh-confidence-dot sh-confidence-dot--${g.confidence}`} />
       </div>
       <div className="def-body">{g.definition}</div>
       <div className="sh-glossary-meta">

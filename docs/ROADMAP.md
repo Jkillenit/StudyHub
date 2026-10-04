@@ -75,7 +75,18 @@ Known follow-ups:
 - Rampant Nova has weak contrast in the Zombies pack.
 - Zombies embers are not yet held at 60fps.
 - The token test only checks `:root`, not `html[data-pack="zombies"]`.
-- A3 grade/data sweep is still queued behind the overhaul (spec Non-goals).
+- Printed course pages keep the screen's light text colors on a white page (faint headings).
+
+### A3 grade/data sweep ✓ *(Phase 2.29, TD-01/02/03/07/08)*
+
+- One grade-math module: the Grades tab rescales weights like Today, so "What do I need?",
+  what-if, zero-on-X and row contributions agree with the priority engine.
+- One local date module (`src/lib/dates.js`) behind every `YYYY-MM-DD` key and day count;
+  Electron parity tested.
+- Every renderer DB call goes through `courseStore` (except `session/rounds.js`, which
+  `courseStore` imports).
+- One mirror load per course (badges, exams, `examFor`); Grades tab edits refetch less.
+- Grade tones, grade scale, confidence dots and print rules come from CSS classes.
 
 ---
 

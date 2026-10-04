@@ -90,7 +90,6 @@ behavior is covered by `npm run check:db`. Line refs are approximate. Est. cut =
 |----|-------|-----|----------|-----------------|
 | TD-05 | `FlashcardDeckContext` pushes draft `newFront/newBack` from deck to `BuiltinCourseApp` panel → 2 full renders per keystroke | Keep draft state in the panel form; deck exposes commands only | ~20 | Low |
 | TD-06 | Hotkey guard shared via `lib/hotkeys.js` (done, Phase 2.18). Left: `BuiltinCourseApp` has 4 identical localStorage effects and an `execCommand` clipboard fallback | `usePersistedState`; drop the fallback (Electron has `navigator.clipboard`) | ~25 | Low |
-| TD-07 | Inline styles fighting CSS: `DefinitionCard` tier borders vs `.sh-tier-*`, `GradeScaleDisplay` vs `.sh-grade-scale-row--current`, 8× `gradeColor` inline, runtime `<style>@media print` in two apps | Tone classes + print rules in `studyhub-bootstrap.css` | ~40 | Visual regressions; untangle `!important` |
 | TD-09 | `FlashcardDeck` copies `externalCards` into state → 3 renders per rating; `completedCount` O(n²) | `useMemo` for user decks; Set lookup | ~8 | Depends on stable `externalCards` (fixed in 2.10) |
 | TD-12 | `nova.vrm` 15.5 MB + `clips.json` 1.1 MB base64 loaded up front | meshopt-compress VRM (gltf-transform), ship clips as binary | ~12 MB payload | Needs asset pipeline + visual check |
 

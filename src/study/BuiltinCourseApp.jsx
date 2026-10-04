@@ -324,12 +324,6 @@ function BuiltinCourseAppInner({ courseShellLoad = false, novaCourses, onGoHub }
 
   return (
     <>
-      <style>{`
-        @media print {
-          .sh-rail, .sh-plan-dock, .sh-drawer, .sh-topbar, .sh-statusbar, .offcanvas { display: none !important; }
-          body { background: white !important; color: black !important; }
-        }
-      `}</style>
       <div className="sh-plan sh-course sh-app-builtin">
         <div className="sh-plan-col">
           <CourseHeader

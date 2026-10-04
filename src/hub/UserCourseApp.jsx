@@ -533,11 +533,6 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, novaCour
 
   return (
     <>
-      <style>{`
-        @media print {
-          .sh-rail, .sh-plan-dock, .sh-topbar, .sh-statusbar { display: none !important; }
-        }
-      `}</style>
       <div className="sh-plan sh-course sh-app-usercourse">
         <div className="sh-plan-col">
           {isCourseView ? null : (
