@@ -67,4 +67,14 @@ export const ZOMBIES_LINES = {
   "cmd.focusStart": ["{minutes} minutes. Lock the doors.", "Holding out for {minutes}. Go."],
   "cmd.focusEnd": ["Round over. Breather, or another wave?", "{minutes} minutes survived. Stretch, then decide."],
   levelUp: ["Level {level}. Weapon upgraded.", "Level {level}. You're getting harder to kill."],
+  examOpen: [
+    "{title} in {days} days. {total} cards, {due} due. {ready}% ready. Board up.",
+    "{days} days until {title} hits. {ready}% ready, {due} of {total} at the door.",
+  ],
+  examOpenTomorrow: ["{title} hits tomorrow. {total} cards, {due} due, {ready}% ready. Hold the line tonight."],
+  examOpenToday: ["{title} is today. {ready}% ready, {due} of {total} due. Last wave. Make it clean."],
+  examNoCards: ["No cards for {title}. Nothing to shoot at. Import slides and stock up."],
+  examEndUp: ["{before}% to {after}% on {title}. The barricade's holding.", "Up to {after}% from {before}%. {title} won't overrun you."],
+  examEndFlat: ["{after}% on {title}. Held the line, gained no ground. Again tomorrow."],
+  examEndReady: ["{after}% ready for {title}. You'll survive this one.", "{title}: {after}%. Fully stocked. Light pass before it hits."],
 };

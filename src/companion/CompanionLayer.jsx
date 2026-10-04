@@ -52,6 +52,7 @@ import { useNovaCommands } from "./hooks/useNovaCommands.js";
 import { useNovaNudges } from "./hooks/useNovaNudges.js";
 import { useNovaDirector } from "./hooks/useNovaDirector.js";
 import { useNovaStudyEvents } from "./hooks/useNovaStudyEvents.js";
+import { useNovaExamSession } from "./hooks/useNovaExamSession.js";
 import { useNovaMemoryVoice } from "./hooks/useNovaMemoryVoice.jsx";
 import { useNovaMarks } from "./hooks/useNovaMarks.js";
 import { useNovaHelp } from "./hooks/useNovaHelp.js";
@@ -357,6 +358,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   sizeRef.current = size;
 
   const { awardXp, pops, rampantNow } = useNovaStudyEvents(core, { cstate, now, enabled, flashReaction });
+  useNovaExamSession(core);
 
   /* ---------- load + first appearance ---------- */
 

@@ -27,10 +27,10 @@ describe("Zombies voice pack", () => {
 
   const usePack = (id) => store.set(KEY, JSON.stringify(id));
 
-  it("overrides 25-40 keys", () => {
+  it("overrides 25-45 keys", () => {
     const n = Object.keys(ZOMBIES_LINES).length;
     expect(n).toBeGreaterThanOrEqual(25);
-    expect(n).toBeLessThanOrEqual(40);
+    expect(n).toBeLessThanOrEqual(45);
   });
 
   it("every override key exists in Nova's pools", () => {

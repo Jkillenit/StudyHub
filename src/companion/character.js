@@ -248,6 +248,38 @@ export const character = {
     partial: ["I'll give you that one. Watch the spelling next time, you animal."],
     hint: ["Starts with \"{first}\". Half points, but I won't judge. Much."],
     noCards: ["No flashcards yet. Import some slides and I'll have something to grill you on."],
+    examOpen: [
+      "{title} in {days} days. {total} cards, {due} due. You're {ready}% ready.",
+      "{title}, {days} days out. {total} cards, {due} due, {ready}% ready. Eyes on me.",
+      "{days} days to {title}. {ready}% ready across {total} cards, {due} due. Let's get to work, damn it.",
+    ],
+    examOpenTomorrow: [
+      "{title} is tomorrow. {total} cards, {due} due. You're {ready}% ready. Tonight counts.",
+      "Tomorrow: {title}. {ready}% ready, {due} of {total} due. No pressure. Okay, some pressure.",
+    ],
+    examOpenToday: [
+      "{title} is today. {total} cards, {due} due, {ready}% ready. Last pass. Make it count.",
+      "Exam day. {title}. {ready}% ready on {total} cards. Hell of a time to cram. Focus.",
+    ],
+    examNoCards: [
+      "No cards cover {title} yet. Import the slides and I'll build you a session.",
+      "Nothing to drill for {title}. Add some cards and I'll run it. I'm good, not magic.",
+    ],
+    examEndUp: [
+      "{before}% to {after}% on {title}. See? You're better when I'm watching.",
+      "Up from {before}% to {after}%. {title} should be a little scared of you.",
+      "{after}% ready for {title}, up from {before}%. Hell yes. Same time tomorrow.",
+    ],
+    examEndFlat: [
+      "{title}: {after}% ready. No gain this round. The misses come back tomorrow.",
+      "{after}% on {title}. That round didn't move the needle. Read the cards, don't just flip them.",
+      "{after}% for {title}. Damn. Shorter round tomorrow, more focus.",
+    ],
+    examEndReady: [
+      "{after}% ready for {title}. That's exam-ready. Don't get cocky. Okay, a little cocky.",
+      "{title}: {after}%. You're ready. I'd say I'm proud, but you'd get a big head.",
+      "{after}% on {title}. Ready. Hell yes. One light pass before the exam, then sleep.",
+    ],
     dunno: [
       "No clue on that one yet. Give me an API key and I can answer damn near anything about the app.",
       "No clue on that one yet. Give me an API key and I can answer almost anything about the app.",
