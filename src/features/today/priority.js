@@ -199,7 +199,7 @@ function assignmentItem(a, course, needs, days, config, blocked = 0) {
   if (standingText) parts.push(standingText);
 
   let action;
-  if (isExam) action = { type: "review", courseUuid: course.uuid, label: "START REVIEW" };
+  if (isExam) action = { type: "review", courseUuid: course.uuid, examUuid: a.uuid, label: "START REVIEW" };
   else if (a.url) action = { type: "blackboard", url: a.url, label: "OPEN IN BLACKBOARD" };
   else action = { type: "course", courseUuid: course.uuid, label: "OPEN COURSE" };
 

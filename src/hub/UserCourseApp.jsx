@@ -51,6 +51,9 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, novaCour
   const [toastMsg, setToastMsg] = useState("");
   const [enhancing, setEnhancing] = useState(false);
   const [sourceFilter, setSourceFilter] = useState("all");
+  /** Exam uuid from Today's START REVIEW; CourseContentArea starts the session and clears it. */
+  const [examRequest, setExamRequest] = useState(null);
+  const clearExamRequest = useCallback(() => setExamRequest(null), []);
   const c = useMemo(() => ensureUserCourse(course), [course]);
   const [active, setActive] = useState(c.activeModuleId);
   const [activeItem, setActiveItem] = useState(`module:${c.activeModuleId}`);
@@ -91,6 +94,7 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, novaCour
     setActiveItem(`module:${ec.activeModuleId}`);
     setMainTab("content");
     setRenamingCourse(false);
+    setExamRequest(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [course.id]);
 
@@ -134,6 +138,7 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, novaCour
       if (d?.item === "qz-deck") {
         if (d.moduleId && (courseRef.current?.modules || []).some((m) => m.id === d.moduleId)) selectModule(d.moduleId);
         if (d.deckMode) setSourceFilter(d.deckMode);
+        setExamRequest(d.examUuid || null);
         setActiveItem("qz-deck");
         setMainTab("content");
         return;
@@ -583,6 +588,8 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, novaCour
             dueCount={dueCount}
             exams={exams}
             examFor={examFor}
+            examRequest={examRequest}
+            onExamRequestDone={clearExamRequest}
             onSaveCards={handleSaveCards}
             flashcardAddTriggerRef={flashcardAddTriggerRef}
             onGoHub={onGoHub}

@@ -220,12 +220,12 @@ describe("rankToday", () => {
   it("turns exams into EXAM_PREP only, never ASSIGNMENT, and drops past exams", () => {
     const items = rank([
       course({
-        assignments: [asg({ kind: "exam", title: "Midterm", dueDate: inDays(5) }), asg({ kind: "exam", dueDate: inDays(-1) })],
+        assignments: [asg({ uuid: "mid", kind: "exam", title: "Midterm", dueDate: inDays(5) }), asg({ kind: "exam", dueDate: inDays(-1) })],
       }),
     ]);
     expect(items).toHaveLength(1);
     expect(items[0].type).toBe(ITEM_TYPES.EXAM_PREP);
-    expect(items[0].action.type).toBe("review");
+    expect(items[0].action).toEqual({ type: "review", courseUuid: "c1", examUuid: "mid", label: "START REVIEW" });
   });
 
   it("keeps quizzes as ASSIGNMENT items", () => {

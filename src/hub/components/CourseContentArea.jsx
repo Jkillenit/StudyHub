@@ -3,6 +3,7 @@ import { DECK_MODES, filterDeck } from "../../study/flashcards/deckModes.js";
 import { DeckList, DeckModeChips } from "../../study/flashcards/DeckList.jsx";
 import { useDeckCards } from "../../study/flashcards/useDeckCards.js";
 import { sessionOrder } from "../../session/cardRun.js";
+import { emitExamSession, pickExamCards } from "../../session/examSession.js";
 import { isCardDue } from "../../study/sm2.js";
 import { shortCourse } from "../../features/dashboard/courseLabel.js";
 
@@ -268,6 +269,8 @@ export default function CourseContentArea({
   dueCount = 0,
   exams,
   examFor = null,
+  examRequest = null,
+  onExamRequestDone,
   onSaveCards,
   reviewMeta,
   enhancing,
@@ -282,6 +285,7 @@ export default function CourseContentArea({
 }) {
   const deck = useDeckCards({ cards: course?.flashcards, onSaveCards });
   const [sessionIds, setSessionIds] = useState(null);
+  const [sessionExam, setSessionExam] = useState(null);
 
   const mapDefinitions = (fn) =>
     onUpdateContentData?.(
@@ -386,15 +390,41 @@ export default function CourseContentArea({
     [deck.cards, sourceFilter, currentModule?.id, examFor]
   );
   const moduleTitles = useMemo(() => new Map((course?.modules || []).map((m) => [m.id, m.title || m.label])), [course?.modules]);
+  useEffect(() => {
+    if (!examRequest || activeItem !== "qz-deck") return;
+    if (sessionIds) {
+      onExamRequestDone?.();
+      return;
+    }
+    const exam = (exams || []).find((e) => e.uuid === examRequest);
+    if (!exam) return;
+    onExamRequestDone?.();
+    const ids = pickExamCards(deck.cards, exam, { isDue: (c) => isCardDue(c, { examDate: examFor?.(c) }) });
+    if (!ids.length) {
+      emitExamSession({ phase: "open", key: "examNoCards", vars: { title: exam.title } });
+      return;
+    }
+    setSessionExam(exam);
+    setSessionIds(ids);
+  }, [examRequest, activeItem, sessionIds, exams, deck.cards, examFor, onExamRequestDone]);
   const courseShort = shortCourse(course?.courseCode || course?.name) || course?.name || "Course";
-  const startSession = () => setSessionIds(sessionOrder(filteredCards, (c) => isCardDue(c, { examDate: examFor?.(c) })));
+  const startSession = () => {
+    setSessionExam(null);
+    setSessionIds(sessionOrder(filteredCards, (c) => isCardDue(c, { examDate: examFor?.(c) })));
+  };
+  const closeSession = () => {
+    setSessionIds(null);
+    setSessionExam(null);
+  };
+  const deckCrumb = sourceFilter === "module" && currentModule ? currentModule.title || currentModule.label : "Flashcards";
   const deckSession = sessionIds
     ? {
         cardIds: sessionIds,
-        crumb: `${courseShort} · ${sourceFilter === "module" && currentModule ? currentModule.title || currentModule.label : "Flashcards"}`,
-        onExit: () => setSessionIds(null),
+        crumb: `${courseShort} · ${sessionExam ? sessionExam.title : deckCrumb}`,
+        exam: sessionExam,
+        onExit: closeSession,
         onToday: () => {
-          setSessionIds(null);
+          closeSession();
           onGoHub?.("today");
         },
         topicOf: (c) => moduleTitles.get(c.moduleId) || courseShort,
