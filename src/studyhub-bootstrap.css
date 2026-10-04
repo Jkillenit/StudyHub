@@ -10124,6 +10124,23 @@ html[data-motion="reduced"] .sh-rating {
   margin-top: 6px;
 }
 
+/* Exam session: ready % change and the next session, under the results summary */
+.sh-results-exam {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--sh-font-mono);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--sh-text-2);
+}
+
+.sh-results-exam-ready {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--sh-accent-2);
+}
+
 .sh-results-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

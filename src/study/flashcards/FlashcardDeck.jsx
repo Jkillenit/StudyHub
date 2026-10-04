@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RATINGS, daysUntilExam, examForCard, isCardDue, localDateString, previewIntervals, sm2 } from "../sm2.js";
+import { RATINGS, daysUntilExam, examForCard, examReadyPercent, isCardDue, localDateString, previewIntervals, sm2 } from "../sm2.js";
 import { emitStudyEvent } from "../../companion/studyEvents.js";
 import { filterDeck } from "./deckModes.js";
 import { cardKey, useDeckCards } from "./useDeckCards.js";
@@ -9,10 +9,12 @@ import { SessionShell } from "../../session/SessionShell.jsx";
 import { SessionResults } from "../../session/SessionResults.jsx";
 import { cardRunEnd, currentCardId, rateCard, sessionOrder, skipMissing, startCardRun } from "../../session/cardRun.js";
 import { masteryDeltas } from "../../session/results.js";
+import { cardsInScope, emitExamSession, examEnd, examNextStep, examOpening, isExamReady, pickExamCards } from "../../session/examSession.js";
 
 const FLIP_GUARD_MS = 200;
 const NO_EXAMS = [];
 const NO_EXAM = () => null;
+const readyIn = (cards, exam) => examReadyPercent(cardsInScope(cards, exam.moduleIds));
 
 function newSessionId() {
   return `session_${Date.now()}`;
@@ -57,6 +59,8 @@ function Definition({ text, emphasize }) {
 /**
  * A flashcard drill, always as a full-window session. `session.cardIds` is the order to drill;
  * `onExit` closes it, `onToday` goes home, `topicOf(card)` groups the results' mastery change.
+ * `session.exam` ({ uuid, title, dueDate, moduleIds }) makes it an exam session: Nova opens and closes
+ * it, results show exam ready % before → after and the next session, and it logs as kind "exam".
  * Storage follows useDeckCards: user decks also write SM-2 to SQLite via db.mastery.
  */
 export default function FlashcardDeck({
@@ -70,7 +74,9 @@ export default function FlashcardDeck({
   session,
 }) {
   const { cards, cardsRef, isUserDeck, commit } = useDeckCards({ cards: externalCards, onSaveCards });
+  const targetExam = session.exam || null;
   const [run, setRun] = useState(() => startCardRun(session.cardIds));
+  const [examResult, setExamResult] = useState(null);
   const [screen, setScreen] = useState("play");
   const [flipped, setFlipped] = useState(false);
   const [endedAt, setEndedAt] = useState(null);
@@ -87,8 +93,15 @@ export default function FlashcardDeck({
     const ids = new Set(session.cardIds);
     beforeRef.current = cards.filter((c) => ids.has(cardKey(c)));
   }
+  const readyBeforeRef = useRef(null);
+  if (targetExam && readyBeforeRef.current == null) readyBeforeRef.current = readyIn(cards, targetExam);
+  const openedRef = useRef(false);
 
   const cardsById = useMemo(() => new Map(cards.map((c) => [cardKey(c), c])), [cards]);
+  const runCards = useMemo(() => {
+    const ids = new Set(run.order);
+    return cards.filter((c) => ids.has(cardKey(c)));
+  }, [cards, run.order]);
   const card = screen === "play" ? cardsById.get(currentCardId(run)) || null : null;
   const examDate = card ? examFor(card) : null;
   const exam = card && isUserDeck ? examForCard(card, exams) : null;
@@ -106,7 +119,8 @@ export default function FlashcardDeck({
       loggedRef.current = true;
       void courseStore.logStudySession({
         courseUuid: isUserDeck ? courseId : null,
-        kind: "drill",
+        kind: targetExam ? "exam" : "drill",
+        examUuid: targetExam?.uuid ?? null,
         startedAt: new Date(r.startedAt).toISOString(),
         endedAt: new Date().toISOString(),
         reviewed: r.rated,
@@ -115,18 +129,47 @@ export default function FlashcardDeck({
         bestCombo: r.best,
       });
     },
-    [courseId, isUserDeck]
+    [courseId, isUserDeck, targetExam]
   );
 
   useEffect(() => () => logSession(runRef.current), [logSession]);
 
+  useEffect(() => {
+    if (!targetExam || openedRef.current) return;
+    openedRef.current = true;
+    const scope = cardsInScope(cardsRef.current, targetExam.moduleIds);
+    emitExamSession({
+      phase: "open",
+      ...examOpening({
+        title: targetExam.title,
+        daysUntil: daysUntilExam(targetExam.dueDate),
+        total: scope.length,
+        due: scope.filter((c) => isCardDue(c, { examDate: examFor(c) })).length,
+        readyPct: readyBeforeRef.current ?? 0,
+      }),
+    });
+  }, [targetExam, cardsRef, examFor]);
+
   const finish = useCallback(
     (r) => {
       logSession(r);
+      if (targetExam) {
+        const scope = cardsInScope(cardsRef.current, targetExam.moduleIds);
+        const before = readyBeforeRef.current ?? 0;
+        const after = examReadyPercent(scope);
+        const next = examNextStep({
+          readyPct: after,
+          daysUntil: daysUntilExam(targetExam.dueDate),
+          notReady: scope.filter((c) => !isExamReady(c)).length,
+          secondsPerCard: r.rated ? (Date.now() - r.startedAt) / 1000 / r.rated : null,
+        });
+        setExamResult({ before, after, next });
+        emitExamSession({ phase: "end", ...examEnd({ title: targetExam.title, before, after }) });
+      }
       setEndedAt(Date.now());
       setScreen("end");
     },
-    [logSession]
+    [logSession, targetExam, cardsRef]
   );
 
   useEffect(() => {
@@ -146,6 +189,7 @@ export default function FlashcardDeck({
       if (!ids.length) return;
       const set = new Set(ids);
       beforeRef.current = cardsRef.current.filter((c) => set.has(cardKey(c)));
+      if (targetExam) readyBeforeRef.current = readyIn(cardsRef.current, targetExam);
       sessionIdRef.current = newSessionId();
       loggedRef.current = false;
       const next = startCardRun(ids);
@@ -153,9 +197,10 @@ export default function FlashcardDeck({
       setRun(next);
       setFlipped(false);
       setEndedAt(null);
+      setExamResult(null);
       setScreen("play");
     },
-    [cardsRef]
+    [cardsRef, targetExam]
   );
 
   const quit = useCallback(() => {
@@ -254,8 +299,10 @@ export default function FlashcardDeck({
   const shieldLabel = screen === "end" && !run.shield.wentDown ? "SHIELDS HELD" : null;
 
   const anotherRound = () => {
-    const filtered = filterDeck(cardsRef.current, sourceFilter, moduleId, { examFor });
-    const ids = sessionOrder(filtered, (c) => isCardDue(c, { examDate: examFor(c) }));
+    const isDue = (c) => isCardDue(c, { examDate: examFor(c) });
+    const ids = targetExam
+      ? pickExamCards(cardsRef.current, targetExam, { isDue })
+      : sessionOrder(filterDeck(cardsRef.current, sourceFilter, moduleId, { examFor }), isDue);
     restart(ids.length ? ids : sessionOrder(beforeRef.current, () => true));
   };
 
@@ -332,7 +379,17 @@ export default function FlashcardDeck({
             downCount: run.shield.downCount,
           }}
           comeBack={comeBackCount(run.reviewed)}
-          deltas={session.topicOf ? masteryDeltas(beforeRef.current, cards.filter((c) => run.order.includes(cardKey(c))), session.topicOf) : []}
+          deltas={session.topicOf ? masteryDeltas(beforeRef.current, runCards, session.topicOf) : []}
+          extra={
+            examResult ? (
+              <div className="sh-results-exam">
+                <span className="sh-results-exam-ready">
+                  READY {examResult.before}% → {examResult.after}%
+                </span>
+                <span>{examResult.next.text}</span>
+              </div>
+            ) : null
+          }
           missedCount={run.misses.length}
           onReviewMissed={() => restart(run.misses)}
           onAnother={anotherRound}
