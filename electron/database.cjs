@@ -294,6 +294,13 @@ const MIGRATIONS = [
       addColumn(dbRef, "assignments", "submitted", "INTEGER NOT NULL DEFAULT 0");
     },
   },
+  {
+    version: 12,
+    up(dbRef) {
+      // The exam (assignments.uuid) a flashcard session reviewed; NULL for plain drills.
+      addColumn(dbRef, "study_sessions", "exam_uuid", "TEXT");
+    },
+  },
 ];
 
 function runMigrations(dbRef) {

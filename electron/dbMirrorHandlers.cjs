@@ -497,8 +497,8 @@ function registerMirrorHandlers() {
     const reviewed = Math.max(0, Number(s?.reviewed) || 0);
     if (!reviewed) return { success: true, skipped: true };
     db.prepare(`
-      INSERT INTO study_sessions (uuid, course_id, kind, started_at, ended_at, cards_reviewed, correct, incorrect, best_combo)
-      VALUES (@uuid, @courseId, @kind, @startedAt, @endedAt, @reviewed, @correct, @incorrect, @bestCombo)
+      INSERT INTO study_sessions (uuid, course_id, kind, started_at, ended_at, cards_reviewed, correct, incorrect, best_combo, exam_uuid)
+      VALUES (@uuid, @courseId, @kind, @startedAt, @endedAt, @reviewed, @correct, @incorrect, @bestCombo, @examUuid)
     `).run({
       bestCombo: Number.isFinite(Number(s.bestCombo)) && Number(s.bestCombo) > 0 ? Math.round(Number(s.bestCombo)) : null,
       uuid: s.uuid || newUuid("ses"),
@@ -509,6 +509,7 @@ function registerMirrorHandlers() {
       reviewed,
       correct: Math.max(0, Number(s.correct) || 0),
       incorrect: Math.max(0, Number(s.incorrect) || 0),
+      examUuid: typeof s.examUuid === "string" && s.examUuid ? s.examUuid : null,
     });
     return { success: true };
   });

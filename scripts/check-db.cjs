@@ -13,6 +13,8 @@ const { saveFullCourse, getFullCourse } = require("../electron/dbHandlers.cjs");
 try {
   const db = getDb();
   assert.strictEqual(db.prepare("SELECT 1"), db.prepare("SELECT 1"), "statement cache");
+  const sessionCols = db.prepare("PRAGMA table_info(study_sessions)").all().map((c) => c.name);
+  assert.ok(sessionCols.includes("exam_uuid"), "study_sessions.exam_uuid (migration 12)");
 
   const payload = {
     uuid: "c1",
