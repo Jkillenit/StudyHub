@@ -50,7 +50,7 @@ export function useNovaQuiz(core, { courses, awardXp, returnHome, setHelp, setMa
   const onQuizAnswer = useCallback(
     ({ card, grade, fields, correct, partial, streak, answer }) => {
       if (card.courseId !== BUILTIN_ID) {
-        void window.studyHub?.db?.mastery?.update?.({
+        void courseStore.updateMastery({
           flashcardUuid: cardKey(card),
           grade,
           easeFactor: fields.easeFactor,

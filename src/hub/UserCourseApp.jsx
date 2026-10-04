@@ -107,8 +107,8 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, novaCour
   useEffect(() => {
     const uuid = course?.uuid || course?.id;
     if (!uuid) return;
-    window.studyHub?.db?.grades
-      ?.getComponents(uuid)
+    courseStore
+      .getGradeComponents(uuid)
       .then((rows) => setHasGrades(Array.isArray(rows) && rows.length > 0))
       .catch(() => setHasGrades(false));
   }, [course?.uuid, course?.id]);

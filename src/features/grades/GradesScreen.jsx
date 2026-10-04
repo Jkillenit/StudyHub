@@ -9,7 +9,7 @@ const SPARK_H = 28;
 
 async function gradeItemsFor(courseUuid) {
   try {
-    const rows = await window.studyHub?.db?.bb?.getGradeItems?.(courseUuid);
+    const rows = await courseStore.getBbGradeItems(courseUuid);
     return Array.isArray(rows) ? rows : [];
   } catch {
     return [];

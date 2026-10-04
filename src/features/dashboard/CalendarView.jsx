@@ -34,7 +34,7 @@ export function CalendarView({ userCourses }) {
 
   const load = useCallback(async () => {
     const { from, to } = rangeFor(days);
-    const res = await window.studyHub?.db?.assignments?.getRange?.({ from: from.toISOString(), to: to.toISOString() });
+    const res = await courseStore.getAssignmentsInRange({ from: from.toISOString(), to: to.toISOString() });
     setItems(Array.isArray(res) ? res : []);
   }, [days]);
 

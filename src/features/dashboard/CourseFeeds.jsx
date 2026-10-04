@@ -123,7 +123,7 @@ export function CourseFeeds({ refreshKey = 0, onOpenCourse, userCourses = [] }) 
   const [data, setData] = useState(EMPTY);
 
   const load = useCallback(async () => {
-    const res = await window.studyHub?.db?.dashboard?.get?.();
+    const res = await courseStore.getDashboard();
     if (res) setData({ ...EMPTY, ...res });
   }, []);
 
@@ -142,7 +142,7 @@ export function CourseFeeds({ refreshKey = 0, onOpenCourse, userCourses = [] }) 
   }, [load]);
 
   const markRead = async (a) => {
-    await window.studyHub?.db?.announcements?.markRead?.(a.uuid);
+    await courseStore.markAnnouncementRead(a.uuid);
     setData((d) => ({ ...d, announcements: d.announcements.map((x) => (x.uuid === a.uuid ? { ...x, read: 1 } : x)) }));
   };
 

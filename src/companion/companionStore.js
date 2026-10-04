@@ -1,3 +1,5 @@
+import { courseStore } from "../db/courseStore.js";
+
 const KEY = "companion.state";
 
 /** How far and how often she roams when idle. Staying put entirely is `quiet`, not a level. */
@@ -126,7 +128,7 @@ function sanitize(raw) {
 
 export async function loadCompanionState() {
   try {
-    const raw = await window.studyHub?.db?.settings?.get?.(KEY);
+    const raw = await courseStore.getSetting(KEY);
     return sanitize(raw ? JSON.parse(raw) : null);
   } catch {
     return defaultState();
@@ -136,7 +138,7 @@ export async function loadCompanionState() {
 /** true / false, or null when the read failed (callers must not treat that as a first run). */
 export async function readOnboarded() {
   try {
-    const raw = await window.studyHub?.db?.settings?.get?.(KEY);
+    const raw = await courseStore.getSetting(KEY);
     return raw ? !!JSON.parse(raw).onboarded : false;
   } catch {
     return null;
@@ -145,7 +147,7 @@ export async function readOnboarded() {
 
 export function saveCompanionState(state) {
   try {
-    void window.studyHub?.db?.settings?.set?.({ key: KEY, value: JSON.stringify(state) });
+    void courseStore.setSetting(KEY, JSON.stringify(state));
   } catch {
     /* ignore */
   }

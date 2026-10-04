@@ -171,7 +171,7 @@ export default function FlashcardDeck({ cards: externalCards = null, onSaveCards
       try {
         const result = sm2(card, grade, { examDate: examFor(card) });
         if (isUserDeck) {
-          await window.studyHub?.db?.mastery?.update?.({
+          await courseStore.updateMastery({
             flashcardUuid: cardKey(card),
             grade,
             easeFactor: result.easeFactor,

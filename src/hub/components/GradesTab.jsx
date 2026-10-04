@@ -293,7 +293,7 @@ function ComponentRow({ component, index, weightSum, onScoreChange, onUpdate, on
   useEffect(() => {
     if (!expanded || !component.id) return;
     let cancelled = false;
-    window.studyHub?.db?.grades?.getSubEntries(component.id).then((rows) => {
+    courseStore.getGradeSubEntries(component.id).then((rows) => {
       if (!cancelled) setSubEntries(rows || []);
     });
     return () => {
@@ -310,18 +310,18 @@ function ComponentRow({ component, index, weightSum, onScoreChange, onUpdate, on
   async function addSubEntry() {
     const score = parseFloat(newScore);
     if (Number.isNaN(score) || !component.id) return;
-    await window.studyHub?.db?.grades?.saveSubEntry({
+    await courseStore.saveGradeSubEntry({
       componentId: component.id,
       score,
       label: newLabel || `Entry ${subEntries.length + 1}`,
     });
-    applySubAverage((await window.studyHub?.db?.grades?.getSubEntries(component.id)) || []);
+    applySubAverage(await courseStore.getGradeSubEntries(component.id));
     setNewLabel("");
     setNewScore("");
   }
 
   async function deleteSubEntry(id) {
-    await window.studyHub?.db?.grades?.deleteSubEntry(id);
+    await courseStore.deleteGradeSubEntry(id);
     applySubAverage(subEntries.filter((entry) => entry.id !== id));
   }
 
@@ -551,9 +551,9 @@ export default function GradesTab({ course, onComponentsChange }) {
     let cancelled = false;
     if (reloadKey === 0) setLoading(true);
     Promise.all([
-      window.studyHub?.db?.grades?.getComponents(courseUuid),
-      window.studyHub?.db?.grades?.getGradingScale(courseUuid),
-      window.studyHub?.db?.bb?.getGradeItems?.(courseUuid),
+      courseStore.getGradeComponents(courseUuid),
+      courseStore.getGradingScale(courseUuid),
+      courseStore.getBbGradeItems(courseUuid),
       courseStore.getTargetGrade(courseUuid),
       courseStore.loadTodayData(courseUuid),
     ])
@@ -584,10 +584,9 @@ export default function GradesTab({ course, onComponentsChange }) {
 
   const assignBbItem = useCallback(
     async (bbId, componentUuid) => {
-      const res = await window.studyHub?.db?.bb?.setItemComponent?.({ courseUuid, bbId, componentUuid });
+      const res = await courseStore.setBbItemComponent({ courseUuid, bbId, componentUuid });
       if (Array.isArray(res?.items)) setBbItems(res.items);
-      const rows = await window.studyHub?.db?.grades?.getComponents(courseUuid);
-      if (Array.isArray(rows)) setComponents(rows);
+      setComponents(await courseStore.getGradeComponents(courseUuid));
     },
     [courseUuid]
   );
@@ -611,11 +610,11 @@ export default function GradesTab({ course, onComponentsChange }) {
       // Components that were new when their score was typed have ids only now.
       merged.forEach((row, i) => {
         if (!next[i]?.id && hasScore(row)) {
-          void window.studyHub?.db?.grades?.upsertEntry({ courseUuid, componentId: row.id, score: row.score });
+          void courseStore.upsertGradeEntry({ courseUuid, componentId: row.id, score: row.score });
         }
       });
       if (bbItemsRef.current.length) {
-        await window.studyHub?.db?.bb?.applyGrades?.(courseUuid);
+        await courseStore.applyBbGrades(courseUuid);
         setReloadKey((k) => k + 1);
       }
     },
@@ -635,7 +634,7 @@ export default function GradesTab({ course, onComponentsChange }) {
         component.id,
         window.setTimeout(() => {
           timers.delete(component.id);
-          void window.studyHub?.db?.grades?.upsertEntry({ courseUuid, componentId: component.id, score });
+          void courseStore.upsertGradeEntry({ courseUuid, componentId: component.id, score });
         }, SCORE_SAVE_DEBOUNCE_MS)
       );
     },
@@ -688,7 +687,7 @@ export default function GradesTab({ course, onComponentsChange }) {
     }
     await saveStructure(parsed.grading.map((component) => ({ ...component, score: null })));
     if (parsed.gradingScale) {
-      void window.studyHub?.db?.grades?.saveGradingScale({ courseUuid, scale: parsed.gradingScale });
+      void courseStore.saveGradingScale(courseUuid, parsed.gradingScale);
       setGradingScale(parsed.gradingScale);
     }
     setStatus(`Found ${parsed.grading.length} components - enter your scores below`);

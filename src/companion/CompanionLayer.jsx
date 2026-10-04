@@ -63,6 +63,7 @@ import { useNovaPlacement } from "./hooks/useNovaPlacement.js";
 import { useNovaIdleLife } from "./hooks/useNovaIdleLife.js";
 import { useNovaAutonomy } from "./hooks/useNovaAutonomy.js";
 import { useNovaInput } from "./hooks/useNovaInput.js";
+import { courseStore } from "../db/courseStore.js";
 
 const Nova3D = lazy(() => import("./nova3d/Nova3D.jsx"));
 /** The first-run tour waits for the setup screen to close and Today to mount. */
@@ -364,7 +365,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     loadCompanionState().then(async (s) => {
       let next = s;
       try {
-        const [last] = (await window.studyHub?.db?.sessions?.history?.({ limit: 1 })) || [];
+        const [last] = await courseStore.getSessionHistory({ limit: 1 });
         const at = last?.ended_at || last?.started_at;
         if (at && (!s.lastStudyAt || Date.parse(at) > Date.parse(s.lastStudyAt))) next = { ...s, lastStudyAt: at };
       } catch {

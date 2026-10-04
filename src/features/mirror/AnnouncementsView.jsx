@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { shortDate } from "../dashboard/dateLabels.js";
+import { courseStore } from "../../db/courseStore.js";
 
 export function AnnouncementsView({ courseUuid }) {
   const [rows, setRows] = useState(null);
   const [openId, setOpenId] = useState(null);
 
   const load = useCallback(async () => {
-    const res = await window.studyHub?.db?.announcements?.getByCourse?.(courseUuid);
+    const res = await courseStore.getAnnouncements(courseUuid);
     setRows(Array.isArray(res) ? res : []);
   }, [courseUuid]);
 
@@ -20,13 +21,13 @@ export function AnnouncementsView({ courseUuid }) {
   }, [courseUuid, load]);
 
   const markRead = async (a) => {
-    await window.studyHub?.db?.announcements?.markRead?.(a.uuid);
+    await courseStore.markAnnouncementRead(a.uuid);
     setRows((list) => list.map((x) => (x.uuid === a.uuid ? { ...x, read: 1 } : x)));
     window.dispatchEvent(new CustomEvent("studyhub-mirror-changed", { detail: { courseUuid } }));
   };
 
   const markAllRead = async () => {
-    for (const a of rows.filter((x) => !x.read)) await window.studyHub?.db?.announcements?.markRead?.(a.uuid);
+    for (const a of rows.filter((x) => !x.read)) await courseStore.markAnnouncementRead(a.uuid);
     setRows((list) => list.map((x) => ({ ...x, read: 1 })));
     window.dispatchEvent(new CustomEvent("studyhub-mirror-changed", { detail: { courseUuid } }));
   };

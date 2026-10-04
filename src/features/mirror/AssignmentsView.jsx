@@ -70,7 +70,7 @@ export function AssignmentsView({ courseUuid }) {
   const [adding, setAdding] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await window.studyHub?.db?.assignments?.getByCourse?.(courseUuid);
+    const res = await courseStore.getAssignments(courseUuid);
     setRows(Array.isArray(res) ? res : []);
   }, [courseUuid]);
 
@@ -95,7 +95,7 @@ export function AssignmentsView({ courseUuid }) {
 
   const remove = async (a) => {
     if (!window.confirm(`Delete "${a.title}"?`)) return;
-    await window.studyHub?.db?.assignments?.delete?.(a.uuid);
+    await courseStore.deleteAssignment(a.uuid);
     notify();
   };
 

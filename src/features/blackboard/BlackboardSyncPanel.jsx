@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { relativeTime } from "../dashboard/dateLabels.js";
+import { courseStore } from "../../db/courseStore.js";
 
 const LAST_SYNC_KEY = "bb.lastSync";
 const STEP_LABEL = { contents: "CONTENT", announcements: "ANNOUNCEMENTS", grades: "GRADES", syllabus: "SYLLABUS" };
@@ -28,7 +29,7 @@ function courseYear(course) {
 
 async function loadLastSync() {
   try {
-    return JSON.parse((await window.studyHub?.db?.settings?.get?.(LAST_SYNC_KEY)) || "{}") || {};
+    return JSON.parse((await courseStore.getSetting(LAST_SYNC_KEY)) || "{}") || {};
   } catch {
     return {};
   }
@@ -95,7 +96,7 @@ export function BlackboardSyncPanel({ userCourses, onSynced }) {
     setResults((r) => ({ ...r, [bbCourse.bbCourseId]: res }));
     if (res?.ok) {
       const next = { ...(await loadLastSync()), [bbCourse.bbCourseId]: new Date().toISOString() };
-      await window.studyHub?.db?.settings?.set?.({ key: LAST_SYNC_KEY, value: JSON.stringify(next) });
+      await courseStore.setSetting(LAST_SYNC_KEY, JSON.stringify(next));
       setLastSync(next);
     }
     return res;

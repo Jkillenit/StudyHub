@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { openInBlackboard } from "./openInBlackboard.js";
+import { courseStore } from "../../db/courseStore.js";
 
 const KIND_TAG = {
   folder: "DIR",
@@ -64,7 +65,7 @@ export function BbContentView({ courseUuid }) {
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      const res = await window.studyHub?.db?.bb?.getItems?.(courseUuid);
+      const res = await courseStore.getBbItems(courseUuid);
       if (!cancelled) setRows(Array.isArray(res) ? res : []);
     };
     void load();

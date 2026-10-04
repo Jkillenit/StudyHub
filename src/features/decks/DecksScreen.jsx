@@ -4,6 +4,7 @@ import { loadFlashcardDeck } from "../../study/flashcards/flashcardPersistence.j
 import { ensureUserCourse } from "../../hub/userCourseModel.js";
 import { loadUpcomingExams } from "../study/examEstimate.js";
 import { buildDecksView } from "./decksView.js";
+import { courseStore } from "../../db/courseStore.js";
 
 const RELOAD_EVENTS = ["studyhub-mirror-changed", "studyhub-bb-synced", "studyhub-exam-scope-changed"];
 
@@ -39,7 +40,7 @@ export function DecksScreen({ userCourses, onOpenCourse }) {
 
   useEffect(() => {
     let alive = true;
-    void window.studyHub?.db?.dashboard?.get?.().then((res) => {
+    void courseStore.getDashboard().then((res) => {
       if (alive) setPace(res?.stats?.avgSecondsPerCard || null);
     });
     return () => {

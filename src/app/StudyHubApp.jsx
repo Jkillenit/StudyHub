@@ -253,10 +253,10 @@ function StudyHubAppInner() {
       }
       if (syllabus?.grading?.length) {
         const courseUuid = target.uuid || target.id;
-        const existing = await window.studyHub?.db?.grades?.getComponents(courseUuid);
+        const existing = await courseStore.getGradeComponents(courseUuid);
         if (!existing?.length) {
           await courseStore.saveGradeComponents(courseUuid, syllabus.grading);
-          if (syllabus.gradingScale) await window.studyHub?.db?.grades?.saveGradingScale({ courseUuid, scale: syllabus.gradingScale });
+          if (syllabus.gradingScale) await courseStore.saveGradingScale(courseUuid, syllabus.gradingScale);
         } else {
           message = "✓ Syllabus imported — existing grade setup kept";
         }

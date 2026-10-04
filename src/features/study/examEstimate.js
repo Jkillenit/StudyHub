@@ -11,7 +11,7 @@ const DEFAULT_SECONDS_PER_CARD = 10;
 export async function loadUpcomingExams(courseUuid) {
   if (!courseUuid) return [];
   const [rows, scopes] = await Promise.all([
-    window.studyHub?.db?.assignments?.getByCourse?.(courseUuid),
+    courseStore.getAssignments(courseUuid),
     courseStore.getExamScopes(courseUuid),
   ]);
   return (Array.isArray(rows) ? rows : [])

@@ -135,7 +135,7 @@ export function StudyGuideView({ course }) {
 
   useEffect(() => {
     let alive = true;
-    void window.studyHub?.db?.sessions?.stats?.(courseUuid).then((stats) => {
+    void courseStore.getSessionStats(courseUuid).then((stats) => {
       if (alive) setPace(stats?.avgSecondsPerCard || null);
     });
     return () => {
@@ -146,7 +146,7 @@ export function StudyGuideView({ course }) {
   useEffect(() => {
     let alive = true;
     const load = () =>
-      void Promise.all([window.studyHub?.db?.assignments?.getByCourse?.(courseUuid), courseStore.getExamScopes(courseUuid)]).then(
+      void Promise.all([courseStore.getAssignments(courseUuid), courseStore.getExamScopes(courseUuid)]).then(
         ([rows, nextScopes]) => {
           if (!alive) return;
           const upcoming = (Array.isArray(rows) ? rows : [])

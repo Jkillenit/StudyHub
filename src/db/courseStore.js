@@ -331,6 +331,94 @@ export const courseStore = {
     }
   },
 
+  async getGradeComponents(courseUuid) {
+    return (await db?.grades?.getComponents?.(courseUuid)) || [];
+  },
+
+  async upsertGradeEntry({ courseUuid, componentId, score }) {
+    return db?.grades?.upsertEntry?.({ courseUuid, componentId, score });
+  },
+
+  async getGradeSubEntries(componentId) {
+    return (await db?.grades?.getSubEntries?.(componentId)) || [];
+  },
+
+  async saveGradeSubEntry({ componentId, score, label }) {
+    return db?.grades?.saveSubEntry?.({ componentId, score, label });
+  },
+
+  async deleteGradeSubEntry(id) {
+    return db?.grades?.deleteSubEntry?.(id);
+  },
+
+  async saveGradingScale(courseUuid, scale) {
+    return db?.grades?.saveGradingScale?.({ courseUuid, scale });
+  },
+
+  async getBbGradeItems(courseUuid) {
+    return (await db?.bb?.getGradeItems?.(courseUuid)) || [];
+  },
+
+  async setBbItemComponent({ courseUuid, bbId, componentUuid }) {
+    return db?.bb?.setItemComponent?.({ courseUuid, bbId, componentUuid });
+  },
+
+  async applyBbGrades(courseUuid) {
+    return db?.bb?.applyGrades?.(courseUuid);
+  },
+
+  async getBbItems(courseUuid) {
+    return (await db?.bb?.getItems?.(courseUuid)) || [];
+  },
+
+  async getAssignments(courseUuid) {
+    return (await db?.assignments?.getByCourse?.(courseUuid)) || [];
+  },
+
+  async getAssignmentsInRange({ from, to }) {
+    return (await db?.assignments?.getRange?.({ from, to })) || [];
+  },
+
+  async saveAssignment(assignment) {
+    return db?.assignments?.save?.(assignment);
+  },
+
+  async deleteAssignment(uuid) {
+    return db?.assignments?.delete?.(uuid);
+  },
+
+  async getAnnouncements(courseUuid) {
+    return (await db?.announcements?.getByCourse?.(courseUuid)) || [];
+  },
+
+  async markAnnouncementRead(uuid) {
+    return db?.announcements?.markRead?.(uuid);
+  },
+
+  async getDashboard() {
+    return db?.dashboard?.get?.();
+  },
+
+  async getSessionStats(courseUuid) {
+    return db?.sessions?.stats?.(courseUuid);
+  },
+
+  async getSessionHistory({ courseUuid, limit } = {}) {
+    return (await db?.sessions?.history?.({ courseUuid, limit })) || [];
+  },
+
+  async getSetting(key) {
+    return db?.settings?.get?.(key);
+  },
+
+  async setSetting(key, value) {
+    return db?.settings?.set?.({ key, value });
+  },
+
+  async updateMastery(args) {
+    return db?.mastery?.update?.(args);
+  },
+
   async setAssignmentCompleted(uuid, completed = true) {
     const res = await db?.assignments?.setCompleted?.({ uuid, completed });
     window.dispatchEvent(new CustomEvent("studyhub-mirror-changed", { detail: { assignmentUuid: uuid } }));

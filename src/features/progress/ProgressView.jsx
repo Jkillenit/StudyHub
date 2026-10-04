@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { relativeTime } from "../dashboard/dateLabels.js";
 import { deckBreakdown, moduleBreakdown } from "./deckBreakdown.js";
+import { courseStore } from "../../db/courseStore.js";
 
 const KIND_LABEL = { drill: "DRILL", test: "TEST" };
 
@@ -70,8 +71,8 @@ export function ProgressView({ course }) {
   useEffect(() => {
     let alive = true;
     void Promise.all([
-      window.studyHub?.db?.sessions?.stats?.(courseUuid),
-      window.studyHub?.db?.sessions?.history?.({ courseUuid, limit: 15 }),
+      courseStore.getSessionStats(courseUuid),
+      courseStore.getSessionHistory({ courseUuid, limit: 15 }),
     ]).then(([s, h]) => {
       if (!alive) return;
       setStats(s || {});

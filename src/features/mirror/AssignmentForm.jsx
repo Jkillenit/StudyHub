@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { courseStore } from "../../db/courseStore.js";
 
 const KINDS = [
   ["assignment", "ASSIGNMENT"],
@@ -31,7 +32,7 @@ export function AssignmentForm({ courses, courseUuid, defaultDate = "", onSaved,
       setError("Title, course, and date are required.");
       return;
     }
-    const res = await window.studyHub?.db?.assignments?.save?.({
+    const res = await courseStore.saveAssignment({
       courseUuid: targetCourse,
       title: title.trim(),
       dueDate,
