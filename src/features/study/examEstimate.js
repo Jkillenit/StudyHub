@@ -3,6 +3,7 @@ import { daysFromToday } from "../dashboard/dateLabels.js";
 import { examReadyPercent, getDueCards } from "../../study/sm2.js";
 import { courseStore } from "../../db/courseStore.js";
 import { upcomingExams } from "../mirror/courseMirror.js";
+export { cardsInScope } from "../../session/examSession.js";
 
 /** Reviews a card typically needs before it is exam-ready, by SM-2 bucket. */
 export const REVIEWS_TO_READY = { fresh: 4, weak: 3, learning: 2, mastered: 0.3 };
@@ -16,13 +17,6 @@ export async function loadUpcomingExams(courseUuid) {
     courseStore.getExamScopes(courseUuid),
   ]);
   return upcomingExams(rows, scopes);
-}
-
-export function cardsInScope(cards, moduleIds) {
-  const list = Array.isArray(cards) ? cards : [];
-  if (!moduleIds?.length) return list;
-  const set = new Set(moduleIds);
-  return list.filter((c) => set.has(c.moduleId));
 }
 
 /**
