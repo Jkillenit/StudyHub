@@ -5,6 +5,8 @@ import { LINK_FADE_MS, LINK_HOLD_MS, LINK_MAX_MS, THINK_MIN_MS } from "../layer/
 const ROW = '[data-nova-anchor^="home.row"]';
 /** The stream is re-aimed only when a line end moves this far, so her idle sway doesn't re-send it every frame. */
 const STREAM_STEP_PX = 4;
+/** How far left of the row the link curves before arriving at its edge. */
+const LINK_BOW_PX = 28;
 
 /**
  * What the particle field shows of her: "thinking" while a message is pending (`api.current.think`),
@@ -77,13 +79,7 @@ export function useNovaField(core, { bodyRef, visibleNow, speaking }) {
       const from = head ? { x: box.left + head.x, y: box.top + head.y } : { x: box.left + box.width / 2, y: box.top };
       const r = el.getBoundingClientRect();
       const to = { x: r.left, y: r.top + r.height / 2 };
-      const line = lineRef.current;
-      if (line) {
-        line.setAttribute("x1", from.x);
-        line.setAttribute("y1", from.y);
-        line.setAttribute("x2", to.x);
-        line.setAttribute("y2", to.y);
-      }
+      lineRef.current?.setAttribute("d", `M${from.x},${from.y} Q${to.x - LINK_BOW_PX},${to.y} ${to.x},${to.y}`);
       pointsRef.current = linkOut ? null : { from, to };
       sync();
       raf = requestAnimationFrame(frame);

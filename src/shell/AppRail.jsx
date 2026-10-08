@@ -1,4 +1,6 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
+import { known, memoryMap } from "../companion/memory/derive.js";
+import { courseStore } from "../db/courseStore.js";
 import { loadJson, saveJson } from "../lib/storage.js";
 import { isTypingTarget, paletteOpen } from "../lib/hotkeys.js";
 import { RoundTally } from "./RoundTally.jsx";
@@ -25,8 +27,8 @@ const ICONS = {
   plus: <path d="M12 5v14M5 12h14" />,
   today: (
     <>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M12 7.5V12l3 2" />
+      <path d="M4 10.5 12 4l8 6.5V20H4z" />
+      <path d="M10 20v-5.5h4V20" />
     </>
   ),
   calendar: (
@@ -37,8 +39,14 @@ const ICONS = {
   ),
   decks: (
     <>
-      <rect x="5" y="4" width="14" height="16" />
-      <path d="M8.5 9h7M8.5 12.5h7M8.5 16h4" />
+      <path d="M12 6.5C10 5 7 4.5 4 5v13.5c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5z" />
+      <path d="M12 6.5V20" />
+    </>
+  ),
+  person: (
+    <>
+      <circle cx="12" cy="9" r="3.5" />
+      <path d="M5.5 19.5c1.2-3.3 3.6-5 6.5-5s5.3 1.7 6.5 5" />
     </>
   ),
   grades: <path d="M4 20h16M7 17v-5M12 17V7M17 17v-8" />,
@@ -64,6 +72,22 @@ function RailItem({ icon, label, active, hint, ...rest }) {
       <span className="sh-rail-label">{label}</span>
       {hint ? <span className="sh-rail-hint">{hint}</span> : null}
     </button>
+  );
+}
+
+/** The student's initial from the name Nova asked for, or a person outline. */
+function RailAvatar() {
+  const [name, setName] = useState(null);
+  useEffect(() => {
+    const load = () => void courseStore.companionMemory().then((rows) => setName(known(memoryMap(rows), "name")?.name || null));
+    load();
+    window.addEventListener("studyhub-companion-memory-changed", load);
+    return () => window.removeEventListener("studyhub-companion-memory-changed", load);
+  }, []);
+  return (
+    <span className="sh-rail-avatar" title={name || undefined} aria-hidden="true">
+      {name ? name.trim().charAt(0).toUpperCase() : <Icon>{ICONS.person}</Icon>}
+    </span>
   );
 }
 
@@ -218,6 +242,7 @@ export function AppRail({ onHub, hubView, courseId, courses, onNavigate, onOpenC
             data-tour-id="titlebar-scout"
           />
         </div>
+        <RailAvatar />
       </div>
     </nav>
   );

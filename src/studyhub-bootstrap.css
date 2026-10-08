@@ -544,6 +544,21 @@ html[data-motion="reduced"] .sh-rail :is(.sh-rail-label, .sh-rail-hint, .sh-rail
   flex: 1;
 }
 
+.sh-rail-avatar {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: 8px 0 4px 14px;
+  font-family: var(--sh-font-body);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--sh-text-2);
+  border: 1px solid var(--sh-border-strong);
+  border-radius: 50%;
+}
+
 /* Course sub-nav under the active course row; collapses with the rail */
 .sh-rail-subnav {
   display: grid;
@@ -1146,7 +1161,7 @@ html[data-motion="reduced"] .sh-drawer {
   position: relative;
   background: var(--sh-panel-solid);
   border: 1px solid var(--sh-border-strong);
-  border-radius: var(--sh-radius-lg);
+  border-radius: 999px;
 }
 
 .sh-novabar-row {
@@ -1154,8 +1169,8 @@ html[data-motion="reduced"] .sh-drawer {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 52px;
-  padding: 0 11px 0 16px;
+  height: 56px;
+  padding: 0 12px 0 24px;
 }
 
 .sh-novabar-portrait {
@@ -1256,27 +1271,36 @@ html[data-nova="off"] .sh-nova-lane-floor {
   color: var(--sh-text-3);
 }
 
+/* The placeholder stays left and the tools right, clear of Nova's legs in the middle. */
+.sh-home .sh-novabar-input {
+  flex: 0 1 40%;
+  margin-right: auto;
+}
+
 .sh-novabar-key {
-  flex-shrink: 0;
-  padding: 2px 6px;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  translate: -50% 0;
+  padding: 0;
   font-family: var(--sh-font-mono);
   font-size: 11px;
   color: var(--sh-text-3);
   background: transparent;
-  border: 1px solid var(--sh-border);
-  border-radius: var(--sh-radius-xs);
+  border: 0;
   box-shadow: none;
+  pointer-events: none;
 }
 
 .sh-novabar-tool {
   flex-shrink: 0;
-  padding: 4px 8px;
+  padding: 3px 8px;
   font-family: var(--sh-font-body);
   font-size: 12.5px;
-  color: var(--sh-text-3);
+  color: var(--sh-text-2);
   background: transparent;
-  border: 0;
-  border-radius: var(--sh-radius-sm);
+  border: 1px solid var(--sh-border-strong);
+  border-radius: var(--sh-radius-xs);
   cursor: pointer;
   transition: color 150ms ease, background-color 150ms ease;
 }
@@ -7225,11 +7249,14 @@ html[data-nova-tucked] .sh-spill {
   /* duration set inline from LINK_FADE_MS */
   transition: opacity ease;
 }
-.sc-link line {
+/* Only the last stretch of the curve shows: a short arc at the row's left edge. */
+.sc-link path {
+  fill: none;
   stroke: var(--sh-accent);
   stroke-opacity: 0.6;
   stroke-width: 1;
-  stroke-dasharray: 1;
+  stroke-dasharray: 0.2 1;
+  stroke-dashoffset: -0.8;
   animation: sc-link-in 300ms ease-out both;
 }
 .sc-link--out {
@@ -7237,16 +7264,13 @@ html[data-nova-tucked] .sh-spill {
 }
 @keyframes sc-link-in {
   from {
-    stroke-dashoffset: 1;
-  }
-  to {
     stroke-dashoffset: 0;
   }
 }
 [data-motion="reduced"] .sc-link {
   transition: none;
 }
-[data-motion="reduced"] .sc-link line {
+[data-motion="reduced"] .sc-link path {
   animation: none;
 }
 
@@ -8509,7 +8533,7 @@ button.sh-week-day:focus-visible {
   cursor: pointer;
 }
 
-.sh-home-row--top::before {
+.sh-home-row::before {
   content: "";
   position: absolute;
   left: 2px;
@@ -8538,7 +8562,7 @@ button.sh-week-day:focus-visible {
   text-overflow: ellipsis;
   font-family: var(--sh-font-body);
   font-size: 17px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--sh-text);
 }
 
@@ -8726,7 +8750,7 @@ html[data-motion="reduced"] .sh-home-list > li {
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
-  padding: 12px 0 20px;
+  padding: 12px 0 28px;
 }
 
 .sh-plan--wide .sh-plan-col,

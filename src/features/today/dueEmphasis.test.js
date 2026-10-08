@@ -1,5 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { dueEmphasis, hoursUntil } from "./dueEmphasis.js";
+import { dueEmphasis, dueShort, hoursUntil } from "./dueEmphasis.js";
+
+describe("dueShort", () => {
+  const at = (d, h = 23, m = 59) => new Date(2026, 9, d, h, m).toISOString();
+
+  it("gives today and tomorrow a 24-hour time", () => {
+    expect(dueShort(at(8, 9, 5), 0)).toBe("today 09:05");
+    expect(dueShort(at(9), 1)).toBe("tomorrow 23:59");
+    expect(dueShort(at(9), 1, true)).toBe("tomorrow 23:59");
+  });
+
+  it("counts exams down from two to six days", () => {
+    expect(dueShort(at(10, 10, 0), 2, true)).toBe("in 2 days");
+    expect(dueShort(at(14, 10, 0), 6, true)).toBe("in 6 days");
+  });
+
+  it("names the weekday for other work two to six days out", () => {
+    expect(dueShort(at(10), 2)).toBe("Sat");
+    expect(dueShort(at(14), 6)).toBe("Wed");
+  });
+
+  it("gives a date from a week out", () => {
+    expect(dueShort(at(15), 7)).toBe("Oct 15");
+    expect(dueShort(at(16, 10, 0), 8, true)).toBe("Oct 16");
+  });
+
+  it("is empty without a due date", () => {
+    expect(dueShort(null, null)).toBe("");
+    expect(dueShort(at(9), null)).toBe("");
+  });
+});
 
 describe("dueEmphasis", () => {
   it("steps at 24h and 72h", () => {

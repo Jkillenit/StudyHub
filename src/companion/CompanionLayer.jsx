@@ -910,7 +910,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       {focusUntil ? <FocusPill until={focusUntil} onStop={stopFocus} /> : null}
       {link ? (
         <svg className={`sc-link${link.out ? " sc-link--out" : ""}`} style={{ transitionDuration: `${LINK_FADE_MS}ms` }} aria-hidden>
-          <line key={link.id} ref={lineRef} pathLength="1" />
+          <path key={link.id} ref={lineRef} pathLength="1" />
         </svg>
       ) : null}
       <span ref={dropMarkRef} className="nv-drop" hidden aria-hidden />

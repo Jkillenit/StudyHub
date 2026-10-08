@@ -9,7 +9,7 @@ import { RoundTally } from "../../shell/RoundTally.jsx";
 import { ITEM_TYPES } from "./priority.js";
 import { runTodayAction } from "./runAction.js";
 import { briefingContext, homeLine } from "./briefing.js";
-import { dueEmphasis, hoursUntil } from "./dueEmphasis.js";
+import { dueEmphasis, dueShort, hoursUntil } from "./dueEmphasis.js";
 import { goneRows, withLeaving } from "./leavingRows.js";
 import { syncedAgo } from "./syncedAgo.js";
 import { dueText } from "./todayView.js";
@@ -143,7 +143,7 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
             {withLeaving(rows, leaving).map(({ item, leaving: gone, index }) => {
               const i = gone ? -1 : index;
               const reason = (item.reasonParts || []).slice(1).join(" · ");
-              const due = dueText(item.dueDate, item.daysUntil, item.type === ITEM_TYPES.EXAM_PREP).replace(/^Due /, "");
+              const due = dueShort(item.dueDate, item.daysUntil, item.type === ITEM_TYPES.EXAM_PREP);
               return (
                 <li
                   key={item.id}
@@ -154,7 +154,7 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
                 >
                   <button
                     type="button"
-                    className={`sh-home-row${i === 0 ? " sh-home-row--top" : ""}`}
+                    className="sh-home-row"
                     data-perch={!gone || undefined}
                     data-nova-anchor={gone ? undefined : `home.row.${i + 1}`}
                     onClick={() => runTodayAction(item.action, onOpenCourse)}
@@ -163,7 +163,7 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
                       <span className="sh-home-row-title" title={item.title}>
                         {item.title}
                       </span>
-                      {item.courseLabel ? <span className="sh-home-row-tag">{item.courseLabel}</span> : null}
+                      {item.courseLabel && !item.title.includes(item.courseLabel) ? <span className="sh-home-row-tag">{item.courseLabel}</span> : null}
                       <span className={`sh-home-row-due mono sh-due--${dueEmphasis(hoursUntil(item.dueDate, now))}`}>{due}</span>
                     </span>
                     {reason || (i === 0 && item.action?.label) ? (
