@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { standOnTarget } from "./safeZones.js";
+import { findLeanSpot, findPeekSpot, standOnTarget } from "./safeZones.js";
 
 /** Fake element: `kinds` are the selector tokens it matches (e.g. "button", ".sh-panel"). */
 function el(kinds, r, children = []) {
@@ -62,5 +62,35 @@ describe("standOnTarget", () => {
     const target = el(["button"], { left: 400, top: 150, width: 200, height: 40 });
     stubDom([target]);
     expect(standOnTarget(target, S)).toBe(null);
+  });
+});
+
+describe("panel edges: peek and lean", () => {
+  const S = 180;
+  /* Ground top is 800 - 12 = 788, so standing on it puts her box at y = 608. */
+  const pos = { x: 300, y: 608 };
+  const panel = () => el([".sh-panel"], { left: 600, top: 500, width: 300, height: 288 });
+
+  it("leans just outside the near edge, facing away from it", () => {
+    const p = panel();
+    stubDom([p]);
+    const spot = findLeanSpot(pos, S, null);
+    expect(spot).toMatchObject({ el: p, outward: -1, side: "right", y: 608 });
+    expect(spot.x).toBeCloseTo(600 - S * 0.14 - S / 2);
+  });
+
+  it("finds nothing when the panel is too short to lean on", () => {
+    stubDom([el([".sh-panel"], { left: 600, top: 728, width: 300, height: 60 })]);
+    expect(findLeanSpot(pos, S, null)).toBe(null);
+  });
+
+  it("respects maxDist", () => {
+    stubDom([panel()]);
+    expect(findLeanSpot(pos, S, null, { maxDist: 100 })).toBe(null);
+  });
+
+  it("peek still hides just inside the edge", () => {
+    stubDom([panel()]);
+    expect(findPeekSpot(pos, S, null)).toMatchObject({ outward: -1, x: 600 + S * 0.1 - S / 2, y: 608 });
   });
 });

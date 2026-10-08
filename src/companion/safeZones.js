@@ -361,12 +361,15 @@ export function findDoodleSpot(pos, size, { w, h, prefer = 1 }) {
   return null;
 }
 
+/** How far outside a panel edge her box center sits when she leans on it, so her shoulder meets it. */
+const LEAN_GAP = 0.14;
+
 /**
- * A panel she can hide behind: one that covers most of her height where she stands, with
- * the near edge along her current platform. She stands just inside the edge and peeks out
- * toward open space (`outward`). Returns { x, y, el, outward } or null.
+ * A panel edge on her current platform that covers most of her height, and a clear walk to it.
+ * Her box center goes `inset` px inside the edge (negative: outside). `outward` points from the
+ * panel toward open space. Returns { x, y, el, outward } or null.
  */
-export function findPeekSpot(pos, size, current, { maxDist = 420 } = {}) {
+function panelEdgeSpot(pos, size, current, { maxDist, minDist, inset }) {
   const plat = livePlatform(current, size) || platformAt(pos, size) || groundPlatform();
   const feet = pos.y + size;
   const top = pos.y + size * 0.12;
@@ -381,8 +384,8 @@ export function findPeekSpot(pos, size, current, { maxDist = 420 } = {}) {
     const outward = cx < r.left ? -1 : cx > r.right ? 1 : 0;
     if (!outward) continue;
     const edge = outward < 0 ? r.left : r.right;
-    const x = edge - outward * size * 0.1;
-    if (x < plat.left || x > plat.right || Math.abs(x - cx) < 40 || Math.abs(x - cx) > maxDist) continue;
+    const x = edge - outward * inset;
+    if (x < plat.left || x > plat.right || Math.abs(x - cx) < minDist || Math.abs(x - cx) > maxDist) continue;
     options.push({ el, x: x - size / 2, y: feet - size, outward });
   }
   if (!options.length) return null;
@@ -400,6 +403,23 @@ export function findPeekSpot(pos, size, current, { maxDist = 420 } = {}) {
     if (clear) return o;
   }
   return null;
+}
+
+/**
+ * A panel she can hide behind: she stands just inside the near edge and peeks out toward
+ * open space (`outward`). Returns { x, y, el, outward } or null.
+ */
+export function findPeekSpot(pos, size, current, { maxDist = 420 } = {}) {
+  return panelEdgeSpot(pos, size, current, { maxDist, minDist: 40, inset: size * 0.1 });
+}
+
+/**
+ * A panel side she can lean on: she stands just outside the edge, shoulder on it, facing away
+ * (`outward`). `side` is the screen side the wall is on. Returns { x, y, el, outward, side } or null.
+ */
+export function findLeanSpot(pos, size, current, { maxDist = 420 } = {}) {
+  const spot = panelEdgeSpot(pos, size, current, { maxDist, minDist: 0, inset: -size * LEAN_GAP });
+  return spot && { ...spot, side: spot.outward < 0 ? "right" : "left" };
 }
 
 export function findTarget(id) {
