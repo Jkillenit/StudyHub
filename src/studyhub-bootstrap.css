@@ -6631,21 +6631,21 @@ html:not([data-pack="zombies"]):has(.sh-home [data-housed]) .sc-scout--home .sc-
   content: none;
 }
 html:not([data-pack="zombies"]):has(.sh-home [data-housed]) .sc-scout--home .sc-bubble:not(:has(.sc-help-input), :has(.sc-bubble-footer)) .sc-bubble-text {
+  position: relative;
   padding-bottom: 5px;
   border-bottom: 1px solid var(--sh-text-3);
 }
-html:not([data-pack="zombies"]):has(.sh-home [data-housed]) .sc-scout--home .sc-bubble--right:not(:has(.sc-help-input), :has(.sc-bubble-footer)) .sc-bubble-tail {
-  display: block;
-  top: 30%;
-  right: calc(100% + 3px);
-  width: 8px;
-  height: 18px;
-  background: none;
+/* The underline runs on past the text and hooks down toward her mouth. */
+html:not([data-pack="zombies"]):has(.sh-home [data-housed]) .sc-scout--home .sc-bubble--right:not(:has(.sc-help-input), :has(.sc-bubble-footer)) .sc-bubble-text::after {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: calc(100% - 1px);
+  width: 16px;
+  height: 14px;
+  border-top: 1px solid var(--sh-text-3);
   border-left: 1px solid var(--sh-text-3);
-  border-radius: 50%;
-}
-html:not([data-pack="zombies"]):has(.sh-home [data-housed]) .sc-scout--home .sc-bubble-tail::after {
-  content: none;
+  border-top-left-radius: 50%;
 }
 
 /* Help */
