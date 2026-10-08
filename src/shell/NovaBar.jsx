@@ -138,7 +138,6 @@ export function NovaBar({ courses, placeholder = "Message Nova, or type / for co
             placeholder={placeholder}
             aria-label="Message Nova"
           />
-          {focused || q ? null : <kbd className="sh-novabar-key">Ctrl /</kbd>}
           <button type="button" className="sh-novabar-tool" onMouseDown={(e) => e.preventDefault()} onClick={() => run({ id: "quiz" })}>
             Quiz me
           </button>
@@ -160,6 +159,7 @@ export function NovaBar({ courses, placeholder = "Message Nova, or type / for co
         </div>
         {note ? <p className="sh-novabar-note" role="status">{note}</p> : null}
       </div>
+      {focused || q ? null : <kbd className="sh-novabar-key">Ctrl /</kbd>}
     </div>
   );
 }

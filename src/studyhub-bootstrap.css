@@ -2,15 +2,15 @@
 
 :root {
   /* surfaces */
-  --sh-bg: #040506;
-  --sh-side: #08090A;
+  --sh-bg: #000000;
+  --sh-side: #000000;
   --sh-panel: rgba(18, 20, 22, 0.62);
   --sh-panel-strong: rgba(18, 20, 22, 0.82);
   --sh-panel-solid: #0E1012;
   --sh-border: rgba(255, 255, 255, 0.06);
   --sh-border-strong: rgba(255, 255, 255, 0.10);
   --sh-track: rgba(255, 255, 255, 0.07);
-  --sh-scrim: rgba(4, 5, 6, 0.72);
+  --sh-scrim: rgba(0, 0, 0, 0.72);
 
   /* text */
   --sh-text: #ECEEF0;
@@ -31,6 +31,9 @@
   --sh-accent-2: var(--sh-text-3);
   --sh-accent-2-soft: color-mix(in oklab, var(--sh-accent-2) 10%, transparent);
   --sh-accent-2-line: color-mix(in oklab, var(--sh-accent-2) 40%, transparent);
+  /* Nova's body, glow and light spill only; never UI */
+  --sh-nova: #3F7BFF;
+  --sh-nova-soft: color-mix(in oklab, var(--sh-nova) 12%, transparent);
 
   /* meaning colors: only for real alerts */
   --sh-warn: #E3BE72;
@@ -115,6 +118,7 @@ html[data-pack="zombies"] {
   --sh-text-3: #8E8178;
 
   --sh-accent: #FF4D4F;
+  --sh-nova: var(--sh-accent);
   --sh-accent-hover: #FF7F80;
   --sh-accent-press: #D93B3D;
   --sh-accent-ink: #1A0505;
@@ -539,6 +543,21 @@ html[data-motion="reduced"] .sh-rail :is(.sh-rail-label, .sh-rail-hint, .sh-rail
 
 .sh-rail-spacer {
   flex: 1;
+}
+
+.sh-rail-avatar {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: 8px 0 4px 14px;
+  font-family: var(--sh-font-body);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--sh-text-2);
+  border: 1px solid var(--sh-border-strong);
+  border-radius: 50%;
 }
 
 /* Course sub-nav under the active course row; collapses with the rail */
@@ -1143,7 +1162,7 @@ html[data-motion="reduced"] .sh-drawer {
   position: relative;
   background: var(--sh-panel-solid);
   border: 1px solid var(--sh-border-strong);
-  border-radius: var(--sh-radius-lg);
+  border-radius: 999px;
 }
 
 .sh-novabar-row {
@@ -1151,8 +1170,8 @@ html[data-motion="reduced"] .sh-drawer {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 52px;
-  padding: 0 11px 0 16px;
+  height: 56px;
+  padding: 0 12px 0 24px;
 }
 
 .sh-novabar-portrait {
@@ -1253,27 +1272,36 @@ html[data-nova="off"] .sh-nova-lane-floor {
   color: var(--sh-text-3);
 }
 
+/* The placeholder stays left and the tools right, clear of Nova's legs in the middle. */
+.sh-home .sh-novabar-input {
+  flex: 0 1 40%;
+  margin-right: auto;
+}
+
 .sh-novabar-key {
-  flex-shrink: 0;
-  padding: 2px 6px;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  translate: -50% 0;
+  padding: 0;
   font-family: var(--sh-font-mono);
   font-size: 11px;
   color: var(--sh-text-3);
   background: transparent;
-  border: 1px solid var(--sh-border);
-  border-radius: var(--sh-radius-xs);
+  border: 0;
   box-shadow: none;
+  pointer-events: none;
 }
 
 .sh-novabar-tool {
   flex-shrink: 0;
-  padding: 4px 8px;
+  padding: 3px 8px;
   font-family: var(--sh-font-body);
   font-size: 12.5px;
-  color: var(--sh-text-3);
+  color: var(--sh-text-2);
   background: transparent;
-  border: 0;
-  border-radius: var(--sh-radius-sm);
+  border: 1px solid var(--sh-border-strong);
+  border-radius: var(--sh-radius-xs);
   cursor: pointer;
   transition: color 150ms ease, background-color 150ms ease;
 }
@@ -1303,7 +1331,6 @@ html[data-nova="off"] .sh-nova-lane-floor {
 }
 
 .sh-novabar-send:disabled {
-  opacity: 0.35;
   cursor: default;
 }
 
@@ -6549,10 +6576,11 @@ html:not([data-pack="zombies"]) .sc-bubble {
 html:not([data-pack="zombies"]) .sc-bubble::before {
   content: "";
   position: absolute;
-  inset: -24px;
+  inset: -10px;
   z-index: -1;
   pointer-events: none;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--sh-bg) 78%, transparent) 55%, transparent);
+  background: color-mix(in srgb, var(--sh-bg) 70%, transparent);
+  filter: blur(12px);
 }
 /* Help search and tour steps are panels you work in, not speech. */
 html:not([data-pack="zombies"]) .sc-bubble:is(:has(.sc-help-input), :has(.sc-bubble-footer)) {
@@ -6597,6 +6625,27 @@ html:not([data-pack="zombies"]) .sc-bubble .sc-bubble-btn:focus-visible {
   color: var(--sh-accent);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+/* Seated on Today, nothing sits behind her speech: plain text, a thin underline, a hairline tail to her mouth. */
+html:not([data-pack="zombies"]):has(.sh-home [data-housed]) .sc-scout--home .sc-bubble:not(:has(.sc-help-input), :has(.sc-bubble-footer))::before {
+  content: none;
+}
+html:not([data-pack="zombies"]):has(.sh-home [data-housed]) .sc-scout--home .sc-bubble:not(:has(.sc-help-input), :has(.sc-bubble-footer)) .sc-bubble-text {
+  position: relative;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--sh-text-3);
+}
+/* The underline runs on past the text and hooks down toward her mouth. */
+html:not([data-pack="zombies"]):has(.sh-home [data-housed]) .sc-scout--home .sc-bubble--right:not(:has(.sc-help-input), :has(.sc-bubble-footer)) .sc-bubble-text::after {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: calc(100% - 1px);
+  width: 16px;
+  height: 14px;
+  border-top: 1px solid var(--sh-text-3);
+  border-left: 1px solid var(--sh-text-3);
+  border-top-left-radius: 50%;
 }
 
 /* Help */
@@ -7196,7 +7245,7 @@ html:not([data-pack="zombies"]) .sc-bubble .sc-bubble-btn:focus-visible {
   height: 260px;
   z-index: -1;
   pointer-events: none;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--sh-accent) 8%, transparent), transparent);
+  background: radial-gradient(closest-side, var(--sh-nova-soft), transparent);
   opacity: 0;
   transition: opacity 400ms ease;
 }
@@ -7211,6 +7260,22 @@ html[data-nova-tucked] .sh-spill {
   transition: none;
 }
 
+/* Contact light where she sits on the composer's top edge; follows the seat wherever it goes. */
+.sh-home [data-nova-home][data-housed]::after {
+  content: "";
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  bottom: -14px;
+  height: 28px;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--sh-nova) 45%, transparent), var(--sh-nova-soft) 55%, transparent);
+}
+html:is([data-nova="off"], [data-nova-tucked], [data-pack="zombies"]) .sh-home [data-nova-home]::after {
+  content: none;
+}
+
 /* The link line from Nova's head to the row she's talking about. */
 .sc-link {
   position: fixed;
@@ -7222,11 +7287,14 @@ html[data-nova-tucked] .sh-spill {
   /* duration set inline from LINK_FADE_MS */
   transition: opacity ease;
 }
-.sc-link line {
+/* Only the last stretch of the curve shows: a short arc at the row's left edge. */
+.sc-link path {
+  fill: none;
   stroke: var(--sh-accent);
   stroke-opacity: 0.6;
   stroke-width: 1;
-  stroke-dasharray: 1;
+  stroke-dasharray: 0.2 1;
+  stroke-dashoffset: -0.8;
   animation: sc-link-in 300ms ease-out both;
 }
 .sc-link--out {
@@ -7234,16 +7302,13 @@ html[data-nova-tucked] .sh-spill {
 }
 @keyframes sc-link-in {
   from {
-    stroke-dashoffset: 1;
-  }
-  to {
     stroke-dashoffset: 0;
   }
 }
 [data-motion="reduced"] .sc-link {
   transition: none;
 }
-[data-motion="reduced"] .sc-link line {
+[data-motion="reduced"] .sc-link path {
   animation: none;
 }
 
@@ -8506,7 +8571,7 @@ button.sh-week-day:focus-visible {
   cursor: pointer;
 }
 
-.sh-home-row--top::before {
+.sh-home-row::before {
   content: "";
   position: absolute;
   left: 2px;
@@ -8535,7 +8600,7 @@ button.sh-week-day:focus-visible {
   text-overflow: ellipsis;
   font-family: var(--sh-font-body);
   font-size: 17px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--sh-text);
 }
 
@@ -8723,7 +8788,7 @@ html[data-motion="reduced"] .sh-home-list > li {
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
-  padding: 12px 0 20px;
+  padding: 12px 0 28px;
 }
 
 .sh-plan--wide .sh-plan-col,

@@ -8,11 +8,16 @@ const token = (name) => root.match(new RegExp(`--${name}:\\s*([^;]+);`))?.[1].tr
 
 describe("design tokens", () => {
   it("uses ice aqua on graphite", () => {
-    expect(token("sh-bg")).toBe("#040506");
+    expect(token("sh-bg")).toBe("#000000");
     expect(token("sh-accent")).toBe("#86E1DE");
     expect(token("sh-accent-2")).toBe("var(--sh-text-3)");
     expect(token("sh-danger")).toBe("#E5686A");
     expect(token("sh-warn")).toBe("#E3BE72");
+  });
+
+  it("gives Nova her own royal blue", () => {
+    expect(token("sh-nova")).toBe("#3F7BFF");
+    expect(token("sh-nova-soft")).toMatch(/^color-mix\(in oklab, var\(--sh-nova\)/);
   });
 
   it("uses Geist for everything", () => {
@@ -42,7 +47,7 @@ describe("design tokens", () => {
   });
 
   it("drops the chamfer", () => {
-    expect(token("sh-side")).toBe("#08090A");
+    expect(token("sh-side")).toBe("#000000");
     expect(token("sh-accent-2-soft")).toMatch(/^color-mix/);
     expect(token("sh-cut")).toBe("0");
   });
