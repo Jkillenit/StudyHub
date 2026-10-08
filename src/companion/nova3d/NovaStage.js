@@ -4,7 +4,7 @@ import { VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 import clipData from "./clips.json";
 import modelUrl from "./nova.vrm?url";
 import { createLegSwing, stepLegSwing } from "./legSwing.js";
-import { headAnchor } from "./headAnchor.js";
+import { boxPx, frameCamera } from "./framing.js";
 import { resolveAt } from "./resolve.js";
 
 const FRAME_MS = 1000 / 30;
@@ -21,6 +21,8 @@ const HEAD_YAW_MAX = 0.45;
 const HEAD_PITCH_MAX = 0.3;
 /** Frame height as a multiple of the model's height; the headroom fits raised arms. */
 const FRAME_SCALE = 1.14;
+/** A long lens: enough perspective that her knees and hands come toward you, not a fisheye. */
+const FOV = 22;
 const FADE = 0.35;
 /** Getting down onto the floor and back up takes longer than a normal blend. */
 const LIE_FADE = 0.9;
@@ -103,6 +105,7 @@ const _head = { pos: new THREE.Vector3(), want: new THREE.Vector3(), e: new THRE
 const _props = { head: new THREE.Vector3(), lh: new THREE.Vector3(), rh: new THREE.Vector3() };
 const _seatHips = new THREE.Vector3();
 const _headPx = new THREE.Vector3();
+const _palm = { a: new THREE.Vector3(), b: new THREE.Vector3() };
 const _lieP = new THREE.Vector3();
 const _sample = new THREE.Vector3();
 
@@ -516,8 +519,7 @@ export class NovaStage {
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.autoClear = false;
     this.scene = new THREE.Scene();
-    this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 50);
-    this.camera.position.set(0, 0, 10);
+    this.camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 50);
     this.root = new THREE.Group();
     this.scene.add(this.root);
     this.clock = new THREE.Clock(false);
@@ -795,8 +797,7 @@ export class NovaStage {
     this.height = box.max.y - box.min.y;
     this.uniforms.uHeight.value = this.height;
     const H = this.height * FRAME_SCALE;
-    Object.assign(this.camera, { left: -H / 2, right: H / 2, top: H - H * 0.01 + box.min.y, bottom: -H * 0.01 + box.min.y });
-    this.camera.updateProjectionMatrix();
+    this.frameCY = frameCamera(this.camera, box.min.y - H * 0.01, H, FOV).centerY;
     this.frameH = H;
 
     this.applyHologram();
@@ -1251,12 +1252,26 @@ export class NovaStage {
     if (!this.onHead) return;
     const node = this.vrm.humanoid.getNormalizedBoneNode("head");
     if (!node) return;
-    const seat = this.seatW < 0.002 ? 0 : SEAT_FRAC * this.seatW;
-    const p = headAnchor(node.getWorldPosition(_headPx), this.camera, this.sizePx, { seat, flipped: !!this.lying && this.state.facing < 0 });
+    const p = this.toBoxPx(node.getWorldPosition(_headPx));
     const last = this.headPx;
     if (last && Math.abs(last.x - p.x) < 2 && Math.abs(last.y - p.y) < 2) return;
     this.headPx = p;
     this.onHead(p);
+  }
+
+  /** A world point in her box's px, with the seated canvas drop and the lying mirror applied. */
+  toBoxPx(world) {
+    const seat = this.seatW < 0.002 ? 0 : SEAT_FRAC * this.seatW;
+    return boxPx(world, this.camera, this.sizePx, { seat, flipped: !!this.lying && this.state.facing < 0 });
+  }
+
+  /** The middle of her palm ("left" | "right") in box px, as of the last frame; null before load. */
+  handPx(side) {
+    const h = this.vrm?.humanoid;
+    const hand = h?.getNormalizedBoneNode(`${side}Hand`);
+    const finger = h?.getNormalizedBoneNode(`${side}MiddleProximal`);
+    if (!hand || !finger) return null;
+    return this.toBoxPx(hand.getWorldPosition(_palm.a).add(finger.getWorldPosition(_palm.b)).multiplyScalar(0.5));
   }
 
   /** Lying: slow breathing through the chest, and the feet kick lazily on her stomach. */
@@ -1338,7 +1353,7 @@ export class NovaStage {
     if (!head) return;
     const ppu = this.sizePx / this.frameH;
     const headPos = head.getWorldPosition(_head.pos);
-    const cy = (this.camera.top + this.camera.bottom) / 2;
+    const cy = this.frameCY;
     const now = performance.now();
     const forced = this.forced && now < this.forced.until ? this.forced : null;
     const l = forced ? { ...forced, at: now } : this.look;
