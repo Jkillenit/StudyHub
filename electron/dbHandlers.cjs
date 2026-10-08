@@ -93,7 +93,7 @@ function upsertModule(db, courseId, mod, position) {
 }
 
 function saveNote(db, moduleId, html) {
-  db.prepare(`
+  return db.prepare(`
     INSERT INTO notes (module_id, html, updated_at)
     VALUES (?, ?, datetime('now'))
     ON CONFLICT(module_id) DO UPDATE SET html = excluded.html, updated_at = excluded.updated_at
