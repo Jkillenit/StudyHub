@@ -130,20 +130,27 @@ export function NovaBar({ courses, placeholder = "Message Nova, or type / for co
             placeholder={placeholder}
             aria-label="Message Nova"
           />
-          <kbd className="sh-novabar-key">Ctrl /</kbd>
+          {focused || q ? null : <kbd className="sh-novabar-key">Ctrl /</kbd>}
+          <button type="button" className="sh-novabar-tool" onMouseDown={(e) => e.preventDefault()} onClick={() => run({ id: "quiz" })}>
+            Quiz me
+          </button>
+          <button type="button" className="sh-novabar-tool" onMouseDown={(e) => e.preventDefault()} onClick={() => run({ id: "focus", minutes: 25 })}>
+            Focus 25
+          </button>
+          <button
+            type="button"
+            className="sh-novabar-send"
+            aria-label="Send"
+            disabled={!text}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={submit}
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
         </div>
         {note ? <p className="sh-novabar-note" role="status">{note}</p> : null}
-        {focused ? (
-          <div className="sh-novabar-tools">
-            <button type="button" className="sh-novabar-tool" onMouseDown={(e) => e.preventDefault()} onClick={() => run({ id: "quiz" })}>
-              Quiz me
-            </button>
-            <button type="button" className="sh-novabar-tool" onMouseDown={(e) => e.preventDefault()} onClick={() => run({ id: "focus", minutes: 25 })}>
-              Focus 25
-            </button>
-            <span className="sh-novabar-hint">Enter to send</span>
-          </div>
-        ) : null}
       </div>
     </div>
   );

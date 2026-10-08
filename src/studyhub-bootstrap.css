@@ -1150,9 +1150,9 @@ html[data-motion="reduced"] .sh-drawer {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   height: 52px;
-  padding: 0 16px;
+  padding: 0 11px 0 16px;
 }
 
 .sh-novabar-portrait {
@@ -1261,41 +1261,50 @@ html[data-nova="off"] .sh-nova-lane-floor {
   color: var(--sh-text-3);
   background: transparent;
   border: 1px solid var(--sh-border);
-  border-radius: 0;
+  border-radius: var(--sh-radius-xs);
   box-shadow: none;
 }
 
-.sh-novabar-tools {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-top: 1px solid var(--sh-border);
-}
-
 .sh-novabar-tool {
-  padding: 3px 8px;
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
-  color: var(--sh-text-2);
+  flex-shrink: 0;
+  padding: 4px 8px;
+  font-family: var(--sh-font-body);
+  font-size: 12.5px;
+  color: var(--sh-text-3);
   background: transparent;
-  border: 1px solid var(--sh-border);
-  border-radius: 0;
+  border: 0;
+  border-radius: var(--sh-radius-sm);
   cursor: pointer;
-  transition: color 150ms ease, border-color 150ms ease;
+  transition: color 150ms ease, background-color 150ms ease;
 }
 
 .sh-novabar-tool:hover {
-  color: var(--sh-accent);
-  border-color: var(--sh-accent-line);
+  color: var(--sh-text);
+  background: var(--sh-track);
 }
 
-.sh-novabar-hint {
-  margin-left: auto;
-  font-family: var(--sh-font-mono);
-  font-size: 11px;
-  color: var(--sh-text-3);
+.sh-novabar-send {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--sh-bg);
+  background: var(--sh-accent);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background-color 150ms ease, opacity 150ms ease;
+}
+
+.sh-novabar-send:hover {
+  background: var(--sh-accent-hover);
+}
+
+.sh-novabar-send:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .sh-novabar-list {
@@ -1343,7 +1352,7 @@ html[data-nova="off"] .sh-nova-lane-floor {
   color: var(--sh-accent);
 }
 
-html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
+html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-send, .sh-novabar-opt) {
   transition: none;
 }
 
@@ -8288,45 +8297,47 @@ button.sh-week-day:focus-visible {
   }
 }
 
-/* Pure home: wordmark, one line, the message box, tonight's top three */
+/* Pure home (mockup v4): meta line, greeting, three borderless rows, composer docked below with Nova seated on it */
 .sh-home {
   flex: 1 0 auto;
+  min-height: 100%;
   box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 24px;
-}
-
-.sh-home-col {
-  width: 100%;
-  max-width: 720px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding: 56px 24px 0;
 }
 
-.sh-home-mark {
+.sh-home-col {
+  flex: 1;
+  width: 100%;
+  max-width: 640px;
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 0 0 14px;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.sh-home-meta {
+  margin: 0 0 10px;
+  font-family: var(--sh-font-body);
+  font-size: 12.5px;
+  color: var(--sh-text-3);
+}
+
+.sh-home-greeting {
+  margin: 0 0 28px;
   font-family: var(--sh-font-display);
-  font-weight: 400;
-  font-size: 28px;
-  letter-spacing: -0.01em;
+  font-weight: 300;
+  font-size: 30px;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
   color: var(--sh-text);
 }
 
-.sh-home-mark svg {
-  color: var(--sh-accent);
-}
-
 .sh-home-line {
-  margin: 0 0 8px;
-  text-align: center;
+  margin: -16px 0 24px;
   font-family: var(--sh-font-body);
-  font-size: 15px;
+  font-size: 14px;
   color: var(--sh-text-2);
 }
 
@@ -8335,88 +8346,174 @@ button.sh-week-day:focus-visible {
   color: var(--sh-accent);
 }
 
-.sh-home-sync {
+.sh-home-list {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sh-home-list > li + li {
+  border-top: 1px solid var(--sh-border);
+}
+
+.sh-home-row {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 16px 0 16px 22px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  cursor: pointer;
+}
+
+.sh-home-row--top::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 25px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sh-accent);
+}
+
+.sh-home-row:focus-visible {
+  outline: none;
+  box-shadow: inset 1px 0 0 var(--sh-accent);
+}
+
+.sh-home-row-main {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.sh-home-row-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--sh-font-body);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--sh-text);
+}
+
+.sh-home-row-tag {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  font-family: var(--sh-font-body);
+  font-size: 11px;
+  color: var(--sh-text-3);
+  border: 1px solid var(--sh-border-strong);
+  border-radius: var(--sh-radius-xs);
+}
+
+.sh-home-row-due {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 12.5px;
+}
+
+.sh-due--hot {
+  font-weight: 600;
+  color: var(--sh-text);
+}
+
+.sh-due--near {
+  font-weight: 500;
+  color: var(--sh-text-2);
+}
+
+.sh-due--far {
+  font-weight: 400;
+  color: var(--sh-text-3);
+}
+
+/* Revealed on hover or keyboard focus; nothing extra at rest */
+.sh-home-row-more {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 0 0 24px;
+  gap: 12px;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 180ms ease, opacity 180ms ease, margin-top 180ms ease;
+}
+
+.sh-home-row:is(:hover, :focus-visible) .sh-home-row-more {
+  max-height: 24px;
+  margin-top: 6px;
+  opacity: 1;
+}
+
+.sh-home-row-reason {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-family: var(--sh-font-body);
   font-size: 12.5px;
   color: var(--sh-text-3);
 }
 
-.sh-home-sync-dot {
-  width: 6px;
-  height: 6px;
-  background: var(--sh-accent);
-}
-
-.sh-home-cards {
-  width: 100%;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.sh-home-card {
-  --sh-home-edge: var(--sh-border-strong);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 12px 14px;
-  text-align: left;
-  background: var(--sh-panel);
-  border: 1px solid var(--sh-border);
-  border-radius: 0;
-  box-shadow: inset 0 2px 0 var(--sh-home-edge);
-  cursor: pointer;
-  transition: border-color 150ms ease;
-}
-
-.sh-home-card--first {
-  --sh-home-edge: var(--sh-accent);
-}
-
-.sh-home-card--today {
-  --sh-home-edge: var(--sh-warn);
-}
-
-.sh-home-card:hover {
-  border-color: var(--sh-border-strong);
-}
-
-.sh-home-card-title {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
+.sh-home-row-action {
+  flex-shrink: 0;
+  margin-left: auto;
   font-family: var(--sh-font-body);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--sh-text);
+  font-size: 12.5px;
+  color: var(--sh-accent);
 }
 
-.sh-home-card-meta {
+.sh-home-row-action kbd {
+  margin-left: 6px;
+  padding: 1px 5px;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  color: var(--sh-text-3);
+  color: var(--sh-accent);
+  background: var(--sh-accent-soft);
+  border: 1px solid var(--sh-accent-line);
+  border-radius: var(--sh-radius-xs);
+  box-shadow: none;
 }
 
 .sh-home-empty {
-  margin-top: 16px;
+  margin-top: 4px;
+}
+
+.sh-home-link {
+  margin-top: 14px;
+  padding: 4px 0;
+  background: transparent;
+  border: 0;
+  font-family: var(--sh-font-body);
+  font-size: 12.5px;
+  color: var(--sh-text-3);
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+
+.sh-home-link:hover {
+  color: var(--sh-accent);
 }
 
 /* The composer, with Nova's seat standing on its left end (she's sized to the seat's height) */
 .sh-home-dock {
   position: relative;
   width: 100%;
+  max-width: 640px;
+  margin-top: 200px;
+  padding-bottom: 40px;
 }
 
 .sh-home-seat {
   position: absolute;
   left: -40px;
-  bottom: 100%;
+  bottom: calc(100% - 4px);
   width: 140px;
   height: 172px;
   pointer-events: none;
@@ -8429,36 +8526,8 @@ button.sh-week-day:focus-visible {
   bottom: 0;
 }
 
-.sh-home-more {
-  align-self: stretch;
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 10px;
-}
-
-.sh-home-link {
-  padding: 4px 0;
-  background: transparent;
-  border: 0;
-  font-family: var(--sh-font-body);
-  font-size: 13px;
-  color: var(--sh-text-2);
-  cursor: pointer;
-  transition: color 150ms ease;
-}
-
-.sh-home-link:hover {
-  color: var(--sh-accent);
-}
-
-html[data-motion="reduced"] :is(.sh-home-card, .sh-home-link) {
+html[data-motion="reduced"] :is(.sh-home-row-more, .sh-home-link) {
   transition: none;
-}
-
-@media (max-width: 900px) {
-  .sh-home-cards {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 /* Plan layout: one content column with the message box docked under it */

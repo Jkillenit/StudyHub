@@ -6,10 +6,13 @@ import { RoundTally } from "../../shell/RoundTally.jsx";
 import { ITEM_TYPES } from "./priority.js";
 import { runTodayAction } from "./runAction.js";
 import { briefingContext, homeLine } from "./briefing.js";
+import { dueEmphasis, hoursUntil } from "./dueEmphasis.js";
 import { syncedAgo } from "./syncedAgo.js";
 import { dueText } from "./todayView.js";
 import { useArrival } from "./useArrival.js";
 import { useTodayModel } from "./useTodayModel.js";
+
+const COUNT_WORDS = ["Nothing", "One thing", "Two things", "Three things"];
 
 /** True while Nova is on screen (html[data-nova], broadcast by the companion layer). */
 function useNovaOn() {
@@ -22,19 +25,25 @@ function useNovaOn() {
   return on;
 }
 
-const Hex = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-    <path d="M12 2l8 5v10l-8 5-8-5V7z" />
-  </svg>
-);
-
-function cardEdge(item, i) {
-  if (i === 0) return " sh-home-card--first";
-  if (item.daysUntil === 0) return " sh-home-card--today";
-  return "";
+function greeting(view) {
+  if (!view.hasCourses) return "Connect Blackboard to get started.";
+  const n = Math.min(view.tonight.length, 3);
+  return n ? `${COUNT_WORDS[n]} tonight.` : "Nothing due tonight.";
 }
 
-/** The Pure home: one line, the message box, and tonight's top three. */
+/** Arrow keys move between the rows. */
+function onRowKey(e) {
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  const rows = [...e.currentTarget.querySelectorAll(".sh-home-row")];
+  const i = rows.indexOf(document.activeElement);
+  const next = rows[e.key === "ArrowDown" ? Math.min(rows.length - 1, i + 1) : Math.max(0, i - 1)];
+  if (next) {
+    e.preventDefault();
+    next.focus();
+  }
+}
+
+/** The Pure home: a meta line, tonight's top three, and the message box with Nova seated on it. */
 export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }) {
   const { loaded, view } = useTodayModel(refreshKey);
   const pack = usePack();
@@ -45,10 +54,15 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
     if (briefingFacts) publishToday(briefingFacts);
   }, [briefingFacts]);
 
-  const synced = view ? syncedAgo(view.syncedAt) : null;
   const novaOn = useNovaOn();
   const spoken = useMemo(() => line.map((s) => (typeof s === "string" ? s : s.num)).join(""), [line]);
   useArrival(!!view && novaOn, spoken);
+
+  const now = new Date();
+  const meta = [now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }), view ? syncedAgo(view.syncedAt) || "Blackboard not connected" : null]
+    .filter(Boolean)
+    .join(" · ");
+  const rows = view?.hasCourses ? view.tonight.slice(0, 3) : [];
 
   return (
     <section className="sh-home" aria-label="Today" aria-busy={!loaded || undefined} data-tour-id="today-dashboard">
@@ -57,39 +71,58 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
       </div>
       {pack === "zombies" ? <RoundTally variant="corner" /> : null}
       <div className="sh-home-col">
-        <h1 className="sh-home-mark">
-          <Hex />
-          NOVA
-        </h1>
-        {view ? (
-          <>
-            {novaOn ? null : (
-              <p className="sh-home-line">
-                {line.map((s, i) =>
-                  typeof s === "string" ? (
-                    <span key={i}>{s}</span>
-                  ) : (
-                    <span key={i} className="sh-home-num">
-                      {s.num}
-                    </span>
-                  )
-                )}
-              </p>
+        <p className="sh-home-meta">{meta}</p>
+        {view ? <h1 className="sh-home-greeting">{greeting(view)}</h1> : null}
+        {view && !novaOn ? (
+          <p className="sh-home-line">
+            {line.map((s, i) =>
+              typeof s === "string" ? (
+                <span key={i}>{s}</span>
+              ) : (
+                <span key={i} className="sh-home-num">
+                  {s.num}
+                </span>
+              )
             )}
-            <p className="sh-home-sync">
-              <span className="sh-home-sync-dot" aria-hidden />
-              {synced || "Blackboard not connected"}
-            </p>
-          </>
+          </p>
         ) : null}
-        <div className="sh-home-dock">
-          <div className="sh-home-seat" data-nova-home aria-hidden="true">
-            <div className="sh-home-seat-floor" data-nova-floor />
-          </div>
-          <div data-perch data-nova-anchor="home.composer">
-            <NovaBar courses={courses} />
-          </div>
-        </div>
+        {rows.length ? (
+          <ol className="sh-home-list" onKeyDown={onRowKey}>
+            {rows.map((item, i) => {
+              const reason = (item.reasonParts || []).slice(1).join(" · ");
+              const due = dueText(item.dueDate, item.daysUntil, item.type === ITEM_TYPES.EXAM_PREP).replace(/^Due /, "");
+              return (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    className={`sh-home-row${i === 0 ? " sh-home-row--top" : ""}`}
+                    data-perch
+                    data-nova-anchor={`home.row.${i + 1}`}
+                    onClick={() => runTodayAction(item.action, onOpenCourse)}
+                  >
+                    <span className="sh-home-row-main">
+                      <span className="sh-home-row-title" title={item.title}>
+                        {item.title}
+                      </span>
+                      {item.courseLabel ? <span className="sh-home-row-tag">{item.courseLabel}</span> : null}
+                      <span className={`sh-home-row-due mono sh-due--${dueEmphasis(hoursUntil(item.dueDate, now))}`}>{due}</span>
+                    </span>
+                    {reason || (i === 0 && item.action?.label) ? (
+                      <span className="sh-home-row-more">
+                        <span className="sh-home-row-reason">{reason}</span>
+                        {i === 0 && item.action?.label ? (
+                          <span className="sh-home-row-action">
+                            {item.action.label} <kbd>Enter</kbd>
+                          </span>
+                        ) : null}
+                      </span>
+                    ) : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        ) : null}
         {view && !view.hasCourses ? (
           <div className="sh-home-empty">
             <button type="button" className="sh-btn-outline" onClick={() => onNavigate?.("courses")}>
@@ -97,34 +130,19 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
             </button>
           </div>
         ) : null}
-        {view?.hasCourses && view.tonight.length ? (
-          <div className="sh-home-cards">
-            {view.tonight.slice(0, 3).map((item, i) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`sh-home-card${cardEdge(item, i)}`}
-                data-perch
-                data-nova-anchor={`home.row.${i + 1}`}
-                onClick={() => runTodayAction(item.action, onOpenCourse)}
-              >
-                <span className="sh-home-card-title" title={item.title}>
-                  {item.title}
-                </span>
-                <span className="sh-home-card-meta">
-                  {[item.courseLabel, dueText(item.dueDate, item.daysUntil, item.type === ITEM_TYPES.EXAM_PREP)].filter(Boolean).join(" · ")}
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : null}
         {view ? (
-          <div className="sh-home-more">
-            <button type="button" className="sh-home-link" onClick={() => onNavigate?.("plan")}>
-              Full plan →
-            </button>
-          </div>
+          <button type="button" className="sh-home-link" onClick={() => onNavigate?.("plan")}>
+            Full plan
+          </button>
         ) : null}
+      </div>
+      <div className="sh-home-dock">
+        <div className="sh-home-seat" data-nova-home aria-hidden="true">
+          <div className="sh-home-seat-floor" data-nova-floor />
+        </div>
+        <div data-perch data-nova-anchor="home.composer">
+          <NovaBar courses={courses} placeholder="Ask Nova anything, or type /" />
+        </div>
       </div>
     </section>
   );
