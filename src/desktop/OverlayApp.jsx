@@ -7,8 +7,11 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "@fontsource/geist-sans/500.css";
 import "@fontsource/geist-mono/500.css";
-import "../studyhub-bootstrap.css";
+import shCss from "../studyhub-bootstrap.css?inline";
 import { isReducedMotion } from "../shell/motion.js";
+
+// Inlined: a plain shared import splits it into a chunk that loads before Bootstrap in the main window.
+document.head.appendChild(Object.assign(document.createElement("style"), { textContent: shCss }));
 
 const api = window.novaDesktop;
 const GRAVITY = 2600;
