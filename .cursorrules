@@ -171,6 +171,15 @@ Every code change must:
 3. Add no console.log / console.error in production paths
 4. Not break the OM 300 course
 
+## AGENT WORKFLOW (subagents)
+Delegate to subagents by default whenever it helps; don't wait to be asked.
+- Plans with independent tasks: execute with superpowers subagent-driven-development
+ (one implementer subagent per task, then a review subagent).
+- Broad codebase searches / "how does X work": explore subagent.
+- 2+ independent investigations or edits on disjoint files: run subagents in parallel.
+- Keep in the main agent: user questions, design approval, final verification
+ (build + vitest) and commits.
+
 ## COMMIT MESSAGE FORMAT
 "Phase X.Y — Short description
 
