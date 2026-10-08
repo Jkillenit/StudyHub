@@ -2,15 +2,15 @@
 
 :root {
   /* surfaces */
-  --sh-bg: #040506;
-  --sh-side: #08090A;
+  --sh-bg: #000000;
+  --sh-side: #000000;
   --sh-panel: rgba(18, 20, 22, 0.62);
   --sh-panel-strong: rgba(18, 20, 22, 0.82);
   --sh-panel-solid: #0E1012;
   --sh-border: rgba(255, 255, 255, 0.06);
   --sh-border-strong: rgba(255, 255, 255, 0.10);
   --sh-track: rgba(255, 255, 255, 0.07);
-  --sh-scrim: rgba(4, 5, 6, 0.72);
+  --sh-scrim: rgba(0, 0, 0, 0.72);
 
   /* text */
   --sh-text: #ECEEF0;
@@ -118,6 +118,7 @@ html[data-pack="zombies"] {
   --sh-text-3: #8E8178;
 
   --sh-accent: #FF4D4F;
+  --sh-nova: var(--sh-accent);
   --sh-accent-hover: #FF7F80;
   --sh-accent-press: #D93B3D;
   --sh-accent-ink: #1A0505;
@@ -1330,7 +1331,6 @@ html[data-nova="off"] .sh-nova-lane-floor {
 }
 
 .sh-novabar-send:disabled {
-  opacity: 0.35;
   cursor: default;
 }
 
