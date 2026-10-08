@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { setVoiceLevel } from "../../nova/voice.js";
+import { line } from "../character.js";
 import { AUTONOMOUS } from "../machine.js";
 import { GREET_POINT_DELAY_MS } from "../layer/constants.js";
 
 /** Window-level glue: voice level, settings open requests, greet/talk events, the html dataset, quiet toggles. */
 export function useNovaWindowEvents(core, { visibleNow, quiet, onSettingsChange }) {
-  const { api, stateRef, modeRef, reducedRef, setMood, setTalkUntil, busy, playGesture, pointAt, say, later } = core;
+  const { api, stateRef, modeRef, reducedRef, setMood, setTalkUntil, busy, playGesture, pointAt, say, later, quietNow } = core;
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
@@ -62,6 +63,18 @@ export function useNovaWindowEvents(core, { visibleNow, quiet, onSettingsChange 
       window.removeEventListener("studyhub-companion-talk", onTalk);
     };
   }, [visibleNow, busy, playGesture, pointAt, say, later]);
+
+  /* A Today row she was showing is done (HomeScreen streams it into her): she's proud of it. */
+  useEffect(() => {
+    const onDone = (e) => {
+      if (!visibleNow || quietNow() || !AUTONOMOUS.has(modeRef.current) || busy()) return;
+      setMood("happy");
+      if (!reducedRef.current) playGesture("wink");
+      say(line("home.taskDone", { title: e.detail?.title }));
+    };
+    window.addEventListener("studyhub-companion-task-done", onDone);
+    return () => window.removeEventListener("studyhub-companion-task-done", onDone);
+  }, [visibleNow, busy, playGesture, say]);
 
   useEffect(() => {
     document.documentElement.dataset.nova = visibleNow ? "on" : "off";

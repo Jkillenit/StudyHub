@@ -74,6 +74,7 @@ import { useNovaIdleLife } from "./hooks/useNovaIdleLife.js";
 import { useNovaAutonomy } from "./hooks/useNovaAutonomy.js";
 import { useNovaInput } from "./hooks/useNovaInput.js";
 import { useNovaField } from "./hooks/useNovaField.js";
+import { useNovaFocusDissolve } from "./hooks/useNovaFocusDissolve.js";
 import { courseStore } from "../db/courseStore.js";
 
 const Nova3D = lazy(() => import("./nova3d/Nova3D.jsx"));
@@ -709,6 +710,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   /* ---------- Ask Nova: typed commands (see src/nova/commands.js) ---------- */
   const { focusUntil, stopFocus } = useNovaCommands(core, { startQuiz, startHelp, closeHelp });
+  useNovaFocusDissolve(core, { focusUntil });
 
   /* The message box (src/shell/NovaBar.jsx) talks to her through window events. */
   useEffect(() => {

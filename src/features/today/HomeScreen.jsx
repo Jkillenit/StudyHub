@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { publishToday } from "../../nova/director.js";
+import { fieldEmit, lastAttractor } from "../../shell/fieldEvents.js";
+import { useReducedMotion } from "../../shell/motion.js";
 import { NovaBar } from "../../shell/NovaBar.jsx";
 import { usePack } from "../../shell/pack.js";
 import { RoundTally } from "../../shell/RoundTally.jsx";
@@ -7,12 +9,15 @@ import { ITEM_TYPES } from "./priority.js";
 import { runTodayAction } from "./runAction.js";
 import { briefingContext, homeLine } from "./briefing.js";
 import { dueEmphasis, hoursUntil } from "./dueEmphasis.js";
+import { goneRows, withLeaving } from "./leavingRows.js";
 import { syncedAgo } from "./syncedAgo.js";
 import { dueText } from "./todayView.js";
 import { useArrival } from "./useArrival.js";
 import { useTodayModel } from "./useTodayModel.js";
 
 const COUNT_WORDS = ["Nothing", "One thing", "Two things", "Three things"];
+/** How long a finished row's slot takes to close (matches the sh-home-leave animation). */
+const LEAVE_MS = 250;
 
 /** True while Nova is on screen (html[data-nova], broadcast by the companion layer). */
 function useNovaOn() {
@@ -56,7 +61,40 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
 
   const novaOn = useNovaOn();
   const spoken = useMemo(() => line.map((s) => (typeof s === "string" ? s : s.num)).join(""), [line]);
-  useArrival(!!view && novaOn, spoken);
+  const { arriving } = useArrival(!!view && novaOn, spoken);
+  const reduced = useReducedMotion();
+
+  /* A shown row whose item is gone (submitted, or studied) flows into Nova while its slot closes. */
+  const shownRef = useRef([]);
+  const flowedRef = useRef(new Set());
+  const listRef = useRef(null);
+  const [leaving, setLeaving] = useState([]);
+  useLayoutEffect(() => {
+    if (!view) return;
+    const next = view.hasCourses ? view.tonight : [];
+    const gone = goneRows(shownRef.current, next.map((t) => t.id));
+    shownRef.current = next.slice(0, 3);
+    if (!gone.length) return;
+    window.dispatchEvent(new CustomEvent("studyhub-companion-task-done", { detail: { title: gone[0].item.title } }));
+    if (!reduced) setLeaving((l) => [...l, ...gone]);
+  }, [view, reduced]);
+  useLayoutEffect(() => {
+    for (const g of leaving) {
+      if (flowedRef.current.has(g.item.id)) continue;
+      flowedRef.current.add(g.item.id);
+      const el = listRef.current?.querySelector(`li[data-leaving="${CSS.escape(g.item.id)}"]`);
+      const to = lastAttractor();
+      if (el && to) fieldEmit(el.getBoundingClientRect(), to, 60);
+    }
+  }, [leaving]);
+  useEffect(() => {
+    if (!leaving.length) return undefined;
+    const t = window.setTimeout(() => {
+      flowedRef.current.clear();
+      setLeaving([]);
+    }, LEAVE_MS);
+    return () => window.clearTimeout(t);
+  }, [leaving]);
 
   const now = new Date();
   const meta = [now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }), view ? syncedAgo(view.syncedAt) || "Blackboard not connected" : null]
@@ -86,18 +124,19 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
             )}
           </p>
         ) : null}
-        {rows.length ? (
-          <ol className="sh-home-list" onKeyDown={onRowKey}>
-            {rows.map((item, i) => {
+        {rows.length || leaving.length ? (
+          <ol ref={listRef} className={`sh-home-list${arriving ? " sh-home-list--arrive" : ""}`} onKeyDown={onRowKey}>
+            {withLeaving(rows, leaving).map(({ item, leaving: gone }) => {
+              const i = rows.indexOf(item);
               const reason = (item.reasonParts || []).slice(1).join(" · ");
               const due = dueText(item.dueDate, item.daysUntil, item.type === ITEM_TYPES.EXAM_PREP).replace(/^Due /, "");
               return (
-                <li key={item.id}>
+                <li key={item.id} data-leaving={gone ? item.id : undefined} inert={gone ? "" : undefined} style={{ "--i": i }}>
                   <button
                     type="button"
                     className={`sh-home-row${i === 0 ? " sh-home-row--top" : ""}`}
-                    data-perch
-                    data-nova-anchor={`home.row.${i + 1}`}
+                    data-perch={!gone || undefined}
+                    data-nova-anchor={gone ? undefined : `home.row.${i + 1}`}
                     onClick={() => runTodayAction(item.action, onOpenCourse)}
                   >
                     <span className="sh-home-row-main">

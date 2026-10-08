@@ -43,6 +43,7 @@ export const character = {
     "home.afternoon": ["Afternoon."],
     "home.evening": ["Evening."],
     "home.clear": ["Nothing is due in the next two weeks."],
+    "home.taskDone": ["One down.", "That's off the list.", "Done. Next.", "{title}, handled.", "Look at you, finishing things."],
     "briefing.opener": [
       "{greeting} Here's the sitrep.",
       "{greeting} Briefing time. Try to keep up.",

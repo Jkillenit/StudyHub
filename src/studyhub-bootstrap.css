@@ -7247,6 +7247,62 @@ html[data-nova-tucked] .sh-spill {
   animation: none;
 }
 
+/* Depth: field, content and Nova shift 2 / 4 / 6px against the cursor (--sh-px / --sh-py, -1..1).
+   Inner blocks rather than the layer roots, so fixed descendants (modals, lane, palette, focus pill)
+   stay viewport-fixed and Nova's seat measures unshifted. */
+.sh-ambient {
+  translate: calc(var(--sh-px, 0) * -2px) calc(var(--sh-py, 0) * -2px);
+}
+:is(.sh-home-col, [data-nova-anchor="home.composer"], .sh-plan-col, .sh-plan-dock) {
+  translate: calc(var(--sh-px, 0) * -4px) calc(var(--sh-py, 0) * -4px);
+}
+.sc-scout {
+  translate: calc(var(--sh-px, 0) * -6px) calc(var(--sh-py, 0) * -6px);
+}
+/* A shifted full-width column would otherwise add a few px of sideways scroll. */
+.sh-hub-root {
+  overflow-x: hidden;
+}
+html[data-motion="reduced"] :is(.sh-ambient, .sh-home-col, [data-nova-anchor="home.composer"], .sh-plan-col, .sh-plan-dock, .sc-scout) {
+  translate: none;
+}
+
+/* Focus mode: everything but the top row, Nova and the focus pill fades out (list matches useNovaFocusDissolve). */
+html[data-focus-dissolve]:not([data-motion="reduced"])
+  :is(
+    .sh-rail,
+    .sh-titlebar,
+    .sh-home-strip,
+    .sh-home-meta,
+    .sh-home-greeting,
+    .sh-home-line,
+    .sh-home-list > li:not(:has(.sh-home-row--top)),
+    .sh-home-empty,
+    .sh-home-link,
+    [data-nova-anchor="home.composer"],
+    .sh-plan,
+    .sh-shell-body
+  ) {
+  transition: opacity 500ms ease;
+}
+html[data-focus-dissolve="on"]
+  :is(
+    .sh-rail,
+    .sh-titlebar,
+    .sh-home-strip,
+    .sh-home-meta,
+    .sh-home-greeting,
+    .sh-home-line,
+    .sh-home-list > li:not(:has(.sh-home-row--top)),
+    .sh-home-empty,
+    .sh-home-link,
+    [data-nova-anchor="home.composer"],
+    .sh-plan,
+    .sh-shell-body
+  ) {
+  opacity: 0.06;
+}
+
 a {
   color: var(--sh-link);
 }
@@ -8656,6 +8712,38 @@ button.sh-week-day:focus-visible {
 
 html[data-motion="reduced"] :is(.sh-home-row-more, .sh-home-link) {
   transition: none;
+}
+
+/* Rows type in on the daily arrival. */
+.sh-home-list--arrive > li {
+  animation: sh-home-row-in 240ms ease-out both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+@keyframes sh-home-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* A finished row's slot closes while it streams into Nova. */
+.sh-home-list > li[data-leaving] {
+  display: grid;
+  grid-template-rows: 1fr;
+  overflow: hidden;
+  animation: sh-home-leave 250ms ease forwards;
+}
+.sh-home-list > li[data-leaving] > .sh-home-row {
+  min-height: 0;
+}
+@keyframes sh-home-leave {
+  to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+html[data-motion="reduced"] .sh-home-list > li {
+  animation: none;
 }
 
 /* Plan layout: one content column with the message box docked under it */
