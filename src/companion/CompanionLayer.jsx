@@ -40,10 +40,18 @@ import {
   BODY_LOAD_TIMEOUT_MS,
   DAY_HELLO_DELAY_MS,
   ENGAGED_MODES,
+  ENTER_SETTLE_MS,
+  EXIT_EMITS,
+  GATHER_MS,
+  GATHER_TIMEOUT_MS,
   HOME_MODES,
   MOVE,
+  RESOLVE_IN_MS,
+  RESOLVE_OUT_MS,
   SIZE_3D,
 } from "./layer/constants.js";
+import { FIELD_EVENTS, fieldAttractor, fieldEmit, fieldRelease, fieldTargets } from "../shell/fieldEvents.js";
+import { localDateString } from "../study/sm2.js";
 import { pageShown, rectOf, subscribeVisibility } from "./layer/geometry.js";
 import { useTimeouts } from "./hooks/useTimeouts.js";
 import { useNovaWindowEvents } from "./hooks/useNovaWindowEvents.js";
@@ -126,11 +134,14 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     if (stateRef.current?.sound) playSound(name);
   }, []);
   const onTeleport = useCallback((phase) => sfx(phase === "out" ? "teleportOut" : "teleportIn"), [sfx]);
-  const { posRef, flyTo, jumpTo, dropTo, cancel, busy, flying, facing, setFacing, gait } = useCompanionMotion(nodeRef, {
+  const { posRef, flyTo, jumpTo, dropTo, cancel, busy: moving, flying, facing, setFacing, gait } = useCompanionMotion(nodeRef, {
     reduced,
     onTeleport,
     walker: use3d,
   });
+  /** Gathering out of or dissolving into the particle field; counts as busy so nothing else starts meanwhile. */
+  const fadingRef = useRef(false);
+  const busy = useCallback(() => moving() || fadingRef.current, [moving]);
   const lastGestureAtRef = useRef(Date.now());
   const playGesture = useCallback((name, { idle = false, at = null } = {}) => {
     gestureIdRef.current += 1;
@@ -354,6 +365,73 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     housedRef,
   };
 
+  /* ---------- gathering out of the particle field, and dissolving back into it ---------- */
+
+  /** The 3D stage while it's mounted (see Nova3D's `bodyRef`). */
+  const bodyRef = useRef(null);
+  /** Bumped by every gather and dissolve, so the newest one cancels what's left of an older one. */
+  const fadeIdRef = useRef(0);
+  const enteredDayRef = useRef(null);
+  /** Her body is on screen (visible and not tucked away), so a dissolve has something to show. */
+  const bodyShownRef = useRef(false);
+
+  /** Hold her body invisible, gather the field's particles into her outline, then resolve her out of them. */
+  const materialize = useCallback(() => {
+    const stage = bodyRef.current;
+    if (!stage) return;
+    const id = ++fadeIdRef.current;
+    enteredDayRef.current = localDateString();
+    if (reducedRef.current) {
+      fadingRef.current = false;
+      void stage.resolveTo(1);
+      return;
+    }
+    fadingRef.current = true;
+    void stage.resolveTo(0);
+    later(() => {
+      if (fadeIdRef.current !== id) return;
+      let started = false;
+      const resolve = () => {
+        window.removeEventListener(FIELD_EVENTS.gathered, resolve);
+        if (started || fadeIdRef.current !== id) return;
+        started = true;
+        void stage.resolveTo(1, RESOLVE_IN_MS).then(() => {
+          if (fadeIdRef.current !== id) return;
+          fieldRelease();
+          fadingRef.current = false;
+        });
+      };
+      window.addEventListener(FIELD_EVENTS.gathered, resolve);
+      later(resolve, GATHER_TIMEOUT_MS);
+      fieldTargets(stage.sampleScreenPoints().map((p) => [p.x, p.y]), GATHER_MS);
+    }, ENTER_SETTLE_MS);
+  }, [later]);
+
+  /** The dissolve in progress, `{ id, done }`, so a second request (say, hide while tucking away) joins it. */
+  const vanishingRef = useRef(null);
+  /** Dissolve her back into the field, particles streaming off her body. Instant with reduced motion. */
+  const vanish = useCallback(() => {
+    if (vanishingRef.current?.id === fadeIdRef.current) return vanishingRef.current.done;
+    const stage = bodyRef.current;
+    const id = ++fadeIdRef.current;
+    if (fadingRef.current) fieldRelease();
+    fadingRef.current = false;
+    if (!stage || reducedRef.current || !bodyShownRef.current) return Promise.resolve();
+    fadingRef.current = true;
+    const pts = stage.sampleScreenPoints();
+    for (let k = 0; k < EXIT_EMITS && pts.length; k += 1) {
+      const p = pts[Math.floor(Math.random() * pts.length)];
+      const a = Math.random() * Math.PI * 2;
+      const d = 60 + Math.random() * 100;
+      fieldEmit({ left: p.x - 20, top: p.y - 20, width: 40, height: 40 }, { x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d }, 40);
+    }
+    const done = stage.resolveTo(0, RESOLVE_OUT_MS).then(() => {
+      if (fadeIdRef.current === id) fadingRef.current = false;
+    });
+    vanishingRef.current = { id, done };
+    return done;
+  }, []);
+
   /* ---------- home window on Today: big inside it, normal size everywhere else ---------- */
 
   /* Leaving setup: step quietly out of its stage onto her spot (declared before the placement
@@ -455,8 +533,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     setBubble(null);
     setHelp(null);
     cancel();
-    send("HIDE");
-  }, [cancel, send]);
+    send("CLOSE");
+    void vanish().then(() => send("HIDE"));
+  }, [cancel, send, vanish]);
 
   const { quizDeck, glow, quizCourses, lastTierRef, startQuiz, onQuizAnswer, onQuizFinish, closeQuiz } = useNovaQuiz(core, { courses, awardXp, returnHome, setHelp, setMarks, onUpdateCourse });
 
@@ -477,8 +556,24 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const { dragging, dropMarkRef, dropTarget, menuLine, onScoutClick, onPointerDown, onPointerMove, onPointerUp } = useNovaDrag(core, { housedRef, houseAt, leaveHome, closeHelp });
 
   /* Anything she's engaged in (quiz, help, tour, briefing), a line she's saying, or a drag brings her back out. */
-  const tucked = enabled && (place === "tuck" || (place === "lane" && !laneShown)) && (HOME_MODES.has(mode) || mode === "wander") && !dragging && !bubble;
-  tuckedRef.current = tucked;
+  const tuckWanted = enabled && (place === "tuck" || (place === "lane" && !laneShown)) && (HOME_MODES.has(mode) || mode === "wander") && !dragging && !bubble;
+  tuckedRef.current = tuckWanted;
+  /* She dissolves into the field before tucking away. */
+  const [tuckDone, setTuckDone] = useState(false);
+  useEffect(() => {
+    if (!tuckWanted) {
+      setTuckDone(false);
+      return undefined;
+    }
+    let alive = true;
+    void vanish().then(() => {
+      if (alive) setTuckDone(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [tuckWanted, vanish]);
+  const tucked = tuckWanted && (tuckDone || reduced);
   useEffect(() => {
     const root = document.documentElement;
     if (tucked) root.dataset.novaTucked = "";
@@ -497,6 +592,37 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const shown = useSyncExternalStore(subscribeVisibility, pageShown);
   const ticking = visibleNow && shown;
   const bodyReady = use3d && body === "ready";
+  bodyShownRef.current = visibleNow && !tucked;
+
+  /* Every time she shows (first appearance, back from hidden, out of a tuck) she gathers out of the field; the day's first Today arrival re-runs it. */
+  const shown3d = visibleNow && bodyReady && !tuckWanted;
+  useEffect(() => {
+    if (shown3d) materialize();
+  }, [shown3d, materialize]);
+  api.current.arrive = () => {
+    if (shown3d && enteredDayRef.current !== localDateString()) materialize();
+  };
+
+  /* The field knows where she is (it pulls toward her while she's thinking); one update per frame at most. */
+  useEffect(() => {
+    if (!visibleNow) return undefined;
+    let raf = 0;
+    const publish = () => {
+      raf = 0;
+      const s = sizeRef.current;
+      fieldAttractor(posRef.current.x + s / 2, posRef.current.y + s / 2, 0);
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(publish);
+    };
+    const mo = new MutationObserver(schedule);
+    if (nodeRef.current) mo.observe(nodeRef.current, { attributes: true, attributeFilter: ["style"] });
+    schedule();
+    return () => {
+      mo.disconnect();
+      cancelAnimationFrame(raf);
+    };
+  }, [visibleNow, posRef]);
 
   const { seat, setSeat, wokeByRef } = useNovaAutonomy(core, {
     mode,
@@ -607,10 +733,13 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const onSettingsChange = useCallback(
     (patch) => {
       if ("enabled" in patch) {
-        update(patch);
         if (patch.enabled) {
+          update(patch);
           if (modeRef.current === "hidden") appear();
-        } else {
+          return;
+        }
+        void vanish().then(() => {
+          update(patch);
           if (tourRef.current) {
             tourRef.current.cleanup?.();
             tourRef.current = null;
@@ -620,7 +749,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
           setHelp(null);
           cancel();
           force("hidden");
-        }
+        });
         return;
       }
       update(patch);
@@ -630,7 +759,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         api.current.backToSpot?.();
       }
     },
-    [update, appear, cancel, force, send]
+    [update, appear, cancel, force, send, vanish]
   );
 
   const { settingsOpen, setSettingsOpen } = useNovaWindowEvents(core, { visibleNow, quiet, onSettingsChange });
@@ -829,6 +958,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
                     onReady={onBodyReady}
                     onFail={onBodyFail}
                     onHead={onHead}
+                    bodyRef={bodyRef}
                   />
                 </Suspense>
                 ) : null

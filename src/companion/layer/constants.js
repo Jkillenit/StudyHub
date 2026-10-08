@@ -50,6 +50,17 @@ export const HOME_STAY_MS = [40 * 1000, 90 * 1000];
 export const HOME_AWAY_STOPS = [2, 4];
 export const HOME_RETURN_DELAY_MS = 600;
 export const GROW_MS = 420;
+/**
+ * Gathering out of the particle field: wait for the home grow to finish before sampling her
+ * outline, gather (with a safety timeout in case the field never answers), then resolve.
+ * Dissolving back takes RESOLVE_OUT_MS, with EXIT_EMITS small particle bursts.
+ */
+export const ENTER_SETTLE_MS = GROW_MS + 40;
+export const GATHER_MS = 900;
+export const GATHER_TIMEOUT_MS = 1500;
+export const RESOLVE_IN_MS = 600;
+export const RESOLVE_OUT_MS = 500;
+export const EXIT_EMITS = 5;
 /** Modes she can hold while standing big in her home window; anything else walks her out at normal size. */
 export const HOME_MODES = new Set(["idle", "menu", "sleep", "nudge", "perch", "play"]);
 /** Idle stages the portrait sprite can't do (no arms, no props). */

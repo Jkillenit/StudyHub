@@ -4,7 +4,7 @@ import { AUTONOMOUS } from "../machine.js";
 
 /** Window-level glue: voice level, settings open requests, greet/talk events, the html dataset, quiet toggles. */
 export function useNovaWindowEvents(core, { visibleNow, quiet, onSettingsChange }) {
-  const { stateRef, modeRef, reducedRef, setMood, setTalkUntil, busy, playGesture, say } = core;
+  const { api, stateRef, modeRef, reducedRef, setMood, setTalkUntil, busy, playGesture, say } = core;
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
@@ -21,11 +21,12 @@ export function useNovaWindowEvents(core, { visibleNow, quiet, onSettingsChange 
     };
   }, []);
 
-  /* Today's arrival waves her hello and says the day's line; the briefing's voice moves her mouth. */
+  /* Today's arrival gathers her out of the field (once a day), then she waves hello and says the day's line; the briefing's voice moves her mouth. */
   useEffect(() => {
     let retry = 0;
     const onGreet = (e) => {
       let tries = 0;
+      api.current.arrive?.();
       const attempt = () => {
         if (!visibleNow || stateRef.current?.quiet) return;
         /* She may still be walking to her spot or finishing a line; wait up to ~8s for her. */

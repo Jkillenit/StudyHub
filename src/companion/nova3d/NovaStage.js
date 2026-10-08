@@ -5,6 +5,7 @@ import clipData from "./clips.json";
 import modelUrl from "./nova.vrm?url";
 import { createLegSwing, stepLegSwing } from "./legSwing.js";
 import { headAnchor } from "./headAnchor.js";
+import { resolveAt } from "./resolve.js";
 
 const FRAME_MS = 1000 / 30;
 /** While the window is in the background she keeps breathing, barely: about 6 frames a second. */
@@ -103,6 +104,7 @@ const _props = { head: new THREE.Vector3(), lh: new THREE.Vector3(), rh: new THR
 const _seatHips = new THREE.Vector3();
 const _headPx = new THREE.Vector3();
 const _lieP = new THREE.Vector3();
+const _sample = new THREE.Vector3();
 
 const ARMS_BACK_LEFT = [ARMS_BACK.upper, ARMS_BACK.lower, ARMS_BACK.hand];
 const ARMS_BACK_RIGHT = [mirror(ARMS_BACK.upper), mirror(ARMS_BACK.lower), mirror(ARMS_BACK.hand)];
@@ -311,6 +313,7 @@ uniform float uFlicker;
 uniform vec3 uEyeColor;
 uniform float uEye;
 uniform float uWear;
+uniform float uResolve;
 varying vec2 vUv;
 varying vec3 vN;
 varying float vH;
@@ -332,6 +335,11 @@ float vnoise(vec3 p) {
 void main() {
   vec4 tex = uHasMap > 0.5 ? texture2D(map, vUv) : vec4(1.0);
   if (tex.a < uCut) discard;
+  /* Gathering out of the particle field: noise weighted by rest height, so she resolves feet first with a bright edge. */
+  float rd = mix(vnoise(vRest * 18.0), clamp(vRest.y, 0.0, 1.0), 0.6);
+  float rcut = uResolve * 1.12 - 0.06;
+  if (rd > rcut) discard;
+  float redge = smoothstep(0.06, 0.0, rcut - rd);
   /* Zombies pack wear, in rest-pose space (height 1, T-pose arms along x) so it sticks to her as she moves. */
   float burn = 0.0;
   float bare = 0.0;
@@ -381,6 +389,8 @@ void main() {
     col *= uFlicker;
     a *= mix(1.0, uFlicker, 0.6);
   }
+  col = mix(col, (uZombie > 0.5 ? uEyeColor : uHot) * 1.6, redge);
+  a = max(a, redge * uFade);
   gl_FragColor = vec4(col * a, a);
 }
 `;
@@ -494,7 +504,9 @@ export class NovaStage {
       uZombie: { value: 0 },
       uFlicker: { value: 1 },
       uEyeColor: { value: new THREE.Color() },
+      uResolve: { value: 1 },
     };
+    this.resolve = { from: 1, to: 1, start: 0, ms: 0 };
     this.flicker = { at: -Infinity, next: 0 };
     this.onPack = () => this.refreshColors();
     window.addEventListener("studyhub-pack-changed", this.onPack);
@@ -661,6 +673,46 @@ export class NovaStage {
   /** Pen position for drawing, read every frame: a ref holding `{ x, y }` in viewport px, or null. */
   setPen(ref) {
     this.penRef = ref;
+  }
+
+  /** Tween how much of her body has resolved out of the particle field (0 = none) over `ms`; resolves when done. */
+  resolveTo(to, ms = 0) {
+    const now = performance.now();
+    this.resolve = { from: resolveAt(this.resolve, now), to, start: now, ms };
+    this.uniforms.uResolve.value = resolveAt(this.resolve, now);
+    return new Promise((done) => window.setTimeout(done, ms));
+  }
+
+  /**
+   * Up to `n` points on her body in client px, for the particle field to gather to. Vertices are
+   * picked once at random (by vertex count across her meshes) and skinned to the current pose.
+   */
+  sampleScreenPoints(n = 2000) {
+    if (!this.vrm || this.disposed) return [];
+    const r = this.canvas.getBoundingClientRect();
+    if (!r.width || !r.height) return [];
+    if (this.samples?.length !== n) {
+      const meshes = this.meshes.map((m) => m.mesh);
+      const total = meshes.reduce((sum, m) => sum + m.geometry.attributes.position.count, 0);
+      this.samples = Array.from({ length: n }, () => {
+        let k = Math.floor(Math.random() * total);
+        for (const mesh of meshes) {
+          const count = mesh.geometry.attributes.position.count;
+          if (k < count) return { mesh, i: k };
+          k -= count;
+        }
+        return { mesh: meshes[0], i: 0 };
+      });
+    }
+    const flipped = !!this.lying && this.state.facing < 0;
+    const out = [];
+    for (const { mesh, i } of this.samples) {
+      const p = mesh.localToWorld(mesh.getVertexPosition(i, _sample)).project(this.camera);
+      if (Math.abs(p.x) > 1 || Math.abs(p.y) > 1) continue;
+      const fx = (p.x + 1) / 2;
+      out.push({ x: r.left + (flipped ? 1 - fx : fx) * r.width, y: r.top + ((1 - p.y) / 2) * r.height });
+    }
+    return out;
   }
 
   /** Look at a point (px from the canvas center) for `ms`, cursor or not. */
@@ -1085,6 +1137,7 @@ export class NovaStage {
     this.uniforms.uGlitch.value = Math.max(glitching, s.glitchUntil > now ? 1 : 0);
     this.uniforms.uGlow.value = s.glow;
     this.uniforms.uFlicker.value = this.stepFlicker(now);
+    this.uniforms.uResolve.value = resolveAt(this.resolve, now);
     this.uniforms.uFade.value += ((s.asleep ? 0.6 : s.drowsy ? 0.8 : 1) - this.uniforms.uFade.value) * Math.min(1, dt * 3);
 
     this.vrm.update(dt);

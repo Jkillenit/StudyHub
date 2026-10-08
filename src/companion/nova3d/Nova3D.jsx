@@ -12,6 +12,7 @@ const GLITCH_MS = 520;
  * Idle life: `activity` ("draw" | "read" | "cards", or "pull" while syncing) shows her hologram props or points her arm at the
  * pen in `pen` (a ref of viewport px); `drowsy` droops her eyes; each new `glance` `{ x, y, ms }` turns her gaze.
  * `onHead` gets her head's box px ({ x, y }) as it moves, and null on unmount.
+ * `bodyRef` (a ref) holds the stage while mounted, for `resolveTo` and `sampleScreenPoints`.
  */
 export default memo(function Nova3D({
   size,
@@ -42,11 +43,12 @@ export default memo(function Nova3D({
   onReady,
   onFail,
   onHead,
+  bodyRef = null,
 }) {
   const canvasRef = useRef(null);
   const stageRef = useRef(null);
-  const cbRef = useRef({ onReady, onFail, onHead });
-  cbRef.current = { onReady, onFail, onHead };
+  const cbRef = useRef({ onReady, onFail, onHead, bodyRef });
+  cbRef.current = { onReady, onFail, onHead, bodyRef };
   const penRef = useRef(pen);
   penRef.current = pen;
 
@@ -64,6 +66,8 @@ export default memo(function Nova3D({
       return undefined;
     }
     stageRef.current = stage;
+    const body = cbRef.current.bodyRef;
+    if (body) body.current = stage;
     stage.onHead = (p) => cbRef.current.onHead?.(p);
     stage.setPen(penRef.current);
     let alive = true;
@@ -109,6 +113,7 @@ export default memo(function Nova3D({
       window.removeEventListener("pointermove", onMove);
       document.removeEventListener("mouseout", onOut);
       cbRef.current.onHead?.(null);
+      if (body?.current === stage) body.current = null;
       stage.dispose();
       stageRef.current = null;
     };
