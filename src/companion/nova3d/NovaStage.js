@@ -415,28 +415,31 @@ void main() {
     float key = clamp((dot(N, keyL) + 0.5) / 1.5, 0.0, 1.0);
     float fill = clamp((dot(N, fillL) + 0.3) / 1.3, 0.0, 1.0);
     float sss = smoothstep(-0.6, 1.0, dot(N, keyL));
-    float rim = pow(1.0 - ndv, 3.0);
-    float spec = pow(clamp(dot(N, normalize(keyL + vec3(0.0, 0.0, 1.0))), 0.0, 1.0), 28.0);
+    float fres = pow(1.0 - ndv, 2.0);
+    float rim = pow(1.0 - ndv, 4.5);
+    float spec = pow(clamp(dot(N, normalize(keyL + vec3(0.0, 0.0, 1.0))), 0.0, 1.0), 64.0);
     vec3 an = abs(normalize(vRestN));
     vec2 cp = an.z > max(an.x, an.y) ? vRest.xy : an.x > an.y ? vRest.zy : vRest.xz;
     float hair = step(1.5, uWear);
     float skin = (1.0 - hair) * (uEye > 0.5 ? 0.0 : 1.0);
     float trace = circuit(cp * 110.0) * skin * smoothstep(0.35, 0.65, vnoise(vRest * 9.0));
     float detail = mix(0.25, 1.0, lum) * mix(1.0, 0.4, hair);
-    col = uColor * (0.03 + 1.0 * key * key * detail + 0.15 * fill * detail);
-    col += mix(uColor, uHot, 0.25) * sss * 0.3 * (1.0 - rim);
-    col = mix(col, uHot, pow(key, 6.0) * detail * 0.5);
-    col += mix(uColor, uHot, 0.55) * rim * (0.65 + 0.2 * uGlow);
-    col += uHot * spec * mix(0.3, 0.45, hair) * detail;
-    col += mix(uColor, uHot, 0.5) * trace * 0.22;
+    col = uColor * (0.03 + 0.85 * key * key * detail + 0.1 * fill * detail);
+    col += uColor * sss * 0.25 * (1.0 - rim);
+    col = mix(col, uHot, pow(key, 8.0) * detail * 0.35);
+    col += mix(uColor, uHot, 0.6) * rim * (1.1 + 0.3 * uGlow);
+    col += uHot * spec * mix(0.45, 0.4, hair) * detail;
+    col += mix(uColor, uHot, 0.5) * trace * 0.32;
     col += uHot * band * 0.08;
     if (uEye > 0.5) col = uColor * (0.05 + lum * lum * (uEye > 1.5 ? 0.7 : 1.5));
     float nscan = 0.96 + 0.04 * step(0.5, fract(gl_FragCoord.y * 0.33));
     float nflick = 0.98 + 0.02 * step(0.12, fract(sin(floor(uTime * 9.0) * 91.7) * 311.3));
-    a = clamp((0.78 + 0.14 * lum + rim * 0.25 + trace * 0.1) * nscan * nflick * uFade, 0.0, 1.0);
+    /* See-through facing the camera, solid at grazing angles. */
+    a = clamp((0.5 + 0.12 * lum + 0.6 * fres + 0.2 * trace + 0.3 * spec) * nscan * nflick * uFade, 0.0, 1.0);
     a *= min(1.0, tex.a * 1.5);
     /* The whites can sort after the iris; keep them faint so the iris reads through. */
     if (uEye > 1.5) a *= 0.3;
+    else if (uEye > 0.5) a = min(1.0, tex.a * 1.5) * 0.9 * uFade;
   }
   col = mix(col, (uZombie > 0.5 ? uEyeColor : uHot) * 1.6, redge);
   a = max(a, redge * uFade);
