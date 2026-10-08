@@ -7247,27 +7247,6 @@ html[data-nova-tucked] .sh-spill {
   animation: none;
 }
 
-/* Depth: field, content and Nova shift 2 / 4 / 6px against the cursor (--sh-px / --sh-py, -1..1).
-   Hub blocks only, never the layer roots or course views: a translate makes its box the containing
-   block of position: fixed descendants (modals, lane, palette, glossary popover). Nova's seat stays unshifted. */
-.sh-ambient {
-  translate: calc(var(--sh-px, 0) * -2px) calc(var(--sh-py, 0) * -2px);
-}
-:is(.sh-home-col, [data-nova-anchor="home.composer"], .sh-hub-root .sh-plan-col, .sh-hub-root .sh-plan-dock) {
-  translate: calc(var(--sh-px, 0) * -4px) calc(var(--sh-py, 0) * -4px);
-}
-html:has(.sh-hub-root) .sc-scout {
-  translate: calc(var(--sh-px, 0) * -6px) calc(var(--sh-py, 0) * -6px);
-}
-/* A shifted full-width column would otherwise add a few px of sideways scroll. */
-.sh-hub-root {
-  overflow-x: hidden;
-}
-html[data-motion="reduced"] :is(.sh-ambient, .sh-home-col, [data-nova-anchor="home.composer"], .sh-hub-root .sh-plan-col, .sh-hub-root .sh-plan-dock),
-html[data-motion="reduced"]:has(.sh-hub-root) .sc-scout {
-  translate: none;
-}
-
 /* Focus mode on Today: every [data-dissolve] block fades out; the top row, Nova and the focus pill stay. */
 html[data-focus-dissolve]:not([data-motion="reduced"]):has(.sh-home) [data-dissolve] {
   transition: opacity 500ms ease;

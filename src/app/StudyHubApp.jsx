@@ -5,7 +5,6 @@ import { AppRail } from "../shell/AppRail.jsx";
 import { shortCourse } from "../features/dashboard/courseLabel.js";
 import { CommandPalette } from "../shell/CommandPalette.jsx";
 import { AmbientBackground } from "../shell/AmbientBackground.jsx";
-import { useReducedMotion } from "../shell/motion.js";
 import { BuiltinCourseApp } from "../study/BuiltinCourseApp.jsx";
 import { saveJson } from "../lib/storage.js";
 import { HUB_KEYS, ensureUserCourse, uid } from "../hub/userCourseModel.js";
@@ -93,34 +92,6 @@ function StudyHubAppInner() {
   useEffect(() => {
     if (courseId != null) saveJson(HUB_KEYS.lastCourse, courseId);
   }, [courseId]);
-
-  /* Depth: the cursor's offset from the window center (-1..1) as --sh-px / --sh-py; the CSS shifts each layer against it. Hub only. */
-  const reduced = useReducedMotion();
-  const hubShown = courseId === null && !setup;
-  useEffect(() => {
-    if (reduced || !hubShown) return undefined;
-    const st = document.documentElement.style;
-    let raf = 0;
-    let x = 0;
-    let y = 0;
-    const apply = () => {
-      raf = 0;
-      st.setProperty("--sh-px", Math.max(-1, Math.min(1, (x / window.innerWidth) * 2 - 1)).toFixed(3));
-      st.setProperty("--sh-py", Math.max(-1, Math.min(1, (y / window.innerHeight) * 2 - 1)).toFixed(3));
-    };
-    const onMove = (e) => {
-      x = e.clientX;
-      y = e.clientY;
-      if (!raf) raf = requestAnimationFrame(apply);
-    };
-    window.addEventListener("mousemove", onMove, { passive: true });
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      cancelAnimationFrame(raf);
-      st.removeProperty("--sh-px");
-      st.removeProperty("--sh-py");
-    };
-  }, [reduced, hubShown]);
 
   useEffect(() => {
     if (setup) setBreadcrumb([]);
