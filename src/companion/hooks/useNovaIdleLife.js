@@ -21,7 +21,6 @@ export function useNovaIdleLife(core, { mode, facing, bodyReady, ticking, quiet,
     playGesture,
     cancel,
     flyTo,
-    jumpTo,
     sizeRef,
     awayFromSpotRef,
     lastInputRef,
@@ -103,6 +102,21 @@ export function useNovaIdleLife(core, { mode, facing, bodyReady, ticking, quiet,
       restCheckedRef.current = null;
     }
   }, [mode, dragging, gait]);
+
+  /* Scrolling or resizing moves her or the panel, so a lean would rest on empty space. */
+  useEffect(() => {
+    if (!lean) return;
+    const end = () => {
+      setLean(null);
+      restCheckedRef.current = null;
+    };
+    window.addEventListener("scroll", end, { capture: true, passive: true });
+    window.addEventListener("resize", end);
+    return () => {
+      window.removeEventListener("scroll", end, { capture: true });
+      window.removeEventListener("resize", end);
+    };
+  }, [lean]);
 
   api.current.runStage = async (kind) => {
     if (activityRef.current) return;
@@ -286,7 +300,7 @@ export function useNovaIdleLife(core, { mode, facing, bodyReady, ticking, quiet,
   };
 
   /** Idle at her own spot right beside a panel side: she leans on it until she next moves. */
-  const restLean = () => {
+  const restLean = async () => {
     if (modeRef.current !== "idle" || awayFromSpotRef.current || lean) return;
     const s = sizeRef.current;
     const p = posRef.current;
@@ -295,8 +309,12 @@ export function useNovaIdleLife(core, { mode, facing, bodyReady, ticking, quiet,
     restCheckedRef.current = key;
     const spot = findLeanSpot(p, s, platRef.current, { maxDist: s / 3 });
     if (!spot) return;
-    if (Math.abs(spot.x - p.x) > 0.5) jumpTo({ x: spot.x, y: spot.y });
     restCheckedRef.current = `${Math.round(spot.x)},${Math.round(spot.y)}`;
+    if (Math.abs(spot.x - p.x) > 0.5) {
+      const speed = (MOVE[stateRef.current?.movement] || MOVE.normal).speed;
+      const ok = await flyTo({ x: spot.x, y: spot.y }, { speed, walk: true });
+      if (!ok || modeRef.current !== "idle" || awayFromSpotRef.current) return;
+    }
     setFacing(spot.outward);
     setLean(spot.side);
   };
@@ -326,7 +344,7 @@ export function useNovaIdleLife(core, { mode, facing, bodyReady, ticking, quiet,
       void api.current.runStage("lean");
       return;
     }
-    restLean();
+    void restLean();
   };
 
   useEffect(() => {

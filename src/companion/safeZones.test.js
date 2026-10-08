@@ -79,6 +79,14 @@ describe("panel edges: peek and lean", () => {
     expect(spot.x).toBeCloseTo(600 - S * 0.14 - S / 2);
   });
 
+  it("leans on the right edge when she stands to its right", () => {
+    const p = panel();
+    stubDom([p]);
+    const spot = findLeanSpot({ x: 1000, y: 608 }, S, null);
+    expect(spot).toMatchObject({ el: p, outward: 1, side: "left", y: 608 });
+    expect(spot.x).toBeCloseTo(900 + S * 0.14 - S / 2);
+  });
+
   it("finds nothing when the panel is too short to lean on", () => {
     stubDom([el([".sh-panel"], { left: 600, top: 728, width: 300, height: 60 })]);
     expect(findLeanSpot(pos, S, null)).toBe(null);
