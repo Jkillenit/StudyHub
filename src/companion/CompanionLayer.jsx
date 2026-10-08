@@ -45,6 +45,7 @@ import {
   GATHER_MS,
   GATHER_TIMEOUT_MS,
   HOME_MODES,
+  LINK_FADE_MS,
   MOVE,
   RESOLVE_IN_MS,
   RESOLVE_OUT_MS,
@@ -906,7 +907,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       {dropTarget ? <Spotlight rect={dropTarget} dim={false} pad={4} /> : null}
       {focusUntil ? <FocusPill until={focusUntil} onStop={stopFocus} /> : null}
       {link ? (
-        <svg className={`sc-link${link.out ? " sc-link--out" : ""}`} aria-hidden>
+        <svg className={`sc-link${link.out ? " sc-link--out" : ""}`} style={{ transitionDuration: `${LINK_FADE_MS}ms` }} aria-hidden>
           <line key={link.id} ref={lineRef} pathLength="1" />
         </svg>
       ) : null}

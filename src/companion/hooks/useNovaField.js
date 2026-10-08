@@ -3,6 +3,8 @@ import { fieldState } from "../../shell/fieldEvents.js";
 import { LINK_FADE_MS, LINK_HOLD_MS, THINK_MIN_MS } from "../layer/constants.js";
 
 const ROW = '[data-nova-anchor^="home.row"]';
+/** The stream is re-aimed only when a line end moves this far, so her idle sway doesn't re-send it every frame. */
+const STREAM_STEP_PX = 4;
 
 /**
  * What the particle field shows of her: "thinking" while a message is pending (`api.current.think`),
@@ -27,7 +29,7 @@ export function useNovaField(core, { bodyRef, visibleNow, speaking }) {
     const on = visibleRef.current;
     const pts = on ? pointsRef.current : null;
     const state = pts ? "pointing" : on && pendingRef.current > 0 ? "thinking" : "idle";
-    const key = pts ? `${Math.round(pts.from.x)},${Math.round(pts.from.y)},${Math.round(pts.to.x)},${Math.round(pts.to.y)}` : state;
+    const key = pts ? [pts.from.x, pts.from.y, pts.to.x, pts.to.y].map((v) => Math.round(v / STREAM_STEP_PX)).join() : state;
     if (key === sentRef.current) return;
     sentRef.current = key;
     if (pts) fieldState("pointing", pts.from, pts.to);

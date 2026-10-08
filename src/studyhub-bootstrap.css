@@ -6545,6 +6545,27 @@ html:not([data-pack="zombies"]) .sc-bubble {
     0 0 2px var(--sh-bg),
     0 0 10px var(--sh-bg);
 }
+/* A feathered scrim keeps the text readable over panels without drawing an edge. */
+html:not([data-pack="zombies"]) .sc-bubble::before {
+  content: "";
+  position: absolute;
+  inset: -24px;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--sh-bg) 78%, transparent) 55%, transparent);
+}
+/* Help search and tour steps are panels you work in, not speech. */
+html:not([data-pack="zombies"]) .sc-bubble:is(:has(.sc-help-input), :has(.sc-bubble-footer)) {
+  padding: 9px 12px 11px;
+  background: var(--sh-panel-solid);
+  border: 1px solid var(--sh-border-strong);
+  border-radius: var(--sh-radius-md);
+  box-shadow: var(--sh-shadow-panel);
+  text-shadow: none;
+}
+html:not([data-pack="zombies"]) .sc-bubble:is(:has(.sc-help-input), :has(.sc-bubble-footer))::before {
+  content: none;
+}
 html:not([data-pack="zombies"]) .sc-bubble--wide {
   width: 280px;
 }
@@ -7198,7 +7219,8 @@ html[data-nova-tucked] .sh-spill {
   height: 100vh;
   overflow: visible;
   pointer-events: none;
-  transition: opacity 400ms ease;
+  /* duration set inline from LINK_FADE_MS */
+  transition: opacity ease;
 }
 .sc-link line {
   stroke: var(--sh-accent);
