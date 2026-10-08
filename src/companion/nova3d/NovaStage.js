@@ -47,13 +47,13 @@ const MOOD_FACE = {
   excited: { happy: 0.9 },
   sad: { sad: 0.7 },
   stern: { angry: 0.55 },
-  confused: { Surprised: 0.35 },
+  confused: { surprised: 0.35 },
   thinking: { relaxed: 0.25 },
   point: { happy: 0.25 },
   sleep: { relaxed: 0.4 },
 };
-const HELD_FACE = { angry: 0.45, Surprised: 0.3, oh: 0.35 };
-const FACE_KEYS = ["happy", "angry", "sad", "relaxed", "Surprised"];
+const HELD_FACE = { angry: 0.45, surprised: 0.3, oh: 0.35 };
+const FACE_KEYS = ["happy", "angry", "sad", "relaxed", "surprised"];
 const MOUTH_KEYS = ["aa", "ih", "ou", "ee", "oh"];
 
 /**
@@ -184,7 +184,7 @@ const PROC = {
       const j = bump(t, 0, 1.1, 0.12);
       return { spine: [-0.08 * j, 0, 0], chest: [-0.1 * j, 0, 0], head: [-0.16 * j, 0, 0.05 * j] };
     },
-    face: (t) => ({ Surprised: 0.85 * bump(t, 0, 1.2, 0.1), oh: 0.5 * bump(t, 0.05, 0.9, 0.1) }),
+    face: (t) => ({ surprised: 0.85 * bump(t, 0, 1.2, 0.1), oh: 0.5 * bump(t, 0.05, 0.9, 0.1) }),
   },
 };
 
@@ -852,8 +852,8 @@ export class NovaStage {
           const outline = !!m.isOutline;
           const layered = !!m.transparent && !m.alphaTest;
           const name = m.name || "";
-          const eye = /EyeIris|EyeHighlight/i.test(name) ? 1 : /EyeWhite/i.test(name) ? 2 : 0;
-          const wear = /_HAIR/i.test(name) ? 2 : /Body_\d+_SKIN|_CLOTH/i.test(name) ? 1 : 0;
+          const eye = /_eye/i.test(name) ? 1 : 0;
+          const wear = /_hair|_lashes/i.test(name) ? 2 : /_body/i.test(name) ? 1 : 0;
           const make = (depthOnly) =>
             new THREE.ShaderMaterial({
               uniforms: {
