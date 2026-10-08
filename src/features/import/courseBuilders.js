@@ -65,7 +65,7 @@ export function buildChapterContent(output) {
   if ((output?.contentCards || []).length > 0) {
     sections.push({
       type: "definitions",
-      title: "DEFINITIONS",
+      title: "Definitions",
       items: output.contentCards.map((card) => ({
         id: card.id,
         term: card.term,
@@ -88,7 +88,7 @@ export function buildChapterContent(output) {
   if ((output?.contentFormulas || []).length > 0) {
     sections.push({
       type: "formulas",
-      title: "FORMULAS",
+      title: "Formulas",
       items: output.contentFormulas.map((f) => ({ id: uid("fx"), formula: f.formula, context: f.context, source: "pptx" })),
     });
   }

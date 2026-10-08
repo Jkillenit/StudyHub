@@ -100,9 +100,9 @@ export function useNovaCommands(core, { startQuiz, startHelp, closeHelp }) {
       say(line("cmd.focusEnd", { minutes }), {
         sticky: true,
         actions: [
-          { label: "QUIZ ME", primary: true, onClick: () => startQuiz() },
+          { label: "Quiz me", primary: true, onClick: () => startQuiz() },
           { label: `ANOTHER ${minutes}`, onClick: () => api.current.startFocus(minutes) },
-          { label: "BREAK", onClick: () => setBubble(null) },
+          { label: "Break", onClick: () => setBubble(null) },
         ],
       });
     }, Math.max(0, focusUntil - Date.now()));

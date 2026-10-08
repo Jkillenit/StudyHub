@@ -3,10 +3,11 @@ import { courseStore } from "../../db/courseStore.js";
 import { loadCompanionState, saveCompanionState } from "../../companion/companionStore.js";
 import { known, memoryMap } from "../../companion/memory/derive.js";
 import { setPack, usePack } from "../../shell/pack.js";
+import { markArrivedToday } from "../today/useArrival.js";
 
-const STEPS = ["NAME", "BLACKBOARD", "MAKE IT YOURS", "TOUR"];
+const STEPS = ["Name", "Blackboard", "Make it yours", "Tour"];
 const SETUP_PACKS = [
-  { id: "nova", name: "Nova", meta: "Aqua and magenta" },
+  { id: "nova", name: "Nova", meta: "Ice aqua on graphite" },
   { id: "zombies", name: "Zombies", meta: "Red and amber" },
 ];
 const MAX_NAME = 40;
@@ -49,6 +50,7 @@ export function SetupScreen({ onDone }) {
 
   /** Nova marks herself onboarded when she's listening; otherwise the saved state is patched here. */
   const finish = ({ tour = false } = {}) => {
+    markArrivedToday();
     const e = new CustomEvent("studyhub-setup-done", { detail: { tour, named }, cancelable: true });
     if (window.dispatchEvent(e)) void loadCompanionState().then((s) => saveCompanionState({ ...s, onboarded: true }));
     onDone();

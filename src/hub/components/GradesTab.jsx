@@ -185,7 +185,7 @@ function HoldTarget({ snapshot, components, target }) {
   return (
     <div className="sh-hold-target">
       <div className="sh-section-label">HOLD YOUR {target}% TARGET</div>
-      {needs.next && !sameItem ? <HoldTargetRow label="NEXT MAJOR" entry={needs.next} /> : null}
+      {needs.next && !sameItem ? <HoldTargetRow label="Next major" entry={needs.next} /> : null}
       {needs.final ? <HoldTargetRow label={sameItem ? "NEXT MAJOR · FINAL" : "FINAL"} entry={needs.final} /> : null}
     </div>
   );
@@ -475,7 +475,7 @@ function BlackboardGradebook({ items, components, onAssign }) {
   const unsorted = items.filter((i) => !i.componentUuid && !i.excluded);
   const excluded = items.filter((i) => i.excluded);
   if (unsorted.length) groups.push({ key: "unsorted", label: components.length ? "UNSORTED" : "ALL GRADES", items: unsorted });
-  if (excluded.length) groups.push({ key: "excluded", label: "NOT COUNTED", items: excluded });
+  if (excluded.length) groups.push({ key: "excluded", label: "Not counted", items: excluded });
 
   return (
     <div className="sh-bb-gradebook">

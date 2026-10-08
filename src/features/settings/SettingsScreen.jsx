@@ -117,7 +117,7 @@ function NovaTab() {
 }
 
 const PACKS = [
-  { id: "nova", name: "Nova", blurb: "Aqua and magenta on true black. Medals on every clean round." },
+  { id: "nova", name: "Nova", blurb: "Ice aqua on graphite. Medals on every clean round." },
   { id: "zombies", name: "Zombies", blurb: "Warm dark, red and amber. Power-ups drop when you finish." },
 ];
 

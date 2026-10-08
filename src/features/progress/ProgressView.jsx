@@ -95,11 +95,11 @@ export function ProgressView({ course }) {
       </div>
 
       <div className="sh-prog-stats">
-        <Stat value={stats.streak || 0} label="DAY STREAK" />
-        <Stat value={stats.sessions || 0} label="SESSIONS" />
-        <Stat value={stats.reviewed || 0} label="CARDS REVIEWED" />
-        <Stat value={accuracy} label="ACCURACY" />
-        <Stat value={formatDuration(stats.seconds)} label="TIME STUDIED" />
+        <Stat value={stats.streak || 0} label="Day streak" />
+        <Stat value={stats.sessions || 0} label="Sessions" />
+        <Stat value={stats.reviewed || 0} label="Cards reviewed" />
+        <Stat value={accuracy} label="Accuracy" />
+        <Stat value={formatDuration(stats.seconds)} label="Time studied" />
       </div>
 
       <div className="sh-mirror-group">

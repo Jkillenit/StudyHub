@@ -225,7 +225,7 @@ describe("rankToday", () => {
     ]);
     expect(items).toHaveLength(1);
     expect(items[0].type).toBe(ITEM_TYPES.EXAM_PREP);
-    expect(items[0].action).toEqual({ type: "review", courseUuid: "c1", examUuid: "mid", label: "START REVIEW" });
+    expect(items[0].action).toEqual({ type: "review", courseUuid: "c1", examUuid: "mid", label: "Start review" });
   });
 
   it("keeps quizzes as ASSIGNMENT items", () => {

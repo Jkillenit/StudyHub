@@ -1,9 +1,9 @@
 import { normTerm } from "./questionPool.js";
 
 export const QUESTION_TYPES = [
-  { id: "mc-term", label: "PICK THE TERM" },
-  { id: "mc-def", label: "PICK THE DEFINITION" },
-  { id: "typed", label: "TYPE THE TERM" },
+  { id: "mc-term", label: "Pick the term" },
+  { id: "mc-def", label: "Pick the definition" },
+  { id: "typed", label: "Type the term" },
 ];
 
 const MIN_MC_POOL = 4;

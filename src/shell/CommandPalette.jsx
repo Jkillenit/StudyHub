@@ -421,11 +421,11 @@ export function CommandPalette({
     }
 
     const groups = [
-      { key: "courses", label: "COURSES", rows: coursesF },
-      { key: "chapters", label: "CHAPTERS", rows: chaptersF },
-      { key: "terms", label: "TERMS", rows: termsF },
-      { key: "reference", label: "REFERENCE", rows: referenceF },
-      { key: "actions", label: "ACTIONS", rows: actionsF },
+      { key: "courses", label: "Courses", rows: coursesF },
+      { key: "chapters", label: "Chapters", rows: chaptersF },
+      { key: "terms", label: "Terms", rows: termsF },
+      { key: "reference", label: "Reference", rows: referenceF },
+      { key: "actions", label: "Actions", rows: actionsF },
     ].filter((g) => g.rows.length > 0);
 
     const flat = groups.flatMap((g) => g.rows);

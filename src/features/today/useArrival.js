@@ -7,11 +7,15 @@ const KEY = "studyHub.v2.ui.arrivalDay";
 export const ARRIVAL_MS = 2500;
 export const STAGGER_MS = 70;
 
+/** Setup already introduced her: skip today's arrival greeting. */
+export const markArrivedToday = () => saveJson(KEY, localDateString());
+
 /**
  * The once-a-day arrival: true for about 2.5s on the first Today open of the day, never with
- * reduced motion. Any click or key skips straight to the settled screen.
+ * reduced motion. Any click or key skips straight to the settled screen. Nova greets once
+ * (and says `greeting` when given), reduced motion or not.
  */
-export function useArrival(ready) {
+export function useArrival(ready, greeting) {
   const reduced = useReducedMotion();
   const [arriving, setArriving] = useState(false);
   const startedRef = useRef(false);
@@ -22,10 +26,9 @@ export function useArrival(ready) {
     const today = localDateString();
     if (loadJson(KEY, null) === today) return;
     saveJson(KEY, today);
-    if (reduced) return;
-    setArriving(true);
-    window.dispatchEvent(new CustomEvent("studyhub-companion-greet"));
-  }, [ready, reduced]);
+    window.dispatchEvent(new CustomEvent("studyhub-companion-greet", { detail: greeting ? { text: greeting } : undefined }));
+    if (!reduced) setArriving(true);
+  }, [ready, reduced, greeting]);
 
   const skip = useCallback(() => setArriving(false), []);
 

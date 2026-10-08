@@ -155,10 +155,11 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   /** Hidden while resting on the calendar or in a window too narrow for her lane; the message box shows her portrait. */
   const tuckedRef = useRef(false);
+  /** A visible home spot: the corner lane, or the Today composer's seat. */
   const [laneShown, setLaneShown] = useState(false);
   useEffect(() => {
     const measure = () => {
-      const el = document.querySelector(".sh-nova-lane");
+      const el = document.querySelector("[data-nova-home]");
       setLaneShown(!!el && getComputedStyle(el).display !== "none");
     };
     measure();
@@ -170,7 +171,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
       ro.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [place]);
+  }, [place, hubView]);
   /* Lane visibility is part of it so widening the window (or unpinning the rail) walks her back in. */
   const inSetup = place === "setup";
   const stageActive = ((place === "lane" || place === "session") && laneShown) || inSetup;
@@ -527,6 +528,32 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     gait,
   });
 
+  /* Today rows: she glances at the one under the pointer and points at the one you open. */
+  const glanceRef = useRef(glanceAtRect);
+  glanceRef.current = glanceAtRect;
+  useEffect(() => {
+    if (!visibleNow) return undefined;
+    let last = null;
+    const free = () => AUTONOMOUS.has(modeRef.current) && !busy() && !dragRef.current;
+    const rowOf = (e) => e.target.closest?.('[data-nova-anchor^="home.row"]') || null;
+    const onOver = (e) => {
+      const row = rowOf(e);
+      if (row === last) return;
+      last = row;
+      if (row && free()) glanceRef.current(row.getBoundingClientRect(), 1600);
+    };
+    const onClick = (e) => {
+      const row = rowOf(e);
+      if (row && free()) pointAt(row.getBoundingClientRect());
+    };
+    document.addEventListener("pointerover", onOver);
+    document.addEventListener("click", onClick, true);
+    return () => {
+      document.removeEventListener("pointerover", onOver);
+      document.removeEventListener("click", onClick, true);
+    };
+  }, [visibleNow, busy, pointAt]);
+
   /* ---------- the spoken briefing: she walks to what she's talking about ---------- */
 
   useNovaBriefing(core, { ensureRoute, setMarks, glanceAtRect, setGlance });
@@ -624,9 +651,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     const last = tour.index === tour.total - 1;
     const waiting = tour.step.waitFor === "click";
     const actions = [];
-    if (tour.index > 0) actions.push({ label: "BACK", onClick: () => goStep(tour.index - 1, -1) });
+    if (tour.index > 0) actions.push({ label: "Back", onClick: () => goStep(tour.index - 1, -1) });
     if (!waiting) actions.push({ label: last ? "DONE" : "NEXT", primary: true, autoFocus: true, onClick: () => goStep(tour.index + 1, 1) });
-    actions.push({ label: "SKIP TOUR", onClick: () => endTour(false) });
+    actions.push({ label: "Skip tour", onClick: () => endTour(false) });
     bubbleNode = (
       <SpeechBubble
         key={`tour-${tour.index}`}
@@ -684,17 +711,17 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     later(fn, 300);
   };
   const layoutItems = [
-    { id: "l-briefing", label: "BRIEFING", icon: "▦", onClick: pickLayout(() => arrangeWorkspace("briefing")) },
-    { id: "l-grades", label: "GRADES", icon: "◔", onClick: pickLayout(() => arrangeWorkspace("grades")) },
-    { id: "l-tidy", label: "TIDY UP", icon: "▤", onClick: pickLayout(() => arrangeWorkspace("tidy")) },
-    ...(workspace.get().before ? [{ id: "l-back", label: "PUT IT BACK", icon: "↺", onClick: pickLayout(workspace.putBack) }] : []),
-    { id: "l-menu", label: "BACK", icon: "‹", onClick: () => setMenuPage("main") },
+    { id: "l-briefing", label: "Briefing", icon: "▦", onClick: pickLayout(() => arrangeWorkspace("briefing")) },
+    { id: "l-grades", label: "Grades", icon: "◔", onClick: pickLayout(() => arrangeWorkspace("grades")) },
+    { id: "l-tidy", label: "Tidy up", icon: "▤", onClick: pickLayout(() => arrangeWorkspace("tidy")) },
+    ...(workspace.get().before ? [{ id: "l-back", label: "Put it back", icon: "↺", onClick: pickLayout(workspace.putBack) }] : []),
+    { id: "l-menu", label: "Back", icon: "‹", onClick: () => setMenuPage("main") },
   ];
   const mainItems = [
-    ...(place === "session" || inSetup ? [] : [{ id: "quiz", label: "QUIZ ME", icon: "✦", onClick: () => startQuiz() }]),
-    ...(onHub && !inSetup ? [{ id: "layout", label: "REARRANGE", icon: "▦", onClick: () => setMenuPage("layout") }] : []),
-    ...(place === "session" || inSetup ? [] : [{ id: "tour", label: "SHOW ME AROUND", icon: "◎", onClick: contextualTour }]),
-    { id: "help", label: "ASK NOVA", icon: "›", onClick: startHelp },
+    ...(place === "session" || inSetup ? [] : [{ id: "quiz", label: "Quiz me", icon: "✦", onClick: () => startQuiz() }]),
+    ...(onHub && !inSetup ? [{ id: "layout", label: "Rearrange", icon: "▦", onClick: () => setMenuPage("layout") }] : []),
+    ...(place === "session" || inSetup ? [] : [{ id: "tour", label: "Show me around", icon: "◎", onClick: contextualTour }]),
+    { id: "help", label: "Ask Nova", icon: "›", onClick: startHelp },
     {
       id: "quiet",
       label: quiet ? "QUIET MODE: ON" : "QUIET MODE",
@@ -706,8 +733,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         say(line(quiet ? "quietOff" : "quietOn"));
       },
     },
-    { id: "hide", label: "HIDE FOR NOW", icon: "–", onClick: hideForNow },
-    ...(import.meta.env.DEV ? [{ id: "stage-demo", label: "STAGE DEMO", icon: "⚙", onClick: pickLayout(() => playScene(stageDemo)) }] : []),
+    { id: "hide", label: "Hide for now", icon: "–", onClick: hideForNow },
+    ...(import.meta.env.DEV ? [{ id: "stage-demo", label: "Stage demo", icon: "⚙", onClick: pickLayout(() => playScene(stageDemo)) }] : []),
   ];
   const menuItems = menuPage === "layout" ? layoutItems : mainItems;
 

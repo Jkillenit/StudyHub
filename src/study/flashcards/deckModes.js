@@ -1,12 +1,12 @@
 import { getDueCards, getWeakCards } from "../sm2.js";
 
 export const DECK_MODES = [
-  { id: "all", label: "ALL" },
-  { id: "due", label: "DUE" },
-  { id: "weak", label: "WEAK" },
-  { id: "module", label: "THIS MODULE" },
-  { id: "manual", label: "MANUAL" },
-  { id: "pptx", label: "IMPORTED" },
+  { id: "all", label: "All" },
+  { id: "due", label: "Due" },
+  { id: "weak", label: "Weak" },
+  { id: "module", label: "This module" },
+  { id: "manual", label: "Manual" },
+  { id: "pptx", label: "Imported" },
 ];
 
 /** `examFor(card)` returns the exam date governing a card, so DUE includes final-window exam cards. */

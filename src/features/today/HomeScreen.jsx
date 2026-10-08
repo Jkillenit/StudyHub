@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { publishToday } from "../../nova/director.js";
 import { NovaBar } from "../../shell/NovaBar.jsx";
 import { usePack } from "../../shell/pack.js";
@@ -8,7 +8,19 @@ import { runTodayAction } from "./runAction.js";
 import { briefingContext, homeLine } from "./briefing.js";
 import { syncedAgo } from "./syncedAgo.js";
 import { dueText } from "./todayView.js";
+import { useArrival } from "./useArrival.js";
 import { useTodayModel } from "./useTodayModel.js";
+
+/** True while Nova is on screen (html[data-nova], broadcast by the companion layer). */
+function useNovaOn() {
+  const [on, setOn] = useState(() => document.documentElement.dataset.nova === "on");
+  useEffect(() => {
+    const onState = (e) => setOn(!!e.detail?.visible);
+    window.addEventListener("studyhub-companion-state", onState);
+    return () => window.removeEventListener("studyhub-companion-state", onState);
+  }, []);
+  return on;
+}
 
 const Hex = () => (
   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -34,6 +46,9 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
   }, [briefingFacts]);
 
   const synced = view ? syncedAgo(view.syncedAt) : null;
+  const novaOn = useNovaOn();
+  const spoken = useMemo(() => line.map((s) => (typeof s === "string" ? s : s.num)).join(""), [line]);
+  useArrival(!!view && novaOn, spoken);
 
   return (
     <section className="sh-home" aria-label="Today" aria-busy={!loaded || undefined} data-tour-id="today-dashboard">
@@ -48,24 +63,33 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
         </h1>
         {view ? (
           <>
-            <p className="sh-home-line">
-              {line.map((s, i) =>
-                typeof s === "string" ? (
-                  <span key={i}>{s}</span>
-                ) : (
-                  <span key={i} className="sh-home-num">
-                    {s.num}
-                  </span>
-                )
-              )}
-            </p>
+            {novaOn ? null : (
+              <p className="sh-home-line">
+                {line.map((s, i) =>
+                  typeof s === "string" ? (
+                    <span key={i}>{s}</span>
+                  ) : (
+                    <span key={i} className="sh-home-num">
+                      {s.num}
+                    </span>
+                  )
+                )}
+              </p>
+            )}
             <p className="sh-home-sync">
               <span className="sh-home-sync-dot" aria-hidden />
               {synced || "Blackboard not connected"}
             </p>
           </>
         ) : null}
-        <NovaBar courses={courses} />
+        <div className="sh-home-dock">
+          <div className="sh-home-seat" data-nova-home aria-hidden="true">
+            <div className="sh-home-seat-floor" data-nova-floor />
+          </div>
+          <div data-perch data-nova-anchor="home.composer">
+            <NovaBar courses={courses} />
+          </div>
+        </div>
         {view && !view.hasCourses ? (
           <div className="sh-home-empty">
             <button type="button" className="sh-btn-outline" onClick={() => onNavigate?.("courses")}>
@@ -76,7 +100,14 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
         {view?.hasCourses && view.tonight.length ? (
           <div className="sh-home-cards">
             {view.tonight.slice(0, 3).map((item, i) => (
-              <button key={item.id} type="button" className={`sh-home-card${cardEdge(item, i)}`} onClick={() => runTodayAction(item.action, onOpenCourse)}>
+              <button
+                key={item.id}
+                type="button"
+                className={`sh-home-card${cardEdge(item, i)}`}
+                data-perch
+                data-nova-anchor={`home.row.${i + 1}`}
+                onClick={() => runTodayAction(item.action, onOpenCourse)}
+              >
                 <span className="sh-home-card-title" title={item.title}>
                   {item.title}
                 </span>

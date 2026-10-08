@@ -8407,6 +8407,28 @@ button.sh-week-day:focus-visible {
   margin-top: 16px;
 }
 
+/* The composer, with Nova's seat standing on its left end (she's sized to the seat's height) */
+.sh-home-dock {
+  position: relative;
+  width: 100%;
+}
+
+.sh-home-seat {
+  position: absolute;
+  left: -40px;
+  bottom: 100%;
+  width: 140px;
+  height: 172px;
+  pointer-events: none;
+}
+
+.sh-home-seat-floor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
 .sh-home-more {
   align-self: stretch;
   display: flex;

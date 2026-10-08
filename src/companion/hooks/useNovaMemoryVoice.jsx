@@ -116,16 +116,16 @@ export function useNovaMemoryVoice(core, { startQuiz }) {
 
   const memoryActions = (pick) => {
     const nav = navRef.current;
-    const close = { label: "NOT NOW", onClick: () => setBubble(null) };
+    const close = { label: "Not now", onClick: () => setBubble(null) };
     if (pick.action === "quick5") {
-      return [{ label: "5 CARDS", primary: true, onClick: () => startQuiz() }, { label: "GOING TO BED", onClick: () => setBubble(null) }];
+      return [{ label: "5 cards", primary: true, onClick: () => startQuiz() }, { label: "Going to bed", onClick: () => setBubble(null) }];
     }
     if (pick.action === "weakDrill") {
       const course = nav.courses.find((c) => c.id === pick.vars.courseUuid || c.uuid === pick.vars.courseUuid);
       if (!course || !nav.onOpenCourse) return null;
       return [
         {
-          label: "DRILL IT",
+          label: "Drill it",
           primary: true,
           onClick: () => {
             setBubble(null);

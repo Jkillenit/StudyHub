@@ -23,18 +23,18 @@ export function HelpBubble({ help, h, v, courses, onQuery, onPick, onBack, onClo
   if (help.answer) {
     const e = help.answer;
     const actions = [];
-    if (e.pointTo && !help.pointed) actions.push({ label: "SHOW ME", primary: true, autoFocus: true, onClick: () => onShowMe(e) });
-    if (e.tour) actions.push({ label: "TAKE THE TOUR", onClick: () => onAction("tour", e) });
-    if (e.action === "quiz") actions.push({ label: "QUIZ ME", primary: true, autoFocus: true, onClick: () => onAction("quiz", e) });
-    if (e.action === "open-ai") actions.push({ label: "OPEN AI SETTINGS", primary: true, autoFocus: true, onClick: () => onAction("open-ai", e) });
-    actions.push({ label: "BACK", onClick: onBack });
-    actions.push({ label: "DONE", onClick: onClose });
+    if (e.pointTo && !help.pointed) actions.push({ label: "Show me", primary: true, autoFocus: true, onClick: () => onShowMe(e) });
+    if (e.tour) actions.push({ label: "Take the tour", onClick: () => onAction("tour", e) });
+    if (e.action === "quiz") actions.push({ label: "Quiz me", primary: true, autoFocus: true, onClick: () => onAction("quiz", e) });
+    if (e.action === "open-ai") actions.push({ label: "Open AI settings", primary: true, autoFocus: true, onClick: () => onAction("open-ai", e) });
+    actions.push({ label: "Back", onClick: onBack });
+    actions.push({ label: "Done", onClick: onClose });
     return <SpeechBubble title={e.q} text={e.a} actions={actions} h={h} v={v} wide />;
   }
 
   const lost = query && !cmd && !results.length;
   return (
-    <SpeechBubble title="ASK NOVA" h={h} v={v} wide actions={[{ label: "CLOSE", onClick: onClose }]}>
+    <SpeechBubble title="Ask Nova" h={h} v={v} wide actions={[{ label: "Close", onClick: onClose }]}>
       <input
         className="sc-help-input"
         type="text"

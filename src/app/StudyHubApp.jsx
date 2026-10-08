@@ -437,7 +437,7 @@ function StudyHubAppInner() {
         onImportFile={importHub}
         onMarkChapterReviewed={() => window.dispatchEvent(new CustomEvent("studyhub-mark-chapter-reviewed"))}
       />
-      {novaPlace === "lane" || novaPlace === "session" ? <NovaLane session={novaPlace === "session"} /> : null}
+      {(novaPlace === "lane" && !(onHub && hubView === "today")) || novaPlace === "session" ? <NovaLane session={novaPlace === "session"} /> : null}
       <AiAssistantPanel open={aiOpen} onClose={() => setAiOpen(false)} />
       {splashPhase === "done" ? (
         <ErrorBoundary resetKey="companion" fallback={null}>

@@ -413,11 +413,11 @@ function BuiltinCourseAppInner({ courseShellLoad = false, novaCourses, onGoHub }
         </div>
       </div>
 
-      <SideDrawer open={splitOpen} title="GLOSSARY" onClose={closeSplit}>
+      <SideDrawer open={splitOpen} title="Glossary" onClose={closeSplit}>
         <GlossaryContextBlock />
       </SideDrawer>
 
-      <SideDrawer open={settingsOpen && !splitOpen} title="COURSE SETTINGS" onClose={closeSettings}>
+      <SideDrawer open={settingsOpen && !splitOpen} title="Course settings" onClose={closeSettings}>
         <div>
           <div className="ctx-label">Add course</div>
           <button

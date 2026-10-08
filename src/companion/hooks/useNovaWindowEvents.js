@@ -4,7 +4,7 @@ import { AUTONOMOUS } from "../machine.js";
 
 /** Window-level glue: voice level, settings open requests, greet/talk events, the html dataset, quiet toggles. */
 export function useNovaWindowEvents(core, { visibleNow, quiet, onSettingsChange }) {
-  const { stateRef, modeRef, reducedRef, setMood, setTalkUntil, busy, playGesture } = core;
+  const { stateRef, modeRef, reducedRef, setMood, setTalkUntil, busy, playGesture, say } = core;
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
@@ -21,12 +21,24 @@ export function useNovaWindowEvents(core, { visibleNow, quiet, onSettingsChange 
     };
   }, []);
 
-  /* Today's arrival waves her hello; the briefing's voice moves her mouth. */
+  /* Today's arrival waves her hello and says the day's line; the briefing's voice moves her mouth. */
   useEffect(() => {
-    const onGreet = () => {
-      if (!visibleNow || stateRef.current?.quiet || reducedRef.current || !AUTONOMOUS.has(modeRef.current) || busy()) return;
-      setMood("happy");
-      playGesture("wave");
+    let retry = 0;
+    const onGreet = (e) => {
+      let tries = 0;
+      const attempt = () => {
+        if (!visibleNow || stateRef.current?.quiet) return;
+        /* She may still be walking to her spot or finishing a line; wait up to ~8s for her. */
+        if (!AUTONOMOUS.has(modeRef.current) || busy()) {
+          if (++tries < 10) retry = window.setTimeout(attempt, 800);
+          return;
+        }
+        setMood("happy");
+        if (!reducedRef.current) playGesture("wave");
+        if (e.detail?.text) say(e.detail.text);
+      };
+      window.clearTimeout(retry);
+      attempt();
     };
     const onTalk = (e) => {
       const ms = e.detail?.ms;
@@ -35,10 +47,11 @@ export function useNovaWindowEvents(core, { visibleNow, quiet, onSettingsChange 
     window.addEventListener("studyhub-companion-greet", onGreet);
     window.addEventListener("studyhub-companion-talk", onTalk);
     return () => {
+      window.clearTimeout(retry);
       window.removeEventListener("studyhub-companion-greet", onGreet);
       window.removeEventListener("studyhub-companion-talk", onTalk);
     };
-  }, [visibleNow, busy, playGesture]);
+  }, [visibleNow, busy, playGesture, say]);
 
   useEffect(() => {
     document.documentElement.dataset.nova = visibleNow ? "on" : "off";

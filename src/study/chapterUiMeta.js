@@ -3,11 +3,11 @@
 export const STUDY_SIDEBAR_GROUPS = [
   {
     key: "mod",
-    label: "MODULES",
+    label: "Modules",
     ids: ["ch1", "ch3", "ch4", "ch6", "ch6s", "ch7", "ch11", "ch12", "ch16"],
   },
-  { key: "ref", label: "REFERENCE", ids: ["final", "formulas"] },
-  { key: "drill", label: "DRILL", ids: ["flashcards"] },
+  { key: "ref", label: "Reference", ids: ["final", "formulas"] },
+  { key: "drill", label: "Drill", ids: ["flashcards"] },
 ];
 
 const PREFIX = {

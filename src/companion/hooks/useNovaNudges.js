@@ -35,7 +35,7 @@ export function useNovaNudges(core, { mode, flashReaction, startQuiz }) {
     n.kind = "due";
     cancel();
     if (send("NUDGE") !== "nudge") return;
-    const spot = document.querySelector('[data-tour-id="today-cards"]');
+    const spot = document.querySelector('[data-nova-anchor^="home.row"]') || document.querySelector('[data-tour-id="today-cards"]');
     if (spot) {
       const r = spot.getBoundingClientRect();
       if (r.width && r.bottom > 0 && r.top < window.innerHeight) {
@@ -58,7 +58,7 @@ export function useNovaNudges(core, { mode, flashReaction, startQuiz }) {
       nudge: true,
       actions: [
         {
-          label: "QUIZ ME",
+          label: "Quiz me",
           primary: true,
           onClick: () => {
             n.answered = true;
@@ -67,7 +67,7 @@ export function useNovaNudges(core, { mode, flashReaction, startQuiz }) {
           },
         },
         {
-          label: "NOT NOW",
+          label: "Not now",
           onClick: () => {
             n.answered = true;
             n.cooldown *= 2;
@@ -97,7 +97,7 @@ export function useNovaNudges(core, { mode, flashReaction, startQuiz }) {
       nudge: true,
       actions: [
         {
-          label: "BRIEF ME",
+          label: "Brief me",
           primary: true,
           onClick: () => {
             n.answered = true;
@@ -107,7 +107,7 @@ export function useNovaNudges(core, { mode, flashReaction, startQuiz }) {
           },
         },
         {
-          label: "LATER",
+          label: "Later",
           onClick: () => {
             n.answered = true;
             send("CLOSE");

@@ -37,9 +37,9 @@ function Toggle({ label, checked, onChange, hint }) {
 }
 
 const LANGUAGE = [
-  { value: "clean", label: "CLEAN" },
-  { value: "salty", label: "SALTY" },
-  { value: "unfiltered", label: "UNFILTERED" },
+  { value: "clean", label: "Clean" },
+  { value: "salty", label: "Salty" },
+  { value: "unfiltered", label: "Unfiltered" },
 ];
 const DESKTOP_SIZES = [
   { value: "sm", label: "S" },
@@ -76,7 +76,7 @@ function LanguageRow() {
     setVoiceLevel(v);
     void bridge?.set({ level: v });
   };
-  return <Segmented label="LANGUAGE" value={value} options={LANGUAGE} onChange={change} />;
+  return <Segmented label="Language" value={value} options={LANGUAGE} onChange={change} />;
 }
 
 /** Desktop Nova: off by default; she lives on the desktop outside the app window. */
@@ -103,7 +103,7 @@ function DesktopSection() {
   return (
     <>
       <Toggle
-        label="DESKTOP NOVA"
+        label="Desktop Nova"
         hint="She lives on your desktop, above the taskbar. She only reads the active window's app name and title, in memory, never saved or sent anywhere. Never screen contents or keystrokes."
         checked={s.enabled}
         onChange={(v) => save({ enabled: v })}
@@ -111,9 +111,9 @@ function DesktopSection() {
       {s.enabled ? (
         <>
           {why ? <p className="sc-set-hint">{why}</p> : null}
-          <Segmented label="DESKTOP SIZE" value={s.size} options={DESKTOP_SIZES} onChange={(v) => save({ size: v })} />
+          <Segmented label="Desktop size" value={s.size} options={DESKTOP_SIZES} onChange={(v) => save({ size: v })} />
           <Toggle
-            label="HIDE DURING MEETINGS"
+            label="Hide during meetings"
             hint="Zoom, Teams, Meet, Webex, Discord and screen shares. Fullscreen apps and slideshows always hide her."
             checked={s.hideInMeetings}
             onChange={(v) => save({ hideInMeetings: v })}
@@ -132,7 +132,7 @@ function DesktopSection() {
         </>
       ) : null}
       <Toggle
-        label="START WITH WINDOWS"
+        label="Start with windows"
         hint="Opens in the tray at sign-in so Blackboard checks keep running."
         checked={s.startWithWindows}
         onChange={(v) => save({ startWithWindows: v })}
@@ -189,29 +189,29 @@ export function CompanionSettings({ state, onChange, onClose, onResetTours, onRe
         </ul>
       </details>
 
-      <Toggle label="SHOW NOVA" checked={state.enabled} onChange={(v) => onChange({ enabled: v })} />
+      <Toggle label="Show Nova" checked={state.enabled} onChange={(v) => onChange({ enabled: v })} />
       <Toggle
-        label="QUIET MODE"
+        label="Quiet mode"
         hint="Stays docked, no wandering or idle life. Still answers when clicked."
         checked={!!state.quiet}
         onChange={(v) => onChange({ quiet: v })}
       />
       <Segmented
-        label="MOVEMENT"
+        label="Movement"
         value={state.movement}
         options={MOVEMENT_LEVELS.map((m) => ({ value: m, label: m.charAt(0).toUpperCase() + m.slice(1) }))}
         onChange={(v) => onChange({ movement: v })}
       />
       <Toggle
-        label="SUGGESTIONS"
+        label="Suggestions"
         hint="Occasional nudges about due cards"
         checked={state.nudges}
         onChange={(v) => onChange({ nudges: v })}
       />
       <LanguageRow />
-      <Toggle label="SOUND" hint="Hologram chirps and glitches" checked={!!state.sound} onChange={(v) => onChange({ sound: v })} />
+      <Toggle label="Sound" hint="Hologram chirps and glitches" checked={!!state.sound} onChange={(v) => onChange({ sound: v })} />
       <Segmented
-        label="SIZE"
+        label="Size"
         value={state.scale}
         options={SIZES.map((s) => ({ value: s, label: `${Math.round(s * 100)}%` }))}
         onChange={(v) => onChange({ scale: v })}

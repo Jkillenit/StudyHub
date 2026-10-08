@@ -199,9 +199,9 @@ function assignmentItem(a, course, needs, days, config, blocked = 0) {
   if (standingText) parts.push(standingText);
 
   let action;
-  if (isExam) action = { type: "review", courseUuid: course.uuid, examUuid: a.uuid, label: "START REVIEW" };
-  else if (a.url) action = { type: "blackboard", url: a.url, label: "OPEN IN BLACKBOARD" };
-  else action = { type: "course", courseUuid: course.uuid, label: "OPEN COURSE" };
+  if (isExam) action = { type: "review", courseUuid: course.uuid, examUuid: a.uuid, label: "Start review" };
+  else if (a.url) action = { type: "blackboard", url: a.url, label: "Open in Blackboard" };
+  else action = { type: "course", courseUuid: course.uuid, label: "Open course" };
 
   return {
     id: `${isExam ? "exam" : "asg"}:${a.uuid}`,
@@ -258,7 +258,7 @@ function gradeRiskItem(course, needs, config) {
     needed: needs.neededAvg != null && needs.neededAvg > 100 ? needs.neededAvg : focus?.needed ?? null,
     score,
     reason: gradeRiskReason(needs, open),
-    action: { type: "grades", courseUuid: course.uuid, label: "GRADE CALCULATOR" },
+    action: { type: "grades", courseUuid: course.uuid, label: "Grade calculator" },
   };
 }
 
