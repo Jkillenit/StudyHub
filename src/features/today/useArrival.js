@@ -9,6 +9,8 @@ export const STAGGER_MS = 70;
 
 /** Setup already introduced her: skip today's arrival greeting. */
 export const markArrivedToday = () => saveJson(KEY, localDateString());
+/** Today's arrival hasn't happened yet. */
+export const arrivalDue = () => loadJson(KEY, null) !== localDateString();
 
 /**
  * The once-a-day arrival: true for about 2.5s on the first Today open of the day, never with

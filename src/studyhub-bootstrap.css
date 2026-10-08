@@ -7248,12 +7248,12 @@ html[data-nova-tucked] .sh-spill {
 }
 
 /* Depth: field, content and Nova shift 2 / 4 / 6px against the cursor (--sh-px / --sh-py, -1..1).
-   Inner blocks rather than the layer roots, so fixed descendants (modals, lane, palette, focus pill)
-   stay viewport-fixed and Nova's seat measures unshifted. */
+   Hub blocks only, never the layer roots or course views: a translate makes its box the containing
+   block of position: fixed descendants (modals, lane, palette, glossary popover). Nova's seat stays unshifted. */
 .sh-ambient {
   translate: calc(var(--sh-px, 0) * -2px) calc(var(--sh-py, 0) * -2px);
 }
-:is(.sh-home-col, [data-nova-anchor="home.composer"], .sh-plan-col, .sh-plan-dock) {
+:is(.sh-home-col, [data-nova-anchor="home.composer"], .sh-hub-root .sh-plan-col, .sh-hub-root .sh-plan-dock) {
   translate: calc(var(--sh-px, 0) * -4px) calc(var(--sh-py, 0) * -4px);
 }
 .sc-scout {
@@ -7263,43 +7263,15 @@ html[data-nova-tucked] .sh-spill {
 .sh-hub-root {
   overflow-x: hidden;
 }
-html[data-motion="reduced"] :is(.sh-ambient, .sh-home-col, [data-nova-anchor="home.composer"], .sh-plan-col, .sh-plan-dock, .sc-scout) {
+html[data-motion="reduced"] :is(.sh-ambient, .sh-home-col, [data-nova-anchor="home.composer"], .sh-hub-root .sh-plan-col, .sh-hub-root .sh-plan-dock, .sc-scout) {
   translate: none;
 }
 
-/* Focus mode: everything but the top row, Nova and the focus pill fades out (list matches useNovaFocusDissolve). */
-html[data-focus-dissolve]:not([data-motion="reduced"])
-  :is(
-    .sh-rail,
-    .sh-titlebar,
-    .sh-home-strip,
-    .sh-home-meta,
-    .sh-home-greeting,
-    .sh-home-line,
-    .sh-home-list > li:not(:has(.sh-home-row--top)),
-    .sh-home-empty,
-    .sh-home-link,
-    [data-nova-anchor="home.composer"],
-    .sh-plan,
-    .sh-shell-body
-  ) {
+/* Focus mode on Today: every [data-dissolve] block fades out; the top row, Nova and the focus pill stay. */
+html[data-focus-dissolve]:not([data-motion="reduced"]):has(.sh-home) [data-dissolve] {
   transition: opacity 500ms ease;
 }
-html[data-focus-dissolve="on"]
-  :is(
-    .sh-rail,
-    .sh-titlebar,
-    .sh-home-strip,
-    .sh-home-meta,
-    .sh-home-greeting,
-    .sh-home-line,
-    .sh-home-list > li:not(:has(.sh-home-row--top)),
-    .sh-home-empty,
-    .sh-home-link,
-    [data-nova-anchor="home.composer"],
-    .sh-plan,
-    .sh-shell-body
-  ) {
+html[data-focus-dissolve="on"]:has(.sh-home) [data-dissolve] {
   opacity: 0.06;
 }
 

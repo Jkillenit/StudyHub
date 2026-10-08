@@ -12,7 +12,7 @@ import { dueEmphasis, hoursUntil } from "./dueEmphasis.js";
 import { goneRows, withLeaving } from "./leavingRows.js";
 import { syncedAgo } from "./syncedAgo.js";
 import { dueText } from "./todayView.js";
-import { useArrival } from "./useArrival.js";
+import { ARRIVAL_MS, arrivalDue, useArrival } from "./useArrival.js";
 import { useTodayModel } from "./useTodayModel.js";
 
 const COUNT_WORDS = ["Nothing", "One thing", "Two things", "Three things"];
@@ -39,7 +39,7 @@ function greeting(view) {
 /** Arrow keys move between the rows. */
 function onRowKey(e) {
   if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-  const rows = [...e.currentTarget.querySelectorAll(".sh-home-row")];
+  const rows = [...e.currentTarget.querySelectorAll("li:not([data-leaving]) > .sh-home-row")];
   const i = rows.indexOf(document.activeElement);
   const next = rows[e.key === "ArrowDown" ? Math.min(rows.length - 1, i + 1) : Math.max(0, i - 1)];
   if (next) {
@@ -61,8 +61,17 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
 
   const novaOn = useNovaOn();
   const spoken = useMemo(() => line.map((s) => (typeof s === "string" ? s : s.num)).join(""), [line]);
-  const { arriving } = useArrival(!!view && novaOn, spoken);
+  useArrival(!!view && novaOn, spoken);
   const reduced = useReducedMotion();
+
+  /* The day's arrival types the rows in as they first appear, rather than once Nova is ready, so they never show and then re-enter. */
+  const [typeIn, setTypeIn] = useState(() => !reduced && arrivalDue());
+  const hasRows = !!view?.hasCourses && view.tonight.length > 0;
+  useEffect(() => {
+    if (!typeIn || !hasRows) return undefined;
+    const t = window.setTimeout(() => setTypeIn(false), ARRIVAL_MS);
+    return () => window.clearTimeout(t);
+  }, [typeIn, hasRows]);
 
   /* A shown row whose item is gone (submitted, or studied) flows into Nova while its slot closes. */
   const shownRef = useRef([]);
@@ -104,15 +113,15 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
 
   return (
     <section className="sh-home" aria-label="Today" aria-busy={!loaded || undefined} data-tour-id="today-dashboard">
-      <div className="sh-home-strip">
+      <div className="sh-home-strip" data-dissolve>
         <RoundTally variant="strip" />
       </div>
       {pack === "zombies" ? <RoundTally variant="corner" /> : null}
       <div className="sh-home-col">
-        <p className="sh-home-meta">{meta}</p>
-        {view ? <h1 className="sh-home-greeting">{greeting(view)}</h1> : null}
+        <p className="sh-home-meta" data-dissolve>{meta}</p>
+        {view ? <h1 className="sh-home-greeting" data-dissolve>{greeting(view)}</h1> : null}
         {view && !novaOn ? (
-          <p className="sh-home-line">
+          <p className="sh-home-line" data-dissolve>
             {line.map((s, i) =>
               typeof s === "string" ? (
                 <span key={i}>{s}</span>
@@ -125,13 +134,19 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
           </p>
         ) : null}
         {rows.length || leaving.length ? (
-          <ol ref={listRef} className={`sh-home-list${arriving ? " sh-home-list--arrive" : ""}`} onKeyDown={onRowKey}>
-            {withLeaving(rows, leaving).map(({ item, leaving: gone }) => {
-              const i = rows.indexOf(item);
+          <ol ref={listRef} className={`sh-home-list${typeIn ? " sh-home-list--arrive" : ""}`} onKeyDown={onRowKey}>
+            {withLeaving(rows, leaving).map(({ item, leaving: gone, index }) => {
+              const i = gone ? -1 : index;
               const reason = (item.reasonParts || []).slice(1).join(" · ");
               const due = dueText(item.dueDate, item.daysUntil, item.type === ITEM_TYPES.EXAM_PREP).replace(/^Due /, "");
               return (
-                <li key={item.id} data-leaving={gone ? item.id : undefined} inert={gone ? "" : undefined} style={{ "--i": i }}>
+                <li
+                  key={item.id}
+                  data-leaving={gone ? item.id : undefined}
+                  data-dissolve={i !== 0 || undefined}
+                  inert={gone ? "" : undefined}
+                  style={{ "--i": index }}
+                >
                   <button
                     type="button"
                     className={`sh-home-row${i === 0 ? " sh-home-row--top" : ""}`}
@@ -163,14 +178,14 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
           </ol>
         ) : null}
         {view && !view.hasCourses ? (
-          <div className="sh-home-empty">
+          <div className="sh-home-empty" data-dissolve>
             <button type="button" className="sh-btn-outline" onClick={() => onNavigate?.("courses")}>
               Connect Blackboard
             </button>
           </div>
         ) : null}
         {view ? (
-          <button type="button" className="sh-home-link" onClick={() => onNavigate?.("plan")}>
+          <button type="button" className="sh-home-link" data-dissolve onClick={() => onNavigate?.("plan")}>
             Full plan
           </button>
         ) : null}
@@ -179,7 +194,7 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
         <div className="sh-home-seat" data-nova-home aria-hidden="true">
           <div className="sh-home-seat-floor" data-nova-floor />
         </div>
-        <div data-perch data-nova-anchor="home.composer">
+        <div data-perch data-nova-anchor="home.composer" data-dissolve>
           <NovaBar courses={courses} placeholder="Ask Nova anything, or type /" />
         </div>
       </div>

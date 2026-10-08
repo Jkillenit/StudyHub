@@ -20,11 +20,11 @@ describe("goneRows", () => {
 
 describe("withLeaving", () => {
   it("puts leaving rows back in their old slots", () => {
-    expect(withLeaving([a, c, d], [{ item: b, index: 1 }]).map((r) => [r.item.id, r.leaving])).toEqual([
-      ["a", false],
-      ["b", true],
-      ["c", false],
-      ["d", false],
+    expect(withLeaving([a, c, d], [{ item: b, index: 1 }]).map((r) => [r.item.id, r.leaving, r.index])).toEqual([
+      ["a", false, 0],
+      ["b", true, 1],
+      ["c", false, 1],
+      ["d", false, 2],
     ]);
   });
   it("drops a leaving row that came back", () => {

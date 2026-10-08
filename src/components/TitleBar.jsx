@@ -30,7 +30,7 @@ export function TitleBar({ onHub = true }) {
   }, [api]);
 
   return (
-    <header className="sh-titlebar" onDoubleClick={(e) => e.target === e.currentTarget && api?.maximizeWindow?.()}>
+    <header className="sh-titlebar" data-dissolve onDoubleClick={(e) => e.target === e.currentTarget && api?.maximizeWindow?.()}>
       <div className="sh-titlebar-left" />
 
       <span className="sh-titlebar-date">{center}</span>

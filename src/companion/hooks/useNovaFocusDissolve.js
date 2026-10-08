@@ -1,28 +1,14 @@
 import { useEffect } from "react";
 import { fieldDim, fieldEmit } from "../../shell/fieldEvents.js";
 
-/** What fades out in focus mode (same list as the html[data-focus-dissolve] CSS): everything but the top row, Nova and the focus pill. */
-const DISSOLVE = [
-  ".sh-rail",
-  ".sh-titlebar",
-  ".sh-home-strip",
-  ".sh-home-meta",
-  ".sh-home-greeting",
-  ".sh-home-line",
-  ".sh-home-list > li:not(:has(.sh-home-row--top))",
-  ".sh-home-empty",
-  ".sh-home-link",
-  '[data-nova-anchor="home.composer"]',
-  ".sh-plan",
-  ".sh-shell-body",
-].join(",");
 const MAX_RECTS = 12;
 /** The fade back runs this long before the attribute goes (matches the CSS transition). */
 const DISSOLVE_MS = 500;
 
 /**
- * Focus mode dissolves the screen into the field: particles drift up off every visible block,
- * the blocks fade to almost nothing, and the field dims. Ending focus brings it all back.
+ * Focus mode dissolves Today into the field: particles drift up off every visible `[data-dissolve]`
+ * block, the CSS fades those blocks to almost nothing (only while Today is on screen), and the
+ * field dims. Ending focus brings it all back.
  */
 export function useNovaFocusDissolve(core, { focusUntil }) {
   const { reducedRef } = core;
@@ -31,8 +17,8 @@ export function useNovaFocusDissolve(core, { focusUntil }) {
   useEffect(() => {
     if (!on) return undefined;
     const root = document.documentElement;
-    if (!reducedRef.current) {
-      const rects = [...document.querySelectorAll(DISSOLVE)]
+    if (!reducedRef.current && document.querySelector(".sh-home")) {
+      const rects = [...document.querySelectorAll("[data-dissolve]")]
         .map((el) => el.getBoundingClientRect())
         .filter((r) => r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < window.innerHeight)
         .slice(0, MAX_RECTS);
