@@ -247,6 +247,25 @@ export function standOn(plat, cx, size) {
 }
 
 /**
+ * Standing on top of a tour target: only when it's wide enough to stand on, her whole box fits
+ * on screen above it, and she wouldn't cover anything there. Returns { x, y, plat } or null.
+ */
+export function standOnTarget(el, size) {
+  const r = visibleRect(el);
+  if (!r || r.width < MIN_PLATFORM_W) return null;
+  const plat = { el, top: r.top, left: Math.max(EDGE, r.left + 6), right: Math.min(window.innerWidth - EDGE, r.right - 6) };
+  const p = { x: r.left + r.width / 2 - size / 2, y: r.top - size };
+  const b = viewportBounds(size);
+  if (p.x < b.minX || p.x > b.maxX || p.y < b.minY || p.y > b.maxY) return null;
+  const rects = [...document.querySelectorAll(CONTENT_SELECTOR)]
+    .filter((c) => c !== el && !el.contains(c) && !c.contains(el) && !c.closest(NOT_CONTENT))
+    .map(visibleRect)
+    .filter((c) => c && c.top < r.top - 2);
+  if (coversContent(p, size, { rects }) || !isClear(p, size, avoidRects())) return null;
+  return { ...p, plat };
+}
+
+/**
  * Where to go next when idle: usually a stroll along the current platform, sometimes a
  * teleport up onto a card (or back down to the floor). `walk` says whether it's a stroll.
  * Every candidate is checked against panels, text and buttons, and a stroll's whole path

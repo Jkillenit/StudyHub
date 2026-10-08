@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { line } from "../character.js";
-import { clampPoint, pointBeside, waitForTarget } from "../safeZones.js";
+import { clampPoint, pointBeside, standOnTarget, waitForTarget } from "../safeZones.js";
 import { nextFrame, rectOf } from "../layer/geometry.js";
 import { BUBBLE_W, ENGAGED_SPEED, TOURS } from "../layer/constants.js";
 
 /** Guided tours: she walks step to step, spotlighting each target. */
 export function useNovaTour(core, { setMarks, awardXp, setHelp, mode }) {
-  const { stateRef, navRef, api, send, setBubble, say, setMood, update, cancel, flyTo, jumpTo, sizeRef, setFacing, setAnchor, pointAt } = core;
+  const { stateRef, navRef, api, send, setBubble, say, setMood, update, cancel, flyTo, jumpTo, sizeRef, setFacing, setAnchor, pointAt, use3dRef, platRef } = core;
   const [tour, setTour] = useState(null);
   const tourRef = useRef(null);
 
@@ -78,17 +78,20 @@ export function useNovaTour(core, { setMarks, awardXp, setHelp, mode }) {
       const s = sizeRef.current;
       let p;
       let rect = null;
+      let on = null;
       if (el) {
         el.scrollIntoView?.({ block: "nearest", inline: "nearest" });
         await nextFrame();
         rect = el.getBoundingClientRect();
-        p = pointBeside(rect, s, step.placement);
+        on = use3dRef.current ? standOnTarget(el, s) : null;
+        p = on || pointBeside(rect, s, step.placement);
       } else {
         p = { ...clampPoint({ x: window.innerWidth / 2 - s / 2, y: window.innerHeight / 2 - s }, s), side: "right" };
       }
       setTour((prev) => (prev ? { ...prev, rect: rect ? rectOf(rect) : null } : prev));
       await flyTo(p, { speed: ENGAGED_SPEED });
       if (tourRef.current !== t || t.token !== token) return;
+      if (on) platRef.current = on.plat;
 
       if (rect) setFacing(p.x + s / 2 > rect.left + rect.width / 2 ? -1 : 1);
       setMood("point");
@@ -97,9 +100,10 @@ export function useNovaTour(core, { setMarks, awardXp, setHelp, mode }) {
       const need = BUBBLE_W + 12;
       if (h === "right" && window.innerWidth - (p.x + s) < need && p.x >= need) h = "left";
       else if (h === "left" && p.x < need && window.innerWidth - (p.x + s) >= need) h = "right";
-      setAnchor({ h, v: p.y > window.innerHeight / 2 ? "above" : "below" });
+      setAnchor({ h, v: on ? (p.y > 200 ? "above" : "below") : p.y > window.innerHeight / 2 ? "above" : "below" });
       t.el = el;
       t.placement = step.placement;
+      t.on = !!on;
       if (el && step.waitFor === "click") {
         const onTargetClick = () => goStep(i + 1, 1);
         el.addEventListener("click", onTargetClick, { once: true });
@@ -142,8 +146,9 @@ export function useNovaTour(core, { setMarks, awardXp, setHelp, mode }) {
         setTour((prev) => (prev ? { ...prev, rect: rectOf(r) } : prev));
         window.clearTimeout(settle);
         settle = window.setTimeout(() => {
-          const p = pointBeside(t.el.getBoundingClientRect(), sizeRef.current, t.placement);
-          jumpTo(p);
+          const on = t.on && use3dRef.current ? standOnTarget(t.el, sizeRef.current) : null;
+          if (on) platRef.current = on.plat;
+          jumpTo(on || pointBeside(t.el.getBoundingClientRect(), sizeRef.current, t.placement));
         }, 160);
       });
     };
