@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { publishToday } from "../../nova/director.js";
 import { fieldEmit, lastAttractor } from "../../shell/fieldEvents.js";
 import { useReducedMotion } from "../../shell/motion.js";
+import { localDateString } from "../../study/sm2.js";
 import { NovaBar } from "../../shell/NovaBar.jsx";
 import { usePack } from "../../shell/pack.js";
 import { RoundTally } from "../../shell/RoundTally.jsx";
@@ -18,6 +19,8 @@ import { useTodayModel } from "./useTodayModel.js";
 const COUNT_WORDS = ["Nothing", "One thing", "Two things", "Three things"];
 /** How long a finished row's slot takes to close (matches the sh-home-leave animation). */
 const LEAVE_MS = 250;
+/** The day the rows last typed in; the arrival day is only recorded when Nova greets, so with her off this keeps it to once. */
+let typedInDay = null;
 
 /** True while Nova is on screen (html[data-nova], broadcast by the companion layer). */
 function useNovaOn() {
@@ -65,10 +68,11 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
   const reduced = useReducedMotion();
 
   /* The day's arrival types the rows in as they first appear, rather than once Nova is ready, so they never show and then re-enter. */
-  const [typeIn, setTypeIn] = useState(() => !reduced && arrivalDue());
+  const [typeIn, setTypeIn] = useState(() => !reduced && arrivalDue() && typedInDay !== localDateString());
   const hasRows = !!view?.hasCourses && view.tonight.length > 0;
   useEffect(() => {
     if (!typeIn || !hasRows) return undefined;
+    typedInDay = localDateString();
     const t = window.setTimeout(() => setTypeIn(false), ARRIVAL_MS);
     return () => window.clearTimeout(t);
   }, [typeIn, hasRows]);
