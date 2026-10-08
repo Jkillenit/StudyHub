@@ -138,7 +138,7 @@ per-category minimum); unmatched items use a per-kind default and show no weight
   `studyhub-exam-session` event (Zombies has its own lines). Results show READY before → after and the
   next session; on exam day "Exam today" wins over "Exam-ready". Another round re-picks exam cards.
   Sessions log `kind = 'exam'` with `study_sessions.exam_uuid` (migration 12); ready history isn't
-  stored. Nova's quiz has no exam mode yet; head-anchored staging is C.7 (B1b).
+  stored. Nova's quiz has no exam mode yet. Head-anchored staging shipped with C.7 (B1b, Phase 2.31).
 - Practice tests scoped to an exam (reuses PT-001).
 
 **Exit criteria**: exam prep on Today launches a Nova session with exam-scoped cards.
@@ -189,8 +189,9 @@ Specs and guardrails in the brief are unchanged; each ships only if alpha usage 
   - ✓ C.6c Event gestures: kiss/wink on streaks and level-ups, facepalm when failing, pointing
     at tour/help targets, taunt when ignored, wave on return. Leaning on panel sides moves to C.7.
   - C.6d Rampant: glitch collapse and re-form, jittery idles.
-- ○ C.7 Context staging: on top of the quiz panel, standing on tour targets, bubble follows her head,
-  leaning on panel sides.
+- ✓ C.7 Context staging (Phase 2.31): bubble follows her head (3D), she stands on tour targets that
+  fit, and leans on panel sides (idle activity + resting pose). Standing on the quiz panel was dropped:
+  sessions have their own Nova lane.
 - ○ C.8 Settings and robustness: 3D / portrait switch, animation intensity, context-loss
   recovery, packaged-build check. Model stays full quality (no texture downscaling).
 - ○ C.9 (merged into Nova Core 8 enhanced mode) Claude brain once an API key is set: Haiku help with `point_to`, fuzzy typed grading,

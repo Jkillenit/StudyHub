@@ -41,7 +41,7 @@ A3's Task 7 (tone classes, print rules) must be re-checked against the overhaul'
 
 | Step | Work | Notes |
 |------|------|-------|
-| B1 | 2.3 Nova runs the exam session (EXAM-003) + C.7 context staging + TD-05 + TD-09 | Uses the ported study-session scene. She stands on the quiz panel; bubble follows her head. `FlashcardDeck` fixes while that file is open. **B1a ✓ Shipped (Phase 2.30):** EXAM-003 + TD-09 (TD-05 was already gone). Spec `docs/superpowers/specs/2026-10-04-b1a-exam-session-design.md`, plan `docs/superpowers/plans/2026-10-04-b1a-exam-session.md`. **B1b (C.7 staging) next.** |
+| B1 | 2.3 Nova runs the exam session (EXAM-003) + C.7 context staging + TD-05 + TD-09 | Uses the ported study-session scene. She stands on the quiz panel; bubble follows her head. `FlashcardDeck` fixes while that file is open. **B1a ✓ Shipped (Phase 2.30):** EXAM-003 + TD-09 (TD-05 was already gone). Spec `docs/superpowers/specs/2026-10-04-b1a-exam-session-design.md`, plan `docs/superpowers/plans/2026-10-04-b1a-exam-session.md`. **B1b ✓ Shipped (Phase 2.31):** C.7 staging. Spec `docs/superpowers/specs/2026-10-08-b1b-context-staging-design.md`, plan `docs/superpowers/plans/2026-10-08-b1b-context-staging.md`. **B2 next.** |
 | B2 | Exam-scoped practice tests + CAL-002 | Reuses PT-001 and `exam_modules`. |
 | B3 | C.6d rampant + Nova Core 7 evolving desk | Both are event-driven visuals on the existing mood and memory systems. |
 | B4 | CAL-003 syllabus dates into calendar | Local parse first, Haiku optional. |

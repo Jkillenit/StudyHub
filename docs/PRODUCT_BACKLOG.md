@@ -42,6 +42,7 @@ Tags: `local-first` (no API/cloud), `AI-optional`, `AI-required`, `cloud` (Commo
 | TODAY-003 | Needed score on next major item and final, NEED badge, pressure-based risk (Phase 1.3) |
 | UI-005 | UI overhaul: rail shell, Pure home, Plan layout, course workspace, Nova session (shield meter, results, rounds), Decks screen, Grades hub, Calendar week/month, Settings tabs incl. Backup, First-run setup, Nova/Zombies flavor packs (Phases 2.22–2.28) |
 | EXAM-003 | Nova runs the exam session: Today exam opens 10–20 exam-scoped cards, template opening/closing lines (Haiku may rephrase), ready % change + next session on results, logged with `exam_uuid` (Phase 2.30) |
+| C.7 | Nova context staging: bubble follows her head (3D), stands on tour targets that fit, leans on panel sides (idle activity + resting pose). Standing on the quiz panel was dropped: sessions have their own Nova lane (Phase 2.31) |
 
 ## Phase 1 — Mirror + Today (carried)
 
