@@ -39,3 +39,7 @@ ponytail/
 
 # Superpowers scratch (task briefs, reports, review packages)
 .superpowers/
+
+# Private prototype model (not licensed for distribution)
+art/nova/proto/
+public/nova-proto/
