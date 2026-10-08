@@ -106,6 +106,8 @@ export function useNovaIdleLife(core, { mode, facing, bodyReady, ticking, quiet,
 
   api.current.runStage = async (kind) => {
     if (activityRef.current) return;
+    setLean(null);
+    restCheckedRef.current = null;
     const tk = { kind, aborted: false, moving: false };
     activityRef.current = tk;
     if (send("PLAY") !== "play") {

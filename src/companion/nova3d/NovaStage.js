@@ -507,6 +507,7 @@ export class NovaStage {
     this.playW = 0;
     this.lieW = 0;
     this.leanW = 0;
+    this.leanSide = 1;
     this.lieX = 0;
     this.t = 0;
     this.face = {};
