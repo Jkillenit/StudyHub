@@ -6576,10 +6576,11 @@ html:not([data-pack="zombies"]) .sc-bubble {
 html:not([data-pack="zombies"]) .sc-bubble::before {
   content: "";
   position: absolute;
-  inset: -24px;
+  inset: -10px;
   z-index: -1;
   pointer-events: none;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--sh-bg) 78%, transparent) 55%, transparent);
+  background: color-mix(in srgb, var(--sh-bg) 70%, transparent);
+  filter: blur(12px);
 }
 /* Help search and tour steps are panels you work in, not speech. */
 html:not([data-pack="zombies"]) .sc-bubble:is(:has(.sc-help-input), :has(.sc-bubble-footer)) {
@@ -6624,6 +6625,27 @@ html:not([data-pack="zombies"]) .sc-bubble .sc-bubble-btn:focus-visible {
   color: var(--sh-accent);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+/* Seated on Today, nothing sits behind her speech: plain text, a thin underline, a hairline tail to her mouth. */
+html:not([data-pack="zombies"]):has(.sh-home [data-housed]) .sc-scout--home .sc-bubble:not(:has(.sc-help-input), :has(.sc-bubble-footer))::before {
+  content: none;
+}
+html:not([data-pack="zombies"]):has(.sh-home [data-housed]) .sc-scout--home .sc-bubble:not(:has(.sc-help-input), :has(.sc-bubble-footer)) .sc-bubble-text {
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--sh-text-3);
+}
+html:not([data-pack="zombies"]):has(.sh-home [data-housed]) .sc-scout--home .sc-bubble--right:not(:has(.sc-help-input), :has(.sc-bubble-footer)) .sc-bubble-tail {
+  display: block;
+  top: 30%;
+  right: calc(100% + 3px);
+  width: 8px;
+  height: 18px;
+  background: none;
+  border-left: 1px solid var(--sh-text-3);
+  border-radius: 50%;
+}
+html:not([data-pack="zombies"]):has(.sh-home [data-housed]) .sc-scout--home .sc-bubble-tail::after {
+  content: none;
 }
 
 /* Help */
@@ -7236,6 +7258,22 @@ html[data-nova-tucked] .sh-spill {
 }
 [data-motion="reduced"] .sh-spill {
   transition: none;
+}
+
+/* Contact light where she sits on the composer's top edge; follows the seat wherever it goes. */
+.sh-home [data-nova-home][data-housed]::after {
+  content: "";
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  bottom: -14px;
+  height: 28px;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--sh-nova) 45%, transparent), var(--sh-nova-soft) 55%, transparent);
+}
+html:is([data-nova="off"], [data-nova-tucked], [data-pack="zombies"]) [data-nova-home]::after {
+  content: none;
 }
 
 /* The link line from Nova's head to the row she's talking about. */

@@ -300,7 +300,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   const refreshAnchor = useCallback(() => {
     if (housedRef.current) {
-      setAnchor({ h: "center", v: "above" });
+      const today = !!document.querySelector("[data-nova-home]")?.closest(".sh-home");
+      setAnchor({ h: today ? "right" : "center", v: "above" });
       return;
     }
     const p = posRef.current;
