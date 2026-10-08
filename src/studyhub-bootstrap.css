@@ -6365,18 +6365,19 @@ button.sh-today-row-main:hover {
   transform-origin: left center;
 }
 .sc-bubble--center {
-  left: 50%;
+  left: var(--nv-head-x, 50%);
   right: auto;
   transform: translateX(-50%);
   transform-origin: center bottom;
   max-width: 240px;
   animation-name: sc-pop-center;
 }
+/* Vertical placement follows her head (--nv-head-y from the 3D body); 23% is her standing head. */
 .sc-bubble--above {
-  bottom: 42%;
+  bottom: calc(100% - var(--nv-head-y, 23%) - 35%);
 }
 .sc-bubble--below {
-  top: 30%;
+  top: calc(var(--nv-head-y, 23%) + 7%);
 }
 .sc-bubble--warm {
   --sc-tone: var(--sh-accent);
@@ -8938,11 +8939,11 @@ html[data-motion="reduced"] :is(.sh-home-card, .sh-home-link) {
 }
 
 .sc-scout--home .sc-bubble--above {
-  bottom: 62%;
+  bottom: calc(100% - var(--nv-head-y, 23%) - 15%);
 }
 
 .sc-scout--home .sc-bubble--center.sc-bubble--above {
-  bottom: 92%;
+  bottom: calc(100% - var(--nv-head-y, 23%) + 15%);
 }
 
 /* Asleep in 3D she lies on her side along the floor, head toward the left */

@@ -11,6 +11,7 @@ const GLITCH_MS = 520;
  * `staticNoise` adds faint static (offline).
  * Idle life: `activity` ("draw" | "read" | "cards", or "pull" while syncing) shows her hologram props or points her arm at the
  * pen in `pen` (a ref of viewport px); `drowsy` droops her eyes; each new `glance` `{ x, y, ms }` turns her gaze.
+ * `onHead` gets her head's box px ({ x, y }) as it moves, and null on unmount.
  */
 export default memo(function Nova3D({
   size,
@@ -39,11 +40,12 @@ export default memo(function Nova3D({
   glance = null,
   onReady,
   onFail,
+  onHead,
 }) {
   const canvasRef = useRef(null);
   const stageRef = useRef(null);
-  const cbRef = useRef({ onReady, onFail });
-  cbRef.current = { onReady, onFail };
+  const cbRef = useRef({ onReady, onFail, onHead });
+  cbRef.current = { onReady, onFail, onHead };
   const penRef = useRef(pen);
   penRef.current = pen;
 
@@ -61,6 +63,7 @@ export default memo(function Nova3D({
       return undefined;
     }
     stageRef.current = stage;
+    stage.onHead = (p) => cbRef.current.onHead?.(p);
     stage.setPen(penRef.current);
     let alive = true;
     stage
@@ -104,6 +107,7 @@ export default memo(function Nova3D({
       cancelAnimationFrame(frame);
       window.removeEventListener("pointermove", onMove);
       document.removeEventListener("mouseout", onOut);
+      cbRef.current.onHead?.(null);
       stage.dispose();
       stageRef.current = null;
     };

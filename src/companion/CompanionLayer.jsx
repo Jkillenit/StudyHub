@@ -91,6 +91,19 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const [body, setBody] = useState("loading");
   const onBodyReady = useCallback(() => setBody("ready"), []);
   const onBodyFail = useCallback(() => setBody("failed"), []);
+  const nodeRef = useRef(null);
+  /** Head position from the 3D body, as CSS vars the bubble reads; cleared when the body goes. */
+  const onHead = useCallback((p) => {
+    const st = nodeRef.current?.style;
+    if (!st) return;
+    if (!p) {
+      st.removeProperty("--nv-head-x");
+      st.removeProperty("--nv-head-y");
+      return;
+    }
+    st.setProperty("--nv-head-x", `${p.x}px`);
+    st.setProperty("--nv-head-y", `${p.y}px`);
+  }, []);
   const use3d = body !== "failed";
   const use3dRef = useRef(use3d);
   use3dRef.current = use3d;
@@ -107,7 +120,6 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const bubbleRef = useRef(null);
   bubbleRef.current = bubble;
 
-  const nodeRef = useRef(null);
   const reduced = useReducedMotion();
   const later = useTimeouts();
   const sfx = useCallback((name) => {
@@ -786,6 +798,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
                     gesture={gesture}
                     onReady={onBodyReady}
                     onFail={onBodyFail}
+                    onHead={onHead}
                   />
                 </Suspense>
                 ) : null

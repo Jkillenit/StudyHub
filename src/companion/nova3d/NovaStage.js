@@ -4,6 +4,7 @@ import { VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 import clipData from "./clips.json";
 import modelUrl from "./nova.vrm?url";
 import { createLegSwing, stepLegSwing } from "./legSwing.js";
+import { headAnchor } from "./headAnchor.js";
 
 const FRAME_MS = 1000 / 30;
 /** While the window is in the background she keeps breathing, barely: about 6 frames a second. */
@@ -100,6 +101,7 @@ const _limbs = {
 const _head = { pos: new THREE.Vector3(), want: new THREE.Vector3(), e: new THREE.Euler(), q: new THREE.Quaternion() };
 const _props = { head: new THREE.Vector3(), lh: new THREE.Vector3(), rh: new THREE.Vector3() };
 const _seatHips = new THREE.Vector3();
+const _headPx = new THREE.Vector3();
 const _lieP = new THREE.Vector3();
 
 const ARMS_BACK_LEFT = [ARMS_BACK.upper, ARMS_BACK.lower, ARMS_BACK.hand];
@@ -509,6 +511,9 @@ export class NovaStage {
     this.raf = 0;
     this.last = 0;
     this.sizePx = 180;
+    /** Called with the head's box px ({ x, y }) when it moves 2px or more; null-safe. */
+    this.onHead = null;
+    this.headPx = null;
     this.refreshColors();
   }
 
@@ -814,6 +819,7 @@ export class NovaStage {
   }
 
   setSize(px) {
+    this.headPx = null;
     this.sizePx = px;
     this.renderer.setPixelRatio(Math.min(SUPERSAMPLE_MAX, (window.devicePixelRatio || 1) * SUPERSAMPLE));
     this.renderer.setSize(px, px, false);
@@ -1065,6 +1071,7 @@ export class NovaStage {
 
     this.vrm.update(dt);
     this.placeProps(dt);
+    this.emitHead();
     this.render();
   }
 
@@ -1114,6 +1121,19 @@ export class NovaStage {
     if (this.lying && this.state.facing < 0) parts.push("scaleX(-1)");
     const shift = parts.join(" ");
     if (this.canvas.style.transform !== shift) this.canvas.style.transform = shift;
+  }
+
+  /** Report where her head is in the box, so the bubble can sit beside it. */
+  emitHead() {
+    if (!this.onHead) return;
+    const node = this.vrm.humanoid.getNormalizedBoneNode("head");
+    if (!node) return;
+    const seat = this.seatW < 0.002 ? 0 : SEAT_FRAC * this.seatW;
+    const p = headAnchor(node.getWorldPosition(_headPx), this.camera, this.sizePx, { seat, flipped: !!this.lying && this.state.facing < 0 });
+    const last = this.headPx;
+    if (last && Math.abs(last.x - p.x) < 2 && Math.abs(last.y - p.y) < 2) return;
+    this.headPx = p;
+    this.onHead(p);
   }
 
   /** Lying: slow breathing through the chest, and the feet kick lazily on her stomach. */
