@@ -7272,7 +7272,7 @@ html[data-nova-tucked] .sh-spill {
   pointer-events: none;
   background: radial-gradient(closest-side, color-mix(in oklab, var(--sh-nova) 45%, transparent), var(--sh-nova-soft) 55%, transparent);
 }
-html:is([data-nova="off"], [data-nova-tucked], [data-pack="zombies"]) [data-nova-home]::after {
+html:is([data-nova="off"], [data-nova-tucked], [data-pack="zombies"]) .sh-home [data-nova-home]::after {
   content: none;
 }
 
