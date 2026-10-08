@@ -55,6 +55,8 @@ export const HOME_MODES = new Set(["idle", "menu", "sleep", "nudge", "perch", "p
 /** Idle stages the portrait sprite can't do (no arms, no props). */
 export const SPRITE_SKIP = new Set(["fidget", "prop"]);
 export const READ_MS = [35 * 1000, 60 * 1000];
+/** How long she leans on a panel side as an idle activity. */
+export const LEAN_MS = [20000, 40000];
 /** Resting: how often a wander turns into sitting on the nearest panel edge, and for how long. */
 export const REST_CHANCE = 0.7;
 export const REST_MS = [30 * 1000, 60 * 1000];

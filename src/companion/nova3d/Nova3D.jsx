@@ -7,7 +7,7 @@ const GLITCH_MS = 520;
  * React shell around NovaStage. Lazy-loaded (three.js + the model are a separate chunk).
  * Calls `onFail` when WebGL or the model can't load so the layer can fall back to the
  * portrait sprite. `gesture` is `{ name, id, idle }`; each new id plays that gesture once
- * (idle ones give way when she starts talking). `attend` turns her to face the user; `held` means she is dangling from the cursor; `seat` ("playful" | "cold" | "cards") sits her on the platform edge; `lie` ("prop" | "back" | "belly" | "side") lays her down. `still` (reduced motion) turns off the leg swing and breathing; `energy` scales the leg swing pace.
+ * (idle ones give way when she starts talking). `attend` turns her to face the user; `held` means she is dangling from the cursor; `seat` ("playful" | "cold" | "cards") sits her on the platform edge; `lie` ("prop" | "back" | "belly" | "side") lays her down. `lean` ("left" | "right", the side the wall is on) holds her leaning on a panel side. `still` (reduced motion) turns off the leg swing and breathing; `energy` scales the leg swing pace.
  * `staticNoise` adds faint static (offline).
  * Idle life: `activity` ("draw" | "read" | "cards", or "pull" while syncing) shows her hologram props or points her arm at the
  * pen in `pen` (a ref of viewport px); `drowsy` droops her eyes; each new `glance` `{ x, y, ms }` turns her gaze.
@@ -26,6 +26,7 @@ export default memo(function Nova3D({
   attend = false,
   held = false,
   seat = null,
+  lean = null,
   lie = null,
   still = false,
   energy = 1,
@@ -118,8 +119,8 @@ export default memo(function Nova3D({
   }, [size]);
 
   useEffect(() => {
-    stageRef.current?.set({ facing, gait, speed, mood, talkUntil, rampant, glow, asleep, attend, held, seat, lie, still, energy, visible, activity, drowsy, staticNoise });
-  }, [facing, gait, speed, mood, talkUntil, rampant, glow, asleep, attend, held, seat, lie, still, energy, visible, activity, drowsy, staticNoise]);
+    stageRef.current?.set({ facing, gait, speed, mood, talkUntil, rampant, glow, asleep, attend, held, seat, lean, lie, still, energy, visible, activity, drowsy, staticNoise });
+  }, [facing, gait, speed, mood, talkUntil, rampant, glow, asleep, attend, held, seat, lean, lie, still, energy, visible, activity, drowsy, staticNoise]);
 
   useEffect(() => {
     stageRef.current?.setPen(pen);

@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { dayPart } from "../idleDirector.js";
 import { dueStage, mayPeek, pickProp } from "../idleStages.js";
 import { buildDoodle, doodleBox, layoutDoodle, pickDoodle } from "../doodles.js";
-import { findDoodleSpot, findPeekSpot, findTarget, seatClear } from "../safeZones.js";
+import { findDoodleSpot, findLeanSpot, findPeekSpot, findTarget, seatClear } from "../safeZones.js";
 import { rand } from "../layer/geometry.js";
-import { DROWSY_MS, MOVE, READ_MS, SPRITE_SKIP } from "../layer/constants.js";
+import { DROWSY_MS, LEAN_MS, MOVE, READ_MS, SPRITE_SKIP } from "../layer/constants.js";
 
 /** Idle life: staged activities (fidget, doodle, read, cards, doze, peek) by how long the student has been idle. */
-export function useNovaIdleLife(core, { mode, facing, bodyReady, ticking, quiet, syncRef, housedRef, setSeat }) {
+export function useNovaIdleLife(core, { mode, facing, bodyReady, ticking, quiet, syncRef, housedRef, setSeat, dragging, gait }) {
   const {
     stateRef,
     modeRef,
@@ -21,6 +21,7 @@ export function useNovaIdleLife(core, { mode, facing, bodyReady, ticking, quiet,
     playGesture,
     cancel,
     flyTo,
+    jumpTo,
     sizeRef,
     awayFromSpotRef,
     lastInputRef,
@@ -41,6 +42,11 @@ export function useNovaIdleLife(core, { mode, facing, bodyReady, ticking, quiet,
   const [activity, setActivity] = useState(null);
   const [idleLie, setIdleLie] = useState(null);
   const [drowsy, setDrowsy] = useState(false);
+  /** Leaning on a panel side ("left" | "right", where the wall is), as an activity or her resting pose. */
+  const [lean, setLean] = useState(null);
+  const lastLeanRef = useRef(0);
+  /** Where she last checked for a wall to rest against, so the DOM scan runs once per spot. */
+  const restCheckedRef = useRef(null);
   const [glance, setGlance] = useState(null);
   const [doodle, setDoodle] = useState(null);
   const penRef = useRef(null);
@@ -60,6 +66,8 @@ export function useNovaIdleLife(core, { mode, facing, bodyReady, ticking, quiet,
 
   /** Put the body back to normal. `fast` (input) snaps the doodle out instead of letting it fade. */
   const clearActivityVisuals = (fast) => {
+    setLean(null);
+    restCheckedRef.current = null;
     setActivity(null);
     setIdleLie(null);
     setDrowsy(false);
@@ -87,6 +95,14 @@ export function useNovaIdleLife(core, { mode, facing, bodyReady, ticking, quiet,
   useEffect(() => {
     if (mode !== "play" && activityRef.current) api.current.endActivity();
   }, [mode]);
+
+  /* Moving, being grabbed or leaving idle ends a lean. */
+  useEffect(() => {
+    if ((mode !== "idle" && mode !== "play") || dragging || gait) {
+      setLean(null);
+      restCheckedRef.current = null;
+    }
+  }, [mode, dragging, gait]);
 
   api.current.runStage = async (kind) => {
     if (activityRef.current) return;
@@ -241,6 +257,46 @@ export function useNovaIdleLife(core, { mode, facing, bodyReady, ticking, quiet,
       tk.moving = false;
       if (back && !tk.aborted) awayFromSpotRef.current = wasAway;
     },
+
+    /* Once in a while: walks to a panel side and leans on it for a while, then walks back. */
+    lean: async (tk) => {
+      const s = sizeRef.current;
+      const start = { ...posRef.current };
+      const spot = findLeanSpot(start, s, platRef.current);
+      if (!spot) return;
+      const wasAway = awayFromSpotRef.current;
+      awayFromSpotRef.current = true;
+      const speed = (MOVE[stateRef.current?.movement] || MOVE.normal).speed;
+      tk.moving = true;
+      const there = await flyTo({ x: spot.x, y: spot.y }, { speed, walk: true });
+      tk.moving = false;
+      if (!there || tk.aborted) return;
+      setFacing(spot.outward);
+      setLean(spot.side);
+      if (!(await hold(rand(LEAN_MS), tk))) return;
+      setLean(null);
+      if (!(await hold(600, tk))) return;
+      tk.moving = true;
+      const back = await flyTo(start, { speed, walk: true });
+      tk.moving = false;
+      if (back && !tk.aborted) awayFromSpotRef.current = wasAway;
+    },
+  };
+
+  /** Idle at her own spot right beside a panel side: she leans on it until she next moves. */
+  const restLean = () => {
+    if (modeRef.current !== "idle" || awayFromSpotRef.current || lean) return;
+    const s = sizeRef.current;
+    const p = posRef.current;
+    const key = `${Math.round(p.x)},${Math.round(p.y)}`;
+    if (restCheckedRef.current === key) return;
+    restCheckedRef.current = key;
+    const spot = findLeanSpot(p, s, platRef.current, { maxDist: s / 3 });
+    if (!spot) return;
+    if (Math.abs(spot.x - p.x) > 0.5) jumpTo({ x: spot.x, y: spot.y });
+    restCheckedRef.current = `${Math.round(spot.x)},${Math.round(spot.y)}`;
+    setFacing(spot.outward);
+    setLean(spot.side);
   };
 
   api.current.idleTick = () => {
@@ -257,10 +313,18 @@ export function useNovaIdleLife(core, { mode, facing, bodyReady, ticking, quiet,
       void api.current.runStage(stage);
       return;
     }
-    if (body3d && !housedRef.current && mayPeek({ idleMs, lastPeek: lastPeekRef.current, now })) {
+    if (!body3d || housedRef.current) return;
+    if (mayPeek({ idleMs, lastPeek: lastPeekRef.current, now })) {
       lastPeekRef.current = now;
       void api.current.runStage("peek");
+      return;
     }
+    if (mayPeek({ idleMs, lastPeek: lastLeanRef.current, now })) {
+      lastLeanRef.current = now;
+      void api.current.runStage("lean");
+      return;
+    }
+    restLean();
   };
 
   useEffect(() => {
@@ -272,5 +336,5 @@ export function useNovaIdleLife(core, { mode, facing, bodyReady, ticking, quiet,
     return () => window.clearInterval(id);
   }, [ticking, quiet, reduced]);
 
-  return { stagesDoneRef, activity, idleLie, drowsy, glance, setGlance, doodle, setDoodle, penRef, doodleDrawnRef, glanceAtRect };
+  return { stagesDoneRef, activity, idleLie, drowsy, lean, glance, setGlance, doodle, setDoodle, penRef, doodleDrawnRef, glanceAtRect };
 }

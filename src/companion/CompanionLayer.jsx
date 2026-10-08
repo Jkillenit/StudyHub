@@ -514,7 +514,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   /* ---------- idle life: staged by how long the student has been idle ---------- */
 
-  const { stagesDoneRef, activity, idleLie, drowsy, glance, setGlance, doodle, setDoodle, penRef, doodleDrawnRef, glanceAtRect } = useNovaIdleLife(core, {
+  const { stagesDoneRef, activity, idleLie, drowsy, lean, glance, setGlance, doodle, setDoodle, penRef, doodleDrawnRef, glanceAtRect } = useNovaIdleLife(core, {
     mode,
     facing,
     bodyReady,
@@ -523,6 +523,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     syncRef,
     housedRef,
     setSeat,
+    dragging,
+    gait,
   });
 
   /* ---------- the spoken briefing: she walks to what she's talking about ---------- */
@@ -784,6 +786,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
                     attend={ATTEND_MODES.has(mode)}
                     held={dragging}
                     seat={mode === "perch" || mode === "play" ? seat : null}
+                    lean={mode === "idle" || mode === "play" ? lean : null}
                     lie={mode === "sleep" ? "side" : mode === "play" ? idleLie : null}
                     activity={mode === "play" ? activity : sync?.phase === "open" ? "pull" : null}
                     drowsy={mode === "play" && drowsy}

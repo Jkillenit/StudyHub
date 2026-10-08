@@ -224,6 +224,12 @@ const SEAT_FRAC = 0.27;
 const SEAT_PLAYFUL = {
   arms: bothArms(dir(0.32, -0.92, -0.2), dir(0.08, -1, 0.12), dir(0, -0.85, 0.5)),
 };
+/**
+ * Leaning on a panel side: arms crossed, torso tilted into the wall, head tipped back the other way.
+ * LEAN_TILT is the spine roll toward the wall for `lean: "right"`; "left" mirrors it.
+ */
+const LEAN_TILT = -0.12;
+const LEAN_ARMS = bothArms(dir(0.25, -0.8, 0.45), dir(-0.85, 0.35, 0.45), dir(-0.9, 0.3, 0.3));
 
 /** Tip the direction (x, y, z) forward (toward +z, the way she faces) by `a` radians around the x axis, into `out`. */
 function forward(out, x, y, z, a) {
@@ -453,7 +459,7 @@ export class NovaStage {
     this.root = new THREE.Group();
     this.scene.add(this.root);
     this.clock = new THREE.Clock(false);
-    this.state = { gait: null, speed: 90, facing: 1, mood: "neutral", talkUntil: 0, rampant: false, glow: 1, asleep: false, attend: false, held: false, seat: null, lie: null, still: false, energy: 1, glitchUntil: 0, visible: true, activity: null, drowsy: false, staticNoise: false };
+    this.state = { gait: null, speed: 90, facing: 1, mood: "neutral", talkUntil: 0, rampant: false, glow: 1, asleep: false, attend: false, held: false, seat: null, lie: null, still: false, energy: 1, glitchUntil: 0, visible: true, activity: null, drowsy: false, staticNoise: false, lean: null };
     this.forced = null;
     this.focusWorld = null;
     this.focusVec = new THREE.Vector3();
@@ -500,6 +506,7 @@ export class NovaStage {
     this.seatW = 0;
     this.playW = 0;
     this.lieW = 0;
+    this.leanW = 0;
     this.lieX = 0;
     this.t = 0;
     this.face = {};
@@ -1006,6 +1013,9 @@ export class NovaStage {
     this.playW = ease(this.playW, seated && !s.asleep && (s.seat === "playful" || s.seat === "cards") ? 1 : 0, 4);
     this.cardsW = ease(this.cardsW, seated && !s.asleep && s.seat === "cards" ? 1 : 0, 4);
     this.lieW = ease(this.lieW, lying ? 1 : 0, 4);
+    const leaning = !!s.lean && !lying && !seated && !s.gait && !s.held && !this.oneShot;
+    this.leanW = ease(this.leanW, leaning ? 1 : 0, 4);
+    if (leaning) this.leanSide = s.lean === "right" ? 1 : -1;
     const pen = s.activity === "draw" && !lying && !seated && !s.gait ? this.penRef?.current : null;
     this.drawW = ease(this.drawW, pen ? 1 : 0, 6);
 
@@ -1026,6 +1036,13 @@ export class NovaStage {
       if (!s.still) this.bend("head", [0, 0, Math.sin(this.t * 1.3) * 0.08], this.playW * (1 - this.cardsW));
     }
     if (this.cardsW > 0.01) this.applyArmPose(CARDS_ARMS, this.cardsW);
+    if (this.leanW > 0.01) {
+      const tilt = LEAN_TILT * (this.leanSide || 1);
+      this.applyArmPose(LEAN_ARMS, this.leanW);
+      this.bend("spine", [0, 0, tilt], this.leanW);
+      this.bend("chest", [0, 0, tilt * 0.7], this.leanW);
+      this.bend("head", [0, 0, -tilt], this.leanW);
+    }
     if (pen) {
       const r = this.canvas.getBoundingClientRect();
       this.drawAt = { x: pen.x - (r.left + r.width / 2), y: pen.y - (r.top + r.height * 0.3) };
