@@ -42,7 +42,7 @@ function TestSetup({ modules, pool, onStart, busy }) {
 
   return (
     <div className="sh-pt-setup">
-      <div className="sh-hub-section-label">SCOPE</div>
+      <div className="sh-hub-section-label">Scope</div>
       <div className="sh-pt-chips">
         <button
           type="button"
@@ -65,7 +65,7 @@ function TestSetup({ modules, pool, onStart, busy }) {
           ))}
       </div>
 
-      <div className="sh-hub-section-label">QUESTIONS</div>
+      <div className="sh-hub-section-label">Questions</div>
       <div className="sh-pt-chips">
         {COUNTS.map((n) => (
           <button key={n} type="button" className={`sh-pt-chip${count === n ? " active" : ""}`} onClick={() => setCount(n)}>
@@ -74,7 +74,7 @@ function TestSetup({ modules, pool, onStart, busy }) {
         ))}
       </div>
 
-      <div className="sh-hub-section-label">FORMAT</div>
+      <div className="sh-hub-section-label">Format</div>
       <div className="sh-pt-chips">
         {QUESTION_TYPES.map((t) => (
           <button
@@ -253,7 +253,7 @@ function TestResults({ questions, results, modules, onRetakeMissed, onNewTest })
 
       {byModule.size > 1 ? (
         <div className="sh-mirror-group">
-          <div className="sh-hub-section-label">BY MODULE</div>
+          <div className="sh-hub-section-label">By module</div>
           <ul className="sh-today-list">
             {[...byModule.entries()].map(([id, r]) => (
               <li key={id} className="sh-today-row">
@@ -376,7 +376,7 @@ export function PracticeTestView({ course }) {
   return (
     <div className="main-content sh-mirror-view sh-pt">
       <div className="sh-mirror-head">
-        <div className="sh-section-label">PRACTICE TEST</div>
+        <div className="sh-section-label">Practice test</div>
         {questions && !finished ? (
           <button type="button" className="sh-btn-ghost sh-bb-sync-btn" onClick={() => setQuestions(null)}>
             QUIT

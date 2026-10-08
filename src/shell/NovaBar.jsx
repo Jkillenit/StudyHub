@@ -21,12 +21,6 @@ function useNovaTucked() {
   return tucked;
 }
 
-const Hex = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
-    <path d="M12 2l8 5v10l-8 5-8-5V7z" />
-  </svg>
-);
-
 /** The message box: commands run through Nova (studyhub-nova-run), questions open her answer bubble (studyhub-nova-answer). */
 export function NovaBar({ courses, placeholder = "Message Nova, or type / for commands" }) {
   const [q, setQ] = useState("");
@@ -108,53 +102,48 @@ export function NovaBar({ courses, placeholder = "Message Nova, or type / for co
           ))}
         </ul>
       ) : null}
-      <div className="sh-cut">
-        <div className="sh-cut-fill sh-hex">
-          <div className="sh-novabar-row">
-            <span className="sh-novabar-glyph">
-              <Hex />
-              <span className="sh-novabar-portrait" data-nova-portrait>
-                {tucked ? (
-                  <Suspense fallback={null}>
-                    <NovaSprite size={28} />
-                  </Suspense>
-                ) : null}
-              </span>
-            </span>
-            <input
-              ref={inputRef}
-              className="sh-novabar-input"
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setNote(null);
-              }}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  submit();
-                } else if (e.key === "Escape") done();
-              }}
-              placeholder={placeholder}
-              aria-label="Message Nova"
-            />
-            <kbd className="sh-novabar-key">Ctrl /</kbd>
-          </div>
-          {note ? <p className="sh-novabar-note" role="status">{note}</p> : null}
-          {focused ? (
-            <div className="sh-novabar-tools">
-              <button type="button" className="sh-novabar-tool" onMouseDown={(e) => e.preventDefault()} onClick={() => run({ id: "quiz" })}>
-                Quiz me
-              </button>
-              <button type="button" className="sh-novabar-tool" onMouseDown={(e) => e.preventDefault()} onClick={() => run({ id: "focus", minutes: 25 })}>
-                Focus 25
-              </button>
-              <span className="sh-novabar-hint">Enter to send</span>
-            </div>
-          ) : null}
+      <div className="sh-novabar-box">
+        <div className="sh-novabar-row">
+          <span className="sh-novabar-portrait" data-nova-portrait>
+            {tucked ? (
+              <Suspense fallback={null}>
+                <NovaSprite size={28} />
+              </Suspense>
+            ) : null}
+          </span>
+          <input
+            ref={inputRef}
+            className="sh-novabar-input"
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setNote(null);
+            }}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                submit();
+              } else if (e.key === "Escape") done();
+            }}
+            placeholder={placeholder}
+            aria-label="Message Nova"
+          />
+          <kbd className="sh-novabar-key">Ctrl /</kbd>
         </div>
+        {note ? <p className="sh-novabar-note" role="status">{note}</p> : null}
+        {focused ? (
+          <div className="sh-novabar-tools">
+            <button type="button" className="sh-novabar-tool" onMouseDown={(e) => e.preventDefault()} onClick={() => run({ id: "quiz" })}>
+              Quiz me
+            </button>
+            <button type="button" className="sh-novabar-tool" onMouseDown={(e) => e.preventDefault()} onClick={() => run({ id: "focus", minutes: 25 })}>
+              Focus 25
+            </button>
+            <span className="sh-novabar-hint">Enter to send</span>
+          </div>
+        ) : null}
       </div>
     </div>
   );

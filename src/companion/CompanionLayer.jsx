@@ -630,7 +630,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     bubbleNode = (
       <SpeechBubble
         key={`tour-${tour.index}`}
-        title={tour.step.title?.toUpperCase()}
+        title={tour.step.title}
         text={waiting ? `${tour.step.text} Click it to continue.` : tour.step.text}
         actions={actions}
         footer={`${tour.index + 1} / ${tour.total}`}

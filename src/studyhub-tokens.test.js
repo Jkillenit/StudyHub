@@ -7,26 +7,28 @@ const root = css.slice(start, css.indexOf("}", start));
 const token = (name) => root.match(new RegExp(`--${name}:\\s*([^;]+);`))?.[1].trim();
 
 describe("design tokens", () => {
-  it("uses the aqua/magenta palette on true black", () => {
-    expect(token("sh-bg")).toBe("#04050A");
-    expect(token("sh-accent")).toBe("#4CF0E8");
-    expect(token("sh-accent-2")).toBe("#FF4FD8");
-    expect(token("sh-danger")).toBe("#FF4D4F");
-    expect(token("sh-warn")).toBe("#FFC857");
+  it("uses ice aqua on graphite", () => {
+    expect(token("sh-bg")).toBe("#040506");
+    expect(token("sh-accent")).toBe("#86E1DE");
+    expect(token("sh-accent-2")).toBe("var(--sh-text-3)");
+    expect(token("sh-danger")).toBe("#E5686A");
+    expect(token("sh-warn")).toBe("#E3BE72");
   });
 
-  it("uses Geist and Michroma", () => {
+  it("uses Geist for everything", () => {
     expect(token("sh-font-body")).toMatch(/^"Geist Sans"/);
     expect(token("sh-font-mono")).toMatch(/^"Geist Mono"/);
-    expect(token("sh-font-display")).toMatch(/^"Michroma"/);
-    expect(css).not.toMatch(/Manrope|Chakra Petch|JetBrains Mono/);
+    expect(token("sh-font-display")).toMatch(/^"Geist Sans"/);
+    expect(css).not.toMatch(/Michroma|Manrope|Chakra Petch|JetBrains Mono/);
   });
 
-  it("has no rounded corners", () => {
-    for (const r of ["xl", "lg", "md", "sm", "xs"]) expect(token(`sh-radius-${r}`)).toBe("0");
+  it("uses the small radius scale", () => {
+    expect(token("sh-radius-sm")).toBe("6px");
+    expect(token("sh-radius-md")).toBe("10px");
+    expect(token("sh-radius-lg")).toBe("14px");
     const literals = [...css.matchAll(/border(?:-(?:top|bottom)-(?:left|right))?-radius:\s*([^;]+);/g)]
       .map((m) => m[1].trim())
-      .filter((v) => !/^(0|inherit|var\(--sh-radius-[a-z]+\))( !important)?$/.test(v));
+      .filter((v) => !/^(0|50%|999px|inherit|var\(--sh-radius-[a-z]+\))( !important)?$/.test(v));
     expect(literals).toEqual([]);
   });
 
@@ -34,14 +36,14 @@ describe("design tokens", () => {
     expect(css).not.toMatch(/--sh-grid-line/);
   });
 
-  it("leaves no old palette behind", () => {
-    expect(css).not.toMatch(/79,\s*216,\s*255|#4FD8FF/i);
+  it("leaves no old palette or HUD chrome behind", () => {
+    expect(css).not.toMatch(/79,\s*216,\s*255|#4FD8FF|#4CF0E8|#FF4FD8/i);
+    expect(css).not.toMatch(/\.sh-cut\b|\.sh-hex\b|\.sh-bracket\b|\.nv-scan\b|\.nv-sweep\b/);
   });
 
-  it("defines the secondary and chamfer tokens", () => {
-    expect(token("sh-side")).toBe("#030407");
+  it("drops the chamfer", () => {
+    expect(token("sh-side")).toBe("#08090A");
     expect(token("sh-accent-2-soft")).toMatch(/^color-mix/);
-    expect(token("sh-accent-2-line")).toMatch(/^color-mix/);
-    expect(token("sh-cut")).toBe("12px");
+    expect(token("sh-cut")).toBe("0");
   });
 });

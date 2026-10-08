@@ -51,7 +51,7 @@ function CoursesView({ userCourses, onOpenCourse, onManualCreate, refreshKey, on
     <div className="sh-courses-page">
       <div className="sh-courses-main">
         <div className="sh-panel sh-hub-block" data-tour-id="hub-courses">
-          <h2 className="sh-hud-title">YOUR COURSES</h2>
+          <h2 className="sh-hud-title">Your courses</h2>
           <div className="sh-hub-list" data-perch>
             <button
               type="button"
@@ -97,7 +97,7 @@ function CoursesView({ userCourses, onOpenCourse, onManualCreate, refreshKey, on
         </div>
 
         <div className="sh-panel sh-hub-block">
-          <h2 className="sh-hud-title">ADD COURSE</h2>
+          <h2 className="sh-hud-title">Add course</h2>
           <div className="sh-hub-add-actions" data-tour-id="hub-add-course">
             <button type="button" className="sh-btn-outline" onClick={onExpress}>
               + Express import
@@ -120,7 +120,7 @@ function CoursesView({ userCourses, onOpenCourse, onManualCreate, refreshKey, on
         </div>
 
         <div className="sh-panel sh-hub-block sh-hub-bb-section" data-tour-id="hub-blackboard">
-          <h2 className="sh-hud-title">BLACKBOARD</h2>
+          <h2 className="sh-hud-title">Blackboard</h2>
           <button className="sh-hub-bb-btn" onClick={handleOpenBlackboard}>
             <span className="sh-hub-bb-icon">⬡</span>
             <span className="sh-hub-bb-text">{bbStatus.loggedIn ? "Open Blackboard" : "Connect Blackboard"}</span>

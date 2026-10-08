@@ -62,25 +62,28 @@ supabase/              Commons SQL schema, RLS, edge functions
 docs/                  PROJECT_BRIEF.md, ROADMAP.md, PRODUCT_BACKLOG.md
 
 ## CSS DESIGN SYSTEM
-Hard-edged HUD on true black. Spec: docs/superpowers/specs/2026-10-01-ui-overhaul-design.md.
+Minimal graphite + ice aqua. Plan: ~/.cursor/plans/minimal_redesign_and_live_nova_bdf6859c.plan.md
+(supersedes the 2026-10-01 HUD spec). Resting screens show only what matters;
+extra detail appears on hover/focus or while Nova speaks.
 NEVER hardcode colors, fonts, radii or shadows. ALWAYS use tokens
 (defined in :root of studyhub-bootstrap.css; color-mix() over tokens is fine):
  Surfaces: --sh-bg --sh-side --sh-panel --sh-panel-strong --sh-panel-solid (floating UI)
  Lines: --sh-border --sh-border-strong --sh-track
  Accent: --sh-accent --sh-accent-soft --sh-accent-line --sh-accent-hover
- Secondary: --sh-accent-2 (magenta) ONLY for chamfer/card corner marks, ambient
-  lines, auras, exam tags/edges, the mastery/progress gradient end, formula rule
- States: --sh-warn(-soft/-line) --sh-danger(-soft/-line)
+ --sh-accent-2 is a legacy neutral (Zombies sets it to amber); no new uses.
+ States: --sh-warn(-soft/-line) --sh-danger(-soft/-line), real alerts only
  Power-ups: --sh-power (green) only on power-up drops
  Text: --sh-text --sh-text-2 --sh-text-3 (never dimmer than text-3)
- Shape: radius is 0 everywhere; --sh-cut chamfer; --sh-shadow-panel --sh-glow-accent
---sh-accent (aqua in Nova, red in Zombies) is the only interactive accent. No terminal green.
-Glow only on the single most important element on screen.
+ Shape: --sh-radius-sm (6px controls) -md (10px panels) -lg (14px composer);
+  no chamfers, brackets, hex or scanlines; --sh-shadow-panel
+--sh-accent (ice aqua in Nova, red in Zombies) is the only color; it means
+"interactive" or "Nova". At most one glow per screen (primary action).
+Signature detail: 1px aqua hairline for focus rings and active nav.
 
 Typography (fonts bundled via @fontsource, never a CDN):
- - Display: --sh-font-display (Michroma), uppercase, letter-spacing 0.06em
- - Content: --sh-font-body (Geist). Task titles 17-18px / 600.
- - Numbers, times, codes, HUD labels: --sh-font-mono (Geist Mono)
+ - Display + content: Geist Sans (--sh-font-display / --sh-font-body), sentence
+  case, no uppercase labels, no wide letter-spacing. Task titles 17-18px / 600.
+ - Mono (--sh-font-mono, Geist Mono) only for numbers, times and key hints.
  - Scale: 11 / 12.5 / 14 / 17-18 / 22-24 / 28-30. Minimum 11px.
 
 Motion: respect html[data-motion="reduced"] (set from Settings or the OS via

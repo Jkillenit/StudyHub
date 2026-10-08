@@ -6,7 +6,7 @@ function getElectronApi() {
 }
 
 function todayLabel() {
-  return new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }).replace(/,/g, "").toUpperCase();
+  return new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }).replace(/,/g, "");
 }
 
 export function TitleBar({ onHub = true }) {

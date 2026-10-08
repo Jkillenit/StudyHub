@@ -1,7 +1,7 @@
 export function FormulaBox({ children }) {
   return (
     <div className="def-card def-card--formula">
-      <div className="def-card__label">FORMULA</div>
+      <div className="def-card__label">Formula</div>
       <pre className="formula-pre mb-0">{children}</pre>
     </div>
   );

@@ -31,7 +31,7 @@ export function BlackboardTab() {
 
   return (
     <section className="sh-settings-section">
-      <div className="sh-settings-section-label">BLACKBOARD</div>
+      <div className="sh-settings-section-label">Blackboard</div>
       <div className="sh-settings-kv">
         <span>Status</span>
         <span className={`sh-settings-mono${status.loggedIn ? " sh-settings-on" : ""}`}>{status.loggedIn ? "● Connected" : "○ Not connected"}</span>

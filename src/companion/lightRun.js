@@ -4,10 +4,10 @@ import { normTerm } from "../features/practice/questionPool.js";
 import { shortCourse } from "../features/dashboard/courseLabel.js";
 
 export const RUN_MODES = [
-  { id: "quick", label: "QUICK RUN", blurb: "5–10 due cards. No timer." },
-  { id: "streak", label: "STREAK RUN", blurb: "Keep going until your health runs out." },
-  { id: "weak", label: "WEAK SPOTS", blurb: "Your 10 shakiest cards. Hints encouraged." },
-  { id: "clock", label: "BEAT THE CLOCK", blurb: "60 seconds, multiple choice, speed bonus." },
+  { id: "quick", label: "Quick run", blurb: "5–10 due cards. No timer." },
+  { id: "streak", label: "Streak run", blurb: "Keep going until your health runs out." },
+  { id: "weak", label: "Weak spots", blurb: "Your 10 shakiest cards. Hints encouraged." },
+  { id: "clock", label: "Beat the clock", blurb: "60 seconds, multiple choice, speed bonus." },
 ];
 
 export const CLOCK_SECONDS = 60;

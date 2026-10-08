@@ -41,22 +41,22 @@ function EstimatePanel({ est, exam }) {
         {exam && !past ? (
           <div className="sh-today-stat">
             <span className="sh-today-stat-value">{est.days}</span>
-            <span className="sh-today-stat-label">DAYS LEFT</span>
+            <span className="sh-today-stat-label">Days left</span>
           </div>
         ) : null}
         <div className="sh-today-stat">
           <span className="sh-today-stat-value">{formatMinutes(est.totalMinutes)}</span>
-          <span className="sh-today-stat-label">REVIEW LEFT</span>
+          <span className="sh-today-stat-label">Review left</span>
         </div>
         {est.perDayMinutes != null && !past ? (
           <div className="sh-today-stat">
             <span className="sh-today-stat-value">{formatMinutes(est.perDayMinutes)}</span>
-            <span className="sh-today-stat-label">PER DAY</span>
+            <span className="sh-today-stat-label">Per day</span>
           </div>
         ) : null}
         <div className="sh-today-stat">
           <span className="sh-today-stat-value">{est.readiness}%</span>
-          <span className="sh-today-stat-label">READY</span>
+          <span className="sh-today-stat-label">Ready</span>
         </div>
       </div>
       <p className="sh-guide-est-note mono">
@@ -88,7 +88,7 @@ function GuideModule({ m, includeNotes }) {
       ) : null}
       {m.sections.map((s, i) => (
         <div key={`${s.title}-${i}`} className="sh-guide-section">
-          <div className="sh-hub-section-label">{String(s.title).toUpperCase()}</div>
+          <div className="sh-hub-section-label">{String(s.title)}</div>
           <ul>
             {s.items.map((item, j) => (
               <li key={j}>{item}</li>
@@ -98,7 +98,7 @@ function GuideModule({ m, includeNotes }) {
       ))}
       {m.formulas.length ? (
         <div className="sh-guide-section">
-          <div className="sh-hub-section-label">FORMULAS</div>
+          <div className="sh-hub-section-label">Formulas</div>
           <ul>
             {m.formulas.map((f, i) => (
               <li key={i}>
@@ -111,7 +111,7 @@ function GuideModule({ m, includeNotes }) {
       ) : null}
       {includeNotes && m.notes ? (
         <div className="sh-guide-section">
-          <div className="sh-hub-section-label">MY NOTES</div>
+          <div className="sh-hub-section-label">My notes</div>
           <p className="sh-guide-notes">{m.notes}</p>
         </div>
       ) : null}
@@ -207,7 +207,7 @@ export function StudyGuideView({ course }) {
   return (
     <div className="main-content sh-mirror-view sh-guide">
       <div className="sh-mirror-head sh-no-print">
-        <div className="sh-section-label">STUDY GUIDE</div>
+        <div className="sh-section-label">Study guide</div>
         <div className="sh-bb-sync-actions">
           <button type="button" className="sh-btn-ghost sh-bb-sync-btn" onClick={() => void copyMarkdown()}>
             {copied ? "✓ COPIED" : "COPY AS MARKDOWN"}
@@ -219,7 +219,7 @@ export function StudyGuideView({ course }) {
       </div>
 
       <div className="sh-guide-controls sh-no-print">
-        <div className="sh-hub-section-label">EXAM</div>
+        <div className="sh-hub-section-label">Exam</div>
         <div className="sh-pt-chips">
           {exams.map((e) => (
             <button
@@ -248,7 +248,7 @@ export function StudyGuideView({ course }) {
           </p>
         ) : null}
 
-        <div className="sh-hub-section-label">COVERS</div>
+        <div className="sh-hub-section-label">Covers</div>
         {exam ? <ScopeHint scope={scope} onUseSyllabus={() => void courseStore.setExamScope(exam.uuid, null)} /> : null}
         <div className="sh-pt-chips">
           <button type="button" className={`sh-pt-chip${!moduleIds.length ? " active" : ""}`} onClick={() => setScope([])}>
@@ -272,7 +272,7 @@ export function StudyGuideView({ course }) {
       </div>
 
       <div className="sh-mirror-group sh-no-print">
-        <div className="sh-hub-section-label">TIME ESTIMATE</div>
+        <div className="sh-hub-section-label">Time estimate</div>
         <EstimatePanel est={est} exam={exam} />
       </div>
 

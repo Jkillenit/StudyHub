@@ -529,7 +529,7 @@ export class NovaStage {
     this.uniforms.uColor.value.copy(cssColor(this.state.rampant ? "--sh-danger" : "--sh-accent", "--sh-accent"));
     this.uniforms.uHot.value.copy(cssColor("--sh-text", "--sh-accent"));
     this.uniforms.uZombie.value = document.documentElement.dataset.pack === "zombies" ? 1 : 0;
-    this.uniforms.uEyeColor.value.copy(cssColor("--sh-accent-2", "--sh-accent"));
+    this.uniforms.uEyeColor.value.copy(cssColor(this.uniforms.uZombie.value ? "--sh-accent-2" : "--sh-accent", "--sh-accent"));
     for (const set of Object.values(this.propMats || {})) {
       set.fill.color.copy(this.uniforms.uColor.value);
       set.dim.color.copy(this.uniforms.uColor.value);

@@ -48,7 +48,7 @@ export function NovaMemoryView({ onBack }) {
       </p>
       {rapport === null ? null : (
         <p className="sh-memory-rapport">
-          <span className="sh-settings-section-label">YOU TWO</span> {rapportTier(rapport).label} · {rapport} {rapport === 1 ? "visit" : "visits"}
+          <span className="sh-settings-section-label">You two</span> {rapportTier(rapport).label} · {rapport} {rapport === 1 ? "visit" : "visits"}
         </p>
       )}
       {rows === null ? null : known.length ? (
@@ -67,7 +67,7 @@ export function NovaMemoryView({ onBack }) {
       )}
       {muted.length ? (
         <>
-          <div className="sh-settings-section-label sh-memory-muted-label">NOT TRACKING</div>
+          <div className="sh-settings-section-label sh-memory-muted-label">Not tracking</div>
           <ul className="sh-memory-list">
             {muted.map((f) => (
               <li key={f.key} className="sh-memory-item sh-memory-item--muted">

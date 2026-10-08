@@ -34,7 +34,6 @@ export function NovaSprite({ mood = "neutral", glow = 1, facing = 1, flying = fa
   const frame = rampant ? "rampant" : MOOD_FRAME[mood] || "idle";
   const src = frames?.[frame];
   const g = Math.max(0, Math.min(5, glow));
-  const mask = src ? { WebkitMaskImage: `url(${src})`, maskImage: `url(${src})` } : null;
 
   return (
     <span
@@ -64,8 +63,6 @@ export function NovaSprite({ mood = "neutral", glow = 1, facing = 1, flying = fa
             <img key={frame} className="nv-img" src={src} alt="" draggable={false} />
             <img className="nv-img nv-ghost nv-ghost--a" src={src} alt="" draggable={false} />
             <img className="nv-img nv-ghost nv-ghost--b" src={src} alt="" draggable={false} />
-            <span className="nv-scan" style={mask} />
-            <span className="nv-sweep" style={mask} />
           </>
         ) : null}
       </span>

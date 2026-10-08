@@ -22,7 +22,7 @@ export class ErrorBoundary extends Component {
     if (this.props.fallback !== undefined) return this.props.fallback;
     return (
       <div className="sh-error-boundary">
-        <div className="sh-section-label">SOMETHING WENT WRONG</div>
+        <div className="sh-section-label">Something went wrong</div>
         <p className="sh-error-boundary-text">
           This view hit an error. Your data is saved locally. {String(this.state.error?.message || "")}
         </p>

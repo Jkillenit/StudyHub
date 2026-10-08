@@ -19,7 +19,7 @@ export function GlossaryContextBlock() {
   return (
     <div className="ctx-section">
       <div className="sh-ctx-glossary-head">
-        <span className="sh-ctx-glossary-title">GLOSSARY</span>
+        <span className="sh-ctx-glossary-title">Glossary</span>
         <button type="button" className="sh-btn-ghost" style={{ width: "auto", marginBottom: 0, padding: "4px 10px" }} onClick={closeSplit}>
           EXIT
         </button>

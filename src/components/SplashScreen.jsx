@@ -36,7 +36,7 @@ export function SplashScreen({ ready, leaving, courseCount = 0 }) {
         <div className="sh-splash-word">
           STUDY<span className="sh-splash-slash">//</span>HUB
         </div>
-        <div className="sh-splash-tag">YOUR COURSES · YOUR NOTES · ONE PLACE</div>
+        <div className="sh-splash-tag">Your courses · your notes · one place</div>
         <div className={`sh-splash-bar${ready ? " sh-splash-bar--done" : ""}`}>
           <span />
         </div>

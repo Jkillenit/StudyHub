@@ -139,7 +139,7 @@ export function AppRail({ onHub, hubView, courseId, courses, onNavigate, onOpenC
               <path d="M12 2l8.66 5v10L12 22l-8.66-5V7z" />
               <circle cx="12" cy="12" r="3.5" />
             </svg>
-            <span className="sh-rail-label sh-rail-wordmark">STUDY HUB</span>
+            <span className="sh-rail-label sh-rail-wordmark">Study Hub</span>
           </button>
           <button
             type="button"
@@ -175,7 +175,7 @@ export function AppRail({ onHub, hubView, courseId, courses, onNavigate, onOpenC
             onClick={() => onNavigate("courses")}
             data-tour-id="nav-courses"
           >
-            <span className="sh-rail-label">COURSES</span>
+            <span className="sh-rail-label">Courses</span>
           </button>
           <button type="button" className="sh-rail-add" onClick={() => onNavigate("courses")} title="Add a course" aria-label="Add a course">
             +

@@ -378,7 +378,7 @@ export function UserCourseApp({ course, onChangeCourse, onDeleteCourse, novaCour
   const chNum = (id) => `CH·${String(c.modules.findIndex((x) => x.id === id) + 1).padStart(2, "0")}`;
 
   useEffect(() => {
-    setBreadcrumb([c.name.toUpperCase(), (c.courseCode || c.subtitle || "USER COURSE").toUpperCase(), currentModule ? chNum(currentModule.id) : ""]);
+    setBreadcrumb([c.name, c.courseCode || c.subtitle || "User course", currentModule ? chNum(currentModule.id) : ""]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [c.name, c.subtitle, c.courseCode, currentModule, setBreadcrumb]);
 

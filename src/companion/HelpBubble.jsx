@@ -29,7 +29,7 @@ export function HelpBubble({ help, h, v, courses, onQuery, onPick, onBack, onClo
     if (e.action === "open-ai") actions.push({ label: "OPEN AI SETTINGS", primary: true, autoFocus: true, onClick: () => onAction("open-ai", e) });
     actions.push({ label: "BACK", onClick: onBack });
     actions.push({ label: "DONE", onClick: onClose });
-    return <SpeechBubble title={e.q.toUpperCase()} text={e.a} actions={actions} h={h} v={v} wide />;
+    return <SpeechBubble title={e.q} text={e.a} actions={actions} h={h} v={v} wide />;
   }
 
   const lost = query && !cmd && !results.length;

@@ -54,7 +54,7 @@ export function NovaDesk({ filed, canPutBack }) {
   return (
     <div className="sh-desk" data-nova-anchor="desk" role="region" aria-label="Nova's desk">
       <div className="sh-desk-head">
-        <span className="sh-hud-label">NOVA'S DESK</span>
+        <span className="sh-hud-label">Nova's desk</span>
         {filed.length ? <span className="sh-desk-count">{filed.length} FILED</span> : null}
         {canPutBack ? (
           <button type="button" className="sh-desk-back" onClick={workspace.putBack} title="Undo Nova's last rearrange">
@@ -73,7 +73,7 @@ export function NovaDesk({ filed, canPutBack }) {
               title={`Pull ${PANEL_LABELS[id]} back out`}
               onClick={() => workspace.place(id, LAYOUTS.briefing[id])}
             >
-              <span className="sh-desk-tab">{PANEL_LABELS[id].toUpperCase()}</span>
+              <span className="sh-desk-tab">{PANEL_LABELS[id]}</span>
               <span className="sh-desk-sheet">
                 <Glyph id={id} />
               </span>

@@ -132,9 +132,9 @@ export function ExpressImportModal({ open, onClose, onExpressComplete }) {
               onDragLeave={onRootDragLeave}
               onDrop={onRootDrop}
             >
-              <div className="sh-welcome-panel-label sh-welcome-panel-label--amber">EXPRESS</div>
+              <div className="sh-welcome-panel-label sh-welcome-panel-label--amber">Express</div>
               <pre className="sh-welcome-ascii">{ASCII_EXPRESS}</pre>
-              <div className="sh-welcome-sublabel">PPTX · PDF · BLACKBOARD ZIP</div>
+              <div className="sh-welcome-sublabel">PPTX · PDF · Blackboard zip</div>
             </div>
             <button
               type="button"

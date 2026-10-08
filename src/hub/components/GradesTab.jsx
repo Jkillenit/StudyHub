@@ -27,7 +27,7 @@ function GradeScaleDisplay({ scale, currentGrade }) {
   const rows = grades.some(([letter]) => letter === "F") ? grades : [...grades, ["F", 0]];
   return (
     <div className="sh-grade-scale">
-      <div className="sh-section-label">GRADING SCALE</div>
+      <div className="sh-section-label">Grading scale</div>
       <div className="sh-grade-scale-grid">
         {rows.map(([letter, threshold]) => {
           const isCurrent = letter === currentLetter;
@@ -168,7 +168,7 @@ function HoldTargetRow({ label, entry }) {
       {entry.needed != null ? (
         <NeedBadge needed={entry.needed} />
       ) : (
-        <span className="sh-hold-sub">MATCH TO A COMPONENT</span>
+        <span className="sh-hold-sub">Match to a component</span>
       )}
     </div>
   );
@@ -206,7 +206,7 @@ function WhatIfSimulator({ components }) {
 
   return (
     <div className="sh-whatif">
-      <div className="sh-section-label">WHAT-IF SIMULATOR</div>
+      <div className="sh-section-label">What-if simulator</div>
       <div className="sh-whatif-note">Adjust sliders to simulate future scores. Does not affect saved grades.</div>
       <div className="sh-whatif-sliders">
         {unscored.map(({ c, key }) => (
@@ -226,7 +226,7 @@ function WhatIfSimulator({ components }) {
         ))}
       </div>
       <div className="sh-whatif-projected">
-        <span className="sh-grade-label">PROJECTED GRADE</span>
+        <span className="sh-grade-label">Projected grade</span>
         <span className={`sh-whatif-grade sh-tone--${gradeTone(projectedGrade)}`}>
           {projectedGrade.toFixed(1)}%
         </span>
@@ -408,7 +408,7 @@ function ComponentRow({ component, index, weightSum, onScoreChange, onUpdate, on
           </div>
           {subEntries.length > 0 ? (
             <div className="sh-subentry-avg">
-              <span className="sh-section-label">AVERAGE</span>
+              <span className="sh-section-label">Average</span>
               <span className="mono">
                 {averageScore(subEntries).toFixed(1)}
               </span>
@@ -452,13 +452,13 @@ function BbGradeRow({ item, components, onAssign }) {
           title="Which syllabus component this grade counts toward"
           onChange={(event) => onAssign(item.bb_id, event.target.value || null)}
         >
-          <option value="">AUTO</option>
+          <option value="">Auto</option>
           {components.map((c, i) => (
             <option key={keyOf(c, i)} value={c.uuid}>
               {c.name}
             </option>
           ))}
-          <option value="none">DON'T COUNT</option>
+          <option value="none">Don't count</option>
         </select>
       ) : null}
     </div>
@@ -479,7 +479,7 @@ function BlackboardGradebook({ items, components, onAssign }) {
 
   return (
     <div className="sh-bb-gradebook">
-      <div className="sh-section-label">BLACKBOARD GRADES</div>
+      <div className="sh-section-label">Blackboard grades</div>
       <div className="sh-whatif-note">
         {components.length
           ? "Sorted into your syllabus weights automatically. Each component's score is points earned ÷ points possible; change a match with the menu."
@@ -688,7 +688,7 @@ export default function GradesTab({ course, onComponentsChange }) {
   if (components.length === 0) {
     return (
       <div className="sh-grades-empty">
-        <div className="sh-section-label">GRADE CALCULATOR</div>
+        <div className="sh-section-label">Grade calculator</div>
         <p className="sh-grades-empty-text">Import your syllabus or add components manually.</p>
         <div className="sh-grades-empty-actions">
           <button className="sh-btn-ghost sh-btn-green" onClick={handleImport}>
@@ -713,7 +713,7 @@ export default function GradesTab({ course, onComponentsChange }) {
   return (
     <div className="sh-grades-view">
       <div className="sh-grades-header">
-        <div className="sh-section-label">GRADE CALCULATOR</div>
+        <div className="sh-section-label">Grade calculator</div>
         <button className="sh-btn-ghost sh-btn-xs" onClick={handleImport}>
           RE-IMPORT SYLLABUS
         </button>
@@ -738,10 +738,10 @@ export default function GradesTab({ course, onComponentsChange }) {
 
       <div className="sh-grades-table">
         <div className="sh-grades-thead">
-          <span className="sh-grades-col sh-grades-col--name">COMPONENT</span>
-          <span className="sh-grades-col sh-grades-col--weight">WEIGHT</span>
-          <span className="sh-grades-col sh-grades-col--score">SCORE</span>
-          <span className="sh-grades-col sh-grades-col--contribution">CONTRIB</span>
+          <span className="sh-grades-col sh-grades-col--name">Component</span>
+          <span className="sh-grades-col sh-grades-col--weight">Weight</span>
+          <span className="sh-grades-col sh-grades-col--score">Score</span>
+          <span className="sh-grades-col sh-grades-col--contribution">Contrib</span>
           <span className="sh-grades-col sh-grades-col--actions" />
         </div>
 
@@ -758,7 +758,7 @@ export default function GradesTab({ course, onComponentsChange }) {
         ))}
 
         <div className="sh-grades-row sh-grades-row--total">
-          <span className="sh-grades-col sh-grades-col--name mono">TOTAL</span>
+          <span className="sh-grades-col sh-grades-col--name mono">Total</span>
           <span
             className={`sh-grades-col sh-grades-col--weight mono${weightOff ? " sh-tone--warn" : ""}`}
             title={weightOff ? "Weights do not add up to 100%" : undefined}

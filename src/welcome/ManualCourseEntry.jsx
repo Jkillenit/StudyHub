@@ -17,7 +17,7 @@ export function ManualCourseEntry({ onCreate, onBack }) {
 
   return (
     <div className="sh-manual-entry d-flex flex-column align-items-center">
-      <div className="sh-manual-entry-label">NEW COURSE</div>
+      <div className="sh-manual-entry-label">New course</div>
       <div className="sh-manual-entry-input-wrap">
         <span className="sh-manual-entry-prompt" aria-hidden>
           ›
@@ -35,7 +35,7 @@ export function ManualCourseEntry({ onCreate, onBack }) {
           aria-label="Course name"
         />
       </div>
-      <div className="sh-manual-entry-hint">COURSE NAME</div>
+      <div className="sh-manual-entry-hint">Course name</div>
       <button
         type="button"
         className="sh-manual-entry-create sh-btn-ghost"

@@ -1,19 +1,11 @@
-/** A glass panel. `brackets` adds the accent HUD corners; `index` sets its place in the arrival stagger. */
-export function HudPanel({ as: Tag = "section", className = "", brackets = false, index = 0, children, style, ...rest }) {
+/** A glass panel. `hud` raises it to the strong surface; `index` sets its place in the arrival stagger. */
+export function HudPanel({ as: Tag = "section", className = "", hud = false, index = 0, children, style, ...rest }) {
   return (
     <Tag
-      className={["sh-panel", "sh-arrive", brackets ? "sh-panel--hud" : "", className].filter(Boolean).join(" ")}
+      className={["sh-panel", "sh-arrive", hud ? "sh-panel--hud" : "", className].filter(Boolean).join(" ")}
       style={{ "--i": index, ...style }}
       {...rest}
     >
-      {brackets ? (
-        <>
-          <span className="sh-bracket sh-bracket--tl" aria-hidden />
-          <span className="sh-bracket sh-bracket--tr" aria-hidden />
-          <span className="sh-bracket sh-bracket--bl" aria-hidden />
-          <span className="sh-bracket sh-bracket--br" aria-hidden />
-        </>
-      ) : null}
       {children}
     </Tag>
   );

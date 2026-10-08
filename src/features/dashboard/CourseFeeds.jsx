@@ -96,7 +96,7 @@ function ExamPrep({ exams, userCourses, pace, onOpenCourse }) {
 
   return (
     <div className="sh-panel sh-feed" data-perch>
-      <h2 className="sh-hud-title">EXAM PREP</h2>
+      <h2 className="sh-hud-title">Exam prep</h2>
       <ul className="sh-today-list">
         {rows.map(({ e, est }) => (
           <li key={e.uuid}>
@@ -155,11 +155,11 @@ export function CourseFeeds({ refreshKey = 0, onOpenCourse, userCourses = [] }) 
         onOpenCourse={onOpenCourse}
       />
       <div className="sh-panel sh-feed" data-perch data-tour-id="today-cards">
-        <h2 className="sh-hud-title">FLASHCARDS</h2>
+        <h2 className="sh-hud-title">Flashcards</h2>
         <CardsDue rows={data.dueCards} onOpenCourse={onOpenCourse} />
       </div>
       <div className="sh-panel sh-feed" data-perch>
-        <h2 className="sh-hud-title">ANNOUNCEMENTS</h2>
+        <h2 className="sh-hud-title">Announcements</h2>
         <Announcements items={data.announcements} onRead={markRead} />
       </div>
     </div>

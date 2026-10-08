@@ -175,7 +175,7 @@ function SectionBlock({ section }) {
   if (!items.length) return null;
   return (
     <div className="sh-content-section">
-      <div className="sh-section-label">{String(section.title || "SECTION").toUpperCase()}</div>
+      <div className="sh-section-label">{section.title || "Section"}</div>
       <div className={`sh-section-block sh-section-${type}`}>
         {visible.map((text, i) => (
           <SectionItem key={i} text={text} type={type} index={i} />
@@ -195,7 +195,7 @@ function FormulaBlock({ section }) {
   if (!items.length) return null;
   return (
     <div className="sh-content-section">
-      <div className="sh-section-label">{String(section.title || "FORMULAS").toUpperCase()}</div>
+      <div className="sh-section-label">{section.title || "Formulas"}</div>
       {items.map((item, j) => (
         <div key={item.id || j} className="def-card sh-formula-block">
           <div className="def-term mono">{item.formula}</div>
@@ -329,7 +329,7 @@ export default function CourseContentArea({
         if (high.length) {
           blocks.push(
             <div key={key} className="sh-content-section">
-              <div className="sh-section-label">{String(section.title || "DEFINITIONS").toUpperCase()}</div>
+              <div className="sh-section-label">{section.title || "Definitions"}</div>
               {high.map((item) => (
                 <DefinitionCard key={item.id} item={item} onEdit={handleEditCard} onDelete={handleDeleteCard} />
               ))}
@@ -369,7 +369,7 @@ export default function CourseContentArea({
       <div className="sh-glossary-view">
         {moduleTerms.length ? (
           <div className="sh-content-section">
-            <div className="sh-section-label">THIS CHAPTER</div>
+            <div className="sh-section-label">This chapter</div>
             {moduleTerms.map((g) => (
               <GlossaryCard key={g.id} g={g} onRemove={onRemoveGlossaryTerm} />
             ))}
@@ -377,7 +377,7 @@ export default function CourseContentArea({
         ) : null}
         {otherTerms.length ? (
           <div className="sh-content-section">
-            <div className="sh-section-label">OTHER CHAPTERS</div>
+            <div className="sh-section-label">Other chapters</div>
             {otherTerms.map((g) => (
               <GlossaryCard key={g.id} g={g} onRemove={onRemoveGlossaryTerm} muted />
             ))}

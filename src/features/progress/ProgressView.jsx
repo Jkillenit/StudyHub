@@ -3,7 +3,7 @@ import { relativeTime } from "../dashboard/dateLabels.js";
 import { deckBreakdown, moduleBreakdown } from "./deckBreakdown.js";
 import { courseStore } from "../../db/courseStore.js";
 
-const KIND_LABEL = { drill: "DRILL", test: "TEST" };
+const KIND_LABEL = { drill: "Drill", test: "Test" };
 
 function formatDuration(seconds) {
   const s = Math.round(seconds || 0);
@@ -91,7 +91,7 @@ export function ProgressView({ course }) {
   return (
     <div className="main-content sh-mirror-view">
       <div className="sh-mirror-head">
-        <div className="sh-section-label">PROGRESS</div>
+        <div className="sh-section-label">Progress</div>
       </div>
 
       <div className="sh-prog-stats">
@@ -103,7 +103,7 @@ export function ProgressView({ course }) {
       </div>
 
       <div className="sh-mirror-group">
-        <div className="sh-hub-section-label">LAST 14 DAYS</div>
+        <div className="sh-hub-section-label">Last 14 days</div>
         <ActivityBars days={stats.last14 || []} />
       </div>
 
@@ -118,7 +118,7 @@ export function ProgressView({ course }) {
 
       {modules.length ? (
         <div className="sh-mirror-group">
-          <div className="sh-hub-section-label">BY MODULE</div>
+          <div className="sh-hub-section-label">By module</div>
           <ul className="sh-today-list">
             {modules.map((m) => (
               <li key={m.id} className="sh-today-row">
@@ -140,7 +140,7 @@ export function ProgressView({ course }) {
       ) : null}
 
       <div className="sh-mirror-group">
-        <div className="sh-hub-section-label">RECENT SESSIONS</div>
+        <div className="sh-hub-section-label">Recent sessions</div>
         {!history.length ? (
           <p className="sh-today-empty">No sessions yet. Drill the deck or take a practice test.</p>
         ) : (
@@ -151,7 +151,7 @@ export function ProgressView({ course }) {
               const secs = s.ended_at ? (new Date(s.ended_at) - new Date(s.started_at)) / 1000 : 0;
               return (
                 <li key={s.uuid} className="sh-today-row">
-                  <span className="sh-today-tag sh-prog-kind">{KIND_LABEL[s.kind] || String(s.kind).toUpperCase()}</span>
+                  <span className="sh-today-tag sh-prog-kind">{KIND_LABEL[s.kind] || String(s.kind)}</span>
                   <span className="sh-today-row-main">
                     <span className="sh-today-row-title">
                       {s.cards_reviewed} {s.kind === "test" ? "questions" : "cards"}

@@ -104,7 +104,7 @@ export function AssignmentsView({ courseUuid }) {
   return (
     <div className="main-content sh-mirror-view">
       <div className="sh-mirror-head">
-        <div className="sh-section-label">ASSIGNMENTS</div>
+        <div className="sh-section-label">Assignments</div>
         {!adding ? (
           <button type="button" className="sh-btn-ghost sh-bb-sync-btn" onClick={() => setAdding(true)}>
             + ADD

@@ -23,7 +23,7 @@ export function WeekStrip({ week, onCalendar, index = 0 }) {
   return (
     <HudPanel className="sh-week" index={index} aria-label="This week" data-tour-id="today-week" data-nova-anchor="panel.week" data-perch>
       <header className="sh-panel-head">
-        <h2 className="sh-hud-title">THIS WEEK</h2>
+        <h2 className="sh-hud-title">This week</h2>
         <button type="button" className="sh-link-btn" onClick={onCalendar}>
           Calendar
         </button>
@@ -50,7 +50,7 @@ export function WeekStrip({ week, onCalendar, index = 0 }) {
             <span className="sh-week-dow">{d.weekday}</span>
             <span className="sh-week-num">{d.dayNum}</span>
             <span className="sh-week-dots">
-              {d.blocked ? <span className="sh-week-off">OFF</span> : null}
+              {d.blocked ? <span className="sh-week-off">Off</span> : null}
               {d.gameday ? <span className="sh-week-game" title="Game day">A</span> : null}
               {d.dots.slice(0, MAX_DOTS).map((dot) => (
                 <span key={dot.uuid} className={`sh-week-dot sh-week-dot--${dot.state === "warn" ? "warn" : "accent"}`} title={dot.title} />

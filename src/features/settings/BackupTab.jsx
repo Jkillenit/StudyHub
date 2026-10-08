@@ -51,7 +51,7 @@ export function BackupTab() {
 
   return (
     <section className="sh-settings-section">
-      <div className="sh-settings-section-label">BACKUP</div>
+      <div className="sh-settings-section-label">Backup</div>
       <p className="sh-settings-status-line">{statusLine}</p>
       <p className="sh-settings-hint">
         Study Hub saves a copy of your data every day and keeps the last 7 in the app data folder. Restoring saves a safety copy first.

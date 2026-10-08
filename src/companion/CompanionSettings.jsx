@@ -164,7 +164,7 @@ export function CompanionSettings({ state, onChange, onClose, onResetTours, onRe
   return (
     <div ref={ref} className="sc-settings" role="dialog" aria-label="Nova settings" data-sprite-avoid>
       <header className="sc-settings-head">
-        <span className="mono">NOVA · SETTINGS</span>
+        <span className="mono">Nova · settings</span>
         <button type="button" className="sc-settings-close mono" onClick={onClose} aria-label="Close settings">
           ×
         </button>
@@ -178,7 +178,7 @@ export function CompanionSettings({ state, onChange, onClose, onResetTours, onRe
         <span className="mono sc-settings-xp">{span ? `${into}/${span} XP` : "MAX"}</span>
       </div>
       <details className="sc-set-earn">
-        <summary className="mono">HOW TO EARN XP</summary>
+        <summary className="mono">How to earn XP</summary>
         <ul>
           {Object.entries(XP_AWARDS).map(([id, a]) => (
             <li key={id}>
@@ -199,7 +199,7 @@ export function CompanionSettings({ state, onChange, onClose, onResetTours, onRe
       <Segmented
         label="MOVEMENT"
         value={state.movement}
-        options={MOVEMENT_LEVELS.map((m) => ({ value: m, label: m.toUpperCase() }))}
+        options={MOVEMENT_LEVELS.map((m) => ({ value: m, label: m.charAt(0).toUpperCase() + m.slice(1) }))}
         onChange={(v) => onChange({ movement: v })}
       />
       <Toggle
@@ -217,7 +217,7 @@ export function CompanionSettings({ state, onChange, onClose, onResetTours, onRe
         onChange={(v) => onChange({ scale: v })}
       />
       <div className="sc-set-row">
-        <span className="sc-set-label mono">PROJECTION</span>
+        <span className="sc-set-label mono">Projection</span>
         <select
           className="sc-set-select mono"
           value={state.accessory && TINTS.some((t) => t.id === state.accessory) ? state.accessory : "auto"}

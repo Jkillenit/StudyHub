@@ -1,5 +1,9 @@
 # UI overhaul — design
 
+> **Superseded (2026-10-08)** by the minimal redesign plan
+> (`~/.cursor/plans/minimal_redesign_and_live_nova_bdf6859c.plan.md`): graphite + ice aqua,
+> Geist sentence case, small radii, no chamfers/hex/brackets/scanlines/magenta. Kept for history.
+
 **Date:** 2026-10-01
 **Status:** approved in brainstorm, awaiting spec review
 **Goal:** replace the two competing design languages with one calm, crafted, companion-first

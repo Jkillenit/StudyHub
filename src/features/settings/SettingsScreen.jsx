@@ -47,7 +47,7 @@ function GeneralTab() {
   return (
     <>
       <section className="sh-settings-section">
-        <div className="sh-settings-section-label">MOTION</div>
+        <div className="sh-settings-section-label">Motion</div>
         <label className="sh-settings-row">
           <span>
             <span className="sh-settings-row-title">Reduce motion</span>
@@ -64,7 +64,7 @@ function GeneralTab() {
         ) : null}
       </section>
       <section className="sh-settings-section">
-        <div className="sh-settings-section-label">ABOUT</div>
+        <div className="sh-settings-section-label">About</div>
         <div className="sh-settings-kv">
           <span>Version</span>
           <span className="sh-settings-mono">{info?.version ? `v${info.version}` : "Browser preview"}</span>
@@ -81,7 +81,7 @@ function NovaTab() {
   if (memoryOpen) {
     return (
       <section className="sh-settings-section">
-        <div className="sh-settings-section-label">WHAT NOVA KNOWS</div>
+        <div className="sh-settings-section-label">What Nova knows</div>
         <NovaMemoryView onBack={() => setMemoryOpen(false)} />
       </section>
     );
@@ -89,7 +89,7 @@ function NovaTab() {
 
   return (
     <section className="sh-settings-section">
-      <div className="sh-settings-section-label">COMPANION</div>
+      <div className="sh-settings-section-label">Companion</div>
       <label className="sh-settings-row">
         <span>
           <span className="sh-settings-row-title">Quiet mode</span>
@@ -125,7 +125,7 @@ function ThemeTab() {
   const pack = usePack();
   return (
     <section className="sh-settings-section">
-      <div className="sh-settings-section-label">FLAVOR PACK</div>
+      <div className="sh-settings-section-label">Flavor pack</div>
       <div className="sh-settings-packs">
         {PACKS.map((p) => {
           const active = p.id === pack;
@@ -156,7 +156,7 @@ function AiTab() {
   const { apiLive } = useShell();
   return (
     <section className="sh-settings-section">
-      <div className="sh-settings-section-label">CLAUDE API KEY</div>
+      <div className="sh-settings-section-label">Claude API key</div>
       <div className="sh-settings-kv">
         <span>Status</span>
         <span className={`sh-settings-mono${apiLive ? " sh-settings-on" : ""}`}>{apiLive ? "● Connected" : "○ Not set"}</span>
@@ -185,7 +185,7 @@ export function SettingsScreen({ tab = "general", onTab }) {
   const Body = TAB_BODY[current.id];
   return (
     <section className="sh-panel sh-hub-block sh-settings-screen">
-      <h2 className="sh-hud-title">SETTINGS</h2>
+      <h2 className="sh-hud-title">Settings</h2>
       <div className="sh-tab-row sh-settings-tabs" role="tablist">
         {SETTINGS_TABS.map((t) => (
           <button

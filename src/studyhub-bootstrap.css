@@ -2,42 +2,43 @@
 
 :root {
   /* surfaces */
-  --sh-bg: #04050A;
-  --sh-side: #030407;
-  --sh-panel: rgba(14, 16, 24, 0.72);
-  --sh-panel-strong: rgba(14, 16, 24, 0.86);
-  --sh-panel-solid: #0E1018;
-  --sh-border: rgba(255, 255, 255, 0.08);
-  --sh-border-strong: rgba(255, 255, 255, 0.15);
-  --sh-track: rgba(255, 255, 255, 0.08);
-  --sh-scrim: rgba(4, 5, 10, 0.72);
+  --sh-bg: #040506;
+  --sh-side: #08090A;
+  --sh-panel: rgba(18, 20, 22, 0.62);
+  --sh-panel-strong: rgba(18, 20, 22, 0.82);
+  --sh-panel-solid: #0E1012;
+  --sh-border: rgba(255, 255, 255, 0.06);
+  --sh-border-strong: rgba(255, 255, 255, 0.10);
+  --sh-track: rgba(255, 255, 255, 0.07);
+  --sh-scrim: rgba(4, 5, 6, 0.72);
 
   /* text */
-  --sh-text: #F5F7FA;
+  --sh-text: #ECEEF0;
   --sh-text-strong: #FFFFFF;
-  --sh-text-2: #A9B0BC;
-  --sh-text-3: #757D8A;
+  --sh-text-2: #A3A8AE;
+  --sh-text-3: #73787F;
 
-  /* accent: aqua primary, magenta secondary (corners, ambient, aura only) */
-  --sh-accent: #4CF0E8;
-  --sh-accent-hover: #8AF7F2;
-  --sh-accent-press: #22C9C1;
-  --sh-accent-ink: #021412;
+  /* accent: ice aqua, the only color; it means "interactive" or "Nova" */
+  --sh-accent: #86E1DE;
+  --sh-accent-hover: color-mix(in oklab, var(--sh-accent) 80%, white);
+  --sh-accent-press: color-mix(in oklab, var(--sh-accent) 82%, black);
+  --sh-accent-ink: #041211;
   --sh-accent-soft: color-mix(in oklab, var(--sh-accent) 8%, transparent);
   --sh-accent-line: color-mix(in oklab, var(--sh-accent) 38%, transparent);
-  --sh-accent-glow: color-mix(in oklab, var(--sh-accent) 35%, transparent);
-  --sh-link: #9CF7F2;
-  --sh-accent-2: #FF4FD8;
+  --sh-accent-glow: color-mix(in oklab, var(--sh-accent) 30%, transparent);
+  --sh-link: var(--sh-accent);
+  /* legacy secondary: neutral now; remove decorative uses as areas are touched */
+  --sh-accent-2: var(--sh-text-3);
   --sh-accent-2-soft: color-mix(in oklab, var(--sh-accent-2) 10%, transparent);
   --sh-accent-2-line: color-mix(in oklab, var(--sh-accent-2) 40%, transparent);
 
-  /* meaning colors: only when earned */
-  --sh-warn: #FFC857;
-  --sh-warn-text: #FFD27A;
+  /* meaning colors: only for real alerts */
+  --sh-warn: #E3BE72;
+  --sh-warn-text: #EBCB8B;
   --sh-warn-soft: color-mix(in oklab, var(--sh-warn) 12%, transparent);
   --sh-warn-line: color-mix(in oklab, var(--sh-warn) 35%, transparent);
-  --sh-danger: #FF4D4F;
-  --sh-danger-text: #FF7375;
+  --sh-danger: #E5686A;
+  --sh-danger-text: #EE8486;
   --sh-danger-soft: color-mix(in oklab, var(--sh-danger) 10%, transparent);
   --sh-danger-wash: color-mix(in oklab, var(--sh-danger) 7%, transparent);
   --sh-danger-line: color-mix(in oklab, var(--sh-danger) 32%, transparent);
@@ -51,30 +52,30 @@
   --sh-power: #7CFF6B;
 
   /* pack picker swatches: each pack's own colors, whichever pack is active */
-  --sh-pack-nova-1: #4CF0E8;
-  --sh-pack-nova-2: #FF4FD8;
+  --sh-pack-nova-1: #86E1DE;
+  --sh-pack-nova-2: #0E1012;
   --sh-pack-zombies-1: #FF4D4F;
   --sh-pack-zombies-2: #FFB23F;
 
   /* type */
   --sh-font-body: "Geist Sans", system-ui, sans-serif;
-  --sh-font-display: "Michroma", "Geist Sans", sans-serif;
+  --sh-font-display: "Geist Sans", system-ui, sans-serif;
   --sh-font-mono: "Geist Mono", ui-monospace, monospace;
-  /* deprecated: HUD labels are mono now */
-  --sh-font-hud: var(--sh-font-mono);
+  /* deprecated: HUD labels are body text now; mono is for numbers, times, keys */
+  --sh-font-hud: var(--sh-font-body);
 
-  /* shape: hard edges; chamfer size for .sh-cut */
-  --sh-radius-xl: 0;
-  --sh-radius-lg: 0;
-  --sh-radius-md: 0;
-  --sh-radius-sm: 0;
-  --sh-radius-xs: 0;
-  --sh-cut: 12px;
+  /* shape: small radii; sm controls, md panels, lg composer */
+  --sh-radius-xl: 14px;
+  --sh-radius-lg: 14px;
+  --sh-radius-md: 10px;
+  --sh-radius-sm: 6px;
+  --sh-radius-xs: 4px;
+  --sh-cut: 0;
 
   /* depth */
-  --sh-shadow-panel: 0 24px 60px rgba(0, 0, 0, 0.45);
-  --sh-glow-accent: 0 0 24px var(--sh-accent-glow);
-  --sh-glow-dot: 0 0 10px var(--sh-accent);
+  --sh-shadow-panel: 0 20px 50px rgba(0, 0, 0, 0.40);
+  --sh-glow-accent: 0 0 18px var(--sh-accent-glow);
+  --sh-glow-dot: none;
 
   /* layout */
   --sh-topbar-h: 40px;
@@ -87,13 +88,13 @@
   --bs-body-color: var(--sh-text);
   --bs-body-font-family: var(--sh-font-body);
   --bs-font-monospace: var(--sh-font-mono);
-  --bs-border-radius: 0;
-  --bs-border-radius-sm: 0;
-  --bs-border-radius-lg: 0;
-  --bs-border-radius-xl: 0;
-  --bs-border-radius-xxl: 0;
-  --bs-border-radius-2xl: 0;
-  --bs-border-radius-pill: 0;
+  --bs-border-radius: var(--sh-radius-sm);
+  --bs-border-radius-sm: var(--sh-radius-xs);
+  --bs-border-radius-lg: var(--sh-radius-md);
+  --bs-border-radius-xl: var(--sh-radius-lg);
+  --bs-border-radius-xxl: var(--sh-radius-lg);
+  --bs-border-radius-2xl: var(--sh-radius-lg);
+  --bs-border-radius-pill: 999px;
 }
 
 /* Zombies flavor pack: token values only; derived color-mix() tokens follow. */
@@ -284,8 +285,7 @@ h4,
 .sh-titlebar-date {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
   white-space: nowrap;
   max-width: 50vw;
@@ -391,10 +391,8 @@ html[data-motion="reduced"] .sh-rail :is(.sh-rail-label, .sh-rail-hint, .sh-rail
 
 .sh-rail-wordmark {
   font-family: var(--sh-font-display);
-  font-weight: 400;
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-weight: 600;
+  font-size: 14px;
   white-space: nowrap;
   color: var(--sh-text);
 }
@@ -492,7 +490,7 @@ html[data-motion="reduced"] .sh-rail :is(.sh-rail-label, .sh-rail-hint, .sh-rail
   background: transparent;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
   text-align: left;
   cursor: pointer;
@@ -532,7 +530,7 @@ html[data-motion="reduced"] .sh-rail :is(.sh-rail-label, .sh-rail-hint, .sh-rail
   flex: 0 0 auto;
   min-width: 32px;
   padding-right: 4px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
 }
 
 .sh-rail-code-num {
@@ -582,8 +580,7 @@ html[data-motion="reduced"] .sh-rail .sh-rail-subnav {
   padding: 8px 12px 4px 34px;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 
@@ -743,7 +740,7 @@ html[data-motion="reduced"] .sh-rail .sh-rail-subnav {
 .sh-mastery-fill {
   position: absolute;
   inset: 0 auto 0 0;
-  background: linear-gradient(90deg, var(--sh-accent), var(--sh-accent-2));
+  background: var(--sh-accent);
 }
 
 .sh-mastery-value {
@@ -874,7 +871,7 @@ html[data-motion="reduced"] .sh-rail .sh-rail-subnav {
   background: transparent;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-2);
   cursor: pointer;
 }
@@ -907,8 +904,7 @@ html[data-motion="reduced"] .sh-rail .sh-rail-subnav {
 .sh-deck-list-count {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
   color: var(--sh-text-3);
 }
@@ -975,7 +971,7 @@ html[data-motion="reduced"] .sh-rail .sh-rail-subnav {
 }
 
 .sh-deck-row-exam {
-  letter-spacing: 0.06em;
+  letter-spacing: 0.01em;
   color: var(--sh-accent-2);
 }
 
@@ -1025,8 +1021,7 @@ html[data-motion="reduced"] .sh-rail .sh-rail-subnav {
   padding: 0;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-accent);
   background: transparent;
   border: 0;
@@ -1116,8 +1111,7 @@ html[data-motion="reduced"] .sh-drawer {
 .sh-drawer-title {
   font-family: var(--sh-font-mono);
   font-size: 12px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-text-2);
 }
 
@@ -1142,35 +1136,17 @@ html[data-motion="reduced"] .sh-drawer {
   padding: 16px;
 }
 
-/* Cut-corner frame: quiet edge, aqua top-left and magenta bottom-right corners */
-.sh-cut {
-  --sh-cut-edge: linear-gradient(135deg, var(--sh-accent) 0 18px, var(--sh-border-strong) 18px calc(100% - 18px), var(--sh-accent-2) calc(100% - 18px));
-  padding: 1px;
-  background: var(--sh-cut-edge);
-  clip-path: polygon(var(--sh-cut) 0, 100% 0, 100% calc(100% - var(--sh-cut)), calc(100% - var(--sh-cut)) 100%, 0 100%, 0 var(--sh-cut));
-}
-
-.sh-cut-fill {
-  position: relative;
-  background: var(--sh-panel-solid);
-  clip-path: polygon(calc(var(--sh-cut) - 1px) 0, 100% 0, 100% calc(100% - var(--sh-cut) + 1px), calc(100% - var(--sh-cut) + 1px) 100%, 0 100%, 0 calc(var(--sh-cut) - 1px));
-}
-
-.sh-hex::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: var(--sh-accent);
-  opacity: 0.05;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='48' viewBox='0 0 28 48'%3E%3Cpath d='M14 0l14 8v16l-14 8L0 24V8zM14 32v16' fill='none' stroke='black'/%3E%3C/svg%3E") repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='48' viewBox='0 0 28 48'%3E%3Cpath d='M14 0l14 8v16l-14 8L0 24V8zM14 32v16' fill='none' stroke='black'/%3E%3C/svg%3E") repeat;
-}
-
 /* Message box (NovaBar): commands and questions for Nova */
 .sh-novabar {
   position: relative;
   width: 100%;
+}
+
+.sh-novabar-box {
+  position: relative;
+  background: var(--sh-panel-solid);
+  border: 1px solid var(--sh-border-strong);
+  border-radius: var(--sh-radius-lg);
 }
 
 .sh-novabar-row {
@@ -1182,39 +1158,15 @@ html[data-motion="reduced"] .sh-drawer {
   padding: 0 16px;
 }
 
-.sh-novabar-glyph {
-  display: inline-flex;
-  flex-shrink: 0;
-  color: var(--sh-accent);
-  animation: sh-novabar-pulse 2.4s ease-in-out infinite;
-}
-
-@keyframes sh-novabar-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-html[data-motion="reduced"] .sh-novabar-glyph {
-  animation: none;
-}
-
 .sh-novabar-portrait {
   display: none;
 }
 
 html[data-nova-tucked] .sh-novabar-portrait {
   display: block;
+  flex-shrink: 0;
   width: 28px;
   height: 28px;
-}
-
-html[data-nova-tucked] .sh-novabar-glyph > svg {
-  display: none;
 }
 
 /* Nova's lane: she rests here, bottom right, beside the content column */
@@ -1283,7 +1235,7 @@ html[data-nova="off"] .sh-nova-lane-floor {
 
 .sh-novabar-note {
   margin: 0;
-  padding: 0 16px 12px 46px;
+  padding: 0 16px 12px;
   font-family: var(--sh-font-body);
   font-size: 13px;
   color: var(--sh-text-2);
@@ -1360,6 +1312,7 @@ html[data-nova="off"] .sh-nova-lane-floor {
   list-style: none;
   background: var(--sh-panel-solid);
   border: 1px solid var(--sh-border-strong);
+  border-radius: var(--sh-radius-md);
   box-shadow: var(--sh-shadow-panel);
 }
 
@@ -1386,7 +1339,7 @@ html[data-nova="off"] .sh-nova-lane-floor {
 
 .sh-novabar-slash {
   font-family: var(--sh-font-mono);
-  color: var(--sh-accent-2);
+  color: var(--sh-accent);
 }
 
 .sh-novabar-opt--run {
@@ -1469,8 +1422,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   color: var(--sh-text-3);
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   cursor: pointer;
   padding: 4px 8px;
   margin-left: auto;
@@ -1490,8 +1442,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .tab {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   padding: 6px 14px;
   margin-bottom: -1px;
   border: none;
@@ -1544,9 +1495,8 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .ctx-label {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
-  text-transform: uppercase;
   margin-bottom: 8px;
 }
 
@@ -1577,8 +1527,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   color: var(--sh-accent);
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   padding: 6px;
   text-align: left;
   margin-bottom: 6px;
@@ -1703,8 +1652,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   font-family: var(--sh-font-mono);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   background: var(--sh-accent);
   color: var(--sh-accent-ink);
   border: 1px solid var(--sh-accent);
@@ -1769,9 +1717,8 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   font-family: var(--sh-font-mono);
   font-weight: 400;
   font-size: 11px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
-  text-transform: uppercase;
   margin: 24px 0 8px;
   scroll-margin-top: 12px;
 }
@@ -1821,8 +1768,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   font-family: var(--sh-font-mono);
   font-size: 11px;
   color: var(--sh-accent-2);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   margin-bottom: 6px;
 }
 
@@ -2004,7 +1950,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   font-family: var(--sh-font-mono);
   font-size: 12px;
   color: var(--sh-accent);
-  letter-spacing: 0.25em;
+  letter-spacing: 0.01em;
 }
 
 .sh-loading-dots span {
@@ -2043,7 +1989,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   font-size: 11px;
   color: var(--sh-text-3);
   margin-bottom: 6px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
 }
 
 /* ─── Empty state ─── */
@@ -2069,7 +2015,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-ctx-glossary-title {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 
@@ -2192,7 +2138,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   padding: 7px 0;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
   text-align: left;
   cursor: pointer;
@@ -2231,7 +2177,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   color: var(--sh-warn);
   opacity: 0.7;
   padding: 8px 0;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
   border-bottom: 1px solid var(--sh-border);
   margin-bottom: 10px;
 }
@@ -2327,7 +2273,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-ai-badge {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   color: var(--sh-accent);
   opacity: 0.6;
   margin-left: 6px;
@@ -2352,9 +2298,8 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-glossary-source {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
-  text-transform: uppercase;
 }
 
 .sh-glossary-remove {
@@ -2550,7 +2495,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 }
 
 .letter-spacing {
-  letter-spacing: 0.06em;
+  letter-spacing: 0.01em;
 }
 
 /* —— UI-009 empty states & welcome —— */
@@ -2571,8 +2516,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   font-size: 11px;
   color: var(--sh-text-3);
   opacity: 0.45;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   text-align: center;
   margin: 0;
 }
@@ -2613,11 +2557,10 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-welcome-tagline {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
   text-align: center;
   margin: 0 0 48px;
-  text-transform: uppercase;
 }
 
 .sh-welcome-panels {
@@ -2682,8 +2625,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-welcome-panel-label {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   margin-bottom: 16px;
 }
 
@@ -2710,8 +2652,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   font-family: var(--sh-font-mono);
   font-size: 11px;
   color: var(--sh-text-3);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   margin-top: 12px;
   text-align: center;
 }
@@ -2723,8 +2664,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   opacity: 0.4;
   text-align: center;
   margin-top: 16px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
 }
 
 .sh-welcome-file-input {
@@ -2750,8 +2690,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-welcome-create-btn {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   margin-top: 8px;
   padding: 6px 12px;
   background: transparent;
@@ -2798,7 +2737,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   font-size: 11px;
   color: var(--sh-text-3);
   text-align: center;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
 }
 
 .sh-welcome-dot-row {
@@ -2880,8 +2819,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   font-family: var(--sh-font-hud);
   font-weight: 600;
   font-size: 12px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-text-2);
   margin: 0 0 8px;
 }
@@ -2968,8 +2906,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   opacity: 0.4;
   text-align: center;
   margin: 10px 0 0;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
 }
 
 .sh-hub-divider {
@@ -3036,7 +2973,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-hub-bb-text {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-text);
   flex: 1;
 }
@@ -3044,7 +2981,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-hub-bb-status {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   flex-shrink: 0;
 }
 
@@ -3053,7 +2990,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   border: none;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
   cursor: pointer;
   padding: 4px 0;
@@ -3074,8 +3011,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   font-family: var(--sh-font-mono);
   font-size: 11px;
   color: var(--sh-text-3);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   margin-bottom: 20px;
 }
 
@@ -3115,8 +3051,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   color: var(--sh-text-3);
   opacity: 0.4;
   margin-top: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
 }
 
 .sh-manual-entry-create {
@@ -3126,7 +3061,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   padding: 8px 24px;
   border-radius: 0;
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   text-align: center;
 }
 
@@ -3186,7 +3121,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   color: var(--sh-text-3);
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   text-align: center;
 }
 
@@ -3207,8 +3142,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   margin-bottom: 12px;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-warn);
 }
 
@@ -3218,8 +3152,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   color: var(--sh-warn);
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   padding: 4px 10px;
   cursor: pointer;
   border-radius: 0;
@@ -3403,9 +3336,8 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-palette-group-label {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
-  text-transform: uppercase;
   padding: 6px 14px 3px;
   user-select: none;
 }
@@ -3706,8 +3638,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-glossary-popover-term {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-accent);
   margin-bottom: 5px;
 }
@@ -3752,9 +3683,8 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-grade-label {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
-  text-transform: uppercase;
 }
 
 .sh-grades-table {
@@ -3804,9 +3734,8 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-grades-thead .sh-grades-col {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
-  text-transform: uppercase;
 }
 
 .sh-grades-col--name {
@@ -3897,7 +3826,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-grades-status {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.01em;
   color: var(--sh-warn);
 }
 
@@ -4075,7 +4004,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-grade-scale-indicator {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   color: var(--sh-accent);
   opacity: 0.7;
 }
@@ -4114,7 +4043,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-target-label {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 
@@ -4235,7 +4164,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   color: var(--sh-text-3);
   margin: 6px 0 12px;
   font-family: var(--sh-font-mono);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
 }
 
 .sh-whatif-sliders {
@@ -4477,7 +4406,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
   color: var(--sh-text);
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
 }
 .sh-error-boundary {
   padding: 48px 32px;
@@ -4506,8 +4435,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-bb-group-name {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-text-2);
 }
 .sh-bb-apply-select {
@@ -4533,7 +4461,7 @@ html[data-motion="reduced"] :is(.sh-novabar-tool, .sh-novabar-opt) {
 .sh-today-stat-label {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 .sh-today-card {
@@ -4620,8 +4548,7 @@ button.sh-today-row-main:hover {
 .sh-today-row-sub {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4635,7 +4562,7 @@ button.sh-today-row-main:hover {
 .sh-today-tag {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   margin-right: 6px;
   padding: 0 4px;
   border: 1px solid var(--sh-border);
@@ -4653,7 +4580,7 @@ button.sh-today-row-main:hover {
 .sh-today-score {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-2);
   flex-shrink: 0;
   white-space: nowrap;
@@ -4764,20 +4691,19 @@ button.sh-today-row-main:hover {
   font-family: var(--sh-font-mono);
   font-size: 34px;
   font-weight: 500;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   color: var(--sh-text);
   line-height: 1;
 }
 .sh-splash-slash {
   color: var(--sh-accent);
   margin: 0 2px;
-  text-shadow: 0 0 18px var(--sh-accent-line);
 }
 .sh-splash-tag {
   margin-top: 12px;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 .sh-splash-bar {
@@ -4795,7 +4721,6 @@ button.sh-today-row-main:hover {
   left: 0;
   width: 40%;
   background: var(--sh-accent);
-  box-shadow: 0 0 10px var(--sh-accent);
   animation: sh-splash-sweep 1.1s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 .sh-splash-bar--done span {
@@ -4809,7 +4734,7 @@ button.sh-today-row-main:hover {
   min-height: 12px;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-2);
 }
 .sh-splash-nova {
@@ -4830,7 +4755,7 @@ button.sh-today-row-main:hover {
 .sh-splash-nova-line {
   max-width: 220px;
   font-size: 11px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.01em;
   line-height: 1.5;
   text-align: center;
   color: var(--sh-text-2);
@@ -4838,7 +4763,7 @@ button.sh-today-row-main:hover {
 }
 .sh-splash-nova-name {
   color: var(--sh-accent);
-  letter-spacing: 0.14em;
+  letter-spacing: 0.01em;
 }
 .sh-splash-nova--rampant .sh-splash-nova-name {
   color: var(--sh-danger);
@@ -4856,7 +4781,7 @@ button.sh-today-row-main:hover {
   text-align: center;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
   z-index: 1;
 }
@@ -4925,7 +4850,7 @@ button.sh-today-row-main:hover {
 .sh-cal-month {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.01em;
   color: var(--sh-text);
   min-width: 160px;
   text-align: center;
@@ -4938,7 +4863,7 @@ button.sh-today-row-main:hover {
 .sh-cal-weekday {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
   text-align: center;
   padding-bottom: 4px;
@@ -5036,7 +4961,7 @@ button.sh-today-row-main:hover {
   color: var(--sh-text-2);
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   padding: 2px 6px;
   cursor: pointer;
   flex-shrink: 0;
@@ -5100,7 +5025,7 @@ button.sh-today-row-main:hover {
 }
 .sh-bbtree-kind {
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
   width: 34px;
   flex-shrink: 0;
@@ -5130,7 +5055,7 @@ button.sh-today-row-main:hover {
   color: var(--sh-text-2);
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.01em;
   padding: 4px 8px;
   cursor: pointer;
   max-width: 260px;
@@ -5256,7 +5181,7 @@ button.sh-today-row-main:hover {
 }
 .sh-pt-feedback .mono {
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
 }
 .sh-pt-feedback--ok {
   border-left-color: var(--sh-accent);
@@ -5286,7 +5211,7 @@ button.sh-today-row-main:hover {
 }
 .sh-pt-score-sub {
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 .sh-pt-missed {
@@ -5317,7 +5242,7 @@ button.sh-today-row-main:hover {
 .sh-need-badge {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   padding: 1px 6px;
   border: 1px solid var(--sh-border);
   white-space: nowrap;
@@ -5365,8 +5290,7 @@ button.sh-today-row-main:hover {
   display: block;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 
@@ -5385,7 +5309,7 @@ button.sh-today-row-main:hover {
 .sh-guide-est-note {
   margin: 4px 0 0;
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 .sh-guide-est .sh-prog-stats {
@@ -5403,7 +5327,7 @@ button.sh-today-row-main:hover {
 }
 .sh-guide-sub {
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-warn);
   margin: 0 0 14px;
 }
@@ -5571,7 +5495,7 @@ button.sh-today-row-main:hover {
   gap: 14px;
   margin-top: 6px;
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 .sh-prog-swatch {
@@ -5656,7 +5580,7 @@ button.sh-today-row-main:hover {
 .sh-bb-sync-status {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
   margin-top: 2px;
 }
@@ -5672,7 +5596,7 @@ button.sh-today-row-main:hover {
   padding: 6px 0 0;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
   cursor: pointer;
 }
@@ -5691,7 +5615,7 @@ button.sh-today-row-main:hover {
   padding: 2px 4px;
   cursor: pointer;
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   -webkit-app-region: no-drag;
 }
 .sh-titlebar-scout:hover {
@@ -5702,12 +5626,10 @@ button.sh-today-row-main:hover {
   height: 6px;
   border-radius: 0;
   background: var(--sh-accent);
-  box-shadow: 0 0 6px var(--sh-accent);
   animation: nv-flicker 5.5s steps(1, end) infinite;
 }
 [data-nova-rampant] .sh-titlebar-scout-dot {
   background: var(--sh-danger);
-  box-shadow: 0 0 6px var(--sh-danger);
   animation: nv-flicker 1.3s steps(1, end) infinite;
 }
 
@@ -5892,41 +5814,6 @@ button.sh-today-row-main:hover {
   }
   74% {
     opacity: 0.95;
-  }
-}
-.nv-scan,
-.nv-sweep {
-  position: absolute;
-  inset: 0;
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-  pointer-events: none;
-}
-.nv-scan {
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0 2px,
-    color-mix(in srgb, var(--sh-bg) 55%, transparent) 2px 3px
-  );
-}
-.nv-sweep {
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    color-mix(in srgb, var(--sh-accent) 35%, transparent) 48%,
-    color-mix(in srgb, var(--sh-text) 25%, transparent) 50%,
-    transparent 56%
-  );
-  background-size: 100% 260%;
-  mix-blend-mode: screen;
-  animation: nv-sweep 4.2s linear infinite;
-}
-@keyframes nv-sweep {
-  from {
-    background-position: 0 100%;
-  }
-  to {
-    background-position: 0 -160%;
   }
 }
 .nv-ghost {
@@ -6139,9 +6026,6 @@ button.sh-today-row-main:hover {
 .sc-scout--late .sc-bob {
   filter: brightness(0.8) saturate(0.85);
 }
-.sc-scout--asleep .nv-sweep {
-  animation-duration: 9s;
-}
 /* Sync portal: a small ring beside her hands; bits of light stream from it into her. */
 .sc-portal {
   --dir: -1;
@@ -6331,26 +6215,13 @@ button.sh-today-row-main:hover {
     ),
     color-mix(in srgb, var(--sh-bg) 90%, transparent);
   backdrop-filter: blur(6px);
-  border: 1px solid color-mix(in srgb, var(--sc-tone) 38%, transparent);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--sh-bg) 70%, transparent),
-    0 0 22px color-mix(in srgb, var(--sc-tone) 14%, transparent),
-    0 10px 28px var(--sh-bg);
+  border: 1px solid color-mix(in srgb, var(--sc-tone) 30%, transparent);
+  border-radius: var(--sh-radius-md);
+  box-shadow: 0 10px 28px var(--sh-bg);
   padding: 9px 12px 11px;
   pointer-events: auto;
   animation: sc-pop 220ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
   z-index: 2;
-}
-.sc-bubble::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0 3px,
-    color-mix(in srgb, var(--sc-tone) 4%, transparent) 3px 4px
-  );
 }
 .sc-bubble--wide {
   width: 300px;
@@ -6445,24 +6316,6 @@ button.sh-today-row-main:hover {
     filter: brightness(1);
   }
 }
-.sc-bubble-corner {
-  position: absolute;
-  width: 8px;
-  height: 8px;
-  border-color: var(--sc-tone);
-  border-style: solid;
-  pointer-events: none;
-}
-.sc-bubble-corner--tl {
-  top: -1px;
-  left: -1px;
-  border-width: 2px 0 0 2px;
-}
-.sc-bubble-corner--br {
-  right: -1px;
-  bottom: -1px;
-  border-width: 0 2px 2px 0;
-}
 .sc-bubble-tail {
   position: absolute;
   top: 50%;
@@ -6508,10 +6361,9 @@ button.sh-today-row-main:hover {
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.01em;
   color: var(--sc-tone);
   margin-bottom: 5px;
-  text-transform: uppercase;
 }
 .sc-bubble-live {
   width: 5px;
@@ -6564,7 +6416,7 @@ button.sh-today-row-main:hover {
   top: 4px;
   translate: -50% 0;
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   color: var(--sh-accent);
   text-shadow: 0 0 8px color-mix(in srgb, var(--sh-accent) 60%, transparent);
   white-space: nowrap;
@@ -6636,7 +6488,7 @@ button.sh-today-row-main:hover {
   border: 1px solid var(--sh-border);
   color: var(--sh-text-2);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   padding: 4px 9px;
   cursor: pointer;
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
@@ -6669,7 +6521,7 @@ button.sh-today-row-main:hover {
 .sc-bubble-footer {
   margin-top: 8px;
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 
@@ -6734,8 +6586,7 @@ button.sh-today-row-main:hover {
   color: var(--sh-text-2);
   font-family: var(--sh-font-hud);
   font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   padding: 3px 7px;
   cursor: pointer;
 }
@@ -6749,8 +6600,7 @@ button.sh-today-row-main:hover {
   margin: 8px 0 0;
   font-family: var(--sh-font-hud);
   font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 .sc-focus-pill {
@@ -6763,7 +6613,7 @@ button.sh-today-row-main:hover {
   border: 1px solid var(--sh-accent-line);
   color: var(--sh-accent);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   padding: 4px 10px;
   cursor: pointer;
 }
@@ -6790,7 +6640,7 @@ button.sh-today-row-main:hover {
   border: 1px solid var(--sh-border);
   color: var(--sh-text);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   padding: 6px 10px;
   cursor: pointer;
   pointer-events: auto;
@@ -6827,7 +6677,7 @@ button.sh-today-row-main:hover {
   gap: 6px;
   white-space: nowrap;
   font-size: 11px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
   pointer-events: auto;
 }
@@ -6976,11 +6826,10 @@ button.sh-today-row-main:hover {
   border: 1px solid var(--sh-accent-line);
   border-radius: var(--sh-radius-sm);
   background: var(--sh-panel-strong);
-  box-shadow: 0 0 14px var(--sh-accent-glow);
   color: var(--sh-text);
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
   pointer-events: none;
   animation: nv-fade-in 300ms ease-out;
 }
@@ -6997,7 +6846,7 @@ button.sh-today-row-main:hover {
   position: relative;
   z-index: 2;
   transform: scale(1.03);
-  box-shadow: var(--sh-shadow-panel), 0 0 32px var(--sh-accent-glow);
+  box-shadow: var(--sh-shadow-panel);
 }
 [data-motion="reduced"] [data-nova-focusing] [data-nova-focus] {
   transform: none;
@@ -7026,7 +6875,7 @@ button.sh-today-row-main:hover {
   align-items: center;
   justify-content: space-between;
   font-size: 11px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.01em;
   color: var(--sh-accent);
   margin-bottom: 10px;
 }
@@ -7070,7 +6919,7 @@ button.sh-today-row-main:hover {
 .sc-set-earn summary {
   cursor: pointer;
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-2);
 }
 .sc-set-earn summary:hover {
@@ -7106,7 +6955,7 @@ button.sh-today-row-main:hover {
 .sc-set-label {
   display: block;
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-2);
 }
 .sc-set-hint {
@@ -7127,7 +6976,7 @@ button.sh-today-row-main:hover {
   border: 1px solid var(--sh-border);
   color: var(--sh-text-3);
   font-size: 11px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.01em;
   padding: 3px 5px;
   cursor: pointer;
 }
@@ -7201,7 +7050,6 @@ button.sh-today-row-main:hover {
 [data-motion="reduced"] .sc-bob,
 [data-motion="reduced"] .nv-frame,
 [data-motion="reduced"] .nv-img,
-[data-motion="reduced"] .nv-sweep,
 [data-motion="reduced"] .nv-ghost,
 [data-motion="reduced"] .nv-base,
 [data-motion="reduced"] .nv-3d-canvas,
@@ -7310,58 +7158,18 @@ a:hover {
   padding: 24px 26px;
 }
 
-.sh-bracket {
-  position: absolute;
-  width: 22px;
-  height: 22px;
-  pointer-events: none;
-  border: 0 solid var(--sh-accent);
-}
-
-.sh-bracket--tl {
-  top: -1px;
-  left: -1px;
-  border-top-width: 2px;
-  border-left-width: 2px;
-  border-top-left-radius: var(--sh-radius-lg);
-}
-
-.sh-bracket--tr {
-  top: -1px;
-  right: -1px;
-  border-top-width: 2px;
-  border-right-width: 2px;
-  border-top-right-radius: var(--sh-radius-lg);
-}
-
-.sh-bracket--bl {
-  bottom: -1px;
-  left: -1px;
-  border-bottom-width: 2px;
-  border-left-width: 2px;
-  border-bottom-left-radius: var(--sh-radius-lg);
-}
-
-.sh-bracket--br {
-  bottom: -1px;
-  right: -1px;
-  border-bottom-width: 2px;
-  border-right-width: 2px;
-  border-bottom-right-radius: var(--sh-radius-lg);
-}
-
 .sh-hud-title {
   margin: 0;
   font-family: var(--sh-font-hud);
   font-weight: 600;
   font-size: 15px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.01em;
   color: var(--sh-text);
 }
 
 .sh-hud-title--lg {
   font-size: 22px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-strong);
 }
 
@@ -7369,7 +7177,7 @@ a:hover {
   font-family: var(--sh-font-hud);
   font-weight: 600;
   font-size: 12px;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-2);
 }
 
@@ -7570,8 +7378,7 @@ a:hover {
   text-align: center;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 
@@ -7592,7 +7399,7 @@ a:hover {
 .sh-desk-count {
   font-family: var(--sh-font-mono);
   font-size: 10px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 .sh-desk-back {
@@ -7607,15 +7414,13 @@ a:hover {
   color: var(--sh-accent);
   font-family: var(--sh-font-mono);
   font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   cursor: pointer;
   transition: background 160ms ease, box-shadow 160ms ease;
 }
 .sh-desk-back:hover,
 .sh-desk-back:focus-visible {
   background: var(--sh-accent-soft);
-  box-shadow: 0 0 12px var(--sh-accent-glow);
   outline: none;
 }
 .sh-desk-surface {
@@ -7627,14 +7432,12 @@ a:hover {
   margin-top: 12px;
   padding: 4px 4px 12px;
   border-bottom: 2px solid var(--sh-accent-line);
-  box-shadow: 0 10px 18px -14px var(--sh-accent-glow);
 }
 .sh-desk-empty {
   align-self: center;
   font-family: var(--sh-font-mono);
   font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 .sh-desk-file {
@@ -7663,7 +7466,7 @@ a:hover {
   background: var(--sh-panel-strong);
   font-family: var(--sh-font-mono);
   font-size: 9px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
 }
 .sh-desk-sheet {
   display: grid;
@@ -7688,10 +7491,6 @@ a:hover {
 .sh-desk-file:focus-visible .sh-desk-tab,
 .sh-desk-file:focus-visible .sh-desk-sheet {
   border-color: var(--sh-accent-line);
-}
-.sh-desk-file:hover .sh-desk-sheet,
-.sh-desk-file:focus-visible .sh-desk-sheet {
-  box-shadow: 0 0 18px var(--sh-accent-glow);
 }
 @keyframes sh-desk-drop {
   from {
@@ -7838,7 +7637,7 @@ a:hover {
   font-family: var(--sh-font-hud);
   font-weight: 600;
   font-size: 13px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.01em;
   color: var(--sh-danger-text);
 }
 
@@ -8128,7 +7927,7 @@ button.sh-week-day:focus-visible {
 .sh-week-off {
   font-family: var(--sh-font-hud);
   font-size: 9px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-warn-text);
 }
 
@@ -8143,7 +7942,7 @@ button.sh-week-day:focus-visible {
 .sh-week-block-label {
   font-family: var(--sh-font-hud);
   font-size: 10px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
   margin-right: 4px;
 }
@@ -8190,7 +7989,7 @@ button.sh-week-day:focus-visible {
 .sh-week-dow {
   font-family: var(--sh-font-hud);
   font-size: 11px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 
@@ -8518,8 +8317,7 @@ button.sh-week-day:focus-visible {
   font-family: var(--sh-font-display);
   font-weight: 400;
   font-size: 28px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
   color: var(--sh-text);
 }
 
@@ -8716,7 +8514,7 @@ html[data-motion="reduced"] :is(.sh-home-card, .sh-home-link) {
   margin-bottom: 10px;
   font-family: var(--sh-font-hud);
   font-size: 11px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 
@@ -9005,7 +8803,7 @@ html.dn-overlay body {
   background: var(--sh-panel-strong);
   border: 1px solid var(--sh-accent-line);
   border-radius: var(--sh-radius-md);
-  box-shadow: var(--sh-shadow-panel), var(--sh-glow-accent);
+  box-shadow: var(--sh-shadow-panel);
   color: var(--sh-text);
   font-family: var(--sh-font-body);
   font-size: 13px;
@@ -9032,8 +8830,7 @@ html.dn-overlay body {
   color: var(--sh-text-2);
   font-family: var(--sh-font-mono);
   font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   cursor: pointer;
 }
 
@@ -9242,7 +9039,6 @@ html.dn-overlay body {
   font-size: 11px;
   line-height: 1;
   letter-spacing: 0.02em;
-  text-transform: uppercase;
   white-space: nowrap;
   color: var(--sh-text-3);
 }
@@ -9425,8 +9221,7 @@ html[data-session] .sh-titlebar-date {
 .sh-session-count {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -9475,7 +9270,7 @@ html[data-session] .sh-titlebar-date {
   left: 0;
   top: -1px;
   height: 2px;
-  background: linear-gradient(90deg, var(--sh-accent), var(--sh-accent-2));
+  background: var(--sh-accent);
   transition: width 160ms ease;
 }
 
@@ -9507,29 +9302,6 @@ html[data-motion="reduced"] :is(.sh-session-esc, .sh-session-progress) {
   padding: 20px;
 }
 
-.sh-session-panel::before,
-.sh-session-panel::after {
-  content: "";
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  pointer-events: none;
-}
-
-.sh-session-panel::before {
-  top: -1px;
-  left: -1px;
-  border-top: 2px solid var(--sh-accent);
-  border-left: 2px solid var(--sh-accent);
-}
-
-.sh-session-panel::after {
-  right: -1px;
-  bottom: -1px;
-  border-right: 2px solid var(--sh-accent-2);
-  border-bottom: 2px solid var(--sh-accent-2);
-}
-
 .sh-session-btn {
   height: 34px;
   padding: 0 14px;
@@ -9558,8 +9330,7 @@ html[data-motion="reduced"] :is(.sh-session-esc, .sh-session-progress) {
   margin: 14px 0 6px;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 
@@ -9620,7 +9391,7 @@ html[data-motion="reduced"] :is(.sh-session-esc, .sh-session-progress) {
 .sh-quiz-mode-name {
   font-family: var(--sh-font-mono);
   font-size: 12px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   color: var(--sh-text);
 }
 
@@ -9641,7 +9412,7 @@ html[data-motion="reduced"] :is(.sh-session-esc, .sh-session-progress) {
   align-self: center;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-2);
 }
 
@@ -9667,8 +9438,7 @@ html[data-motion="reduced"] :is(.sh-session-esc, .sh-session-progress) {
   gap: 12px;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 
@@ -9812,8 +9582,7 @@ html[data-motion="reduced"] :is(.sh-session-esc, .sh-session-progress) {
 .sh-quiz-verdict {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-danger-text);
 }
 
@@ -9824,7 +9593,7 @@ html[data-motion="reduced"] :is(.sh-session-esc, .sh-session-progress) {
 .sh-quiz-reward {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-2);
 }
 
@@ -9878,7 +9647,7 @@ html[data-motion="reduced"] :is(.sh-session-esc, .sh-session-progress) {
 .sh-flashcard-hint {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 
@@ -10056,8 +9825,7 @@ html[data-motion="reduced"] .sh-rating {
 .sh-results-crumb {
   font-family: var(--sh-font-mono);
   font-size: 12px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-accent);
 }
 
@@ -10065,10 +9833,9 @@ html[data-motion="reduced"] .sh-rating {
   margin: 6px 0 0;
   font-family: var(--sh-font-display);
   font-size: 29px;
-  font-weight: 400;
+  font-weight: 500;
   line-height: 1.15;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
   color: var(--sh-text);
 }
 
@@ -10093,7 +9860,6 @@ html[data-motion="reduced"] .sh-rating {
 
 .sh-results-tally i[data-new] {
   background: var(--sh-accent);
-  box-shadow: var(--sh-glow-accent);
   animation: sh-tally-new 1.2s ease-out infinite alternate;
 }
 
@@ -10101,7 +9867,7 @@ html[data-motion="reduced"] .sh-rating {
   margin-left: 8px;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 
@@ -10138,7 +9904,7 @@ html[data-motion="reduced"] .sh-rating {
 
 .sh-results-exam-ready {
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-accent-2);
 }
 
@@ -10180,8 +9946,7 @@ html[data-motion="reduced"] .sh-rating {
   font-family: var(--sh-font-mono);
   font-size: 11px;
   font-weight: 400;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 
@@ -10281,7 +10046,7 @@ html[data-motion="reduced"] .sh-rating {
   top: 0;
   bottom: 0;
   left: 0;
-  background: linear-gradient(90deg, var(--sh-accent), var(--sh-accent-2));
+  background: var(--sh-accent);
 }
 
 .sh-results-delta {
@@ -10328,10 +10093,9 @@ html[data-motion="reduced"] :is(.sh-quiz-mode, .sh-quiz-option, .sh-quiz-deck, .
 .sh-decks-title {
   margin: 0 0 6px;
   font-family: var(--sh-font-display);
-  font-weight: 400;
+  font-weight: 500;
   font-size: 22px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
   color: var(--sh-text);
 }
 
@@ -10375,7 +10139,7 @@ html[data-motion="reduced"] :is(.sh-quiz-mode, .sh-quiz-option, .sh-quiz-deck, .
   background: var(--sh-accent-2-soft);
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-accent-2);
 }
 
@@ -10428,7 +10192,7 @@ html[data-motion="reduced"] :is(.sh-quiz-mode, .sh-quiz-option, .sh-quiz-deck, .
 .sh-decks-bar i {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--sh-accent), var(--sh-accent-2));
+  background: var(--sh-accent);
 }
 
 .sh-decks-pct {
@@ -10447,10 +10211,9 @@ html[data-motion="reduced"] :is(.sh-quiz-mode, .sh-quiz-option, .sh-quiz-deck, .
 .sh-ghub-title {
   margin: 0;
   font-family: var(--sh-font-display);
-  font-weight: 400;
+  font-weight: 500;
   font-size: 22px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
   color: var(--sh-text-strong);
 }
 
@@ -10539,8 +10302,7 @@ html[data-motion="reduced"] :is(.sh-quiz-mode, .sh-quiz-option, .sh-quiz-deck, .
   color: var(--sh-accent);
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   white-space: nowrap;
   cursor: pointer;
   transition: border-color 150ms ease, background-color 150ms ease;
@@ -10620,7 +10382,7 @@ html[data-motion="reduced"] .sh-ghub-whatif {
 
 .sh-calw-weekday {
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 
@@ -10655,7 +10417,7 @@ html[data-motion="reduced"] .sh-ghub-whatif {
 .sh-calw-course {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -10685,10 +10447,9 @@ html[data-motion="reduced"] .sh-calw-day {
 /* ── Settings screen ── */
 .sh-settings-screen > .sh-hud-title {
   font-family: var(--sh-font-display);
-  font-weight: 400;
+  font-weight: 500;
   font-size: 22px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
 }
 
 .sh-settings-tabs {
@@ -10703,8 +10464,7 @@ html[data-motion="reduced"] .sh-calw-day {
 
 .sh-settings-screen .sh-settings-section-label {
   font-family: var(--sh-font-mono);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
 }
 
 .sh-settings-kv {
@@ -10849,8 +10609,7 @@ html[data-motion="reduced"] .sh-settings-pack {
 .sh-settings-pack-state {
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 
@@ -10930,7 +10689,7 @@ html[data-nova="off"] .sh-setup-floor {
   border-radius: 0;
   font-family: var(--sh-font-mono);
   font-size: 11px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
   cursor: pointer;
   transition: color 150ms linear;
@@ -10959,8 +10718,7 @@ html[data-nova="off"] .sh-setup-floor {
   font-size: 28px;
   font-weight: 400;
   line-height: 1.3;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
   color: var(--sh-text);
   overflow-wrap: anywhere;
 }
@@ -11049,7 +10807,7 @@ html[data-nova="off"] .sh-setup-floor {
   margin: 22px 0 0;
   padding: 0;
   font-size: 11px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 
@@ -11100,8 +10858,7 @@ html[data-nova="off"] .sh-setup-floor {
 
 .sh-setup-pack-meta {
   font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
 }
 
@@ -11117,8 +10874,7 @@ html[data-nova="off"] .sh-setup-floor {
   background: none;
   border: 0;
   font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--sh-text-3);
   cursor: pointer;
   transition: color 150ms linear;
@@ -11229,7 +10985,7 @@ html[data-motion="reduced"][data-pack="zombies"] .nv-sprite .nv-frame {
 .sh-zb-label {
   font-family: var(--sh-font-mono);
   font-size: 12px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
 }
 
 .sh-zb-fog {

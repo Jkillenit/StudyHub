@@ -35,7 +35,7 @@ export function TonightList({ items, hasCourses, synced, onRun, index = 0 }) {
     <HudPanel className="sh-tonight" index={index} aria-label="Tonight" data-tour-id="today-tonight" data-nova-anchor="panel.tonight" data-perch>
       <header className="sh-panel-head">
         <div className="sh-panel-head-main">
-          <h2 className="sh-hud-title sh-hud-title--lg">TONIGHT</h2>
+          <h2 className="sh-hud-title sh-hud-title--lg">Tonight</h2>
           {items.length ? (
             <span className="sh-panel-count">
               {items.length} task{items.length === 1 ? "" : "s"}

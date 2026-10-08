@@ -16,7 +16,7 @@ function weekLabel(days) {
   const last = days[6];
   const fmt = (d, withYear) =>
     d.toLocaleDateString([], { month: "short", day: "numeric", ...(withYear ? { year: "numeric" } : {}) });
-  return `${fmt(first, first.getFullYear() !== last.getFullYear())} – ${fmt(last, true)}`.toUpperCase();
+  return `${fmt(first, first.getFullYear() !== last.getFullYear())} – ${fmt(last, true)}`;
 }
 
 export function CalendarView({ userCourses }) {
@@ -84,7 +84,7 @@ export function CalendarView({ userCourses }) {
   });
   const unit = mode === "week" ? "week" : "month";
   const rangeLabel =
-    mode === "week" ? weekLabel(days) : month.toLocaleDateString([], { month: "long", year: "numeric" }).toUpperCase();
+    mode === "week" ? weekLabel(days) : month.toLocaleDateString([], { month: "long", year: "numeric" });
 
   return (
     <div className="sh-cal">
@@ -174,7 +174,7 @@ export function CalendarView({ userCourses }) {
 
       <div className="sh-cal-detail">
         <div className="sh-mirror-head">
-          <div className="sh-hub-section-label">{selectedLabel.toUpperCase()}</div>
+          <div className="sh-hub-section-label">{selectedLabel}</div>
           {!adding && courses.length ? (
             <button type="button" className="sh-btn-ghost sh-bb-sync-btn" onClick={() => setAdding(true)}>
               + ADD

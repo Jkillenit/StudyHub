@@ -80,7 +80,7 @@ export function StandingGauges({ standing, arriving, onOpen, onMore, index = 0 }
   return (
     <HudPanel className="sh-standing" index={index} aria-label="Standing" data-tour-id="today-standing" data-nova-anchor="panel.standing" data-perch>
       <header className="sh-panel-head">
-        <h2 className="sh-hud-title">STANDING</h2>
+        <h2 className="sh-hud-title">Standing</h2>
         {courses.length ? (
           <span className="sh-panel-meta">{uniformTarget != null ? `Target ${uniformLetter} · ${formatPct(uniformTarget)}` : "Per-course targets"}</span>
         ) : null}

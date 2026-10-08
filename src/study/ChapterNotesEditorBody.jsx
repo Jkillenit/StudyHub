@@ -8,7 +8,7 @@ export function ChapterNotesEditorBody({ sectionId, sectionTitle, onPersist, onA
     <div>
       {sectionTitle ? (
         <div className="ctx-label" style={{ marginBottom: 12 }}>
-          {sectionTitle.toUpperCase()}
+          {sectionTitle}
         </div>
       ) : null}
       <div className="sh-notes-wrapper">

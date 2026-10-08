@@ -419,7 +419,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, novaCourses, onGoHub }
 
       <SideDrawer open={settingsOpen && !splitOpen} title="COURSE SETTINGS" onClose={closeSettings}>
         <div>
-          <div className="ctx-label">ADD COURSE</div>
+          <div className="ctx-label">Add course</div>
           <button
             type="button"
             className="sh-btn-ghost ctx-btn"
@@ -429,7 +429,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, novaCourses, onGoHub }
           >
             ADD NEW COURSE (WELCOME)
           </button>
-          <div className="ctx-label mt-3">MODULE VISIBILITY</div>
+          <div className="ctx-label mt-3">Module visibility</div>
           <div className="d-flex flex-column gap-1 mb-2">
             {STUDY_CHAPTERS.map((ch) => {
               const enabled = !disabledIds.has(ch.id);
@@ -455,7 +455,7 @@ function BuiltinCourseAppInner({ courseShellLoad = false, novaCourses, onGoHub }
             COMFORT SPACING
           </label>
           <div className="d-flex align-items-center gap-2 mono" style={{ fontSize: 11 }}>
-            <span className="sh-kv-key">TEXT</span>
+            <span className="sh-kv-key">Text</span>
             <button type="button" className="sh-btn-ghost" style={{ width: "auto", margin: 0, padding: "4px 8px" }} disabled={fontStep <= 0} onClick={() => setFontStep((s) => Math.max(0, s - 1))}>
               A−
             </button>

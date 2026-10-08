@@ -336,12 +336,12 @@ export function QuizPanel({ courses, initialDeck = "all", highScores = {}, onAns
 }
 
 function RewardLine({ score, reward = {} }) {
-  const parts = [`${score.toLocaleString()} POINTS`];
+  const parts = [`${score.toLocaleString()} points`];
   if (reward.xpGained) parts.push(`+${reward.xpGained} XP`);
-  if (reward.level) parts.push(`LV ${reward.level}`);
-  if (reward.newHighScore) parts.push("NEW BEST");
-  if (reward.leveledUp) parts.push("LEVEL UP");
-  if (reward.unlocked) parts.push(`UNLOCKED ${reward.unlocked.toUpperCase()}`);
+  if (reward.level) parts.push(`Lv ${reward.level}`);
+  if (reward.newHighScore) parts.push("New best");
+  if (reward.leveledUp) parts.push("Level up");
+  if (reward.unlocked) parts.push(`Unlocked ${reward.unlocked}`);
   return <span className="sh-quiz-reward">{parts.join(" · ")}</span>;
 }
 

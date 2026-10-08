@@ -78,12 +78,10 @@ export function SpeechBubble({ title, text, actions = [], h = "left", v = "above
       onPointerDown={(e) => e.stopPropagation()}
       onClick={typing ? finish : undefined}
     >
-      <span className="sc-bubble-corner sc-bubble-corner--tl" aria-hidden />
-      <span className="sc-bubble-corner sc-bubble-corner--br" aria-hidden />
       <span className="sc-bubble-tail" aria-hidden />
       <div className="sc-bubble-head mono">
         <span className="sc-bubble-live" aria-hidden />
-        <span>NOVA</span>
+        <span>Nova</span>
         {title ? <span className="sc-bubble-title">· {title}</span> : null}
       </div>
       {text ? (

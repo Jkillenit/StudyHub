@@ -3,7 +3,7 @@ import { relativeTime } from "../dashboard/dateLabels.js";
 import { courseStore } from "../../db/courseStore.js";
 
 const LAST_SYNC_KEY = "bb.lastSync";
-const STEP_LABEL = { contents: "CONTENT", announcements: "ANNOUNCEMENTS", grades: "GRADES", syllabus: "SYLLABUS" };
+const STEP_LABEL = { contents: "content", announcements: "announcements", grades: "grades", syllabus: "syllabus" };
 const SYLLABUS_LABEL = {
   applied: "SYLLABUS WEIGHTS ADDED",
   kept: "GRADES SORTED INTO YOUR WEIGHTS",
@@ -126,7 +126,7 @@ export function BlackboardSyncPanel({ userCourses, onSynced }) {
   return (
     <div className="sh-bb-sync">
       <div className="sh-bb-sync-head">
-        <span className="sh-hub-section-label">SYNC COURSES</span>
+        <span className="sh-hub-section-label">Sync courses</span>
         <div className="sh-bb-sync-actions">
           {visible.length > 1 ? (
             <button type="button" className="sh-btn-ghost sh-bb-sync-btn" disabled={busy} onClick={() => run(visible)}>
@@ -147,12 +147,12 @@ export function BlackboardSyncPanel({ userCourses, onSynced }) {
             const linked = isLinked(c.bbCourseId);
             const res = results[c.bbCourseId];
             const active = busy && progress?.bbCourseId === c.bbCourseId;
-            let status = linked ? `SYNCED ${relativeTime(lastSync[c.bbCourseId]).toUpperCase()}` : "NEW · SYNC TO ADD";
-            if (active) status = `SYNCING ${STEP_LABEL[progress.step] || ""}…`;
+            let status = linked ? `Synced ${relativeTime(lastSync[c.bbCourseId])}` : "New · sync to add";
+            if (active) status = `Syncing ${STEP_LABEL[progress.step] || ""}…`;
             else if (res?.ok && res.counts) {
               const { contents, announcements, assignments, grades, scored = 0 } = res.counts;
-              status = `✓ ${contents} ITEMS · ${announcements} ANN · ${assignments} DUE · ${scored}/${grades} GRADES SCORED`;
-              if (grades && !scored) status += res.gradeSource === "none" ? " (SCORES NOT READABLE)" : "";
+              status = `✓ ${contents} items · ${announcements} ann · ${assignments} due · ${scored}/${grades} grades scored`;
+              if (grades && !scored) status += res.gradeSource === "none" ? " (scores not readable)" : "";
             } else if (res && !res.ok) status = `✕ ${errorText(res.error)}`;
             const syl = !active && res?.ok ? syllabusStatus[c.bbCourseId] : null;
             return (
