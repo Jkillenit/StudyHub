@@ -14,7 +14,9 @@ uniform vec2 uMouse;
 uniform vec3 uAttr;
 uniform vec4 uLine;
 uniform float uStream;
+uniform vec2 uCol;
 varying float vA;
+varying float vTint;
 
 // Divergence-free drift: the curl of a cheap analytic potential.
 vec2 flow(vec2 p, float t) {
@@ -43,37 +45,59 @@ void main() {
   p = mix(p, mix(uLine.xy, uLine.zw, fract(seed * 97.0 + uTime * 0.6)), s);
   p = mix(p, aTarget, aMix);
 
-  vA = (0.35 + 0.65 * fract(seed * 13.7)) * (1.0 + aBoost * 4.0 + s * 3.0 + aMix * 7.0);
+  // Dense toward the sides, sparse behind the content column: a particle fades out as it drifts in,
+  // unless it's gathered, emitted or streaming.
+  // Off to the sides they cluster in a band that rises toward each outer edge.
+  float beyond = abs(p.x - uCol.x) - uCol.y;
+  float side = smoothstep(0.0, 240.0, beyond);
+  float band = exp(-pow((p.y / uRes.y - 0.72 + max(beyond, 0.0) / uRes.x * 0.9) / 0.12, 2.0));
+  float keep = smoothstep(-0.06, 0.06, mix(0.15, 1.0, side) * mix(0.2, 1.0, band) - fract(seed * 53.1));
+  keep = max(keep, max(aMix, s));
+
+  float star = step(0.985, fract(seed * 41.3));
+  float twinkle = 0.7 + 0.3 * sin(uTime * (0.5 + fract(seed * 3.7)) + seed * 40.0);
+  vA = (0.35 + 0.65 * fract(seed * 13.7)) * (1.0 + star * 2.5) * twinkle * keep * (1.0 + aBoost * 4.0 + s * 3.0 + aMix * 7.0);
+  vTint = fract(seed * 5.1) * 0.5;
   gl_Position = vec4(p.x / uRes.x * 2.0 - 1.0, 1.0 - p.y / uRes.y * 2.0, 0.0, 1.0);
-  gl_PointSize = (1.4 + fract(seed * 7.3) * 1.6 + aMix * 0.6) * uPx;
+  float r = fract(seed * 7.3);
+  gl_PointSize = (1.5 + r * r * 2.2 + star * 2.5 + aMix * 0.6) * uPx;
 }
 `;
 
 const FRAG = /* glsl */ `
 uniform vec3 uColor;
+uniform vec3 uTint;
 uniform float uAlpha;
 uniform float uDim;
 varying float vA;
+varying float vTint;
 
 void main() {
   float r = length(gl_PointCoord - 0.5);
   if (r > 0.5) discard;
-  float a = min(smoothstep(0.5, 0.0, r) * vA * uAlpha * (1.0 - uDim * 0.9), 1.0);
-  gl_FragColor = vec4(uColor * a, a);
+  float a = min(smoothstep(0.5, 0.15, r) * vA * uAlpha * (1.0 - uDim * 0.9), 1.0);
+  gl_FragColor = vec4(mix(uColor, uTint, vTint) * a, a);
 }
 `;
 
-const BASE_ALPHA = 0.14;
+const BASE_ALPHA = 0.85;
+/** The rail's width: the content column is centered in what's left of the window. */
+const RAIL_PX = 56;
+/** Half the sparse band behind the content column. */
+const COLUMN_HALF_PX = 340;
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 const ease = (p) => p * p * (3 - 2 * p);
 
-function accentColor() {
-  const css = getComputedStyle(document.documentElement).getPropertyValue("--sh-accent").trim() || "#86E1DE";
+function tokenColor(name, fallback) {
+  const css = getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
   return new THREE.Color().setStyle(css).convertLinearToSRGB();
 }
+const accentColor = () => tokenColor("--sh-accent", "#86E1DE");
+/** A slight blue toward Nova's colour; packs with their own palette (Zombies) stay untinted. */
+const tintColor = () => (document.documentElement.dataset.pack === "zombies" ? accentColor() : tokenColor("--sh-nova", "#3F7BFF"));
 
 /**
- * The ambient particle field on `canvas`: ~3k points in the accent color drifting on a curl flow,
+ * The ambient particle field on `canvas`: ~6k points in the accent color drifting on a curl flow,
  * pushed by the cursor and steered by studyhub-field-* events. Throws when WebGL is unavailable.
  */
 export function createField(canvas, { reduced = false } = {}) {
@@ -110,7 +134,9 @@ export function createField(canvas, { reduced = false } = {}) {
     uAttr: { value: new THREE.Vector3(0, 0, 0) },
     uLine: { value: new THREE.Vector4(0, 0, 0, 0) },
     uStream: { value: 0 },
+    uCol: { value: new THREE.Vector2(0, COLUMN_HALF_PX) },
     uColor: { value: accentColor() },
+    uTint: { value: tintColor() },
     uAlpha: { value: BASE_ALPHA },
     uDim: { value: 0 },
   };
@@ -141,6 +167,7 @@ export function createField(canvas, { reduced = false } = {}) {
     const h = canvas.clientHeight || window.innerHeight;
     renderer.setSize(w, h, false);
     u.uRes.value.set(w, h);
+    u.uCol.value.x = (w + RAIL_PX) / 2;
   };
   size();
 
@@ -351,6 +378,7 @@ export function createField(canvas, { reduced = false } = {}) {
   return {
     recolor() {
       u.uColor.value.copy(accentColor());
+      u.uTint.value.copy(tintColor());
       if (reduced || !raf) draw();
     },
     dispose() {

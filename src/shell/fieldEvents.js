@@ -31,7 +31,7 @@ export const fieldEmit = (rect, to, count = 60) =>
 export const fieldState = (state, from, to) => send(FIELD_EVENTS.state, { state, from, to });
 export const fieldDim = (amount) => send(FIELD_EVENTS.dim, { amount });
 
-export const FIELD_COUNT = 3000;
+export const FIELD_COUNT = 6000;
 export const FIELD_FPS = 30;
 
 /** Density (share of FIELD_COUNT drawn) and drift speed by time of day: sparse and slow late at night. */
