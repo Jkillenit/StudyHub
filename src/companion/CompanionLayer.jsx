@@ -371,6 +371,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const bodyRef = useRef(null);
   /** Bumped by every gather and dissolve, so the newest one cancels what's left of an older one. */
   const fadeIdRef = useRef(0);
+  /** She has shown once this session; only that first show and the day's arrival gather her out of the field. */
+  const enteredSessionRef = useRef(false);
   const enteredDayRef = useRef(null);
   /** Her body is on screen (visible and not tucked away), so a dissolve has something to show. */
   const bodyShownRef = useRef(false);
@@ -407,6 +409,14 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     }, ENTER_SETTLE_MS);
   }, [later]);
 
+  /** Any other show: fade her body back in without the field, and without holding anything else up. */
+  const reveal = useCallback(() => {
+    fadeIdRef.current += 1;
+    if (fadingRef.current) fieldRelease();
+    fadingRef.current = false;
+    void bodyRef.current?.resolveTo(1, reducedRef.current ? 0 : RESOLVE_IN_MS);
+  }, []);
+
   /** The dissolve in progress, `{ id, done }`, so a second request (say, hide while tucking away) joins it. */
   const vanishingRef = useRef(null);
   /** Dissolve her back into the field, particles streaming off her body. Instant with reduced motion. */
@@ -416,7 +426,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     const id = ++fadeIdRef.current;
     if (fadingRef.current) fieldRelease();
     fadingRef.current = false;
-    if (!stage || reducedRef.current || !bodyShownRef.current) return Promise.resolve();
+    if (!stage || reducedRef.current || !bodyShownRef.current || stage.uniforms.uResolve.value <= 0) return Promise.resolve();
     fadingRef.current = true;
     const pts = stage.sampleScreenPoints();
     for (let k = 0; k < EXIT_EMITS && pts.length; k += 1) {
@@ -594,11 +604,16 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
   const bodyReady = use3d && body === "ready";
   bodyShownRef.current = visibleNow && !tucked;
 
-  /* Every time she shows (first appearance, back from hidden, out of a tuck) she gathers out of the field; the day's first Today arrival re-runs it. */
+  /* The session's first show gathers her out of the field (unless she starts tucked away); later shows just fade back in. The day's first Today arrival gathers again. */
   const shown3d = visibleNow && bodyReady && !tuckWanted;
   useEffect(() => {
-    if (shown3d) materialize();
-  }, [shown3d, materialize]);
+    if (!visibleNow || !bodyReady) return;
+    const first = !enteredSessionRef.current;
+    enteredSessionRef.current = true;
+    if (tuckWanted) return;
+    if (first) materialize();
+    else reveal();
+  }, [visibleNow, bodyReady, tuckWanted, materialize, reveal]);
   api.current.arrive = () => {
     if (shown3d && enteredDayRef.current !== localDateString()) materialize();
   };
@@ -736,9 +751,13 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         if (patch.enabled) {
           update(patch);
           if (modeRef.current === "hidden") appear();
+          else reveal();
           return;
         }
-        void vanish().then(() => {
+        const done = vanish();
+        const id = fadeIdRef.current;
+        void done.then(() => {
+          if (fadeIdRef.current !== id) return;
           update(patch);
           if (tourRef.current) {
             tourRef.current.cleanup?.();
@@ -759,7 +778,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         api.current.backToSpot?.();
       }
     },
-    [update, appear, cancel, force, send, vanish]
+    [update, appear, cancel, force, send, vanish, reveal]
   );
 
   const { settingsOpen, setSettingsOpen } = useNovaWindowEvents(core, { visibleNow, quiet, onSettingsChange });
@@ -959,6 +978,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
                     onFail={onBodyFail}
                     onHead={onHead}
                     bodyRef={bodyRef}
+                    unresolved={!enteredSessionRef.current && !reduced}
                   />
                 </Suspense>
                 ) : null

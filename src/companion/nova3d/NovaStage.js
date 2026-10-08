@@ -339,7 +339,7 @@ void main() {
   float rd = mix(vnoise(vRest * 18.0), clamp(vRest.y, 0.0, 1.0), 0.6);
   float rcut = uResolve * 1.12 - 0.06;
   if (rd > rcut) discard;
-  float redge = smoothstep(0.06, 0.0, rcut - rd);
+  float redge = 1.0 - smoothstep(0.0, 0.06, rcut - rd);
   /* Zombies pack wear, in rest-pose space (height 1, T-pose arms along x) so it sticks to her as she moves. */
   float burn = 0.0;
   float bare = 0.0;

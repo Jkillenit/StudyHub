@@ -13,6 +13,7 @@ const GLITCH_MS = 520;
  * pen in `pen` (a ref of viewport px); `drowsy` droops her eyes; each new `glance` `{ x, y, ms }` turns her gaze.
  * `onHead` gets her head's box px ({ x, y }) as it moves, and null on unmount.
  * `bodyRef` (a ref) holds the stage while mounted, for `resolveTo` and `sampleScreenPoints`.
+ * `unresolved` (read once, at mount) starts her body invisible because an entrance will resolve it.
  */
 export default memo(function Nova3D({
   size,
@@ -44,11 +45,12 @@ export default memo(function Nova3D({
   onFail,
   onHead,
   bodyRef = null,
+  unresolved = false,
 }) {
   const canvasRef = useRef(null);
   const stageRef = useRef(null);
-  const cbRef = useRef({ onReady, onFail, onHead, bodyRef });
-  cbRef.current = { onReady, onFail, onHead, bodyRef };
+  const cbRef = useRef({ onReady, onFail, onHead, bodyRef, unresolved });
+  cbRef.current = { onReady, onFail, onHead, bodyRef, unresolved };
   const penRef = useRef(pen);
   penRef.current = pen;
 
@@ -68,6 +70,7 @@ export default memo(function Nova3D({
     stageRef.current = stage;
     const body = cbRef.current.bodyRef;
     if (body) body.current = stage;
+    if (cbRef.current.unresolved) void stage.resolveTo(0);
     stage.onHead = (p) => cbRef.current.onHead?.(p);
     stage.setPen(penRef.current);
     let alive = true;
