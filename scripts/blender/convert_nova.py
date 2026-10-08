@@ -309,7 +309,8 @@ rebuild("cortana_body", "nova_body", "storm_cortana_default_body_diff.png", "sto
         "storm_cortana_default_body_control.png")
 rebuild("cortana_head", "nova_head", "storm_cortana_default_head_diff.png", "storm_cortana_default_head_normal.png",
         "storm_cortana_default_head_control.png")
-rebuild("cortana_eyes", "nova_eye", "storm_cortana_default_eye_diff.png", "storm_cortana_default_eye_iris_normal.png")
+rebuild("cortana_eyes", "nova_eye", "storm_cortana_default_eye_diff.png", "storm_cortana_default_eye_iris_normal.png",
+        "storm_cortana_default_eye_control.png")
 rebuild("cortana_hair", "nova_hair", "storm_cortana_default_hair_diff.png", "storm_cortana_default_hair_normal.png",
         alpha=True)
 rebuild("cortana_hair_eyelashes.001", "nova_lashes", "storm_cortana_default_hair_diff.png", alpha=True)
