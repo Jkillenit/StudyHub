@@ -15,6 +15,11 @@ describe("design tokens", () => {
     expect(token("sh-warn")).toBe("#E3BE72");
   });
 
+  it("gives Nova her own royal blue", () => {
+    expect(token("sh-nova")).toBe("#3F7BFF");
+    expect(token("sh-nova-soft")).toMatch(/^color-mix\(in oklab, var\(--sh-nova\)/);
+  });
+
   it("uses Geist for everything", () => {
     expect(token("sh-font-body")).toMatch(/^"Geist Sans"/);
     expect(token("sh-font-mono")).toMatch(/^"Geist Mono"/);

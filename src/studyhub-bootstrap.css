@@ -31,6 +31,9 @@
   --sh-accent-2: var(--sh-text-3);
   --sh-accent-2-soft: color-mix(in oklab, var(--sh-accent-2) 10%, transparent);
   --sh-accent-2-line: color-mix(in oklab, var(--sh-accent-2) 40%, transparent);
+  /* Nova's body, glow and light spill only; never UI */
+  --sh-nova: #3F7BFF;
+  --sh-nova-soft: color-mix(in oklab, var(--sh-nova) 12%, transparent);
 
   /* meaning colors: only for real alerts */
   --sh-warn: #E3BE72;
@@ -7196,7 +7199,7 @@ html:not([data-pack="zombies"]) .sc-bubble .sc-bubble-btn:focus-visible {
   height: 260px;
   z-index: -1;
   pointer-events: none;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--sh-accent) 8%, transparent), transparent);
+  background: radial-gradient(closest-side, var(--sh-nova-soft), transparent);
   opacity: 0;
   transition: opacity 400ms ease;
 }
