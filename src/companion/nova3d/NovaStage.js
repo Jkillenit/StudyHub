@@ -271,16 +271,19 @@ uniform float uTime;
 uniform float uGlitch;
 uniform float uHeight;
 uniform float uRestH;
+uniform float uZombie;
 varying vec2 vUv;
 varying vec3 vN;
 varying float vH;
 varying vec3 vRest;
+varying vec3 vRestN;
 void main() {
   vUv = uv;
   vRest = position / uRestH;
   #include <beginnormal_vertex>
   #include <morphinstance_vertex>
   #include <morphnormal_vertex>
+  vRestN = objectNormal;
   #include <skinbase_vertex>
   #include <skinnormal_vertex>
   #include <defaultnormal_vertex>
@@ -293,7 +296,7 @@ void main() {
   vH = wp.y / uHeight;
   float slice = floor(vH * 22.0) + floor(uTime * 14.0);
   float hit = step(0.78, fract(sin(slice * 12.9898) * 43758.5453));
-  mvPosition.x += uGlitch * hit * (fract(sin(slice * 78.233) * 9631.17) - 0.5) * uHeight * 0.09;
+  mvPosition.x += uGlitch * hit * (fract(sin(slice * 78.233) * 9631.17) - 0.5) * uHeight * mix(0.04, 0.09, uZombie);
   gl_Position = projectionMatrix * mvPosition;
 }
 `;
@@ -318,6 +321,7 @@ varying vec2 vUv;
 varying vec3 vN;
 varying float vH;
 varying vec3 vRest;
+varying vec3 vRestN;
 float hash3(vec3 p) {
   p = fract(p * 0.3183099 + 0.1);
   p *= 17.0;
@@ -331,6 +335,20 @@ float vnoise(vec3 p) {
     mix(mix(hash3(i), hash3(i + vec3(1.0, 0.0, 0.0)), f.x), mix(hash3(i + vec3(0.0, 1.0, 0.0)), hash3(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
     mix(mix(hash3(i + vec3(0.0, 0.0, 1.0)), hash3(i + vec3(1.0, 0.0, 1.0)), f.x), mix(hash3(i + vec3(0.0, 1.0, 1.0)), hash3(i + vec3(1.0, 1.0, 1.0)), f.x), f.y),
     f.z);
+}
+/* Circuit traces on a grid: random horizontal runs 3 cells long and vertical runs 4 long, with a pad where they cross. Fades out before it aliases. */
+float circuit(vec2 p) {
+  vec2 c = floor(p);
+  vec2 f = fract(p) - 0.5;
+  float aa = fwidth(p.x) + fwidth(p.y);
+  float w = 0.05 + aa * 0.5;
+  float hOn = step(0.62, hash3(vec3(floor(c.x / 3.0), c.y, 3.0)));
+  float vOn = step(0.72, hash3(vec3(c.x, floor(c.y / 4.0), 5.0)));
+  float hl = (1.0 - smoothstep(w - aa, w, abs(f.y))) * hOn;
+  float vl = (1.0 - smoothstep(w - aa, w, abs(f.x))) * vOn;
+  float r = length(f);
+  float pad = (1.0 - smoothstep(0.2 - aa, 0.2, r)) * smoothstep(0.1 - aa, 0.1, r) * hOn * vOn;
+  return max(max(hl, vl), pad) * (1.0 - smoothstep(0.3, 0.6, aa));
 }
 void main() {
   vec4 tex = uHasMap > 0.5 ? texture2D(map, vUv) : vec4(1.0);
@@ -388,6 +406,37 @@ void main() {
     }
     col *= uFlicker;
     a *= mix(1.0, uFlicker, 0.6);
+  } else {
+    /* Lit in view space by a soft key (upper left) and fill (right); wrap terms keep the shadows open like light through skin. */
+    vec3 N = normalize(vN) * (gl_FrontFacing ? 1.0 : -1.0);
+    float ndv = clamp(N.z, 0.0, 1.0);
+    vec3 keyL = normalize(vec3(-0.45, 0.55, 0.7));
+    vec3 fillL = normalize(vec3(0.6, -0.1, 0.8));
+    float key = clamp((dot(N, keyL) + 0.5) / 1.5, 0.0, 1.0);
+    float fill = clamp((dot(N, fillL) + 0.3) / 1.3, 0.0, 1.0);
+    float sss = smoothstep(-0.6, 1.0, dot(N, keyL));
+    float rim = pow(1.0 - ndv, 3.0);
+    float spec = pow(clamp(dot(N, normalize(keyL + vec3(0.0, 0.0, 1.0))), 0.0, 1.0), 28.0);
+    vec3 an = abs(normalize(vRestN));
+    vec2 cp = an.z > max(an.x, an.y) ? vRest.xy : an.x > an.y ? vRest.zy : vRest.xz;
+    float hair = step(1.5, uWear);
+    float skin = (1.0 - hair) * (uEye > 0.5 ? 0.0 : 1.0);
+    float trace = circuit(cp * 110.0) * skin * smoothstep(0.35, 0.65, vnoise(vRest * 9.0));
+    float detail = mix(0.25, 1.0, lum) * mix(1.0, 0.4, hair);
+    col = uColor * (0.03 + 1.0 * key * key * detail + 0.15 * fill * detail);
+    col += mix(uColor, uHot, 0.25) * sss * 0.3 * (1.0 - rim);
+    col = mix(col, uHot, pow(key, 6.0) * detail * 0.5);
+    col += mix(uColor, uHot, 0.55) * rim * (0.65 + 0.2 * uGlow);
+    col += uHot * spec * mix(0.3, 0.45, hair) * detail;
+    col += mix(uColor, uHot, 0.5) * trace * 0.22;
+    col += uHot * band * 0.08;
+    if (uEye > 0.5) col = uColor * (0.05 + lum * lum * (uEye > 1.5 ? 0.7 : 1.5));
+    float nscan = 0.96 + 0.04 * step(0.5, fract(gl_FragCoord.y * 0.33));
+    float nflick = 0.98 + 0.02 * step(0.12, fract(sin(floor(uTime * 9.0) * 91.7) * 311.3));
+    a = clamp((0.78 + 0.14 * lum + rim * 0.25 + trace * 0.1) * nscan * nflick * uFade, 0.0, 1.0);
+    a *= min(1.0, tex.a * 1.5);
+    /* The whites can sort after the iris; keep them faint so the iris reads through. */
+    if (uEye > 1.5) a *= 0.3;
   }
   col = mix(col, (uZombie > 0.5 ? uEyeColor : uHot) * 1.6, redge);
   a = max(a, redge * uFade);
