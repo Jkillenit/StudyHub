@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { publishToday } from "../../nova/director.js";
-import { fieldEmit, lastAttractor } from "../../shell/fieldEvents.js";
+import { fieldEmit, novaAttractor } from "../../shell/fieldEvents.js";
 import { useReducedMotion } from "../../shell/motion.js";
 import { localDateString } from "../../study/sm2.js";
 import { NovaBar } from "../../shell/NovaBar.jsx";
@@ -77,7 +77,7 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
     return () => window.clearTimeout(t);
   }, [typeIn, hasRows]);
 
-  /* A shown row whose item is gone (submitted, or studied) flows into Nova while its slot closes. */
+  /* A shown row that leaves closes its slot; one whose item is done (submitted, scored) flows into Nova on the way. */
   const shownRef = useRef([]);
   const flowedRef = useRef(new Set());
   const listRef = useRef(null);
@@ -85,18 +85,19 @@ export function HomeScreen({ refreshKey = 0, courses, onOpenCourse, onNavigate }
   useLayoutEffect(() => {
     if (!view) return;
     const next = view.hasCourses ? view.tonight : [];
-    const gone = goneRows(shownRef.current, next.map((t) => t.id));
+    const gone = goneRows(shownRef.current, next.map((t) => t.id), view.finished);
     shownRef.current = next.slice(0, 3);
     if (!gone.length) return;
-    window.dispatchEvent(new CustomEvent("studyhub-companion-task-done", { detail: { title: gone[0].item.title } }));
+    const done = gone.find((g) => g.done);
+    if (done) window.dispatchEvent(new CustomEvent("studyhub-companion-task-done", { detail: { title: done.item.title } }));
     if (!reduced) setLeaving((l) => [...l, ...gone]);
   }, [view, reduced]);
   useLayoutEffect(() => {
     for (const g of leaving) {
-      if (flowedRef.current.has(g.item.id)) continue;
+      if (!g.done || flowedRef.current.has(g.item.id)) continue;
       flowedRef.current.add(g.item.id);
       const el = listRef.current?.querySelector(`li[data-leaving="${CSS.escape(g.item.id)}"]`);
-      const to = lastAttractor();
+      const to = novaAttractor();
       if (el && to) fieldEmit(el.getBoundingClientRect(), to, 60);
     }
   }, [leaving]);

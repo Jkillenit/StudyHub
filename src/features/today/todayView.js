@@ -5,7 +5,7 @@
 import { shortCourse } from "../dashboard/courseLabel.js";
 import { letterFor } from "../grades/gradeMath.js";
 import { localDayKey, startOfLocalDay } from "../../lib/dates.js";
-import { ITEM_TYPES, PRIORITY_CONFIG, courseStanding, daysUntil, formatPct, rankToday } from "./priority.js";
+import { ITEM_TYPES, PRIORITY_CONFIG, assignmentItemId, courseStanding, daysUntil, formatPct, rankToday } from "./priority.js";
 
 export const TONIGHT_MAX = 3;
 export const WEEK_DAYS = 7;
@@ -59,10 +59,21 @@ export function tonightReason(item) {
   return parts.filter(Boolean);
 }
 
+/** Item ids with real evidence they're done: ticked off, submitted on Blackboard (`course.finished`), or scored. */
+export function finishedIds(data) {
+  const ids = [];
+  for (const c of data?.courses || []) {
+    for (const a of c.assignments || []) if (a.completed || a.score != null) ids.push(assignmentItemId(a));
+    for (const a of c.finished || []) ids.push(assignmentItemId(a));
+  }
+  return ids;
+}
+
 /**
  * {
  *   synced, hasCourses,
  *   tonight:  up to 3 ranked items (never overdue, never a course-level grade risk),
+ *   finished: ids of items known to be done (see finishedIds),
  *   overdue:  late assignments inside the engine's overdue window, most overdue first,
  *   standing: { courses, shown, more, target, letter, uniformTarget },
  *   week:     { days: 7 columns from today, later: items due after today },
@@ -159,6 +170,7 @@ export function buildTodayView(data, { now, scales = {}, config = PRIORITY_CONFI
     syncedAt: data?.syncedAt ?? null,
     hasCourses: courses.length > 0,
     tonight,
+    finished: finishedIds(data),
     overdue,
     standing: {
       courses: sortedStanding.slice(0, STANDING_MAX),

@@ -710,7 +710,7 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
 
   /* ---------- Ask Nova: typed commands (see src/nova/commands.js) ---------- */
   const { focusUntil, stopFocus } = useNovaCommands(core, { startQuiz, startHelp, closeHelp });
-  useNovaFocusDissolve(core, { focusUntil });
+  useNovaFocusDissolve(core, { focusUntil, todayShown: onHub && hubView === "today" && !inSetup });
 
   /* The message box (src/shell/NovaBar.jsx) talks to her through window events. */
   useEffect(() => {

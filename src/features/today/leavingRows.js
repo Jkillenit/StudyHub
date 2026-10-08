@@ -1,7 +1,11 @@
-/** Rows shown last time whose item is gone from the whole new list (not just pushed out of the top three), with their slot. */
-export function goneRows(prevRows, nextIds) {
+/**
+ * Rows shown last time that aren't in the new top three, with their slot. `done` only when the item is
+ * known finished (`finished` ids); rows pushed out, re-ranked away or gone overdue are not.
+ */
+export function goneRows(prevRows, nextIds, finished = []) {
   const keep = new Set(nextIds);
-  return prevRows.flatMap((item, index) => (keep.has(item.id) ? [] : [{ item, index }]));
+  const doneIds = new Set(finished);
+  return prevRows.flatMap((item, index) => (keep.has(item.id) ? [] : [{ item, index, done: doneIds.has(item.id) }]));
 }
 
 /** `rows` with the leaving ones put back in their old slots, as `{ item, leaving, index }` (index = the row's slot in its own list). */

@@ -172,6 +172,10 @@ function todayData(db, courseUuid = null) {
     FROM assignments WHERE course_id = ? AND completed = 0 AND submitted = 0 AND due_date IS NOT NULL AND due_date >= ?
     ORDER BY due_date ASC
   `);
+  const finishedStmt = db.prepare(`
+    SELECT uuid, kind FROM assignments
+    WHERE course_id = ? AND (completed = 1 OR submitted = 1) AND due_date IS NOT NULL AND due_date >= ?
+  `);
   const countStmt = db.prepare("SELECT component_id, bb_id, title FROM assignments WHERE course_id = ?");
   const cardsStmt = db.prepare(`
     SELECT COUNT(f.id) AS total,
@@ -249,6 +253,7 @@ function todayData(db, courseUuid = null) {
             }
           : {}),
       })),
+      finished: finishedStmt.all(course.id, since).map((a) => ({ uuid: a.uuid, kind: a.kind || "assignment" })),
     };
   });
 

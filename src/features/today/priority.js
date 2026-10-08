@@ -48,6 +48,9 @@ export const PRIORITY_CONFIG = Object.freeze({
 
 export const ITEM_TYPES = Object.freeze({ ASSIGNMENT: "ASSIGNMENT", EXAM_PREP: "EXAM_PREP", GRADE_RISK: "GRADE_RISK" });
 
+/** The ranked item id for an assignment row (exams rank as EXAM_PREP). */
+export const assignmentItemId = (a) => `${a.kind === "exam" ? "exam" : "asg"}:${a.uuid}`;
+
 /** Calendar days from `now` to `date` in local time: 0 today, 1 tomorrow, -1 yesterday. */
 export function daysUntil(date, now) {
   if (!date) return null;
@@ -204,7 +207,7 @@ function assignmentItem(a, course, needs, days, config, blocked = 0) {
   else action = { type: "course", courseUuid: course.uuid, label: "Open course" };
 
   return {
-    id: `${isExam ? "exam" : "asg"}:${a.uuid}`,
+    id: assignmentItemId(a),
     type: isExam ? ITEM_TYPES.EXAM_PREP : ITEM_TYPES.ASSIGNMENT,
     kind: a.kind,
     courseUuid: course.uuid,

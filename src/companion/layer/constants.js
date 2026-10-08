@@ -65,6 +65,8 @@ export const EXIT_EMITS = 5;
 export const THINK_MIN_MS = 700;
 /** The link line to a row she talks about: lingers this long after her line ends, then fades out. */
 export const LINK_HOLD_MS = 2000;
+/** ...and never shows longer than this, even while a sticky line stays up. */
+export const LINK_MAX_MS = 6000;
 export const LINK_FADE_MS = 400;
 /** The day's line: she waves first, then points at the top row it's about. */
 export const GREET_POINT_DELAY_MS = 1600;

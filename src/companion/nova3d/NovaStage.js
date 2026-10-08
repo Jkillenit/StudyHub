@@ -340,7 +340,7 @@ float vnoise(vec3 p) {
 float circuit(vec2 p) {
   vec2 c = floor(p);
   vec2 f = fract(p) - 0.5;
-  float aa = fwidth(p.x) + fwidth(p.y);
+  float aa = max(fwidth(p.x) + fwidth(p.y), 1e-4);
   float w = 0.05 + aa * 0.5;
   float hOn = step(0.62, hash3(vec3(floor(c.x / 3.0), c.y, 3.0)));
   float vOn = step(0.72, hash3(vec3(c.x, floor(c.y / 4.0), 5.0)));

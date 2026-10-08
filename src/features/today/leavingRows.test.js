@@ -7,14 +7,18 @@ const c = { id: "c" };
 const d = { id: "d" };
 
 describe("goneRows", () => {
-  it("finds shown rows missing from the new list, with their slot", () => {
-    expect(goneRows([a, b, c], ["a", "c", "d"])).toEqual([{ item: b, index: 1 }]);
+  it("marks a finished row done, with its slot", () => {
+    expect(goneRows([a, b, c], ["a", "c", "d"], ["b"])).toEqual([{ item: b, index: 1, done: true }]);
   });
-  it("ignores rows only pushed out of the top three", () => {
-    expect(goneRows([a, b, c], ["d", "a", "b", "c"])).toEqual([]);
+  it("keeps a row pushed out of the top three quiet", () => {
+    expect(goneRows([a, b, c], ["d", "a", "b"], [])).toEqual([{ item: c, index: 2, done: false }]);
   });
-  it("is empty on the first load", () => {
-    expect(goneRows([], ["a"])).toEqual([]);
+  it("keeps a row that went overdue quiet", () => {
+    expect(goneRows([a, b, c], ["b", "c", "d"], ["x"])).toEqual([{ item: a, index: 0, done: false }]);
+  });
+  it("is empty when the top three are unchanged, and on the first load", () => {
+    expect(goneRows([a, b, c], ["a", "b", "c"], ["a"])).toEqual([]);
+    expect(goneRows([], ["a"], [])).toEqual([]);
   });
 });
 

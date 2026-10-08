@@ -87,6 +87,16 @@ describe("buildTodayView", () => {
     expect(buildTodayView({ now: NOW, courses: [], syncedAt: "2026-10-01 17:58:00" }, { now: NOW }).syncedAt).toBe("2026-10-01 17:58:00");
     expect(buildTodayView({ now: NOW, courses: [] }, { now: NOW }).syncedAt).toBeNull();
   });
+
+  it("lists only ticked, submitted or scored items as finished", () => {
+    const open = asg();
+    const scored = asg({ score: 18 });
+    const ticked = asg({ completed: 1 });
+    const exam = asg({ kind: "exam", dueDate: at(5) });
+    const finished = [{ uuid: "sub1", kind: "assignment" }, { uuid: "ex1", kind: "exam" }];
+    const view = buildTodayView({ now: NOW, courses: [course({ assignments: [open, scored, ticked, exam], finished })] }, { now: NOW });
+    expect(view.finished).toEqual([`asg:${scored.uuid}`, `asg:${ticked.uuid}`, "asg:sub1", "exam:ex1"]);
+  });
 });
 
 describe("homeLine", () => {

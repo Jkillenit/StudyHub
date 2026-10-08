@@ -14,6 +14,11 @@ const send = (name, detail) => window.dispatchEvent(new CustomEvent(name, { deta
 let attractorAt = null;
 /** Nova's last published position (`{ x, y }`), or null before the first. */
 export const lastAttractor = () => attractorAt;
+/** Where to stream particles into Nova: her last position while she's on screen and not tucked away, else null. */
+export const novaAttractor = () => {
+  const d = document.documentElement.dataset;
+  return d.nova === "on" && !("novaTucked" in d) ? attractorAt : null;
+};
 
 export const fieldTargets = (points, duration = 900) => send(FIELD_EVENTS.targets, { points, duration });
 export const fieldRelease = () => send(FIELD_EVENTS.release);

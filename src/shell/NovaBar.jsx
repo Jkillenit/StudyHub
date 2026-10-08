@@ -3,7 +3,7 @@ import { describeCommand, parseCommand } from "../nova/commands.js";
 import { searchFaq } from "../companion/faq.js";
 import { slashMatches } from "../nova/slash.js";
 import { paletteOpen } from "../lib/hotkeys.js";
-import { fieldEmit, lastAttractor } from "./fieldEvents.js";
+import { fieldEmit, novaAttractor } from "./fieldEvents.js";
 
 const NovaSprite = lazy(() => import("../companion/NovaSprite.jsx").then((m) => ({ default: m.NovaSprite })));
 
@@ -57,7 +57,7 @@ export function NovaBar({ courses, placeholder = "Message Nova, or type / for co
   };
   /** The message streams out of the box into Nova. */
   const sent = () => {
-    const to = lastAttractor();
+    const to = novaAttractor();
     if (to && boxRef.current) fieldEmit(boxRef.current.getBoundingClientRect(), to, 60);
     done();
   };

@@ -8,9 +8,9 @@ const DISSOLVE_MS = 500;
 /**
  * Focus mode dissolves Today into the field: particles drift up off every visible `[data-dissolve]`
  * block, the CSS fades those blocks to almost nothing (only while Today is on screen), and the
- * field dims. Ending focus brings it all back.
+ * field dims (also only while Today is on screen). Ending focus brings it all back.
  */
-export function useNovaFocusDissolve(core, { focusUntil }) {
+export function useNovaFocusDissolve(core, { focusUntil, todayShown }) {
   const { reducedRef } = core;
   const on = focusUntil > 0;
 
@@ -27,13 +27,17 @@ export function useNovaFocusDissolve(core, { focusUntil }) {
       }
     }
     root.dataset.focusDissolve = "on";
-    fieldDim(0.5);
     return () => {
       root.dataset.focusDissolve = "out";
-      fieldDim(0);
       window.setTimeout(() => {
         if (root.dataset.focusDissolve === "out") delete root.dataset.focusDissolve;
       }, DISSOLVE_MS);
     };
   }, [on, reducedRef]);
+
+  useEffect(() => {
+    if (!on || !todayShown) return undefined;
+    fieldDim(0.5);
+    return () => fieldDim(0);
+  }, [on, todayShown]);
 }

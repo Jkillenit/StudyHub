@@ -94,10 +94,11 @@ function StudyHubAppInner() {
     if (courseId != null) saveJson(HUB_KEYS.lastCourse, courseId);
   }, [courseId]);
 
-  /* Depth: the cursor's offset from the window center (-1..1) as --sh-px / --sh-py; the CSS shifts each layer against it. */
+  /* Depth: the cursor's offset from the window center (-1..1) as --sh-px / --sh-py; the CSS shifts each layer against it. Hub only. */
   const reduced = useReducedMotion();
+  const hubShown = courseId === null && !setup;
   useEffect(() => {
-    if (reduced) return undefined;
+    if (reduced || !hubShown) return undefined;
     const st = document.documentElement.style;
     let raf = 0;
     let x = 0;
@@ -119,7 +120,7 @@ function StudyHubAppInner() {
       st.removeProperty("--sh-px");
       st.removeProperty("--sh-py");
     };
-  }, [reduced]);
+  }, [reduced, hubShown]);
 
   useEffect(() => {
     if (setup) setBreadcrumb([]);

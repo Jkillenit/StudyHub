@@ -7256,14 +7256,15 @@ html[data-nova-tucked] .sh-spill {
 :is(.sh-home-col, [data-nova-anchor="home.composer"], .sh-hub-root .sh-plan-col, .sh-hub-root .sh-plan-dock) {
   translate: calc(var(--sh-px, 0) * -4px) calc(var(--sh-py, 0) * -4px);
 }
-.sc-scout {
+html:has(.sh-hub-root) .sc-scout {
   translate: calc(var(--sh-px, 0) * -6px) calc(var(--sh-py, 0) * -6px);
 }
 /* A shifted full-width column would otherwise add a few px of sideways scroll. */
 .sh-hub-root {
   overflow-x: hidden;
 }
-html[data-motion="reduced"] :is(.sh-ambient, .sh-home-col, [data-nova-anchor="home.composer"], .sh-hub-root .sh-plan-col, .sh-hub-root .sh-plan-dock, .sc-scout) {
+html[data-motion="reduced"] :is(.sh-ambient, .sh-home-col, [data-nova-anchor="home.composer"], .sh-hub-root .sh-plan-col, .sh-hub-root .sh-plan-dock),
+html[data-motion="reduced"]:has(.sh-hub-root) .sc-scout {
   translate: none;
 }
 

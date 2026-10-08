@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fieldAttractor, fieldTuning, frameDue, lastAttractor } from "./fieldEvents.js";
+import { fieldAttractor, fieldTuning, frameDue, lastAttractor, novaAttractor } from "./fieldEvents.js";
 
 describe("fieldTuning", () => {
   it("thins and slows the field late at night", () => {
@@ -29,5 +29,18 @@ describe("lastAttractor", () => {
     expect(lastAttractor()).toBe(null);
     fieldAttractor(120, 340, 0);
     expect(lastAttractor()).toEqual({ x: 120, y: 340 });
+  });
+
+  it("gives no stream target while Nova is off or tucked", () => {
+    vi.stubGlobal("window", new EventTarget());
+    const dataset = { nova: "on" };
+    vi.stubGlobal("document", { documentElement: { dataset } });
+    fieldAttractor(10, 20, 0);
+    expect(novaAttractor()).toEqual({ x: 10, y: 20 });
+    dataset.novaTucked = "";
+    expect(novaAttractor()).toBe(null);
+    delete dataset.novaTucked;
+    dataset.nova = "off";
+    expect(novaAttractor()).toBe(null);
   });
 });

@@ -74,7 +74,7 @@ export function useNovaWindowEvents(core, { visibleNow, quiet, onSettingsChange 
     };
     window.addEventListener("studyhub-companion-task-done", onDone);
     return () => window.removeEventListener("studyhub-companion-task-done", onDone);
-  }, [visibleNow, busy, playGesture, say]);
+  }, [visibleNow, busy, playGesture, say, quietNow]);
 
   useEffect(() => {
     document.documentElement.dataset.nova = visibleNow ? "on" : "off";

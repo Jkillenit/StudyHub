@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { fieldState } from "../../shell/fieldEvents.js";
-import { LINK_FADE_MS, LINK_HOLD_MS, THINK_MIN_MS } from "../layer/constants.js";
+import { LINK_FADE_MS, LINK_HOLD_MS, LINK_MAX_MS, THINK_MIN_MS } from "../layer/constants.js";
 
 const ROW = '[data-nova-anchor^="home.row"]';
 /** The stream is re-aimed only when a line end moves this far, so her idle sway doesn't re-send it every frame. */
@@ -9,7 +9,7 @@ const STREAM_STEP_PX = 4;
 /**
  * What the particle field shows of her: "thinking" while a message is pending (`api.current.think`),
  * "pointing" while the link line runs from her head to a Today row she's talking about
- * (`api.current.linkTo`), "idle" otherwise. The line holds while she speaks, then fades.
+ * (`api.current.linkTo`), "idle" otherwise. The line holds while she speaks (up to LINK_MAX_MS), then fades.
  */
 export function useNovaField(core, { bodyRef, visibleNow, speaking }) {
   const { api, later, nodeRef, reducedRef } = core;
@@ -18,6 +18,7 @@ export function useNovaField(core, { bodyRef, visibleNow, speaking }) {
   const lineRef = useRef(null);
   const linkElRef = useRef(null);
   const linkIdRef = useRef(0);
+  const linkStartRef = useRef(0);
   const pendingRef = useRef(0);
   /** The line's ends while it streams particles, else null. */
   const pointsRef = useRef(null);
@@ -51,6 +52,7 @@ export function useNovaField(core, { bodyRef, visibleNow, speaking }) {
     if (!visibleRef.current || !el?.matches?.(ROW)) return;
     linkElRef.current = el;
     linkIdRef.current += 1;
+    linkStartRef.current = performance.now();
     setLink({ id: linkIdRef.current, out: false });
   };
 
@@ -100,9 +102,13 @@ export function useNovaField(core, { bodyRef, visibleNow, speaking }) {
       const t = window.setTimeout(() => setLink(null), LINK_FADE_MS);
       return () => window.clearTimeout(t);
     }
-    if (speaking) return undefined;
-    const t = window.setTimeout(() => setLink((l) => (l?.id !== linkId ? l : reducedRef.current ? null : { ...l, out: true })), LINK_HOLD_MS);
-    return () => window.clearTimeout(t);
+    const end = () => setLink((l) => (l?.id !== linkId ? l : reducedRef.current ? null : { ...l, out: true }));
+    const cap = window.setTimeout(end, Math.max(0, linkStartRef.current + LINK_MAX_MS - performance.now()));
+    const hold = speaking ? 0 : window.setTimeout(end, LINK_HOLD_MS);
+    return () => {
+      window.clearTimeout(cap);
+      window.clearTimeout(hold);
+    };
   }, [linkId, linkOut, speaking, reducedRef]);
 
   useEffect(() => {
