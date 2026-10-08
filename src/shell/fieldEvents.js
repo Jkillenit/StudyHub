@@ -11,9 +11,16 @@ export const FIELD_EVENTS = {
 
 const send = (name, detail) => window.dispatchEvent(new CustomEvent(name, { detail }));
 
+let attractorAt = null;
+/** Nova's last published position (`{ x, y }`), or null before the first. */
+export const lastAttractor = () => attractorAt;
+
 export const fieldTargets = (points, duration = 900) => send(FIELD_EVENTS.targets, { points, duration });
 export const fieldRelease = () => send(FIELD_EVENTS.release);
-export const fieldAttractor = (x, y, strength = 1) => send(FIELD_EVENTS.attractor, { x, y, strength });
+export const fieldAttractor = (x, y, strength = 1) => {
+  attractorAt = { x, y };
+  send(FIELD_EVENTS.attractor, { x, y, strength });
+};
 export const fieldEmit = (rect, to, count = 60) =>
   send(FIELD_EVENTS.emit, { rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height }, to, count });
 export const fieldState = (state, from, to) => send(FIELD_EVENTS.state, { state, from, to });

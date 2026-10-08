@@ -6531,6 +6531,53 @@ button.sh-today-row-main:hover {
   color: var(--sh-text-3);
 }
 
+/* Nova pack: her speech is plain text beside her head. Zombies keeps the panel. */
+html:not([data-pack="zombies"]) .sc-bubble {
+  max-width: 280px;
+  min-width: 0;
+  background: none;
+  backdrop-filter: none;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  font-family: var(--sh-font-body);
+  text-shadow:
+    0 0 2px var(--sh-bg),
+    0 0 10px var(--sh-bg);
+}
+html:not([data-pack="zombies"]) .sc-bubble--wide {
+  width: 280px;
+}
+html:not([data-pack="zombies"]) .sc-bubble-tail,
+html:not([data-pack="zombies"]) .sc-bubble-live,
+html:not([data-pack="zombies"]) .sc-bubble-head:not(:has(.sc-bubble-title)) {
+  display: none;
+}
+html:not([data-pack="zombies"]) .sc-bubble-text {
+  font-size: 14px;
+  color: var(--sh-text);
+}
+html:not([data-pack="zombies"]) .sc-bubble-actions {
+  gap: 14px;
+  margin-top: 6px;
+}
+html:not([data-pack="zombies"]) .sc-bubble .sc-bubble-btn {
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  color: var(--sh-text-2);
+}
+html:not([data-pack="zombies"]) .sc-bubble .sc-bubble-btn--primary {
+  color: var(--sc-tone, var(--sh-accent));
+}
+html:not([data-pack="zombies"]) .sc-bubble .sc-bubble-btn:hover:not(:disabled),
+html:not([data-pack="zombies"]) .sc-bubble .sc-bubble-btn:focus-visible {
+  background: none;
+  color: var(--sh-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 /* Help */
 .sc-help-input {
   width: 100%;
@@ -7117,6 +7164,65 @@ button.sh-today-row-main:hover {
   height: 100%;
   z-index: -1;
   pointer-events: none;
+}
+
+/* Nova's light spill: over the field, under the content, centered on her. */
+.sh-spill {
+  position: fixed;
+  left: -130px;
+  top: -130px;
+  width: 260px;
+  height: 260px;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--sh-accent) 8%, transparent), transparent);
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+.sh-spill[data-on] {
+  opacity: 1;
+}
+html[data-nova="off"] .sh-spill,
+html[data-nova-tucked] .sh-spill {
+  opacity: 0;
+}
+[data-motion="reduced"] .sh-spill {
+  transition: none;
+}
+
+/* The link line from Nova's head to the row she's talking about. */
+.sc-link {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: visible;
+  pointer-events: none;
+  transition: opacity 400ms ease;
+}
+.sc-link line {
+  stroke: var(--sh-accent);
+  stroke-opacity: 0.6;
+  stroke-width: 1;
+  stroke-dasharray: 1;
+  animation: sc-link-in 300ms ease-out both;
+}
+.sc-link--out {
+  opacity: 0;
+}
+@keyframes sc-link-in {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+[data-motion="reduced"] .sc-link {
+  transition: none;
+}
+[data-motion="reduced"] .sc-link line {
+  animation: none;
 }
 
 a {

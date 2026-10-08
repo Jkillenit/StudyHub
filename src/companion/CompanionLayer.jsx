@@ -72,6 +72,7 @@ import { useNovaPlacement } from "./hooks/useNovaPlacement.js";
 import { useNovaIdleLife } from "./hooks/useNovaIdleLife.js";
 import { useNovaAutonomy } from "./hooks/useNovaAutonomy.js";
 import { useNovaInput } from "./hooks/useNovaInput.js";
+import { useNovaField } from "./hooks/useNovaField.js";
 import { courseStore } from "../db/courseStore.js";
 
 const Nova3D = lazy(() => import("./nova3d/Nova3D.jsx"));
@@ -639,6 +640,8 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     };
   }, [visibleNow, posRef]);
 
+  const { link, lineRef } = useNovaField(core, { bodyRef, visibleNow, speaking: !!bubble });
+
   const { seat, setSeat, wokeByRef } = useNovaAutonomy(core, {
     mode,
     enabled,
@@ -685,7 +688,9 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     };
     const onClick = (e) => {
       const row = rowOf(e);
-      if (row && free()) pointAt(row.getBoundingClientRect());
+      if (!row || !free()) return;
+      pointAt(row.getBoundingClientRect());
+      api.current.linkTo(row);
     };
     document.addEventListener("pointerover", onOver);
     document.addEventListener("click", onClick, true);
@@ -710,10 +715,12 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
     const onRun = (e) => {
       if (engaged()) return;
       e.preventDefault();
-      void api.current.runCommand?.(e.detail);
+      void api.current.think(api.current.runCommand?.(e.detail));
     };
     const onAnswer = (e) => {
-      if (!engaged() && openAnswer(e.detail)) e.preventDefault();
+      if (engaged() || !openAnswer(e.detail)) return;
+      e.preventDefault();
+      api.current.think();
     };
     window.addEventListener("studyhub-nova-run", onRun);
     window.addEventListener("studyhub-nova-answer", onAnswer);
@@ -898,6 +905,11 @@ export default function CompanionLayer({ courses = [], activeCourseId = null, on
         : null}
       {dropTarget ? <Spotlight rect={dropTarget} dim={false} pad={4} /> : null}
       {focusUntil ? <FocusPill until={focusUntil} onStop={stopFocus} /> : null}
+      {link ? (
+        <svg className={`sc-link${link.out ? " sc-link--out" : ""}`} aria-hidden>
+          <line key={link.id} ref={lineRef} pathLength="1" />
+        </svg>
+      ) : null}
       <span ref={dropMarkRef} className="nv-drop" hidden aria-hidden />
       {doodle ? (
         <DoodleTrail

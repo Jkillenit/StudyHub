@@ -51,6 +51,7 @@ export function useNovaNudges(core, { mode, flashReaction, startQuiz }) {
       sfx("glitch");
     }
     refreshAnchor();
+    if (spot) api.current.linkTo(spot);
     n.answered = false;
     const course = best.c.id === BUILTIN_ID ? BUILTIN_NAME : shortCourse(best.c.courseCode || best.c.name) || best.c.name;
     say(line(rampant ? "dueRampant" : "due", { count: best.count, course }), {

@@ -3,6 +3,7 @@ import { useReducedMotion } from "./motion.js";
 import { usePack } from "./pack.js";
 import { AMBIENT_LINES, ambientAlpha, ambientY } from "./ambient.js";
 import { ZombiesBackdrop } from "./ZombiesBackdrop.jsx";
+import { FIELD_EVENTS, lastAttractor } from "./fieldEvents.js";
 
 /** 2D fallback when WebGL is unavailable: slow sine lines. */
 function drawLines(canvas, reduced) {
@@ -89,10 +90,27 @@ export function AmbientBackground() {
     fieldRef.current?.recolor();
   }, [pack]);
 
+  /* Nova's light spill follows her published position. */
+  const spillRef = useRef(null);
+  useEffect(() => {
+    const el = spillRef.current;
+    if (!el) return undefined;
+    const place = (at) => {
+      if (!at) return;
+      el.style.translate = `${Math.round(at.x)}px ${Math.round(at.y)}px`;
+      el.dataset.on = "";
+    };
+    const onAttractor = (e) => place(e.detail);
+    place(lastAttractor());
+    window.addEventListener(FIELD_EVENTS.attractor, onAttractor);
+    return () => window.removeEventListener(FIELD_EVENTS.attractor, onAttractor);
+  }, [pack]);
+
   return (
     <>
       {pack === "zombies" && <ZombiesBackdrop />}
       <canvas key={reduced ? "still" : "live"} ref={ref} className="sh-ambient" aria-hidden="true" />
+      {pack === "zombies" ? null : <div ref={spillRef} className="sh-spill" aria-hidden="true" />}
     </>
   );
 }

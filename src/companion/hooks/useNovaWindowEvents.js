@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { setVoiceLevel } from "../../nova/voice.js";
 import { AUTONOMOUS } from "../machine.js";
+import { GREET_POINT_DELAY_MS } from "../layer/constants.js";
 
 /** Window-level glue: voice level, settings open requests, greet/talk events, the html dataset, quiet toggles. */
 export function useNovaWindowEvents(core, { visibleNow, quiet, onSettingsChange }) {
-  const { api, stateRef, modeRef, reducedRef, setMood, setTalkUntil, busy, playGesture, say } = core;
+  const { api, stateRef, modeRef, reducedRef, setMood, setTalkUntil, busy, playGesture, pointAt, say, later } = core;
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
@@ -36,7 +37,15 @@ export function useNovaWindowEvents(core, { visibleNow, quiet, onSettingsChange 
         }
         setMood("happy");
         if (!reducedRef.current) playGesture("wave");
-        if (e.detail?.text) say(e.detail.text);
+        if (!e.detail?.text) return;
+        say(e.detail.text);
+        /* The day's line is about the top item: she points at it once the wave is done. */
+        later(() => {
+          const top = document.querySelector('[data-nova-anchor="home.row.1"]');
+          if (!top || !AUTONOMOUS.has(modeRef.current) || busy()) return;
+          pointAt(top.getBoundingClientRect());
+          api.current.linkTo(top);
+        }, reducedRef.current ? 0 : GREET_POINT_DELAY_MS);
       };
       window.clearTimeout(retry);
       attempt();
@@ -52,7 +61,7 @@ export function useNovaWindowEvents(core, { visibleNow, quiet, onSettingsChange 
       window.removeEventListener("studyhub-companion-greet", onGreet);
       window.removeEventListener("studyhub-companion-talk", onTalk);
     };
-  }, [visibleNow, busy, playGesture, say]);
+  }, [visibleNow, busy, playGesture, pointAt, say, later]);
 
   useEffect(() => {
     document.documentElement.dataset.nova = visibleNow ? "on" : "off";

@@ -61,6 +61,13 @@ export const GATHER_TIMEOUT_MS = 1500;
 export const RESOLVE_IN_MS = 600;
 export const RESOLVE_OUT_MS = 500;
 export const EXIT_EMITS = 5;
+/** The field shows her thinking at least this long, so a quick answer still reads as received. */
+export const THINK_MIN_MS = 700;
+/** The link line to a row she talks about: lingers this long after her line ends, then fades out. */
+export const LINK_HOLD_MS = 2000;
+export const LINK_FADE_MS = 400;
+/** The day's line: she waves first, then points at the top row it's about. */
+export const GREET_POINT_DELAY_MS = 1600;
 /** Modes she can hold while standing big in her home window; anything else walks her out at normal size. */
 export const HOME_MODES = new Set(["idle", "menu", "sleep", "nudge", "perch", "play"]);
 /** Idle stages the portrait sprite can't do (no arms, no props). */

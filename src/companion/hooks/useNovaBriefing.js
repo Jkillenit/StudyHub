@@ -92,6 +92,7 @@ export function useNovaBriefing(core, { ensureRoute, setMarks, glanceAtRect, set
       faceToward(rect);
       setMood("point");
       pointAt(rect);
+      api.current.linkTo(el);
     },
     mark: (key, el, style, note) => setMarks((list) => [...list.filter((m) => m.key !== key), { key, el, style, note }]),
     clearMarks: () => setMarks((list) => (list.length ? [] : list)),

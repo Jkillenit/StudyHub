@@ -3,6 +3,7 @@ import { describeCommand, parseCommand } from "../nova/commands.js";
 import { searchFaq } from "../companion/faq.js";
 import { slashMatches } from "../nova/slash.js";
 import { paletteOpen } from "../lib/hotkeys.js";
+import { fieldEmit, lastAttractor } from "./fieldEvents.js";
 
 const NovaSprite = lazy(() => import("../companion/NovaSprite.jsx").then((m) => ({ default: m.NovaSprite })));
 
@@ -27,6 +28,7 @@ export function NovaBar({ courses, placeholder = "Message Nova, or type / for co
   const [focused, setFocused] = useState(false);
   const [note, setNote] = useState(null);
   const inputRef = useRef(null);
+  const boxRef = useRef(null);
   const tucked = useNovaTucked();
   const slash = slashMatches(q);
   const text = q.trim().replace(/^\//, "");
@@ -53,12 +55,18 @@ export function NovaBar({ courses, placeholder = "Message Nova, or type / for co
     setNote(null);
     inputRef.current?.blur();
   };
+  /** The message streams out of the box into Nova. */
+  const sent = () => {
+    const to = lastAttractor();
+    if (to && boxRef.current) fieldEmit(boxRef.current.getBoundingClientRect(), to, 60);
+    done();
+  };
   const run = (c) => {
-    if (emit("studyhub-nova-run", c)) done();
+    if (emit("studyhub-nova-run", c)) sent();
     else setNote("Nova's busy right now. Try again in a moment.");
   };
   const answer = (f) => {
-    if (emit("studyhub-nova-answer", f)) done();
+    if (emit("studyhub-nova-answer", f)) sent();
     else {
       setQ("");
       setNote(f.a);
@@ -102,7 +110,7 @@ export function NovaBar({ courses, placeholder = "Message Nova, or type / for co
           ))}
         </ul>
       ) : null}
-      <div className="sh-novabar-box">
+      <div className="sh-novabar-box" ref={boxRef}>
         <div className="sh-novabar-row">
           <span className="sh-novabar-portrait" data-nova-portrait>
             {tucked ? (
