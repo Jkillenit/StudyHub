@@ -39,7 +39,7 @@ function createFakeClock(startMs) {
   };
 }
 
-const day = (isoLocal) => Date.parse(isoLocal + "Z");
+const day = (isoLocal) => new Date(isoLocal).getTime(); // no "Z": local time, like the scheduler
 
 describe("createScheduler", () => {
   let clock;

@@ -84,8 +84,9 @@ async function createApi(opts) {
   app.addHook("onRequest", async (request, reply) => {
     // PWA shell + assets cannot send Authorization on document navigation.
     // Keep Bearer on every /api/* route (including SSE via fetch).
-    const urlPath = String(request.url || "").split("?")[0];
-    if (request.method === "GET" && !urlPath.startsWith("/api/")) {
+    // Match on the resolved route, not the raw URL: /%61pi/health decodes to a gated route.
+    const routeUrl = String(request.routeOptions?.url || "");
+    if (request.method === "GET" && routeUrl && !routeUrl.startsWith("/api/")) {
       return;
     }
     const token = bearerFromHeader(request.headers.authorization);

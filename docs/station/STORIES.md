@@ -15,20 +15,20 @@ Status keys: `todo` · `doing` · `review` · `merged`
 
 ## Wave 0 — Contracts (ONE agent, sequential, before anything parallel)
 
-### S0.1 Station migration + settings defaults — `todo`
+### S0.1 Station migration + settings defaults — `merged`
 **Owns:** `electron/database.cjs` (new numbered migration only)
 **Do:** add tables/columns from BRIEFING §3.1 via the existing migration + `addColumn` pattern.
 **Accept:** fresh DB and an existing DB both migrate; `scripts/check-db.cjs` lists new tables;
 migration test added.
 
-### S0.2 Contracts module — `todo`
+### S0.2 Contracts module — `merged`
 **Owns:** `electron/station/contracts.cjs`, `electron/station/contracts.test.js`
 **Do:** export `JOB_TYPES` (frozen allowlist), `JOB_STATUS`, `RUN_PRESETS`, `EVENTS`
 (`job.updated`, `job.event`, `briefing.ready`, `session.changed`), `validateBriefing(obj)`
 (hand written checks, no schema lib), JSDoc typedefs for Job, JobEvent, Draft, Briefing.
 **Accept:** tests cover every preset expanding to allowlisted types only; unknown type rejected.
 
-### S0.3 Station adapter + boot wiring — `todo`
+### S0.3 Station adapter + boot wiring — `merged`
 **Owns:** `electron/station/index.cjs`, `electron/station/electronAdapter.cjs`,
 one `require` + `start()` call in `electron/main.cjs`
 **Do:** `electronAdapter.cjs` is the only station file allowed to import `electron`; it exposes
@@ -36,7 +36,7 @@ one `require` + `start()` call in `electron/main.cjs`
 `index.cjs` wires empty stubs for jobs/scheduler/api/notify behind `station.enabled`.
 **Accept:** app boots with Station off (no behavior change) and on (logs "station ready").
 
-### S0.4 Model router — `todo`
+### S0.4 Model router — `merged`
 **Owns:** `electron/station/modelRouter.cjs`, `electron/station/modelRouter.test.js`,
 `package.json` / `package-lock.json` (deps only: `ai`, `@ai-sdk/anthropic`,
 `ollama-ai-provider-v2`, `zod`), optional next numbered migration in `electron/database.cjs`
@@ -57,7 +57,7 @@ of ESM AI packages from CommonJS. Seed router settings; do not reintroduce
 
 ## Wave 1 — Core (4 agents in parallel)
 
-### S1.1 Job engine — `todo`
+### S1.1 Job engine — `merged`
 **Owns:** `electron/station/jobs.cjs`, `jobs.test.js`
 **Do:** persistent queue per BRIEFING §4: enqueue (dedupe), single runner, progress/log/abort
 API for handlers, restart recovery, cancel, emitter. Handlers registered by type; reject
@@ -65,13 +65,13 @@ non allowlisted types.
 **Accept:** tests for dedupe, ordering, crash recovery requeue, cancel mid run, failure after
 2 attempts, events written for every transition.
 
-### S1.2 Scheduler — `todo`
+### S1.2 Scheduler — `merged`
 **Owns:** `electron/station/scheduler.cjs`, `scheduler.test.js`
 **Do:** BRIEFING §5 using injectable clock (`now`, `setTimeout`) like `bbWatcher`.
 **Accept:** fake clock tests: morning/evening briefing fire once per day, resume triggers one
 sync, 2 h draft check only enqueues when eligible assignments exist (eligibility passed in).
 
-### S1.3 Notify (ntfy) — `todo`
+### S1.3 Notify (ntfy) — `merged`
 **Owns:** `electron/station/notify.cjs`, `notify.test.js`
 **Do:** BRIEFING §3.5 table; `push({ title, body, priority, click })` with injectable fetch;
 detail stripping when `push_details=0`; rate limit (max 1 push per event type per 2 min,
@@ -79,7 +79,7 @@ batch extras into "+N more").
 **Accept:** tests for each event mapping, detail stripping, rate limit batching; network
 failure never throws into the job engine.
 
-### S1.4 Briefing builder — `todo`
+### S1.4 Briefing builder — `merged`
 **Owns:** `electron/station/briefing.cjs`, `briefing.test.js`
 **Do:** pure `buildBriefing(facts, now)` + `readFacts(db, now)`; output passes
 `validateBriefing`. Reuse ranking ideas from `src/features/today/priority.js` but do not import
@@ -87,7 +87,7 @@ renderer code. `needsYou` order: sign_in, submit_yourself (due < 24 h), review_d
 **Accept:** fixture DB tests: expired session shows sign_in first; submitted items excluded;
 headline under 90 chars.
 
-### S1.5 Remote API skeleton — `todo` *(run in Wave 1 if you have a 5th slot, else Wave 2)*
+### S1.5 Remote API skeleton — `merged` *(run in Wave 1 if you have a 5th slot, else Wave 2)*
 **Owns:** `electron/station/api.cjs`, `api.test.js`, `electron/station/auth.cjs`
 **Do:** Fastify on `127.0.0.1:47811`, routes from BRIEFING §3.4 wired to injected services,
 bearer token (hash compare, constant time), SSE stream.
@@ -101,7 +101,7 @@ runs `npm test`, smoke test: enqueue `notify_test` from a dev IPC call, phone ge
 
 ## Wave 2 — Features (4 agents in parallel)
 
-### S2.1 Remote PWA — `todo`
+### S2.1 Remote PWA — `merged`
 **Owns:** `remote/**`, `remote.html`, Vite config entry for `remote`
 **Do:** phone first page: Briefing cards (§3.3), Run button with presets, live jobs list (SSE),
 draft reader (markdown), mark reviewed/dismissed, token entry/QR scan, add to home screen
@@ -109,14 +109,14 @@ manifest. Reuse `--sh-*` tokens look; no Bootstrap JS.
 **Accept:** Playwright MCP check at 390×844: Run → job list updates → briefing refresh;
 works offline showing last briefing.
 
-### S2.2 Instructions sync — `todo`
+### S2.2 Instructions sync — `merged`
 **Owns:** `electron/station/handlers/instructionsSync.cjs`, test, and one exported GET helper
 added to `electron/bbSync.cjs` (read only)
 **Do:** for assignments due ≤ 7 days, GET instructions body + attachment URLs from the BB
 public API, extract attachment text with existing parsers, store per §3.1.
 **Accept:** fixture payload tests; a guard assertion that the helper only issues `GET`.
 
-### S2.3 Drafts pipeline — `todo`
+### S2.3 Drafts pipeline — `merged`
 **Owns:** `electron/station/drafts.cjs`, `electron/station/handlers/draftsPrep.cjs`,
 `electron/station/styleLint.cjs`, tests, `electron/station/prompts/*.md`
 **Do:** BRIEFING §6: eligibility, modes, prompt build from style folder, model call **only**
@@ -127,7 +127,7 @@ via injected `route("draft_outline"|"draft_rough", { cacheSystem, system, userCo
 **Accept:** tests with fake `route`: eligibility matrix, GBA 490 defaults to outline, deferred
 cap → `needs_you`, lint flags dashes as `[CHECK]`, files land in the right folder.
 
-### S2.4 PC panel + Nova wiring — `todo`
+### S2.4 PC panel + Nova wiring — `merged`
 **Owns:** `src/features/station/**`, `electron/station/ipc.cjs`, preload additions in
 `electron/preload.cjs` (station namespace only)
 **Do:** Station settings tab (enable, token QR, ntfy topic, push details, AI cap, per course
@@ -142,17 +142,17 @@ dev machine: `full` preset end to end.
 
 ## Wave 3 — Hardening (1 agent + reviewers)
 
-### S3.1 Host script — `todo`
+### S3.1 Host script — `merged`
 **Owns:** `scripts/station-host.ps1`, `docs/station/HOST_SETUP.md`
 **Do:** BRIEFING §8; idempotent; `-WhatIf` mode prints changes only.
 
-### S3.2 Guard test — `todo`
+### S3.2 Guard test — `merged`
 **Owns:** `electron/station/guard.test.js`
 **Do:** static checks over `electron/station/**`: only allowlisted handler types registered;
 no `method: "POST"|"PUT"|"PATCH"|"DELETE"` toward school or publisher origins; api binds
 loopback only.
 
-### S3.3 Docs + decision log — `todo`
+### S3.3 Docs + decision log — `merged`
 **Owns:** `docs/PROJECT_BRIEF.md` (§6 + decision log), `README.md` Station section
 
 ### S3.4 Soak — `todo`

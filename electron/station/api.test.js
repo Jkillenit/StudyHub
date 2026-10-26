@@ -192,6 +192,14 @@ describe("station api auth gate", () => {
     expect(res.body).toContain("remote");
   });
 
+  it("keeps /api behind the token when the path is encoded or oddly cased", async () => {
+    const { app: server } = await buildApi();
+    for (const url of ["/%61pi/health", "/api%2Fhealth", "/API/health", "//api/health", "/./api/health"]) {
+      const res = await server.inject({ method: "GET", url });
+      expect(res.statusCode, url).not.toBe(200);
+    }
+  });
+
   it("returns 401 for a wrong bearer token", async () => {
     const { app: server } = await buildApi();
     const res = await server.inject({
