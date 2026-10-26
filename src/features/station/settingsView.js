@@ -30,7 +30,10 @@ export function buildSettingsView(raw = {}, courses = []) {
     ntfyTopic: raw.ntfyTopic || "",
     pushDetails: asBool(raw.pushDetails),
     aiCapCents: parseCapCents(raw.aiCapCents),
-    draftModel: raw.draftModel || "claude-sonnet-5-5",
+    cloudModel: raw.cloudModel || "claude-sonnet-5-5",
+    preferLocal: asBool(raw.preferLocal == null ? "1" : raw.preferLocal),
+    localModel: raw.localModel || "llama3.2",
+    allowOpus: asBool(raw.allowOpus),
     morningBriefAt: raw.morningBriefAt || "06:45",
     courseDraftModes: (courses || []).map((c) => ({
       courseUuid: c.uuid,

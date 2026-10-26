@@ -12,23 +12,12 @@ const { createNotify } = require("./notify.cjs");
 const { buildBriefing, readFacts } = require("./briefing.cjs");
 const api = require("./api.cjs");
 const { expandPreset } = require("./contracts.cjs");
-const { hasEligibleDrafts, checkSpendCap } = require("./drafts.cjs");
+const { hasEligibleDrafts } = require("./drafts.cjs");
 const { createInstructionsSyncHandler } = require("./handlers/instructionsSync.cjs");
 const { createDraftsPrepHandler } = require("./handlers/draftsPrep.cjs");
-const { resolveStationRoute } = require("./routeStub.cjs");
+const { createModelRouter } = require("./modelRouter.cjs");
 
 const STATIC_ROOT = path.join(__dirname, "../../dist/station-remote");
-
-/** Lazy — anthropicClient → aiConfig imports electron. */
-function loadCallMessages() {
-  try {
-    return require("../anthropicClient.cjs").callMessages;
-  } catch {
-    return async () => {
-      throw new Error("callMessages unavailable outside Electron");
-    };
-  }
-}
 
 const BRIEFING_MAX_AGE_MS = 10 * 60 * 1000;
 
@@ -142,11 +131,14 @@ function start(adapter, { log = (msg) => console.info(msg), extractBufferText, g
 
   const jobs = createJobEngine({ db, handlers: {} });
 
-  const route = resolveStationRoute({
+  const { route } = createModelRouter({
     getDb: () => db,
-    getApiKey: typeof getApiKey === "function" ? getApiKey : () => null,
-    checkSpendCap,
-    callMessages: loadCallMessages(),
+    getApiKey:
+      typeof getApiKey === "function"
+        ? getApiKey
+        : typeof adapter.getApiKey === "function"
+          ? () => adapter.getApiKey()
+          : () => null,
   });
 
   jobs.register("bb_sync", async ({ progress, log: jobLog, signal }) => {

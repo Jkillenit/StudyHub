@@ -272,7 +272,7 @@ describe("prompt + files + prepOneDraft", () => {
       "150",
     );
     db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run(
-      "station.draft_model",
+      "station.cloud_model",
       DEFAULT_DRAFT_MODEL,
     );
   });
@@ -362,9 +362,8 @@ describe("prompt + files + prepOneDraft", () => {
     expect(row.mode).toBe("outline");
     expect(row.check_count).toBeGreaterThan(0);
     expect(row.model).toBe(DEFAULT_DRAFT_MODEL);
-    const usage = db.prepare("SELECT * FROM station_ai_usage").all();
-    expect(usage.length).toBe(1);
-    expect(usage[0].tokens_in).toBe(100);
+    // Usage is owned by modelRouter.route — drafts must not double-count.
+    expect(db.prepare("SELECT * FROM station_ai_usage").all()).toHaveLength(0);
   });
 
   it("prepOneDraft maps deferred cap from route to needs_you", async () => {

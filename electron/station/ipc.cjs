@@ -15,7 +15,10 @@ const SETTING_KEYS = {
   ntfyTopic: "station.ntfy_topic",
   pushDetails: "station.push_details",
   aiCapCents: "station.ai_cap_cents_per_day",
-  draftModel: "station.draft_model",
+  cloudModel: "station.cloud_model",
+  preferLocal: "station.prefer_local",
+  localModel: "station.local_model",
+  allowOpus: "station.allow_opus",
   morningBriefAt: "station.morning_brief_at",
   lastBriefing: "station.last_briefing",
 };
@@ -120,7 +123,10 @@ function registerStationIpc({ ipcMain, getDb, ipcSend, getRuntime, onEnabledChan
       ntfyTopic: getSetting(db, SETTING_KEYS.ntfyTopic, ""),
       pushDetails: getSetting(db, SETTING_KEYS.pushDetails, "0"),
       aiCapCents: getSetting(db, SETTING_KEYS.aiCapCents, "150"),
-      draftModel: getSetting(db, SETTING_KEYS.draftModel, "claude-sonnet-5-5"),
+      cloudModel: getSetting(db, SETTING_KEYS.cloudModel, "claude-sonnet-5-5"),
+      preferLocal: getSetting(db, SETTING_KEYS.preferLocal, "1"),
+      localModel: getSetting(db, SETTING_KEYS.localModel, "llama3.2"),
+      allowOpus: getSetting(db, SETTING_KEYS.allowOpus, "0"),
       morningBriefAt: getSetting(db, SETTING_KEYS.morningBriefAt, "06:45"),
       draftModes: readDraftModes(db),
       courses: listCourses(db),
@@ -145,7 +151,14 @@ function registerStationIpc({ ipcMain, getDb, ipcSend, getRuntime, onEnabledChan
       if (!Number.isFinite(n) || n < 0) return { ok: false, error: "aiCapCents must be >= 0" };
       setSetting(db, SETTING_KEYS.aiCapCents, String(Math.floor(n)));
     }
-    if (p.draftModel != null) setSetting(db, SETTING_KEYS.draftModel, String(p.draftModel).trim());
+    if (p.cloudModel != null) setSetting(db, SETTING_KEYS.cloudModel, String(p.cloudModel).trim());
+    if (p.preferLocal != null) {
+      setSetting(db, SETTING_KEYS.preferLocal, p.preferLocal === true || p.preferLocal === "1" ? "1" : "0");
+    }
+    if (p.localModel != null) setSetting(db, SETTING_KEYS.localModel, String(p.localModel).trim());
+    if (p.allowOpus != null) {
+      setSetting(db, SETTING_KEYS.allowOpus, p.allowOpus === true || p.allowOpus === "1" ? "1" : "0");
+    }
     if (p.morningBriefAt != null) {
       const t = String(p.morningBriefAt).trim();
       if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) return { ok: false, error: "morningBriefAt must be HH:MM" };

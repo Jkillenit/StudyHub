@@ -420,14 +420,11 @@ async function prepOneDraft(deps) {
   const text = String(routed.text ?? "");
   const tokensIn = Number(routed.tokensIn) || 0;
   const tokensOut = Number(routed.tokensOut) || 0;
+  // Model label for the draft row only — spend is recorded inside route() (S0.4).
   const model =
     routed.model ||
-    setting(db, "station.draft_model", DEFAULT_DRAFT_MODEL) ||
+    setting(db, "station.cloud_model", DEFAULT_DRAFT_MODEL) ||
     DEFAULT_DRAFT_MODEL;
-
-  if (tokensIn || tokensOut) {
-    recordUsage(db, { now, model, tokensIn, tokensOut });
-  }
 
   let markdown = styleLint(text || "");
   if (mode === "rough_draft" && !/^DRAFT/i.test(markdown.trim())) {

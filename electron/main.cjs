@@ -568,11 +568,14 @@ app.whenReady().then(() => {
     onDisconnect: () => desktop?.bbDisconnected(),
   });
   desktop.attachBlackboard(bbHandle);
-  const stationAdapter = createAdapter({ getMainWindow: () => mainWindow });
+  const stationAdapter = createAdapter({
+    getMainWindow: () => mainWindow,
+    getApiKey: () => aiConfig.getApiKey(app) || null,
+  });
   stationAdapter.setBackgroundCheck((id) => bbHandle.backgroundCheck(id));
   const stationBootOpts = {
     extractBufferText,
-    getApiKey: () => aiConfig.getApiKey(app) || null,
+    getApiKey: () => stationAdapter.getApiKey(),
   };
   let stationHandle = station.start(stationAdapter, stationBootOpts);
   registerStationIpc({
