@@ -25,6 +25,8 @@ const { registerCompanionHandlers } = require("./companionHandlers.cjs");
 const { registerBlackboardHandlers } = require("./blackboardWindow.cjs");
 const { registerMaintenanceHandlers } = require("./maintenance.cjs");
 const { registerDesktop } = require("./desktop/index.cjs");
+const { createAdapter } = require("./station/electronAdapter.cjs");
+const station = require("./station/index.cjs");
 
 /** The app lives in the tray; a second launch just brings the existing window forward. */
 if (!app.requestSingleInstanceLock()) {
@@ -559,9 +561,15 @@ app.whenReady().then(() => {
   registerMaintenanceHandlers(() => mainWindow);
   desktop = registerDesktop({ getMainWindow: () => mainWindow, showMainWindow });
   createWindow();
-  desktop.attachBlackboard(
-    registerBlackboardHandlers(() => mainWindow, { allowPaths, extractBufferText, onDisconnect: () => desktop?.bbDisconnected() })
-  );
+  const bbHandle = registerBlackboardHandlers(() => mainWindow, {
+    allowPaths,
+    extractBufferText,
+    onDisconnect: () => desktop?.bbDisconnected(),
+  });
+  desktop.attachBlackboard(bbHandle);
+  const stationAdapter = createAdapter({ getMainWindow: () => mainWindow });
+  stationAdapter.setBackgroundCheck((id) => bbHandle.backgroundCheck(id));
+  station.start(stationAdapter);
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
