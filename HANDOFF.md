@@ -166,3 +166,45 @@ Branch: `station/S1.5-api`
 - [x] Every §3.4 route shape
 - [x] Refuses non-loopback host
 - [x] `npm test` green (514)
+
+---
+
+# HANDOFF — S2.1 Remote PWA
+
+Branch: `station/S2.1-remote-pwa`
+
+## Shipped (Owns only)
+
+- `remote.html` + `remote/**` — phone-first React PWA (briefing cards, Run presets, SSE jobs, draft reader, token/QR, manifest/SW)
+- Vite: `remote` input + `stationRemotePwa` plugin → `dist/remote.html` and **`dist/station-remote/`** (index.html + assets + manifest/sw/icon)
+- Vitest under `remote/*.test.js`; Playwright not available here — see `remote/ACCEPT.md`
+
+## Orchestrator: `staticRoot` wiring
+
+In `electron/station/index.cjs` / `api.start`:
+
+```js
+const path = require("node:path");
+const staticRoot = path.join(__dirname, "../../dist/station-remote");
+// api.start({ tokenHash, services, staticRoot })
+```
+
+After `vite build`, `dist/station-remote/index.html` is the phone shell. Point `@fastify/static` `root` there so `GET /` serves the PWA.
+
+## Auth vs static (needs API tweak — out of Owns)
+
+`api.cjs` currently requires Bearer on **all** routes, including static `GET /` and `/assets/*`. Browsers cannot send `Authorization` on document navigation, so the PWA shell will 401 until static assets are exempt.
+
+**Recommended change in `electron/station/api.cjs` (orchestrator / follow-up):** skip the bearer hook when `request.method === "GET"` and the path is not under `/api/`. Keep Bearer on every `/api/*` route. Token stays in the phone's localStorage for API + fetch-based SSE.
+
+QR / setup links should encode `https://<tailnet>/?token=<token>` (phone strips query after save).
+
+## SSE note
+
+`EventSource` cannot set Bearer headers. The PWA uses `fetch('/api/stream')` + SSE parser instead. No API change required.
+
+## Not owned / not done
+
+- Wiring `staticRoot` into `index.cjs` (this note)
+- Exempting static from bearer (api.cjs)
+- End-to-end against a live Station host

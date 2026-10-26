@@ -1,0 +1,431 @@
+/* Station remote PWA — --sh-* tokens (Nova pack values), phone-first */
+
+:root {
+  --sh-bg: #000000;
+  --sh-panel: rgba(18, 20, 22, 0.62);
+  --sh-panel-strong: rgba(18, 20, 22, 0.82);
+  --sh-panel-solid: #0e1012;
+  --sh-border: rgba(255, 255, 255, 0.06);
+  --sh-border-strong: rgba(255, 255, 255, 0.1);
+  --sh-track: rgba(255, 255, 255, 0.07);
+  --sh-text: #eceef0;
+  --sh-text-strong: #ffffff;
+  --sh-text-2: #a3a8ae;
+  --sh-text-3: #73787f;
+  --sh-accent: #86e1de;
+  --sh-accent-hover: color-mix(in oklab, var(--sh-accent) 80%, white);
+  --sh-accent-press: color-mix(in oklab, var(--sh-accent) 82%, black);
+  --sh-accent-ink: #041211;
+  --sh-accent-soft: color-mix(in oklab, var(--sh-accent) 8%, transparent);
+  --sh-accent-line: color-mix(in oklab, var(--sh-accent) 38%, transparent);
+  --sh-warn: #e3be72;
+  --sh-warn-soft: color-mix(in oklab, var(--sh-warn) 12%, transparent);
+  --sh-warn-line: color-mix(in oklab, var(--sh-warn) 35%, transparent);
+  --sh-danger: #e5686a;
+  --sh-danger-soft: color-mix(in oklab, var(--sh-danger) 10%, transparent);
+  --sh-danger-line: color-mix(in oklab, var(--sh-danger) 32%, transparent);
+  --sh-font-body: "Geist Sans", system-ui, sans-serif;
+  --sh-font-display: "Geist Sans", system-ui, sans-serif;
+  --sh-font-mono: "Geist Mono", ui-monospace, monospace;
+  --sh-radius-sm: 6px;
+  --sh-radius-md: 10px;
+  --sh-radius-lg: 14px;
+  --sh-shadow-panel: 0 20px 50px rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(120% 80% at 50% -10%, color-mix(in oklab, var(--sh-accent) 14%, transparent), transparent 55%),
+    linear-gradient(180deg, #050607 0%, var(--sh-bg) 42%, #050607 100%);
+  color: var(--sh-text);
+  font-family: var(--sh-font-body);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+.remote-app {
+  max-width: 430px;
+  margin: 0 auto;
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.remote-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.remote-brand h1 {
+  margin: 0;
+  font-family: var(--sh-font-display);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--sh-text-strong);
+}
+
+.remote-brand p {
+  margin: 0;
+  color: var(--sh-text-2);
+  font-size: 12.5px;
+}
+
+.remote-banner {
+  border: 1px solid var(--sh-border-strong);
+  border-radius: var(--sh-radius-md);
+  background: var(--sh-panel-strong);
+  padding: 10px 12px;
+  font-size: 12.5px;
+  color: var(--sh-text-2);
+}
+
+.remote-banner[data-tone="warn"] {
+  border-color: var(--sh-warn-line);
+  background: var(--sh-warn-soft);
+  color: var(--sh-warn);
+}
+
+.remote-banner[data-tone="danger"] {
+  border-color: var(--sh-danger-line);
+  background: var(--sh-danger-soft);
+  color: var(--sh-danger);
+}
+
+.remote-card {
+  border: 1px solid var(--sh-border);
+  border-radius: var(--sh-radius-md);
+  background: var(--sh-panel);
+  padding: 12px 14px;
+}
+
+.remote-card h2 {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--sh-text-2);
+}
+
+.remote-headline {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--sh-text-strong);
+  line-height: 1.35;
+}
+
+.remote-meta {
+  margin: 8px 0 0;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  color: var(--sh-text-3);
+}
+
+.remote-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.remote-section-title {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--sh-text-2);
+}
+
+.remote-item {
+  border: 1px solid var(--sh-border);
+  border-left: 2px solid var(--sh-accent);
+  border-radius: var(--sh-radius-sm);
+  background: var(--sh-panel-solid);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  width: 100%;
+  cursor: default;
+}
+
+button.remote-item {
+  cursor: pointer;
+}
+
+button.remote-item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--sh-accent);
+}
+
+.remote-item-title {
+  font-size: 14px;
+  color: var(--sh-text);
+}
+
+.remote-item-meta {
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  color: var(--sh-text-3);
+}
+
+.remote-empty {
+  color: var(--sh-text-3);
+  font-size: 12.5px;
+  padding: 4px 0;
+}
+
+.remote-run {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 0 -16px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, transparent, color-mix(in oklab, var(--sh-bg) 92%, black) 28%);
+  backdrop-filter: blur(8px);
+}
+
+.remote-run-row {
+  display: flex;
+  gap: 8px;
+}
+
+.remote-select {
+  flex: 1;
+  border: 1px solid var(--sh-border-strong);
+  border-radius: var(--sh-radius-sm);
+  background: var(--sh-panel-solid);
+  padding: 10px 12px;
+  min-height: 44px;
+}
+
+.remote-select:focus-visible {
+  outline: none;
+  border-color: var(--sh-accent-line);
+  box-shadow: 0 0 0 1px var(--sh-accent);
+}
+
+.remote-btn {
+  border: 1px solid transparent;
+  border-radius: var(--sh-radius-sm);
+  min-height: 44px;
+  padding: 10px 16px;
+  background: var(--sh-panel-solid);
+  color: var(--sh-text);
+  cursor: pointer;
+}
+
+.remote-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.remote-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--sh-accent);
+}
+
+.remote-btn-primary {
+  background: var(--sh-accent);
+  color: var(--sh-accent-ink);
+  font-weight: 600;
+  box-shadow: 0 0 18px color-mix(in oklab, var(--sh-accent) 30%, transparent);
+}
+
+.remote-btn-primary:hover:not(:disabled) {
+  background: var(--sh-accent-hover);
+}
+
+.remote-btn-primary:active:not(:disabled) {
+  background: var(--sh-accent-press);
+}
+
+.remote-btn-ghost {
+  border-color: var(--sh-border-strong);
+  background: transparent;
+  color: var(--sh-text-2);
+}
+
+.remote-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.remote-job {
+  border: 1px solid var(--sh-border);
+  border-radius: var(--sh-radius-sm);
+  background: var(--sh-panel-solid);
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.remote-job-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.remote-job-type {
+  font-size: 14px;
+  color: var(--sh-text);
+}
+
+.remote-job-status {
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  color: var(--sh-accent);
+  text-transform: lowercase;
+}
+
+.remote-job-status[data-status="failed"],
+.remote-job-status[data-status="needs_you"] {
+  color: var(--sh-danger);
+}
+
+.remote-job-status[data-status="done"] {
+  color: var(--sh-text-3);
+}
+
+.remote-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--sh-track);
+  overflow: hidden;
+}
+
+.remote-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--sh-accent);
+  border-radius: inherit;
+}
+
+.remote-gate {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 24px;
+}
+
+.remote-gate label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--sh-text-2);
+}
+
+.remote-input {
+  border: 1px solid var(--sh-border-strong);
+  border-radius: var(--sh-radius-sm);
+  background: var(--sh-panel-solid);
+  padding: 12px;
+  min-height: 48px;
+}
+
+.remote-input:focus-visible {
+  outline: none;
+  border-color: var(--sh-accent-line);
+  box-shadow: 0 0 0 1px var(--sh-accent);
+}
+
+.remote-video {
+  width: 100%;
+  border-radius: var(--sh-radius-md);
+  background: #000;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border: 1px solid var(--sh-border);
+}
+
+.remote-draft {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.remote-draft-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.remote-md h1,
+.remote-md h2,
+.remote-md h3 {
+  margin: 0 0 8px;
+  color: var(--sh-text-strong);
+  font-weight: 600;
+}
+
+.remote-md h1 { font-size: 22px; }
+.remote-md h2 { font-size: 18px; }
+.remote-md h3 { font-size: 16px; }
+
+.remote-md p,
+.remote-md ul {
+  margin: 0 0 10px;
+  color: var(--sh-text);
+}
+
+.remote-md code {
+  font-family: var(--sh-font-mono);
+  font-size: 12.5px;
+  background: var(--sh-accent-soft);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.remote-check {
+  background: var(--sh-warn-soft);
+  color: var(--sh-warn);
+  border: 1px solid var(--sh-warn-line);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+}
+
+.remote-footer-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.remote-spend {
+  font-family: var(--sh-font-mono);
+  font-size: 11px;
+  color: var(--sh-text-3);
+}
