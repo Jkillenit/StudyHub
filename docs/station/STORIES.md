@@ -36,7 +36,22 @@ one `require` + `start()` call in `electron/main.cjs`
 `index.cjs` wires empty stubs for jobs/scheduler/api/notify behind `station.enabled`.
 **Accept:** app boots with Station off (no behavior change) and on (logs "station ready").
 
-**Wave 0 exit:** merge to `main`. All Wave 1 branches start from this commit.
+### S0.4 Model router — `todo`
+**Owns:** `electron/station/modelRouter.cjs`, `electron/station/modelRouter.test.js`,
+`package.json` / `package-lock.json` (deps only: `ai`, `@ai-sdk/anthropic`,
+`ollama-ai-provider-v2`, `zod`), optional next numbered migration in `electron/database.cjs`
+for router settings defaults (`prefer_local`, `local_model`, `cloud_model`,
+`ollama_base_url`, `allow_opus`).
+**Do:** implement BRIEFING §3.6 `createModelRouter` + `route(task, opts)`. TDD with **fake**
+`probeOllama` / `generateLocal` / `generateCloud` (no live network in tests). Lazy `import()`
+of ESM AI packages from CommonJS. Seed router settings; do not reintroduce
+`station.draft_model`.
+**Accept:** tests cover local-first success, cloud fallback when Ollama down, spend-cap
+`deferred`/`cap`, Opus blocked unless `allow_opus`, unknown task rejected, usage rows written
+(local `est_cents=0`); `npm test` green; no `liteque`.
+
+**Wave 0 exit:** merge S0.1–S0.4 to `main`. All Wave 1 branches start from this commit.
+(S0.1–S0.3 already merged; land S0.4 next so Wave 2 drafts can call `route`.)
 
 ---
 
@@ -104,11 +119,13 @@ public API, extract attachment text with existing parsers, store per §3.1.
 ### S2.3 Drafts pipeline — `todo`
 **Owns:** `electron/station/drafts.cjs`, `electron/station/handlers/draftsPrep.cjs`,
 `electron/station/styleLint.cjs`, tests, `electron/station/prompts/*.md`
-**Do:** BRIEFING §6: eligibility, modes, prompt build from style folder, Claude call through
-existing `callMessages` (pass model), spend cap check + usage record, style lint, write
-`.md` + `.docx`, row in `station_drafts`.
-**Accept:** tests with mocked Claude: eligibility matrix, GBA 490 defaults to outline, cap
-blocks the call, lint flags dashes as `[CHECK]`, files land in the right folder.
+**Do:** BRIEFING §6: eligibility, modes, prompt build from style folder, model call **only**
+via injected `route("draft_outline"|"draft_rough", { cacheSystem, system, userContent })`
+(§3.6 / S0.4) — never `callMessages` or direct providers. Treat
+`{ ok:false, deferred:true, reason:"cap" }` as job `needs_you`. Style lint, write `.md` +
+`.docx`, row in `station_drafts`.
+**Accept:** tests with fake `route`: eligibility matrix, GBA 490 defaults to outline, deferred
+cap → `needs_you`, lint flags dashes as `[CHECK]`, files land in the right folder.
 
 ### S2.4 PC panel + Nova wiring — `todo`
 **Owns:** `src/features/station/**`, `electron/station/ipc.cjs`, preload additions in

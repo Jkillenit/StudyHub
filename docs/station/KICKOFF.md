@@ -17,7 +17,7 @@ Open one Agent chat on `main`, Plan mode first, then paste:
 
 ```
 Read AGENTS.md, docs/station/BRIEFING.md and docs/station/STORIES.md.
-Use superpowers writing-plans to write one plan for Wave 0 (S0.1, S0.2, S0.3) in
+Use superpowers writing-plans to write one plan for Wave 0 (S0.1, S0.2, S0.3, S0.4) in
 docs/superpowers/plans/. Show me the plan and wait.
 ```
 

@@ -12,6 +12,8 @@ review, and a briefing. Station work follows `docs/station/BRIEFING.md` and
 - Edit only the files your story **Owns**. Need something else? Write it in `HANDOFF.md`.
 - Test first (vitest). Pure logic gets unit tests; Electron glue stays thin.
 - `electron/station/electronAdapter.cjs` is the only Station file that imports `electron`.
+- Station model calls go through `modelRouter.route` / an injected `route` matching BRIEFING
+  §3.6 — never call providers from handlers.
 - Keep it small. No new dependency unless BRIEFING §9 lists it or Jack approves.
 - Match existing patterns: numbered migrations + `addColumn` in `database.cjs`, injectable
   clocks like `bbWatcher.cjs`, IPC through `preload.cjs` namespaces, `--sh-*` CSS tokens.
@@ -25,7 +27,10 @@ review, and a briefing. Station work follows `docs/station/BRIEFING.md` and
 - Never bind a server to anything but `127.0.0.1`. No port forwarding, no public tunnels.
 - Never log or push the API key, the bearer token, Blackboard cookies, or full grade
   details (unless `station.push_details` is on).
-- Never call Claude without the daily spend cap check.
+- Never call Claude / Anthropic / Ollama from Station code without going through `route`,
+  and never make a cloud call without the daily spend cap check inside the router.
+- Never call Opus unless `station.allow_opus` is on.
+- Never add `liteque` or any second job-queue library.
 
 ## Commands
 

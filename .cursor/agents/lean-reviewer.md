@@ -12,6 +12,9 @@ Flag, with file:line and a one line fix:
 - Abstractions with one user (factories, base classes, registries for one thing). Inline them.
 - Options, flags, or config nobody asked for.
 - New dependencies not listed in BRIEFING §9. Default verdict: remove.
+- `liteque`, Bull, Bee-Queue, Agenda, or any second job-queue library — always remove.
+- Direct `anthropic` / `@ai-sdk/anthropic` / `ollama` / `ollama-ai-provider-v2` / `ai`
+  imports inside Station handlers or drafts (must use injected `route` / §3.6).
 - Duplicate logic that already exists in the repo (cite the existing file).
 - Code the tests don't exercise.
 

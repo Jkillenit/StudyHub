@@ -26,6 +26,7 @@ Read this with `docs/PROJECT_BRIEF.md` (§6 Guardrails still apply) and `.cursor
 | Nova desktop speech + bubbles, briefing hook | ✅ Built | `electron/desktop/speech.cjs`, `src/companion/hooks/useNovaBriefing.js` |
 | Claude client (main process, key in safeStorage) | ✅ Built | `electron/anthropicClient.cjs` `callMessages`, `electron/aiConfig.cjs` |
 | File text extraction (PPTX/DOCX/XLSX/PDF) | ✅ Built | `officeparser`, `pdf-parse` in main |
+| Model router (local Ollama first, Anthropic cloud fallback) | ❌ Missing | new: `electron/station/modelRouter.cjs` (S0.4 / §3.6) |
 | Job queue with progress + persistence | ❌ Missing | new: `electron/station/` |
 | Remote API reachable from phone | ❌ Missing | new |
 | Phone push notifications | ❌ Missing | new (ntfy) |
@@ -57,7 +58,7 @@ remote PWA  ──HTTPS──▶ tailscale serve ──▶ 127.0.0.1:47811  stat
                                      job handlers ── station/scheduler.cjs
                                       │  bb_sync        → existing backgroundCheck()
                                       │  instructions   → new BB read (GET only)
-                                      │  drafts_prep    → station/drafts.cjs → Claude
+                                      │  drafts_prep    → station/drafts.cjs → modelRouter.route()
                                       │  briefing_build → station/briefing.cjs
                                       ▼
                                  SQLite (existing DB + station migrations)
@@ -128,8 +129,14 @@ ALTER TABLE assignments ADD COLUMN instructions_synced_at TEXT;
 Settings (existing `settings` table, keys prefixed `station.`):
 `station.enabled`, `station.token_hash`, `station.ntfy_url`, `station.ntfy_topic`,
 `station.push_details` (default `0`), `station.ai_cap_cents_per_day` (default `150`),
-`station.draft_model`, `station.draft_mode.<courseUuid>` (`off|outline|rough_draft`),
+`station.prefer_local` (default `1`), `station.local_model` (default `llama3.2`),
+`station.cloud_model` (default `claude-sonnet-5-5`),
+`station.ollama_base_url` (default `http://127.0.0.1:11434/api`),
+`station.allow_opus` (default `0`),
+`station.draft_mode.<courseUuid>` (`off|outline|rough_draft`),
 `station.morning_brief_at` (default `06:45`).
+
+Do **not** use `station.draft_model` — removed; model choice is `route()` + the keys above.
 
 ### 3.2 Job type allowlist (v1)
 
@@ -209,6 +216,53 @@ unguessable, so push text stays minimal unless `station.push_details=1`:
 
 Every push carries `Click: <tailnet dashboard URL>`.
 
+### 3.6 Model router (`station/modelRouter.cjs`)
+
+Single entry for every Station model call. Job handlers and drafts **never** import
+Anthropic, Ollama, or `ai` directly — they call `route` only.
+
+```js
+const { route } = createModelRouter({
+  getDb,                 // () => better-sqlite3 db
+  getApiKey,             // () => string|null from aiConfig / safeStorage
+  // tests inject fakes:
+  // probeOllama, generateLocal, generateCloud, now
+});
+
+const result = await route(task, {
+  system,
+  userContent,
+  maxTokens,             // optional
+  cacheSystem,           // optional; cache style system prompt in-process
+});
+```
+
+**Tasks (allowlist):** `draft_outline` | `draft_rough`. Unknown task →
+`{ ok: false, reason: "unknown_task" }`.
+
+**Result shapes:**
+- Success: `{ ok: true, text, model, tokensIn, tokensOut, provider: "ollama"|"anthropic" }`
+- Spend cap (cloud only): `{ ok: false, deferred: true, reason: "cap" }`
+- Opus blocked: `{ ok: false, deferred: true, reason: "opus_blocked" }`
+- No usable provider: `{ ok: false, reason: "unavailable", error }`
+
+**Routing (reuse-first, local-first):**
+1. If `station.prefer_local=1` (default) and Ollama answers at `station.ollama_base_url`,
+   call local model `station.local_model` via `ollama-ai-provider-v2` + `ai` `generateText`.
+2. Else if `getApiKey()` returns a key, call Anthropic via `@ai-sdk/anthropic` with
+   `station.cloud_model`. If the resolved model id looks like Opus (`/opus/i`) and
+   `station.allow_opus` is not `1` → return `opus_blocked` (do not call).
+3. Before **any cloud** call, sum `station_ai_usage.est_cents` for today; if
+   `>= station.ai_cap_cents_per_day` → return `cap` (do not call).
+4. After every successful call, record tokens into `station_ai_usage`. Local calls store
+   `est_cents = 0`. Cloud cents use a small fixed table in the router (Haiku/Sonnet/Opus);
+   unknown cloud models count as Sonnet rates.
+5. ESM-only packages (`ai`, `@ai-sdk/anthropic`, `ollama-ai-provider-v2`) are loaded with
+   **lazy `import()`** from this CommonJS module — never top-level `require` of ESM.
+
+Existing `electron/anthropicClient.cjs` stays for non-Station features (PPTX enhance,
+flashcards). Station drafts do not call it.
+
 ---
 
 ## 4. Job engine rules (`station/jobs.cjs`)
@@ -256,13 +310,14 @@ pdf-parse), syllabus excerpt already mirrored, and the style profile folder
 core rules: plain everyday words, no hyphens or dashes, contractions and "I" are fine, follow
 the sample format, no extra interpretive sentences).
 
-Pipeline: build prompt → Claude (`station.draft_model`, default `claude-sonnet-5-5`; style
-profile as cached system prompt) → style lint (flag every `-` `–` `—` as a `[CHECK]`, do not
-silently rewrite) → write `.md` + `.docx` (npm `docx`) to
+Pipeline: build prompt → `route("draft_outline"|"draft_rough", { cacheSystem: true, system,
+userContent })` (§3.6; style profile as cached system prompt) → style lint (flag every
+`-` `–` `—` as a `[CHECK]`, do not silently rewrite) → write `.md` + `.docx` (npm `docx`) to
 `Documents\Nova Drafts\<Course>\<YYYY-MM-DD> <Title>.docx` → `station_drafts` row → push.
 
-Spend cap: before any Claude call, check `station_ai_usage` for today; over cap → job
-`needs_you` with "AI cap reached". Record tokens after every call.
+Spend cap: if `route` returns `{ deferred: true, reason: "cap" }` → job `needs_you` with
+"AI cap reached". The router records usage after every successful call; drafts must not
+bypass `route` or write usage themselves for the model call.
 
 ## 7. Guardrails (add to PROJECT_BRIEF §6 and its decision log)
 
@@ -272,9 +327,11 @@ Spend cap: before any Claude call, check `station_ai_usage` for today; over cap 
 2. Drafts are review copies saved locally. Nothing is auto-pasted or uploaded.
 3. Remote surface = loopback + `tailscale serve` + bearer token. No `0.0.0.0`, no port forward.
 4. Push text minimal by default; details live behind Tailscale.
-5. Daily AI spend cap enforced in code.
-6. Decision log entries: (a) Sonnet allowed for drafts (overrides "Haiku only" for this
-   feature); (b) push summaries leave the machine via ntfy (opt-in when Station is enabled).
+5. Daily AI spend cap enforced in code on every **cloud** path through `route()` (§3.6).
+6. Opus only when `station.allow_opus=1`; otherwise `route` returns `opus_blocked`.
+7. Decision log entries: (a) Station drafts are local-first (Ollama) with Sonnet cloud
+   fallback via the AI SDK router (overrides "Haiku only" for this feature; Opus gated);
+   (b) push summaries leave the machine via ntfy (opt-in when Station is enabled).
 
 ## 8. Home PC host setup (`scripts/station-host.ps1`, run once as admin, prints each change)
 
@@ -288,6 +345,9 @@ Spend cap: before any Claude call, check `station_ai_usage` for today; over cap 
   in Duo to stretch the gap.
 - Optional, with trade-off spelled out: Sysinternals Autologon so the PC returns to the
   desktop after a reboot (convenient, but anyone at the PC gets in).
+- Optional local drafts: install [Ollama](https://ollama.com), `ollama pull` the model in
+  `station.local_model` (default `llama3.2`), leave it running on `127.0.0.1:11434`. Station
+  prefers it when `station.prefer_local=1`. No Ollama → cloud fallback if an API key exists.
 
 ## 9. Tools for the build
 
@@ -303,16 +363,33 @@ Add:
 - Cursor **Agents Window** + git worktrees for parallel stories; project subagents in
   `.cursor/agents/` (station-builder, spec-reviewer, lean-reviewer, guard-reviewer).
 
-Runtime deps to add (keep it to these): `fastify`, `@fastify/static`, `docx`, `qrcode`.
+Runtime deps to add (keep it to these): `fastify`, `@fastify/static`, `docx`, `qrcode`,
+`ai`, `@ai-sdk/anthropic`, `ollama-ai-provider-v2`, `zod`.
+
+Do **not** add `liteque`, Bull, Bee-Queue, or any other job-queue library — `station/jobs.cjs`
+is the queue.
 
 ## 10. Timeline (part time, Cursor doing most typing)
 
 | Wave | Work | Est. |
 |---|---|---|
-| 0 | Contracts: migration, allowlist, briefing schema, station adapter + boot wiring | 2–3 evenings |
+| 0 | Contracts: migration, allowlist, briefing schema, station adapter + boot wiring, **model router (S0.4)** | 2–3 evenings |
 | 1 | Jobs engine, scheduler, notify, API, briefing builder (4 parallel) | 1 weekend + evenings |
-| 2 | Remote PWA, instructions sync, drafts pipeline, PC panel + Nova wiring (4 parallel) | 1 weekend + evenings |
+| 2 | Remote PWA, instructions sync, drafts pipeline (via `route`), PC panel + Nova wiring (4 parallel) | 1 weekend + evenings |
 | 3 | Host script, guard test, end to end run, soak week | 1 weekend + 1 week soak |
 
 ≈ 3–4 weeks to v1 because the watcher, tray, session, and diff engine already exist.
 Soak week matters most: Duo expiry, reboots, and sleep are what break unattended runs.
+
+## 11. Build decisions (reuse-first)
+
+1. **Reuse before invent.** Prefer existing Study Hub modules (`anthropicClient` patterns for
+   non-Station AI, `bbWatcher` clock injection, numbered migrations, `--sh-*` tokens) over new
+   frameworks.
+2. **One queue.** `station/jobs.cjs` only. No `liteque` / Bull / Agenda.
+3. **One model door for Station.** All Station generation goes through §3.6 `route()`. Handlers
+   take an injected `route`; production wires `createModelRouter`.
+4. **Local first.** Ollama when up; Anthropic when not; Opus only with `station.allow_opus`.
+5. **ESM from CJS via lazy `import()`.** Do not convert the Electron main tree to ESM for the
+   AI SDK.
+6. **Pin new runtime deps to BRIEFING §9.** lean-reviewer rejects anything else by default.
