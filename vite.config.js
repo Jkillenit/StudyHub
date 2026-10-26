@@ -13,7 +13,9 @@ function stationRemotePwa() {
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const url = req.url?.split("?")[0] || "";
-        const match = REMOTE_PWA_FILES.find((f) => url === `/${f}` || url === `/remote/${f}`);
+        const match = REMOTE_PWA_FILES.find(
+          (f) => url === `/${f}` || url === `/remote/${f}` || url.endsWith(`/remote/${f}`),
+        );
         if (!match) return next();
         const file = path.resolve("remote", match);
         if (!fs.existsSync(file)) return next();

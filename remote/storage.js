@@ -47,5 +47,3 @@ export function createStorage(store = globalThis.localStorage) {
     },
   };
 }
-
-export const storageKeys = { TOKEN_KEY, BRIEFING_KEY, BASE_URL_KEY };

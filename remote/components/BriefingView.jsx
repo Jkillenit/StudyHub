@@ -17,6 +17,12 @@ export function BriefingView({ briefing, offline, onOpenDraft }) {
           {briefing?.headline || "No briefing yet. Hit Run when you are ready."}
         </p>
         <p className="remote-meta">{sessionLine(briefing, { offline })}</p>
+        {briefing?.jobs ? (
+          <p className="remote-meta">
+            Jobs ran {briefing.jobs.ran}
+            {briefing.jobs.failed ? ` · ${briefing.jobs.failed} failed` : ""}
+          </p>
+        ) : null}
         {spend ? (
           <p className="remote-spend">
             AI {spend.todayCents}¢ / {spend.capCents}¢ today

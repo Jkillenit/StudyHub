@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from "vitest";
-import { createStorage, storageKeys } from "./storage.js";
+import { createStorage } from "./storage.js";
 
 function memoryStore() {
   /** @type {Record<string, string>} */
@@ -49,7 +49,9 @@ describe("remote storage", () => {
     expect(storage.getBaseUrl()).toBe("https://pc.ts.net");
   });
 
-  it("uses stable key names", () => {
-    expect(storageKeys.TOKEN_KEY).toMatch(/^studyHub\.station\.remote\./);
+  it("clears blank tokens", () => {
+    storage.setToken("x");
+    storage.setToken("   ");
+    expect(storage.getToken()).toBe("");
   });
 });

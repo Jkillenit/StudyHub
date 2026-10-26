@@ -49,11 +49,7 @@ export function createApiClient(opts = {}) {
   return {
     getHealth: () => request("/api/health"),
     getBriefing: () => request("/api/briefing"),
-    listJobs: (since) => {
-      const q = since ? `?since=${encodeURIComponent(since)}` : "";
-      return request(`/api/jobs${q}`);
-    },
-    getJob: (id) => request(`/api/jobs/${encodeURIComponent(id)}`),
+    listJobs: () => request("/api/jobs"),
     cancelJob: (id) => request(`/api/jobs/${encodeURIComponent(id)}`, { method: "POST" }),
     /**
      * @param {string} preset

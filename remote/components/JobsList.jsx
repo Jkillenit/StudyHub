@@ -1,7 +1,5 @@
-import { sortJobs } from "../viewModels.js";
-
 export function JobsList({ jobs, onCancel }) {
-  const list = sortJobs(jobs);
+  const list = Array.isArray(jobs) ? jobs : [];
   return (
     <section className="remote-section">
       <h2 className="remote-section-title">Jobs</h2>

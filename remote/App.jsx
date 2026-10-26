@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createApiClient } from "./api.js";
 import { createStorage } from "./storage.js";
 import { connectJobStream } from "./sse.js";
-import { parseTokenInput, upsertJob } from "./viewModels.js";
+import { parseTokenInput, sortJobs, upsertJob } from "./viewModels.js";
 import { TokenGate } from "./components/TokenGate.jsx";
 import { BriefingView } from "./components/BriefingView.jsx";
 import { RunBar } from "./components/RunBar.jsx";
@@ -40,6 +40,7 @@ export default function App() {
   const [draftError, setDraftError] = useState("");
   const [streamState, setStreamState] = useState("idle");
   const tokenRef = useRef(token);
+  const hydratedRef = useRef(false);
   tokenRef.current = token;
 
   const api = useMemo(
@@ -60,7 +61,7 @@ export default function App() {
   const refresh = useCallback(async () => {
     const [b, j] = await Promise.all([api.getBriefing(), api.listJobs()]);
     applyBriefing(b);
-    setJobs(Array.isArray(j) ? j : []);
+    setJobs(sortJobs(Array.isArray(j) ? j : []));
   }, [api, applyBriefing]);
 
   const connectWithToken = useCallback(
@@ -81,7 +82,8 @@ export default function App() {
         setToken(nextToken);
         const [b, j] = await Promise.all([client.getBriefing(), client.listJobs()]);
         applyBriefing(b);
-        setJobs(Array.isArray(j) ? j : []);
+        setJobs(sortJobs(Array.isArray(j) ? j : []));
+        hydratedRef.current = true;
       } catch (err) {
         setBootError(err?.status === 401 ? "Token rejected. Check the PC QR." : "Could not reach Station.");
         throw err;
@@ -111,11 +113,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!token) return undefined;
+    if (!token || hydratedRef.current) return undefined;
     let cancelled = false;
     (async () => {
       try {
         await refresh();
+        if (!cancelled) hydratedRef.current = true;
       } catch (err) {
         if (!cancelled && err?.status === 401) {
           storage.clearToken();
