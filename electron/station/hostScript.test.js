@@ -50,6 +50,20 @@ describe("station scripts share one definition", () => {
     }
   });
 
+  it.skipIf(!hasPowerShell).each(["station-host", "station-pause", "station-resume"])(
+    "%s -WhatIf runs, exits 0 and performs nothing",
+    (n) => {
+      const r = spawnSync(
+        "powershell.exe",
+        ["-NoProfile", "-File", path.join(root, "scripts", `${n}.ps1`), "-WhatIf"],
+        { encoding: "utf8" },
+      );
+      expect(r.status, r.stderr).toBe(0);
+      expect(r.stdout).toContain("Mode: WhatIf");
+      expect(r.stdout).not.toMatch(/\bDone: |Applied |FAILED/);
+    },
+  );
+
   it("RESUME.md is ASCII and has one-line checklist items b to h for the resume script", () => {
     const md = text(path.join(root, "docs/station/RESUME.md"));
     expect(/[^\x00-\x7f]/.test(md)).toBe(false);

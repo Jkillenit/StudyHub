@@ -39,7 +39,7 @@ if ($ts) {
     & $ts serve --https=443 off | Out-Host
   }
   Write-Step 'tailscale funnel status (read only):'
-  $funnel = (& $ts funnel status 2>&1 | Out-String).Trim()
+  try { $funnel = (& $ts funnel status 2>&1 | Out-String).Trim() } catch { $funnel = '(funnel status failed: ' + $_.Exception.Message + ')' }
   Write-Host $funnel
   if ($funnel -match 'Funnel on') {
     Write-Step 'WARNING: something is funneled to the public internet. Run: tailscale funnel reset'
@@ -61,7 +61,11 @@ $exe = Resolve-StudyHubExe ''
 $name = if ($exe) { [IO.Path]::GetFileNameWithoutExtension($exe) } else { 'StudyHub' }
 $running = Get-Process -Name $name -ErrorAction SilentlyContinue
 if ($running) {
-  Invoke-Step "stop $name" { $running | Stop-Process }
+  # Ask the window to close first so SQLite can flush; force only if it ignores us.
+  Invoke-Step "stop $name" {
+    $running | ForEach-Object { [void]$_.CloseMainWindow(); [void]$_.WaitForExit(10000) }
+    $running | Where-Object { -not $_.HasExited } | Stop-Process
+  }
 } else {
   Write-Step "Skip: $name is not running"
 }
