@@ -179,8 +179,19 @@ Rules:
   + ≤280 char text; profanity/PII filters; one review per verified student per course-term.
 - **Blackboard ToS**: Read-only, as the logged-in student, at human pace. No stored
   credentials (session cookie only). Never access other users' data.
-- **AI**: Haiku only for enhancement. Local pipeline always runs first; AI enhances, never
-  replaces. Every feature must degrade gracefully with no key.
+- **AI (study suite)**: Haiku only for enhancement. Local pipeline always runs first; AI
+  enhances, never replaces. Every feature must degrade gracefully with no key.
+- **Nova Station — job allowlist**: Only BRIEFING §3.2 types (`bb_sync`,
+  `instructions_sync`, `drafts_prep`, `briefing_build`, `health_check`, `notify_test`).
+  No submit / answer / post path to any LMS or publisher site.
+- **Nova Station — drafts**: Review copies saved under Documents locally. Nothing is
+  auto-pasted or uploaded to Blackboard.
+- **Nova Station — remote**: Loopback (`127.0.0.1:47811`) + `tailscale serve` + bearer
+  token. No `0.0.0.0`, no port forward.
+- **Nova Station — push**: Minimal ntfy text by default; details stay behind Tailscale
+  unless `station.push_details` is on.
+- **Nova Station — AI spend**: Daily cloud spend cap enforced on every cloud call through
+  `route()` (§3.6). Opus only when `station.allow_opus=1`.
 
 ---
 
@@ -196,6 +207,9 @@ Rules:
 | 2026-09 | Grade distributions require ≥5 reports per bucket |
 | 2026-09 | Today becomes the core product: a ranked daily plan built from the mirror. Commons, grade insights, and professor reviews deferred until alpha usage justifies them |
 | 2026-10 | UI overhaul: one hard-edged HUD design (rail shell, Pure home, Plan layout, Nova sessions, Nova/Zombies flavor packs) replaces the holographic Today dashboard look |
+| 2026-10 | Nova Station: always-on Electron host; phone Run → jobs → briefing; contracts in `docs/station/BRIEFING.md` |
+| 2026-10 | Station drafts are local-first (Ollama) with Sonnet cloud fallback via the AI SDK model router (overrides "Haiku only" for this feature; Opus gated by `allow_opus`) |
+| 2026-10 | Push summaries may leave the machine via ntfy when Station is enabled (opt-in topic) |
 
 ## 8. Open questions
 
