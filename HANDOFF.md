@@ -254,3 +254,66 @@ jobs.register(
 - Job registry / `index.cjs` wiring (this note)
 - Exposing `extractBufferText` on `electronAdapter` (optional; can inject via `start` opts from main)
 
+# HANDOFF — S2.3 Drafts pipeline
+
+Branch: `station/S2.3-drafts`
+
+## Shipped (Owns only)
+
+- `electron/station/styleLint.cjs` (+ test) — flags `-` `–` `—` with `[CHECK]`, no silent rewrite
+- `electron/station/drafts.cjs` (+ test) — eligibility, GBA 490 → outline default, prompt build, md+docx, `station_drafts` upsert, usage helpers
+- `electron/station/handlers/draftsPrep.cjs` (+ test) — job handler
+- `electron/station/prompts/outline.md`, `rough_draft.md`
+- Runtime dep: `docx` (BRIEFING §9)
+
+## Model calls (S0.4 / §3.6)
+
+Drafts **do not** call providers. Inject:
+
+```js
+async function route(task, opts) { /* … */ }
+// task: "draft_outline" | "draft_rough"
+// opts: { cacheSystem: true, system, userContent, maxTokens }
+// ok:     { ok: true, text, model?, tokensIn?, tokensOut? }
+// deferred cap: { ok: false, deferred: true, reason: "cap" } → job status needs_you
+```
+
+## Orchestrator wiring (not Owned)
+
+In `electron/station/index.cjs` after S0.4 lands:
+
+```js
+const { createDraftsPrepHandler } = require("./handlers/draftsPrep.cjs");
+const { hasEligibleDrafts } = require("./drafts.cjs");
+
+jobs.register(
+  "drafts_prep",
+  createDraftsPrepHandler({
+    db,
+    route, // from model router (S0.4)
+    documentsDir: () => adapter.paths.documents(),
+    styleDir: () => path.join(adapter.paths.appData(), "station", "style"),
+    onDraftReady: (draft) =>
+      notify.notifyEvent("draft_ready", {
+        course: draft.course,
+        title: draft.title,
+        mode: draft.mode,
+      }),
+  }),
+);
+
+// scheduler 2h tick:
+hasEligibleDrafts: (now) => hasEligibleDrafts(db, now),
+```
+
+
+Also wire API `getDraft` / `setDraftStatus` against `station_drafts` + md file read.
+
+## Accept
+
+- [x] Eligibility matrix + GBA 490 defaults to outline
+- [x] Injected `route` with `cacheSystem: true`; deferred cap → `needs_you`
+- [x] Lint flags dashes as `[CHECK]`
+- [x] Files under `Documents/Nova Drafts/<Course>/`
+- [x] No direct provider requires in drafts/draftsPrep
+
