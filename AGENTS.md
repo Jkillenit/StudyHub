@@ -41,8 +41,9 @@ review, and a briefing. Station work follows `docs/station/BRIEFING.md` and
 
 ## Reviewers
 
-Before a story is done, run the `spec-reviewer`, `lean-reviewer`, and `guard-reviewer`
-subagents on the diff. They are read only and report findings; the builder fixes them.
+Before a story is done, run the read only `story-reviewer` subagent once on the diff. It
+reports findings; the builder fixes them. (Cursor keeps the older three-reviewer set in
+`.cursor/agents`.)
 
 ## Usage budget
 
