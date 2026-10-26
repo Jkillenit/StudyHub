@@ -301,6 +301,77 @@ const MIGRATIONS = [
       addColumn(dbRef, "study_sessions", "exam_uuid", "TEXT");
     },
   },
+  {
+    version: 13,
+    up(dbRef) {
+      dbRef.exec(`
+        CREATE TABLE IF NOT EXISTS station_jobs (
+          id TEXT PRIMARY KEY,
+          type TEXT NOT NULL,
+          status TEXT NOT NULL,
+          source TEXT NOT NULL,
+          params TEXT NOT NULL DEFAULT '{}',
+          progress INTEGER NOT NULL DEFAULT 0,
+          summary TEXT,
+          error TEXT,
+          attempts INTEGER NOT NULL DEFAULT 0,
+          dedupe_key TEXT,
+          run_id TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          started_at TEXT,
+          finished_at TEXT
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_station_jobs_dedupe ON station_jobs(dedupe_key)
+          WHERE dedupe_key IS NOT NULL AND status IN ('queued','running');
+        CREATE INDEX IF NOT EXISTS idx_station_jobs_created ON station_jobs(created_at);
+
+        CREATE TABLE IF NOT EXISTS station_job_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          job_id TEXT NOT NULL REFERENCES station_jobs(id) ON DELETE CASCADE,
+          at TEXT NOT NULL DEFAULT (datetime('now')),
+          level TEXT NOT NULL DEFAULT 'info',
+          message TEXT NOT NULL,
+          data TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS station_drafts (
+          id TEXT PRIMARY KEY,
+          assignment_uuid TEXT NOT NULL,
+          course_uuid TEXT NOT NULL,
+          mode TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'ready',
+          docx_path TEXT,
+          md_path TEXT,
+          model TEXT,
+          tokens_in INTEGER,
+          tokens_out INTEGER,
+          check_count INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          UNIQUE(assignment_uuid, mode)
+        );
+
+        CREATE TABLE IF NOT EXISTS station_ai_usage (
+          day TEXT NOT NULL,
+          model TEXT NOT NULL,
+          tokens_in INTEGER NOT NULL DEFAULT 0,
+          tokens_out INTEGER NOT NULL DEFAULT 0,
+          est_cents INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY(day, model)
+        );
+      `);
+      addColumn(dbRef, "assignments", "instructions", "TEXT");
+      addColumn(dbRef, "assignments", "instructions_synced_at", "TEXT");
+      dbRef.exec(`
+        INSERT OR IGNORE INTO settings (key, value) VALUES
+          ('station.enabled', '0'),
+          ('station.push_details', '0'),
+          ('station.ai_cap_cents_per_day', '150'),
+          ('station.morning_brief_at', '06:45'),
+          ('station.ntfy_url', 'https://ntfy.sh'),
+          ('station.draft_model', 'claude-sonnet-5-5');
+      `);
+    },
+  },
 ];
 
 function runMigrations(dbRef) {

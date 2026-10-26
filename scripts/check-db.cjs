@@ -16,6 +16,18 @@ try {
   const sessionCols = db.prepare("PRAGMA table_info(study_sessions)").all().map((c) => c.name);
   assert.ok(sessionCols.includes("exam_uuid"), "study_sessions.exam_uuid (migration 12)");
 
+  const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map((r) => r.name);
+  for (const t of ["station_jobs", "station_job_events", "station_drafts", "station_ai_usage"]) {
+    assert.ok(tables.includes(t), `missing table ${t} (migration 13)`);
+  }
+  const asgCols = db.prepare("PRAGMA table_info(assignments)").all().map((c) => c.name);
+  assert.ok(asgCols.includes("instructions"), "assignments.instructions");
+  assert.ok(asgCols.includes("instructions_synced_at"), "assignments.instructions_synced_at");
+  const ver = db.prepare("SELECT MAX(version) AS v FROM schema_version").get().v;
+  assert.ok(ver >= 13, `schema_version expected >= 13, got ${ver}`);
+  const enabled = db.prepare("SELECT value FROM settings WHERE key = 'station.enabled'").get();
+  assert.strictEqual(enabled?.value, "0", "station.enabled default");
+
   const payload = {
     uuid: "c1",
     name: "Test",
