@@ -27,6 +27,7 @@ const { registerMaintenanceHandlers } = require("./maintenance.cjs");
 const { registerDesktop } = require("./desktop/index.cjs");
 const { createAdapter } = require("./station/electronAdapter.cjs");
 const station = require("./station/index.cjs");
+const { registerStationIpc } = require("./station/ipc.cjs");
 
 /** The app lives in the tray; a second launch just brings the existing window forward. */
 if (!app.requestSingleInstanceLock()) {
@@ -569,7 +570,23 @@ app.whenReady().then(() => {
   desktop.attachBlackboard(bbHandle);
   const stationAdapter = createAdapter({ getMainWindow: () => mainWindow });
   stationAdapter.setBackgroundCheck((id) => bbHandle.backgroundCheck(id));
-  station.start(stationAdapter);
+  const stationBootOpts = {
+    extractBufferText,
+    getApiKey: () => aiConfig.getApiKey(app) || null,
+  };
+  let stationHandle = station.start(stationAdapter, stationBootOpts);
+  registerStationIpc({
+    ipcMain,
+    getDb: () => stationAdapter.getDb(),
+    ipcSend: (ch, payload) => stationAdapter.ipcSend(ch, payload),
+    getRuntime: () => stationHandle?.stubs || null,
+    onEnabledChange: (enabled) => {
+      stationHandle?.stop?.();
+      stationHandle = enabled
+        ? station.start(stationAdapter, stationBootOpts)
+        : { started: false, stop() {}, stubs: null };
+    },
+  });
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

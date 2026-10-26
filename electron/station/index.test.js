@@ -20,20 +20,25 @@ function openStationDb({ enabled = "0", token = null } = {}) {
       uuid TEXT NOT NULL UNIQUE,
       name TEXT NOT NULL,
       type TEXT NOT NULL DEFAULT 'user',
-      course_code TEXT
+      course_code TEXT,
+      bb_course_id TEXT
     );
     CREATE TABLE assignments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       uuid TEXT NOT NULL UNIQUE,
       course_id INTEGER NOT NULL REFERENCES courses(id),
+      bb_id TEXT,
       title TEXT NOT NULL,
       due_date TEXT,
       kind TEXT NOT NULL DEFAULT 'assignment',
+      source TEXT NOT NULL DEFAULT 'manual',
       completed INTEGER DEFAULT 0,
       submitted INTEGER NOT NULL DEFAULT 0,
       score REAL,
       points_possible REAL,
-      updated_at TEXT
+      updated_at TEXT,
+      instructions TEXT,
+      instructions_synced_at TEXT
     );
     CREATE TABLE announcements (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -207,6 +212,12 @@ describe("station boot", () => {
       api: expect.objectContaining({ stop: expect.any(Function) }),
       notify: expect.objectContaining({ push: expect.any(Function), stop: expect.any(Function) }),
     });
+    // Wave 2 handlers registered (enqueue allowlist + handler map)
+    for (const type of ["bb_sync", "instructions_sync", "drafts_prep", "briefing_build"]) {
+      expect(() =>
+        boot.stubs.jobs.enqueue({ type, source: "desktop", params: {} }),
+      ).not.toThrow();
+    }
     expect(adapter.onPower).toHaveBeenCalledWith("resume", expect.any(Function));
     boot.stop();
     expect(adapter.offPower).toHaveBeenCalledWith("resume", expect.any(Function));

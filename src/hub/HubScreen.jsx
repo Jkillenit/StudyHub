@@ -14,6 +14,7 @@ import { openCourseView } from "../features/today/courseView.js";
 import { DecksScreen } from "../features/decks/DecksScreen.jsx";
 import { GradesScreen } from "../features/grades/GradesScreen.jsx";
 import { SettingsScreen } from "../features/settings/SettingsScreen.jsx";
+import { StationBriefingPanel, JobsDrawer } from "../features/station/index.js";
 
 function CoursesView({ userCourses, onOpenCourse, onManualCreate, refreshKey, onSynced, onExpress }) {
   const [manualOpen, setManualOpen] = useState(false);
@@ -197,7 +198,15 @@ export function HubScreen({ view = "today", settingsTab, onSettingsTab, onNaviga
       {view === "today" ? <HomeScreen refreshKey={refreshKey} courses={courses} onOpenCourse={onOpenCourse} onNavigate={onNavigate} /> : null}
       {screen ? (
         <div className={`sh-plan${view === "calendar" ? " sh-plan--wide" : ""}`}>
-          <div className="sh-plan-col">{screen}</div>
+          <div className="sh-plan-col">
+            {screen}
+            {view === "plan" ? (
+              <>
+                <StationBriefingPanel />
+                <JobsDrawer />
+              </>
+            ) : null}
+          </div>
           <div className="sh-plan-dock">
             <NovaBar courses={courses} placeholder={PROMPTS[view]} />
           </div>

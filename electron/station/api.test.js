@@ -178,12 +178,18 @@ describe("station api auth gate", () => {
       { method: "GET", url: "/api/stream" },
       { method: "GET", url: "/api/drafts/d1" },
       { method: "POST", url: "/api/drafts/d1/status", payload: { status: "reviewed" } },
-      { method: "GET", url: "/" },
     ];
     for (const route of routes) {
       const res = await server.inject(route);
       expect(res.statusCode, route.url).toBe(401);
     }
+  });
+
+  it("serves static GET / without bearer (PWA shell)", async () => {
+    const { app: server } = await buildApi();
+    const res = await server.inject({ method: "GET", url: "/" });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain("remote");
   });
 
   it("returns 401 for a wrong bearer token", async () => {
@@ -327,7 +333,7 @@ describe("station api routes", () => {
     expect(res.payload).toContain('"id":"job-1"');
   });
 
-  it("GET / serves remote static files when authorized", async () => {
+  it("GET / still serves remote static files with bearer", async () => {
     const { app: server } = await buildApi();
     const res = await server.inject({
       method: "GET",
