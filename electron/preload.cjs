@@ -176,6 +176,29 @@ contextBridge.exposeInMainWorld("studyHub", {
     onNavigate: (callback) => subscribe("desktop:navigate", callback),
     onBbChecked: (callback) => subscribe("desktop:bb-checked", callback),
   },
+
+  /**
+   * Nova Station (PC panel). Main registers handlers via electron/station/ipc.cjs.
+   * Events: station:briefing, station:job, station:job-event.
+   */
+  station: {
+    getSettings: () => ipcRenderer.invoke("station:getSettings"),
+    setSettings: (patch) => ipcRenderer.invoke("station:setSettings", patch),
+    enable: () => ipcRenderer.invoke("station:enable"),
+    disable: () => ipcRenderer.invoke("station:disable"),
+    getBriefing: () => ipcRenderer.invoke("station:getBriefing"),
+    rebuildBriefing: () => ipcRenderer.invoke("station:rebuildBriefing"),
+    run: (preset) => ipcRenderer.invoke("station:run", { preset }),
+    listJobs: (since) => ipcRenderer.invoke("station:listJobs", { since }),
+    cancelJob: (id) => ipcRenderer.invoke("station:cancelJob", { id }),
+    testPush: () => ipcRenderer.invoke("station:testPush"),
+    /** @returns {() => void} unsubscribe */
+    onBriefing: (callback) => subscribe("station:briefing", callback),
+    /** @returns {() => void} unsubscribe */
+    onJob: (callback) => subscribe("station:job", callback),
+    /** @returns {() => void} unsubscribe */
+    onJobEvent: (callback) => subscribe("station:job-event", callback),
+  },
   db: {
     courses: {
       getAll: () => ipcRenderer.invoke("db:courses:getAll"),

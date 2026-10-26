@@ -317,3 +317,57 @@ Also wire API `getDraft` / `setDraftStatus` against `station_drafts` + md file r
 - [x] Files under `Documents/Nova Drafts/<Course>/`
 - [x] No direct provider requires in drafts/draftsPrep
 
+# HANDOFF — S2.4 PC panel + Nova wiring
+
+Branch: `station/S2.4-pc-panel`
+
+## Shipped (Owns only)
+
+- `src/features/station/**` — view models + vitest, `StationSettingsTab`, `StationBriefingPanel`, `JobsDrawer`, `useStationBriefingSpeech`, `station.css`, barrel `index.js`
+- `electron/station/ipc.cjs` — injectable `registerStationIpc` (no `electron` import): settings CRUD, enable/disable (+ token once), briefing get/rebuild, run preset, list/cancel jobs, test push; fans out `briefing.ready` / `job.updated` / `job.event` → `station:briefing` / `station:job` / `station:job-event`
+- `electron/station/ipc.test.js` — enable/token hash, settings validation, draft mode keys
+- `electron/preload.cjs` — `window.studyHub.station` namespace only
+
+## Orchestrator wiring (not Owned)
+
+1. **`electron/main.cjs`** (after `station.start`):
+```js
+const { ipcMain } = require("electron");
+const { registerStationIpc } = require("./station/ipc.cjs");
+
+let stationHandle = station.start(stationAdapter);
+registerStationIpc({
+  ipcMain,
+  getDb: () => stationAdapter.getDb(),
+  ipcSend: (ch, payload) => stationAdapter.ipcSend(ch, payload),
+  getRuntime: () => stationHandle?.stubs || null,
+  onEnabledChange: (enabled) => {
+    stationHandle?.stop?.();
+    stationHandle = enabled ? station.start(stationAdapter) : { started: false, stop() {}, stubs: null };
+  },
+});
+```
+   Restart-on-enable is required so API/jobs pick up the new `token_hash`.
+
+2. **`src/features/settings/SettingsScreen.jsx`** — add tab `{ id: "station", label: "Station" }` and `station: StationSettingsTab` from `../station/index.js` (or `StationSettingsTab.jsx`).
+
+3. **Hub / Home** — mount `<StationBriefingPanel />` and `<JobsDrawer />` where the PC Station surface should live (Today side rail or a Station hub view). Import from `src/features/station`.
+
+4. **Nova speech** — `StationBriefingPanel` already calls `useStationBriefingSpeech` (dispatches `studyhub-companion-greet` with the headline). If the panel is not mounted on first `briefing.ready`, also call `useStationBriefingSpeech()` from `CompanionLayer`.
+
+5. **`qrcode` npm dep** (BRIEFING §9) — optional; IPC tries `require("qrcode")` for the enable QR data URL and falls back to token text only. `npm i qrcode` when ready.
+
+6. **Do not** bind non-loopback; do not clear `token_hash` on disable (re-enable mints a new token).
+
+## Accept
+
+- [x] Vitest view models (`briefingView`, `jobsView`, `settingsView`) + ipc tests
+- [ ] Manual: Run from PC updates panel live (needs items 1–3 wired)
+
+## Tests
+
+- `npx vitest run src/features/station/ electron/station/ipc.test.js` — 26 passed
+- `npm test` — 71 files, 585 passed
+
+---
+
