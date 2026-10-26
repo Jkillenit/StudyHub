@@ -484,6 +484,104 @@ function resetUserCache() {
   cachedUserId = null;
 }
 
+const INSTR_FILE_EXT = /\.(pdf|docx|pptx|xlsx|txt|md|html?)$/i;
+
+/**
+ * Read-only: GET assignment instructions + attachment text from the Blackboard public API.
+ * `columnId` is the gradebook column id stored as `assignments.bb_id`.
+ * Injectable `getJson` / `getBuffer` keep this testable; defaults use the session GETs above.
+ *
+ * @param {string} bbCourseId
+ * @param {string} columnId
+ * @param {{
+ *   getJson?: (pathname: string) => Promise<any>,
+ *   getBuffer?: (pathname: string) => Promise<Buffer>,
+ *   extractBufferText?: (buf: Buffer, ext: string) => Promise<string>,
+ *   sleep?: (ms: number) => Promise<void>,
+ * }} [deps]
+ */
+async function fetchAssignmentInstructions(bbCourseId, columnId, deps = {}) {
+  if (!bbCourseId || !columnId) throw new Error("bbCourseId and columnId are required");
+  const get = deps.getJson || getJson;
+  const getBuf = deps.getBuffer || getBuffer;
+  const extract = deps.extractBufferText;
+  const pause = deps.sleep || sleep;
+
+  const course = encodeURIComponent(String(bbCourseId));
+  const col = encodeURIComponent(String(columnId));
+
+  let column = null;
+  try {
+    column = await get(`/learn/api/public/v2/courses/${course}/gradebook/columns/${col}`);
+  } catch {
+    column = await get(`/learn/api/public/v1/courses/${course}/gradebook/columns/${col}`);
+  }
+
+  const contentId = column?.contentId || column?.content?.id || null;
+  let bodyText = stripHtml(column?.description || column?.instructions || "");
+
+  if (contentId) {
+    await pause(REQUEST_GAP_MS);
+    try {
+      const content = await get(
+        `/learn/api/public/v1/courses/${course}/contents/${encodeURIComponent(contentId)}`,
+      );
+      const fromContent = stripHtml(
+        content?.body || content?.instructions || content?.contentHandler?.instructions || "",
+      );
+      if (fromContent) bodyText = fromContent;
+    } catch {
+      /* keep column description */
+    }
+  }
+
+  /** @type {{ id: string, fileName: string, text: string, buffer: Buffer }[]} */
+  const attachments = [];
+  // Attachments require deps.extractBufferText (wire from main — see HANDOFF S2.2).
+  if (contentId && extract) {
+    await pause(REQUEST_GAP_MS);
+    let list = [];
+    try {
+      list =
+        (
+          await get(
+            `/learn/api/public/v1/courses/${course}/contents/${encodeURIComponent(contentId)}/attachments`,
+          )
+        )?.results || [];
+    } catch {
+      list = [];
+    }
+    for (const att of list) {
+      const fileName = String(att.fileName || att.name || "");
+      const match = fileName.match(INSTR_FILE_EXT);
+      if (!match || !att.id) continue;
+      try {
+        await pause(REQUEST_GAP_MS);
+        const buffer = await getBuf(
+          `/learn/api/public/v1/courses/${course}/contents/${encodeURIComponent(contentId)}/attachments/${encodeURIComponent(att.id)}/download`,
+        );
+        const text = (await extract(buffer, match[1])) || "";
+        attachments.push({ id: String(att.id), fileName, text, buffer });
+      } catch {
+        /* skip unreadable attachment */
+      }
+    }
+  }
+
+  const parts = [];
+  if (bodyText) parts.push(bodyText);
+  for (const att of attachments) {
+    if (!att.text) continue;
+    parts.push(`--- Attachment: ${att.fileName} ---\n${att.text}`);
+  }
+
+  return {
+    contentId: contentId ? String(contentId) : null,
+    instructions: parts.join("\n\n").trim(),
+    attachments,
+  };
+}
+
 module.exports = {
   BB_PARTITION,
   BB_ORIGIN,
@@ -495,4 +593,5 @@ module.exports = {
   setPageFetcher,
   getCourseInfo,
   gradeSubmitted,
+  fetchAssignmentInstructions,
 };
