@@ -24,6 +24,18 @@ describe("station contracts", () => {
     ]);
   });
 
+  it("freezes job statuses from the briefing", () => {
+    expect(Object.isFrozen(JOB_STATUS)).toBe(true);
+    expect([...JOB_STATUS]).toEqual([
+      "queued",
+      "running",
+      "done",
+      "failed",
+      "cancelled",
+      "needs_you",
+    ]);
+  });
+
   it("rejects unknown job types", () => {
     expect(isJobType("bb_sync")).toBe(true);
     expect(isJobType("submit_assignment")).toBe(false);
@@ -84,5 +96,24 @@ describe("station contracts", () => {
   it("validateBriefing rejects bad kind / missing keys", () => {
     expect(validateBriefing(null).ok).toBe(false);
     expect(validateBriefing({ kind: "nope" }).ok).toBe(false);
+  });
+
+  it("validateBriefing rejects bad session, jobs, and aiSpend shapes", () => {
+    const base = {
+      generatedAt: "2026-10-26T06:45:00-05:00",
+      kind: "run",
+      headline: "x",
+      session: { blackboard: "ok", lastSyncAt: null },
+      newGrades: [],
+      dueSoon: [],
+      draftsReady: [],
+      needsYou: [],
+      announcements: [],
+      jobs: { ran: 0, failed: 0, failures: [] },
+      aiSpend: { todayCents: 0, capCents: 150 },
+    };
+    expect(validateBriefing({ ...base, session: { blackboard: "nope" } }).ok).toBe(false);
+    expect(validateBriefing({ ...base, jobs: { ran: 0, failed: 0, failures: null } }).ok).toBe(false);
+    expect(validateBriefing({ ...base, aiSpend: { todayCents: "0", capCents: 150 } }).ok).toBe(false);
   });
 });

@@ -7,11 +7,12 @@ const assert = require("assert");
 const { app } = require("electron");
 
 app.setPath("userData", fs.mkdtempSync(path.join(os.tmpdir(), "shdb-")));
-const { getDb } = require("../electron/database.cjs");
+const Database = require("better-sqlite3");
+const { getDb, getDbPath, closeDb } = require("../electron/database.cjs");
 const { saveFullCourse, getFullCourse } = require("../electron/dbHandlers.cjs");
 
 try {
-  const db = getDb();
+  let db = getDb();
   assert.strictEqual(db.prepare("SELECT 1"), db.prepare("SELECT 1"), "statement cache");
   const sessionCols = db.prepare("PRAGMA table_info(study_sessions)").all().map((c) => c.name);
   assert.ok(sessionCols.includes("exam_uuid"), "study_sessions.exam_uuid (migration 12)");
@@ -25,8 +26,46 @@ try {
   assert.ok(asgCols.includes("instructions_synced_at"), "assignments.instructions_synced_at");
   const ver = db.prepare("SELECT MAX(version) AS v FROM schema_version").get().v;
   assert.ok(ver >= 13, `schema_version expected >= 13, got ${ver}`);
-  const enabled = db.prepare("SELECT value FROM settings WHERE key = 'station.enabled'").get();
-  assert.strictEqual(enabled?.value, "0", "station.enabled default");
+  const stationDefaults = {
+    "station.enabled": "0",
+    "station.push_details": "0",
+    "station.ai_cap_cents_per_day": "150",
+    "station.morning_brief_at": "06:45",
+    "station.ntfy_url": "https://ntfy.sh",
+    "station.draft_model": "claude-sonnet-5-5",
+  };
+  for (const [key, value] of Object.entries(stationDefaults)) {
+    assert.strictEqual(
+      db.prepare("SELECT value FROM settings WHERE key = ?").get(key)?.value,
+      value,
+      `${key} default`
+    );
+  }
+
+  // Existing DB at v12 → migration 13: strip station objects and re-open.
+  const dbFile = getDbPath();
+  closeDb();
+  const raw = new Database(dbFile);
+  raw.exec(`
+    DELETE FROM schema_version WHERE version = 13;
+    DROP TABLE IF EXISTS station_job_events;
+    DROP TABLE IF EXISTS station_jobs;
+    DROP TABLE IF EXISTS station_drafts;
+    DROP TABLE IF EXISTS station_ai_usage;
+    DELETE FROM settings WHERE key LIKE 'station.%';
+  `);
+  raw.close();
+  db = getDb();
+  assert.ok(db.prepare("SELECT MAX(version) AS v FROM schema_version").get().v >= 13, "v12→13 schema_version");
+  assert.ok(
+    db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='station_jobs'").get(),
+    "v12→13 recreates station_jobs"
+  );
+  assert.strictEqual(
+    db.prepare("SELECT value FROM settings WHERE key = 'station.enabled'").get()?.value,
+    "0",
+    "v12→13 reseeds station.enabled"
+  );
 
   const payload = {
     uuid: "c1",
