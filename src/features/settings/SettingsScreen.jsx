@@ -5,12 +5,14 @@ import { setPack, usePack } from "../../shell/pack.js";
 import { NovaMemoryView } from "../../companion/NovaMemoryView.jsx";
 import { BackupTab } from "./BackupTab.jsx";
 import { BlackboardTab } from "./BlackboardTab.jsx";
+import { StationSettingsTab } from "../station/index.js";
 
 export const SETTINGS_TABS = [
   { id: "general", label: "General" },
   { id: "nova", label: "Nova" },
   { id: "theme", label: "Make it yours" },
   { id: "blackboard", label: "Blackboard" },
+  { id: "station", label: "Station" },
   { id: "backup", label: "Backup" },
   { id: "ai", label: "AI key" },
 ];
@@ -176,6 +178,7 @@ const TAB_BODY = {
   nova: NovaTab,
   theme: ThemeTab,
   blackboard: BlackboardTab,
+  station: StationSettingsTab,
   backup: BackupTab,
   ai: AiTab,
 };

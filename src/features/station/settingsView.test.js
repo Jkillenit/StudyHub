@@ -14,7 +14,10 @@ describe("buildSettingsView", () => {
     expect(view.ntfyUrl).toBe("https://ntfy.sh");
     expect(view.pushDetails).toBe(false);
     expect(view.aiCapCents).toBe(150);
-    expect(view.draftModel).toBe("claude-sonnet-5-5");
+    expect(view.cloudModel).toBe("claude-sonnet-5-5");
+    expect(view.preferLocal).toBe(true);
+    expect(view.localModel).toBe("llama3.2");
+    expect(view.allowOpus).toBe(false);
     expect(view.morningBriefAt).toBe("06:45");
   });
 
@@ -27,7 +30,10 @@ describe("buildSettingsView", () => {
         ntfyTopic: "secret-topic",
         pushDetails: "1",
         aiCapCents: "200",
-        draftModel: "claude-sonnet-5-5",
+        cloudModel: "claude-sonnet-5-5",
+        preferLocal: "0",
+        localModel: "llama3.2",
+        allowOpus: "1",
         morningBriefAt: "07:00",
         draftModes: { c1: "outline", c2: "off" },
       },
@@ -37,6 +43,8 @@ describe("buildSettingsView", () => {
     expect(view.hasToken).toBe(true);
     expect(view.pushDetails).toBe(true);
     expect(view.aiCapCents).toBe(200);
+    expect(view.preferLocal).toBe(false);
+    expect(view.allowOpus).toBe(true);
     expect(view.ntfyTopic).toBe("secret-topic");
     expect(view.courseDraftModes).toEqual([
       { courseUuid: "c1", name: "GBA 490 Strategic Management", mode: "outline" },

@@ -55,7 +55,10 @@ function memDb() {
       ('station.ai_cap_cents_per_day', '150'),
       ('station.morning_brief_at', '06:45'),
       ('station.ntfy_url', 'https://ntfy.sh'),
-      ('station.draft_model', 'claude-sonnet-5-5');
+      ('station.cloud_model', 'claude-sonnet-5-5'),
+      ('station.prefer_local', '1'),
+      ('station.local_model', 'llama3.2'),
+      ('station.allow_opus', '0');
     INSERT INTO courses (uuid, name, course_code) VALUES ('c1', 'GBA 490', 'GBA 490');
   `);
   return db;
@@ -81,7 +84,8 @@ describe("registerStationIpc", () => {
     const s = await ipcMain.invoke("station:getSettings");
     expect(s.enabled).toBe("0");
     expect(s.courses).toEqual([{ uuid: "c1", name: "GBA 490", courseCode: "GBA 490" }]);
-    expect(s.draftModel).toBe("claude-sonnet-5-5");
+    expect(s.cloudModel).toBe("claude-sonnet-5-5");
+    expect(s.preferLocal).toBe("1");
   });
 
   it("enables Station, stores token hash, and mints ntfy topic", async () => {

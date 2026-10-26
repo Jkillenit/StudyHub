@@ -82,6 +82,12 @@ async function createApi(opts) {
   });
 
   app.addHook("onRequest", async (request, reply) => {
+    // PWA shell + assets cannot send Authorization on document navigation.
+    // Keep Bearer on every /api/* route (including SSE via fetch).
+    const urlPath = String(request.url || "").split("?")[0];
+    if (request.method === "GET" && !urlPath.startsWith("/api/")) {
+      return;
+    }
     const token = bearerFromHeader(request.headers.authorization);
     if (!verifyToken(token || "", tokenHash)) {
       return reply.code(401).send({ error: "unauthorized" });

@@ -198,13 +198,40 @@ export function StationSettingsTab() {
         </label>
         <label className="sh-settings-row">
           <span>
-            <span className="sh-settings-row-title">Draft model</span>
+            <span className="sh-settings-row-title">Prefer local model</span>
+            <span className="sh-settings-hint">Try Ollama first; fall back to cloud when needed.</span>
+          </span>
+          <input
+            type="checkbox"
+            className="sh-switch"
+            checked={view.preferLocal}
+            onChange={(e) => {
+              const preferLocal = e.target.checked;
+              setView((v) => ({ ...v, preferLocal }));
+              savePatch({ preferLocal });
+            }}
+          />
+        </label>
+        <label className="sh-settings-row">
+          <span>
+            <span className="sh-settings-row-title">Local model</span>
           </span>
           <input
             className="sh-input"
-            value={view.draftModel}
-            onChange={(e) => setView((v) => ({ ...v, draftModel: e.target.value }))}
-            onBlur={() => savePatch({ draftModel: view.draftModel })}
+            value={view.localModel}
+            onChange={(e) => setView((v) => ({ ...v, localModel: e.target.value }))}
+            onBlur={() => savePatch({ localModel: view.localModel })}
+          />
+        </label>
+        <label className="sh-settings-row">
+          <span>
+            <span className="sh-settings-row-title">Cloud model</span>
+          </span>
+          <input
+            className="sh-input"
+            value={view.cloudModel}
+            onChange={(e) => setView((v) => ({ ...v, cloudModel: e.target.value }))}
+            onBlur={() => savePatch({ cloudModel: view.cloudModel })}
           />
         </label>
         <label className="sh-settings-row">

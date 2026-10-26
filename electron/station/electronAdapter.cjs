@@ -5,7 +5,11 @@ const { app, powerMonitor, BrowserWindow } = require("electron");
 const { getDb } = require("../database.cjs");
 
 /**
- * @param {{ getMainWindow?: () => import('electron').BrowserWindow | null, backgroundCheck?: (id: string) => Promise<unknown> }} [opts]
+ * @param {{
+ *   getMainWindow?: () => import('electron').BrowserWindow | null,
+ *   backgroundCheck?: (id: string) => Promise<unknown>,
+ *   getApiKey?: () => string|null,
+ * }} [opts]
  */
 function createAdapter(opts = {}) {
   let backgroundCheck =
@@ -21,8 +25,14 @@ function createAdapter(opts = {}) {
       return wins.find((w) => !w.isDestroyed()) || null;
     });
 
+  const getApiKey =
+    typeof opts.getApiKey === "function"
+      ? opts.getApiKey
+      : () => null;
+
   return {
     getDb,
+    getApiKey,
     get backgroundCheck() {
       return backgroundCheck;
     },

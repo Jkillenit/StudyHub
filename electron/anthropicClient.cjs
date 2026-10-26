@@ -205,6 +205,7 @@ async function rephraseCompanionLine(apiKey, { text }) {
 }
 
 module.exports = {
+  callMessages,
   rephraseCompanionLine,
   generateFlashcards,
   enhanceContent,

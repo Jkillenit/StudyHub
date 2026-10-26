@@ -1,15 +1,23 @@
 /**
- * Station boot: wire Wave 1 jobs / scheduler / notify / briefing / API behind `station.enabled`.
+ * Station boot: wire Wave 1–2 jobs / scheduler / notify / briefing / API / handlers
+ * behind `station.enabled`.
  */
 
 const { randomUUID } = require("node:crypto");
 const fs = require("node:fs");
+const path = require("node:path");
 const { createJobEngine } = require("./jobs.cjs");
 const { createScheduler } = require("./scheduler.cjs");
 const { createNotify } = require("./notify.cjs");
 const { buildBriefing, readFacts } = require("./briefing.cjs");
 const api = require("./api.cjs");
 const { expandPreset } = require("./contracts.cjs");
+const { hasEligibleDrafts } = require("./drafts.cjs");
+const { createInstructionsSyncHandler } = require("./handlers/instructionsSync.cjs");
+const { createDraftsPrepHandler } = require("./handlers/draftsPrep.cjs");
+const { createModelRouter } = require("./modelRouter.cjs");
+
+const STATIC_ROOT = path.join(__dirname, "../../dist/station-remote");
 
 const BRIEFING_MAX_AGE_MS = 10 * 60 * 1000;
 
@@ -97,10 +105,10 @@ function enqueueRun(jobs, preset, source) {
 }
 
 /**
- * @param {{ getDb: () => import('better-sqlite3').Database, onPower?: Function, offPower?: Function }} adapter
- * @param {{ log?: (msg: string) => void }} [opts]
+ * @param {{ getDb: () => import('better-sqlite3').Database, onPower?: Function, offPower?: Function, paths?: object, backgroundCheck?: Function }} adapter
+ * @param {{ log?: (msg: string) => void, extractBufferText?: Function, getApiKey?: () => string|null }} [opts]
  */
-function start(adapter, { log = (msg) => console.info(msg) } = {}) {
+function start(adapter, { log = (msg) => console.info(msg), extractBufferText, getApiKey } = {}) {
   const db = adapter.getDb();
   if (!readEnabled(db)) {
     return { started: false, stop() {}, stubs: null };
@@ -122,6 +130,86 @@ function start(adapter, { log = (msg) => console.info(msg) } = {}) {
   });
 
   const jobs = createJobEngine({ db, handlers: {} });
+
+  const { route } = createModelRouter({
+    getDb: () => db,
+    getApiKey:
+      typeof getApiKey === "function"
+        ? getApiKey
+        : typeof adapter.getApiKey === "function"
+          ? () => adapter.getApiKey()
+          : () => null,
+  });
+
+  jobs.register("bb_sync", async ({ progress, log: jobLog, signal }) => {
+    const check = adapter.backgroundCheck;
+    if (typeof check !== "function") {
+      return { summary: "backgroundCheck unavailable", status: "failed" };
+    }
+    const courses = db
+      .prepare(
+        `SELECT uuid, bb_course_id FROM courses
+         WHERE bb_course_id IS NOT NULL AND bb_course_id != ''`,
+      )
+      .all();
+    let okCount = 0;
+    let expired = false;
+    for (let i = 0; i < courses.length; i++) {
+      if (signal?.aborted) return { summary: "cancelled", status: "cancelled" };
+      const c = courses[i];
+      progress?.(Math.round((i / Math.max(courses.length, 1)) * 90), `sync ${c.bb_course_id}`);
+      try {
+        const res = await check(c.bb_course_id);
+        if (res?.error === "not-logged-in") {
+          expired = true;
+          setSetting(db, "station.bb_session", "expired");
+          break;
+        }
+        if (res?.ok) {
+          okCount += 1;
+          setSetting(db, "station.bb_session", "ok");
+          setSetting(db, "station.last_sync_at", new Date().toISOString());
+        }
+      } catch (err) {
+        jobLog?.("warn", err?.message || String(err), { bbCourseId: c.bb_course_id });
+      }
+    }
+    progress?.(100, "done");
+    if (expired) return { summary: "Blackboard session expired", status: "needs_you" };
+    return { summary: `synced ${okCount}/${courses.length} courses` };
+  });
+
+  jobs.register(
+    "instructions_sync",
+    createInstructionsSyncHandler({
+      db,
+      appDataPath: adapter.paths?.appData?.() || "",
+      fetchInstructions: async (bbCourseId, columnId) => {
+        // Lazy require — bbSync imports electron; keep station unit tests electron-free.
+        const { fetchAssignmentInstructions } = require("../bbSync.cjs");
+        return fetchAssignmentInstructions(bbCourseId, columnId, {
+          extractBufferText:
+            typeof extractBufferText === "function" ? extractBufferText : undefined,
+        });
+      },
+    }),
+  );
+
+  jobs.register(
+    "drafts_prep",
+    createDraftsPrepHandler({
+      db,
+      route,
+      documentsDir: () => adapter.paths?.documents?.() || "",
+      styleDir: () => path.join(adapter.paths?.appData?.() || "", "station", "style"),
+      onDraftReady: (draft) =>
+        notify.notifyEvent("draft_ready", {
+          course: draft.course,
+          title: draft.title,
+          mode: draft.mode,
+        }),
+    }),
+  );
 
   jobs.register("briefing_build", async ({ params }) => {
     const kind = typeof params?.kind === "string" ? params.kind : "on_demand";
@@ -164,7 +252,7 @@ function start(adapter, { log = (msg) => console.info(msg) } = {}) {
 
   const scheduler = createScheduler({
     enqueue: enqueueFromScheduler,
-    hasEligibleDrafts: () => false,
+    hasEligibleDrafts: (now) => hasEligibleDrafts(db, now),
     getMorningBriefAt: () => getSetting(db, "station.morning_brief_at", "06:45") || "06:45",
   });
 
@@ -272,12 +360,14 @@ function start(adapter, { log = (msg) => console.info(msg) } = {}) {
   };
 
   if (tokenHash) {
+    const staticRoot = fs.existsSync(STATIC_ROOT) ? STATIC_ROOT : undefined;
     apiReady = api
       .start({
         tokenHash,
         services,
         host: "127.0.0.1",
         port: 47811,
+        staticRoot,
       })
       .then((handle) => {
         apiHandle = handle;
