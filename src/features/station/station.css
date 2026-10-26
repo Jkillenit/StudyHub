@@ -1,0 +1,87 @@
+/* Station PC panel — tokens only. Soft layout helpers; no pack-specific colors. */
+
+.sh-station-briefing-headline {
+  font-family: var(--sh-font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--sh-text);
+  margin: 0 0 12px;
+  line-height: 1.35;
+}
+
+.sh-station-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sh-station-list > li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--sh-border);
+}
+
+.sh-station-list > li:last-child {
+  border-bottom: none;
+}
+
+.sh-station-list-primary {
+  color: var(--sh-text);
+  font-size: 14px;
+}
+
+.sh-station-jobs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sh-station-run-row {
+  flex-wrap: wrap;
+}
+
+.sh-station-job--danger .sh-station-list-primary {
+  color: var(--sh-danger);
+}
+
+.sh-station-job--warn .sh-station-list-primary {
+  color: var(--sh-warn);
+}
+
+.sh-station-job--accent .sh-station-list-primary {
+  color: var(--sh-accent);
+}
+
+.sh-station-job--ok .sh-station-list-primary {
+  color: var(--sh-text);
+}
+
+.sh-station-job--muted .sh-station-list-primary {
+  color: var(--sh-text-2);
+}
+
+.sh-station-token {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--sh-border);
+  border-radius: var(--sh-radius-md);
+  background: var(--sh-panel);
+}
+
+.sh-station-token-value {
+  word-break: break-all;
+  margin: 8px 0;
+}
+
+.sh-station-qr {
+  display: block;
+  margin-top: 12px;
+  border-radius: var(--sh-radius-sm);
+  background: var(--sh-panel-solid);
+}
