@@ -80,3 +80,19 @@ Same as Wave 0, stories S3.1–S3.3. Then you do S3.4 (the soak week) yourself.
 - Two branches conflict → merge the earlier story ID first, rebase the other, rerun its tests.
 - Agent wants a new dependency → lean-reviewer decides; default answer is no.
 - Contract change needed → stop all agents, change BRIEFING §3 on `main`, rebase everyone.
+
+## Claude Code
+
+Uses `.claude/agents/` (`station-builder` on sonnet with `isolation: worktree`; one read only
+`story-reviewer` on haiku) and `.mcp.json` (context7, playwright). `AGENTS.md` is the shared
+instructions file (see its "Usage budget"); there is no `CLAUDE.md`. Skills:
+`superpowers:writing-plans`, `superpowers:executing-plans`, `superpowers:test-driven-development`,
+`ponytail:ponytail-review`.
+
+Flow, one story at a time, max 2 builders:
+1. Read `AGENTS.md`, the story in `STORIES.md`, and only the BRIEFING sections it names.
+2. Dispatch `station-builder` for the story (own worktree automatically). Pass the story ID and
+   tell it to read the brief first; subagents don't see this chat. Plan under one page.
+3. Run `story-reviewer` once on the branch. Send failures back to a fresh builder.
+4. Merge in story order, `npm test` after the merge, wire modules in `electron/station/index.cjs`.
+5. Update status keys in `STORIES.md`. Ask before changing any BRIEFING §3 contract.
