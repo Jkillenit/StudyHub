@@ -16,7 +16,10 @@ Check, with file:line:
 - Bearer token compared in constant time and stored hashed; token, API key, and cookies
   never logged, pushed, or returned by an endpoint.
 - Push bodies respect `station.push_details`.
-- Every Claude call path checks the daily spend cap first and records usage after.
+- Every **cloud** model call goes through BRIEFING §3.6 `route` (or the injected test fake),
+  checks the daily spend cap **before** the provider call, and records usage after.
+- Opus model ids are refused unless `station.allow_opus` is enabled (`opus_blocked`).
+- API key, bearer token, and Blackboard cookies never appear in logs, pushes, or route errors.
 
 Output: verdict (SAFE / BLOCK) and the list. Any allowlist or submit/post violation is BLOCK.
 Do not edit files.
