@@ -208,3 +208,49 @@ QR / setup links should encode `https://<tailnet>/?token=<token>` (phone strips 
 - Wiring `staticRoot` into `index.cjs` (this note)
 - Exempting static from bearer (api.cjs)
 - End-to-end against a live Station host
+
+# HANDOFF — S2.2 Instructions sync
+
+Branch: `station/S2.2-instructions`
+
+## Done (Owns only)
+
+- `electron/bbSync.cjs` — exported `fetchAssignmentInstructions(bbCourseId, columnId, deps?)` (GET only via `getJson` / `getBuffer`)
+- `electron/station/handlers/instructionsSync.cjs` — `createInstructionsSyncHandler({ db, fetchInstructions, appDataPath, now })`
+- Tests: fixture payloads, GET guard (incl. attachment download), due≤7d filter, `needs_you` on 401/403, soft-fail continue
+
+## Orchestrator — register in `electron/station/index.cjs`
+
+Do **not** leave `handlers: {}` without this type when enabling drafts/full presets:
+
+```js
+const { fetchAssignmentInstructions } = require("../bbSync.cjs");
+const { createInstructionsSyncHandler } = require("./handlers/instructionsSync.cjs");
+
+// extractBufferText already exists in main.cjs — pass it through the adapter or start() opts.
+jobs.register(
+  "instructions_sync",
+  createInstructionsSyncHandler({
+    db,
+    appDataPath: adapter.paths.appData(),
+    fetchInstructions: (bbCourseId, columnId) =>
+      fetchAssignmentInstructions(bbCourseId, columnId, { extractBufferText }),
+  }),
+);
+```
+
+**Required:** always pass `extractBufferText` into the helper. Without it, body/description still sync but attachment text is skipped.
+
+## Storage
+
+| Where | What |
+|---|---|
+| `assignments.instructions` | Plain text (content/column body + `--- Attachment: name ---` sections) |
+| `assignments.instructions_synced_at` | ISO when fetched |
+| `{userData}/station/instructions/<assignmentUuid>/<file>` | Raw attachment bytes |
+
+## Out of Owns
+
+- Job registry / `index.cjs` wiring (this note)
+- Exposing `extractBufferText` on `electronAdapter` (optional; can inject via `start` opts from main)
+
