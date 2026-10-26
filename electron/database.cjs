@@ -372,6 +372,20 @@ const MIGRATIONS = [
       `);
     },
   },
+  {
+    version: 14,
+    up(dbRef) {
+      // S0.4 model router settings (BRIEFING §3.6). Leaves orphan station.draft_model.
+      dbRef.exec(`
+        INSERT OR IGNORE INTO settings (key, value) VALUES
+          ('station.prefer_local', '1'),
+          ('station.local_model', 'llama3.2'),
+          ('station.cloud_model', 'claude-sonnet-5-5'),
+          ('station.ollama_base_url', 'http://127.0.0.1:11434/api'),
+          ('station.allow_opus', '0');
+      `);
+    },
+  },
 ];
 
 function runMigrations(dbRef) {

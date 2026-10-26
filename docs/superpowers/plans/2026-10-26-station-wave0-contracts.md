@@ -2,7 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:test-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Do **not** start coding until Jackson approves this plan.
 
-**Goal:** Freeze Station contracts in the real Study Hub repo: schema migration + settings defaults (S0.1), shared allowlist/preset/briefing validators (S0.2), and a thin Electron adapter + boot stub gated on `station.enabled` (S0.3). No job runner, API, notify, or drafts yet.
+**Goal:** Freeze Station contracts in the real Study Hub repo: schema migration + settings defaults (S0.1), shared allowlist/preset/briefing validators (S0.2), a thin Electron adapter + boot stub gated on `station.enabled` (S0.3), and the model router (S0.4 / §3.6). No job runner, API, notify, or drafts in S0.1–S0.3; S0.4 adds `route()` only.
+
+> **S0.4 follow-on:** See `docs/superpowers/plans/2026-10-26-station-wave0-s0.4-model-router.md`. S0.1–S0.3 are merged on `main`; land S0.4 next.
 
 **Architecture:** Keep the Electron main process as the always-on host. New logic lives under `electron/station/` as plain CommonJS. Only `electronAdapter.cjs` may `require("electron")`. Wave 0 wires empty stubs so later waves plug into `index.cjs` without touching `main.cjs` again. Contracts in `docs/station/BRIEFING.md` §3 are **frozen** — do not edit that section; if something is wrong, stop and ask Jack.
 

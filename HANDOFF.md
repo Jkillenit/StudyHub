@@ -319,7 +319,7 @@ Also wire API `getDraft` / `setDraftStatus` against `station_drafts` + md file r
 
 # HANDOFF — S2.4 PC panel + Nova wiring
 
-Branch: `station/S2.4-pc-panel`
+Branch: `station/S2.4-pc-panel` (merged)
 
 ## Shipped (Owns only)
 
@@ -359,6 +359,8 @@ registerStationIpc({
 
 6. **Do not** bind non-loopback; do not clear `token_hash` on disable (re-enable mints a new token).
 
+7. **After S0.4:** settings UI should use `prefer_local` / `local_model` / `cloud_model` / `allow_opus` (not `draft_model`).
+
 ## Accept
 
 - [x] Vitest view models (`briefingView`, `jobsView`, `settingsView`) + ipc tests
@@ -371,3 +373,49 @@ registerStationIpc({
 
 ---
 
+# HANDOFF — S0.4 Model router
+
+## Done
+- `electron/station/modelRouter.cjs` + `modelRouter.test.js` (BRIEFING §3.6)
+- Migration **14**: `prefer_local`, `local_model`, `cloud_model`, `ollama_base_url`, `allow_opus`
+- Deps: `ai@5`, `@ai-sdk/anthropic@2`, `ollama-ai-provider-v2@2`, `zod@4` (Electron Node 20–safe; not AI SDK 7)
+- No `liteque`
+
+## Orchestrator must wire (`electron/station/index.cjs`)
+
+```js
+const path = require("node:path");
+const { createModelRouter } = require("./modelRouter.cjs");
+const { createDraftsPrepHandler } = require("./handlers/draftsPrep.cjs");
+const { hasEligibleDrafts } = require("./drafts.cjs");
+// Prefer getApiKey on electronAdapter (already imports electron).
+
+const { route } = createModelRouter({
+  getDb: () => db,
+  getApiKey: () => adapter.getApiKey?.() || null,
+});
+
+jobs.register(
+  "drafts_prep",
+  createDraftsPrepHandler({
+    db,
+    route,
+    documentsDir: () => adapter.paths.documents,
+    styleDir: () => path.join(adapter.paths.appData, "station", "style"),
+    onDraftReady: (draft) =>
+      notify.notifyEvent?.("draft_ready", {
+        course: draft.course,
+        title: draft.title,
+        mode: draft.mode,
+      }),
+  }),
+);
+
+// scheduler:
+hasEligibleDrafts: (now) => hasEligibleDrafts(db, now),
+```
+
+## Known follow-ups (not Owned)
+- `drafts.cjs` still calls `recordUsage` after `route` → double-count until trimmed
+- `station.draft_model` orphan setting still used as label fallback in drafts
+- S2.4 settings UI (merged) should switch to router keys (`prefer_local` / `local_model` / `cloud_model` / `allow_opus`)
