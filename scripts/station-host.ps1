@@ -26,25 +26,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-function Write-Step([string]$Message) {
-  Write-Host "[station-host] $Message"
-}
-
-function Resolve-StudyHubExe {
-  param([string]$Hint)
-  if ($Hint -and (Test-Path -LiteralPath $Hint)) { return (Resolve-Path -LiteralPath $Hint).Path }
-
-  $candidates = @(
-    "$env:LOCALAPPDATA\Programs\Study Hub\Study Hub.exe",
-    "$env:LOCALAPPDATA\Programs\study-hub\Study Hub.exe",
-    "${env:ProgramFiles}\Study Hub\Study Hub.exe",
-    "${env:ProgramFiles(x86)}\Study Hub\Study Hub.exe"
-  )
-  foreach ($c in $candidates) {
-    if (Test-Path -LiteralPath $c) { return $c }
-  }
-  return $null
-}
+. "$PSScriptRoot\station-common.ps1"
 
 function Ensure-PowerNoSleep {
   $cmds = @(
@@ -65,7 +47,7 @@ function Ensure-PowerNoSleep {
 
 function Ensure-WatchdogTask {
   param([string]$Exe)
-  $taskName = "NovaStationStudyHubWatchdog"
+  $taskName = $script:StationTaskName
   $arg = "--hidden"
   $action = New-ScheduledTaskAction -Execute $Exe -Argument $arg
   $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 15) -RepetitionDuration (New-TimeSpan -Days 9999)

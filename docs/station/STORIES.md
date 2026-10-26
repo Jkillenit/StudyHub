@@ -140,6 +140,15 @@ dev machine: `full` preset end to end.
 
 ---
 
+## Not yet built (found while installing)
+
+Phone link and token: no story exists, and branches station/token-qr and station/token-script
+were never created. Today the token is shown once as text when Station is enabled; there is no
+QR (the qrcode package is not installed) and no regenerate button. Also open: blank phone page,
+setup wizard. See docs/station/RESUME.md items b to d.
+
+---
+
 ## Wave 3 — Hardening (1 agent + reviewers)
 
 ### S3.1 Host script — `merged`
@@ -156,6 +165,7 @@ loopback only.
 **Owns:** `docs/PROJECT_BRIEF.md` (§6 + decision log), `README.md` Station section
 
 ### S3.4 Soak — `todo`
+Paused. See docs/station/RESUME.md for the resume checklist.
 Run for 7 days on the home PC. Log every failure in `docs/station/SOAK.md` with cause + fix
 story. v1 is done when 7 days pass with no missed morning briefing and every session expiry
 produced a push.

@@ -1,3 +1,12 @@
+# HANDOFF - Station is PAUSED
+
+Read `docs/station/RESUME.md` first. It has where we stopped and the ordered resume checklist.
+Pause: `scripts\station-pause.ps1`. Resume: `scripts\station-resume.ps1` (both take -WhatIf).
+Open items: blank phone page, token/QR in the app (no token branches exist), setup wizard, data restore.
+The per-story notes below are history.
+
+---
+
 # HANDOFF — S1.1 Job engine
 
 ## For orchestrator (`electron/station/index.cjs`)
