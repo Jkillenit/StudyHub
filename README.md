@@ -71,6 +71,23 @@ creation from imported slides:
 
 ---
 
+## Nova Station (optional)
+
+Always-on Study Hub on the home PC: phone **Run** syncs Blackboard (read-only), preps
+drafts for review, and returns a briefing. Contracts and story board live under
+[`docs/station/`](docs/station/BRIEFING.md).
+
+| Doc | Purpose |
+|-----|---------|
+| [BRIEFING.md](docs/station/BRIEFING.md) | Frozen contracts (jobs, briefing schema, model router) |
+| [STORIES.md](docs/station/STORIES.md) | Wave board |
+| [HOST_SETUP.md](docs/station/HOST_SETUP.md) | Home PC script (`scripts/station-host.ps1`) |
+
+Enable in **Settings → Station**. Remote API binds `127.0.0.1:47811` only; expose with
+Tailscale serve. Station never submits work to Blackboard.
+
+---
+
 ## Architecture
 
 | Layer | Technology |
